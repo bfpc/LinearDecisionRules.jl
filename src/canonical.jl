@@ -41,7 +41,7 @@ s.t. Ae X ξ = Be ξ
 # Notation: Q or P for the quadratic term?
 """
 
-function _variable_maps(data::MatrixData, uncertainty_variables)
+function _variable_maps(data::MatrixData, uncertainty_variables, first_stage_variables)
     A = data.A
     # vals = nonzeros(A)
     m, n = size(A)
@@ -66,7 +66,9 @@ function _variable_maps(data::MatrixData, uncertainty_variables)
         column_to_canonical[col] = i
     end
 
-    return uncertainty_indices, variable_indices, column_to_canonical, distributions
+    first_stage_indices = Set(findall(x -> x in first_stage_variables, data.variables))
+
+    return uncertainty_indices, variable_indices, column_to_canonical, distributions, first_stage_indices
 end
 
 function _canonical(data::MatrixData, uncertainty_indices, variable_indices, distributions)
@@ -166,19 +168,19 @@ function _canonical(data::MatrixData, uncertainty_indices, variable_indices, dis
     be = data.b_lower[equality_rows]
     Be = [be -A[equality_rows, uncertainty_indices]]
     Au = A[upper_bound_rows, variable_indices]
-    bu = data.b_lower[upper_bound_rows]
+    bu = data.b_upper[upper_bound_rows]
     Bu = [bu -A[upper_bound_rows, uncertainty_indices]]
     Al = A[lower_bound_rows, variable_indices]
-    bl = data.b_upper[lower_bound_rows]
+    bl = data.b_lower[lower_bound_rows]
     Bl = [bl -A[lower_bound_rows, uncertainty_indices]]
     xu = data.x_upper[variable_indices]
     xl = data.x_lower[variable_indices]
     
     # Build the matrices (Wu, Wl) and vectors (hu, hl, lb, ub) for the uncertainty
     Wu = A[u_upper_bound_rows, uncertainty_indices]
-    hu = data.b_lower[u_upper_bound_rows]
+    hu = data.b_upper[u_upper_bound_rows]
     Wl = A[u_lower_bound_rows, uncertainty_indices]
-    hl = data.b_upper[u_lower_bound_rows]
+    hl = data.b_lower[u_lower_bound_rows]
     lb = data.x_lower[uncertainty_indices]
     ub = data.x_upper[uncertainty_indices]
 
@@ -205,10 +207,13 @@ function _prepare_data(model)
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:var_to_column] = var_to_column
     # Ae, Be, Au, Bu, Al, Bl, xu, xl, Wu, hu, Wl, hl, lb, ub = _canonical(data, model.cache_uncertainty)
-    uncertainty_indices, variable_indices, column_to_canonical, distributions = _variable_maps(data, model.cache_uncertainty)
+    uncertainty_indices, variable_indices, column_to_canonical, distributions, first_stage_indices = 
+        _variable_maps(data, model.cache_uncertainty, model.cache_first_stage)
     model.ext[:column_to_canonical] = column_to_canonical
     ABC = _canonical(data, uncertainty_indices, variable_indices, distributions)
+    model.ext[:sense] = data.sense
     model.ext[:ABC] = ABC
+    model.ext[:first_stage_indices] = first_stage_indices
 
     return nothing
 end

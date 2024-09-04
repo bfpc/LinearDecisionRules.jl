@@ -5,6 +5,7 @@ Base.@kwdef mutable struct LDRModel <: JuMP.AbstractModel
 
     # maps
     cache_uncertainty::Dict{JuMP.VariableRef,Distributions.Distribution} = Dict{JuMP.VariableRef,Distributions.Distribution}()
+    cache_first_stage::Set{JuMP.VariableRef} = Set{JuMP.VariableRef}()
 
     # options
     solver::Any = nothing
@@ -201,6 +202,35 @@ function JuMP.add_variable(
         name,
     )
     model.cache_uncertainty[var] = uncertainty.distribution
+    return var
+end
+
+##
+
+struct FirstStage <: JuMP.AbstractVariableRef
+    info::JuMP.VariableInfo
+end
+
+function JuMP.build_variable(
+    _err::Function,
+    info::JuMP.VariableInfo,
+    ::Type{FirstStage};
+    kwargs...
+)
+    return FirstStage(info)
+end
+
+function JuMP.add_variable(
+    model::LDRModel,
+    first_stage::FirstStage,
+    name::String,
+)
+    var = JuMP.add_variable(
+        model.cache_model,
+        JuMP.ScalarVariable(first_stage.info),
+        name,
+    )
+    push!(model.cache_first_stage, var)
     return var
 end
 

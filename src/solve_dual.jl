@@ -8,11 +8,23 @@ function _solve_dual_ldr(model)
 
     ABC = model.ext[:ABC]
 
+    first_stage_indices = model.ext[:first_stage_indices]
+
     dim_x = size(ABC.Ae, 2)
     dim_ξ = size(ABC.Be, 2)
     dim_uncertainty = dim_ξ - 1
     # LDRs
-    @variable(model.dual_model, X[1:dim_x, 1:dim_ξ])
+    @expression(model.dual_model, X[1:dim_x, 1:dim_ξ], AffExpr(0.0))
+    for i in 1:dim_x
+        if i in first_stage_indices
+            X[i, 1] = @variable(model.dual_model, base_name="X[$i,1]")
+        else
+            for j in 1:dim_ξ
+                X[i, j] = @variable(model.dual_model, base_name="X[$i,$j]")
+            end
+        end
+    end
+    # @variable(model.dual_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.dual_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.dual_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
     @variable(model.dual_model, Sxu[1:size(ABC.xu, 1), 1:dim_ξ])
@@ -56,7 +68,13 @@ function _solve_dual_ldr(model)
     @constraint(model.dual_model, X[idxs,2:end] .- Sxl[idxs,2:end] .== 0)
     @constraint(model.dual_model, Sxl * WMt .>= 0)
 
-    @objective(model.dual_model, Min, tr(X' * ABC.P * X * ABC.M) + tr(ABC.C' * X * ABC.M) + ABC.r)
+    @expression(model.dual_model, obj, tr(X' * ABC.P * X * ABC.M) + tr(ABC.C' * X * ABC.M) + ABC.r)
+
+    if model.ext[:sense] == MOI.MIN_SENSE
+        @objective(model.dual_model, Min, obj)
+    else
+        @objective(model.dual_model, Max, obj)
+    end
 
     set_optimizer(model.dual_model, model.solver)
     if model.silent
