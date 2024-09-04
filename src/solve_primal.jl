@@ -71,7 +71,13 @@ function _solve_primal_ldr(model)
     @constraint(model.primal_model, ΛSxl * W .== Sxl)
     @constraint(model.primal_model, ΛSxl * h .>= 0)
 
-    @objective(model.primal_model, Min, tr(X' * ABC.P * X * ABC.M) + tr(ABC.C' * X * ABC.M) + ABC.r)
+    @expression(model.primal_model, obj, tr(X' * ABC.P * X * ABC.M) + tr(ABC.C' * X * ABC.M) + ABC.r)
+
+    if model.ext[:sense] == MOI.MIN_SENSE
+        @objective(model.primal_model, Min, obj)
+    else
+        @objective(model.primal_model, Max, obj)
+    end
 
     set_optimizer(model.primal_model, model.solver)
     if model.silent
