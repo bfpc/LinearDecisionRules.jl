@@ -33,7 +33,6 @@ set_silent(ldr)
 )
 
 @constraint(ldr, sell + ret <= buy)
-
 @constraint(ldr, sell <= demand)
 
 @objective(ldr, Max,
@@ -45,10 +44,7 @@ set_silent(ldr)
 optimize!(ldr)
 
 @show objective_value(ldr)
-
 @show LinearDecisionRules.get_decision(ldr, buy)
-
 @show objective_value(ldr, dual = true)
-
 @show LinearDecisionRules.get_decision(ldr, buy, dual = true)
 ```
