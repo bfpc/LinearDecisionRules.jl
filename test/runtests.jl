@@ -1,9 +1,25 @@
+module TestMain
+
 using Test
+using Random
+
 using LinearDecisionRules
+
 using JuMP
 using Ipopt
+using HiGHS
 using Distributions
-using SparseArrays
+
+function runtests()
+    for name in names(@__MODULE__; all = true)
+        if startswith("$(name)", "test_")
+            @testset "$(name)" begin
+                getfield(@__MODULE__, name)()
+            end
+        end
+    end
+    return
+end
 
 function test_no_random()
     m = LinearDecisionRules.LDRModel(Ipopt.Optimizer)
@@ -48,7 +64,86 @@ function test_no_random()
     return nothing
 end
 
-test_no_random()
+function test_newsvendor()
+    buy_cost = 10
+    return_value = 8
+    sell_value = 12
+
+    demand_max = 120
+    demand_min = 80
+
+    # SAA
+
+    scenarios = 1000
+
+    rng = Random.MersenneTwister(123)
+    demand = demand_min .+ rand(rng, scenarios) .* (demand_max - demand_min)
+
+    saa = Model(HiGHS.Optimizer)
+    set_silent(saa)
+
+    @variable(saa, buy >= 0)
+    @variable(saa, sell[i in 1:scenarios] >= 0)
+    @variable(saa, ret[i in 1:scenarios] >= 0)
+
+    @constraint(saa, [i in 1:scenarios], sell[i] + ret[i] <= buy)
+
+    @constraint(saa, [i in 1:scenarios], sell[i] <= demand[i])
+
+    @objective(saa, Max,
+        - buy_cost * buy
+        + (1/scenarios) * sum(
+            return_value * ret[i]
+            + sell_value * sell[i]
+            for i in 1:scenarios
+        )
+    )
+
+    optimize!(saa)
+
+    saa_obj = objective_value(saa)
+
+    # LDR
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    # @variable(ldr, buy >= 0)
+    @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell >= 0)
+    @variable(ldr, ret >= 0)
+    @variable(ldr, demand_min <= demand <= demand_max,
+        LinearDecisionRules.Uncertainty,
+        distribution = Uniform(demand_min, demand_max)
+    )
+
+    @constraint(ldr, sell + ret <= buy)
+
+    @constraint(ldr, sell <= demand)
+
+    @objective(ldr, Max,
+        - buy_cost * buy
+        + return_value * ret
+        + sell_value * sell
+    )
+
+    optimize!(ldr)
+
+
+    ldr_p_obj = objective_value(ldr)
+
+    @test saa_obj >= ldr_p_obj - 1e-6
+
+    @test LinearDecisionRules.get_decision(ldr, buy, demand) == 0
+
+    ldr_d_obj = objective_value(ldr, dual = true)
+
+    @test saa_obj <= ldr_d_obj + 1e-6
+
+    @show LinearDecisionRules.get_decision(ldr, buy, demand, dual = true) == 0
+
+    return
+end
 
 function test_0()
 
@@ -62,7 +157,6 @@ function test_0()
     @variable(m, gh >= 0.0)
     @variable(m, gt >= 0.0)
     @variable(m, 0 <= inflow <= 0.2, LinearDecisionRules.Uncertainty, distribution=Uniform(0, 0.2))
-    # @variable(m, 0 <= inflow[i=1:3] <= ub[i], LinearDecisionRules.Uncertainty, Uniform)
 
     @constraint(m, balance, vf == vi - gh + inflow)
     @constraint(m, gt + gh == demand)
@@ -74,10 +168,8 @@ function test_0()
 
     data = LinearDecisionRules.matrix_data(m.cache_model)
     @test data.variables == [vi; vf; gh; gt; inflow]
-    @test data.Q == SparseArrays.sparse([2, 4], [2, 4], [1/2, 1], 5, 5)
+    @test data.Q == LinearDecisionRules.SparseArrays.sparse([2, 4], [2, 4], [1/2, 1], 5, 5)
     @test data.sense == MOI.MIN_SENSE
-
-    # can = LinearDecisionRules._canonical(data, m.cache_uncertainty)
 
     set_optimizer(m, Ipopt.Optimizer)
     LinearDecisionRules._prepare_data(m)
@@ -93,8 +185,6 @@ function test_0()
     @test LinearDecisionRules.get_decision(m, vi, inflow) ≈ 0 atol=1e-6
 
 end
-
-test_0()
 
 function test_1()
 
@@ -118,7 +208,7 @@ function test_1()
     
     data = LinearDecisionRules.matrix_data(m.cache_model)
     @test data.variables == [vi; vf; gh; gt; inflow]
-    @test data.Q == SparseArrays.sparse([2, 4], [2, 4], [1/2, 1], 5, 5)
+    @test data.Q == LinearDecisionRules.SparseArrays.sparse([2, 4], [2, 4], [1/2, 1], 5, 5)
     @test data.sense == MOI.MIN_SENSE
     
     set_optimizer(m, Ipopt.Optimizer)
@@ -133,8 +223,6 @@ function test_1()
     
 end
 
-test_1()
-
 # testing array based uncertainty output
 function test_2()
 
@@ -148,36 +236,18 @@ function test_2()
     @variable(m, gh >= 0.0)
     @variable(m, gt >= 0.0)
     @variable(m, 0 <= inflow[i = 1:3] <= 0.1 * i, LinearDecisionRules.Uncertainty, distribution=Uniform(0, 0.1 * i))
-    # @variable(m, 0 <= inflow[i=1:3] <= ub[i], LinearDecisionRules.Uncertainty, Uniform)
 
     @constraint(m, balance, vf == vi - gh + sum(inflow[i] for i in 1:3))
     @constraint(m, gt + gh == demand)
 
     @objective(m, Min, gt^2 + vf^2/2 - vf)
 
-    # @test m.cache_uncertainty == Dict(inflow => Uniform(0, 0.2))
     @test m[:vi] == vi
-
-    # data = LinearDecisionRules.matrix_data(m.cache_model)
-    # @test data.variables == [vi; vf; gh; gt; inflow]
-    # @test data.Q == SparseArrays.sparse([2, 4], [2, 4], [1/2, 1], 5, 5)
-    # @test data.sense == MOI.MIN_SENSE
-
-    # can = LinearDecisionRules._canonical(data, m.cache_uncertainty)
 
     set_optimizer(m, Ipopt.Optimizer)
     optimize!(m)
-
-    # LinearDecisionRules.get_decision(m, vf, inflow)
-    # LinearDecisionRules.get_decision(m, vf)
-
-    # @test LinearDecisionRules.get_decision(m, gh) + LinearDecisionRules.get_decision(m, gt) ≈ demand atol=1e-6
-    # @test LinearDecisionRules.get_decision(m, gh, inflow) + LinearDecisionRules.get_decision(m, gt, inflow) ≈ 0 atol=1e-6
-
-    # @test LinearDecisionRules.get_decision(m, vi) ≈ initial_volume atol=1e-6
-    # @test LinearDecisionRules.get_decision(m, vi, inflow) ≈ 0 atol=1e-6
-
 end
 
-test_2()
+end # TestMain module
 
+TestMain.runtests()
