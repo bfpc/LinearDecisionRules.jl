@@ -41,7 +41,7 @@ s.t. Ae X ξ = Be ξ
 # Notation: Q or P for the quadratic term?
 """
 
-function _variable_maps(data::MatrixData, uncertainty_variables)
+function _variable_maps(data::MatrixData, uncertainty_variables, first_stage_variables)
     A = data.A
     # vals = nonzeros(A)
     m, n = size(A)
@@ -66,7 +66,9 @@ function _variable_maps(data::MatrixData, uncertainty_variables)
         column_to_canonical[col] = i
     end
 
-    return uncertainty_indices, variable_indices, column_to_canonical, distributions
+    first_stage_indices = Set(findall(x -> x in first_stage_variables, data.variables))
+
+    return uncertainty_indices, variable_indices, column_to_canonical, distributions, first_stage_indices
 end
 
 function _canonical(data::MatrixData, uncertainty_indices, variable_indices, distributions)
@@ -205,11 +207,13 @@ function _prepare_data(model)
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:var_to_column] = var_to_column
     # Ae, Be, Au, Bu, Al, Bl, xu, xl, Wu, hu, Wl, hl, lb, ub = _canonical(data, model.cache_uncertainty)
-    uncertainty_indices, variable_indices, column_to_canonical, distributions = _variable_maps(data, model.cache_uncertainty)
+    uncertainty_indices, variable_indices, column_to_canonical, distributions, first_stage_indices = 
+        _variable_maps(data, model.cache_uncertainty, model.cache_first_stage)
     model.ext[:column_to_canonical] = column_to_canonical
     ABC = _canonical(data, uncertainty_indices, variable_indices, distributions)
     model.ext[:sense] = data.sense
     model.ext[:ABC] = ABC
+    model.ext[:first_stage_indices] = first_stage_indices
 
     return nothing
 end

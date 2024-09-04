@@ -21,11 +21,23 @@ function _solve_primal_ldr(model)
 
     ABC = model.ext[:ABC]
 
+    first_stage_indices = model.ext[:first_stage_indices]
+
     dim_x = size(ABC.Ae, 2)
     dim_ξ = size(ABC.Be, 2)
     dim_uncertainty = dim_ξ - 1
     # LDRs
-    @variable(model.primal_model, X[1:dim_x, 1:dim_ξ])
+    @expression(model.primal_model, X[1:dim_x, 1:dim_ξ], AffExpr(0.0))
+    for i in 1:dim_x
+        if i in first_stage_indices
+            X[i, 1] = @variable(model.primal_model, base_name="X[$i,1]")
+        else
+            for j in 1:dim_ξ
+                X[i, j] = @variable(model.primal_model, base_name="X[$i,$j]")
+            end
+        end
+    end
+    # @variable(model.primal_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.primal_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.primal_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
     @variable(model.primal_model, Sxu[1:size(ABC.xu, 1), 1:dim_ξ])
