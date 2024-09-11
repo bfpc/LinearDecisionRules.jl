@@ -8,7 +8,7 @@ See presentation [video](https://youtu.be/ERO6vyTOOoI) and [slides](https://jump
 
 ## Install
 
-Install | `import Pkg; Pkg.add("LinearDecisionRules")`
+`import Pkg; Pkg.add("LinearDecisionRules")`
 
 ## Example
 
