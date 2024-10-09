@@ -145,7 +145,7 @@ function test_newsvendor()
     return
 end
 
-function test_0()
+function test_0_uniform()
 
     initial_volume = 0.5
     demand = 0.3
@@ -174,6 +174,71 @@ function test_0()
     set_optimizer(m, Ipopt.Optimizer)
     LinearDecisionRules._prepare_data(m)
     LinearDecisionRules._solve_primal_ldr(m)
+
+    LinearDecisionRules.get_decision(m, vf, inflow)
+    LinearDecisionRules.get_decision(m, vf)
+
+    @test LinearDecisionRules.get_decision(m, gh) + LinearDecisionRules.get_decision(m, gt) ≈ demand atol=1e-6
+    @test LinearDecisionRules.get_decision(m, gh, inflow) + LinearDecisionRules.get_decision(m, gt, inflow) ≈ 0 atol=1e-6
+
+    @test LinearDecisionRules.get_decision(m, vi) ≈ initial_volume atol=1e-6
+    @test LinearDecisionRules.get_decision(m, vi, inflow) ≈ 0 atol=1e-6
+
+end
+
+function test_0_non_parametric()
+
+    initial_volume = 0.5
+    demand = 0.3
+
+    m = LinearDecisionRules.LDRModel()
+    set_silent(m)
+    @variable(m, vi == initial_volume)
+    @variable(m, 0 <= vf <= 1)
+    @variable(m, gh >= 0.0)
+    @variable(m, gt >= 0.0)
+    @variable(m, inflow, LinearDecisionRules.Uncertainty, distribution=DiscreteNonParametric([0.0 , 0.2], [0.5, 0.5]))
+
+    @constraint(m, balance, vf == vi - gh + inflow)
+    @constraint(m, gt + gh == demand)
+
+    @objective(m, Min, gt^2 + vf^2/2 - vf)
+
+    set_optimizer(m, Ipopt.Optimizer)
+    optimize!(m)
+
+    LinearDecisionRules.get_decision(m, vf, inflow)
+    LinearDecisionRules.get_decision(m, vf)
+
+    @test LinearDecisionRules.get_decision(m, gh) + LinearDecisionRules.get_decision(m, gt) ≈ demand atol=1e-6
+    @test LinearDecisionRules.get_decision(m, gh, inflow) + LinearDecisionRules.get_decision(m, gt, inflow) ≈ 0 atol=1e-6
+
+    @test LinearDecisionRules.get_decision(m, vi) ≈ initial_volume atol=1e-6
+    @test LinearDecisionRules.get_decision(m, vi, inflow) ≈ 0 atol=1e-6
+
+end
+
+
+function test_0_truncated_normal()
+
+    initial_volume = 0.5
+    demand = 0.3
+
+    m = LinearDecisionRules.LDRModel()
+    set_silent(m)
+    @variable(m, vi == initial_volume)
+    @variable(m, 0 <= vf <= 1)
+    @variable(m, gh >= 0.0)
+    @variable(m, gt >= 0.0)
+    @variable(m, inflow, LinearDecisionRules.Uncertainty, distribution=truncated(Normal(0.1, 0.01), 0.0, 0.2))
+
+    @constraint(m, balance, vf == vi - gh + inflow)
+    @constraint(m, gt + gh == demand)
+
+    @objective(m, Min, gt^2 + vf^2/2 - vf)
+
+    set_optimizer(m, Ipopt.Optimizer)
+    optimize!(m)
 
     LinearDecisionRules.get_decision(m, vf, inflow)
     LinearDecisionRules.get_decision(m, vf)
