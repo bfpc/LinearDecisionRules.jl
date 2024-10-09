@@ -206,7 +206,6 @@ function _prepare_data(model)
     data = matrix_data(model.cache_model)
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:var_to_column] = var_to_column
-    # Ae, Be, Au, Bu, Al, Bl, xu, xl, Wu, hu, Wl, hl, lb, ub = _canonical(data, model.cache_uncertainty)
     uncertainty_indices, variable_indices, column_to_canonical, distributions, first_stage_indices = 
         _variable_maps(data, model.cache_uncertainty, model.cache_first_stage)
     model.ext[:column_to_canonical] = column_to_canonical
