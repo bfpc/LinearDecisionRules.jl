@@ -188,20 +188,84 @@ function JuMP.build_variable(
     distribution=nothing,
     kwargs...
 )
+    if distribution === nothing
+        error("distribution is required.")
+    end
     return Uncertainty(info, distribution)
 end
 
+# TODO
+# if the users uses set_lower_bound on a variable, things migh end up in a bad state
+# solution is creating a varaible type, but there is much more work.
+# simpler but less efficient solution is checking all bounds before solve.
 function JuMP.add_variable(
     model::LDRModel,
     uncertainty::Uncertainty,
     name::String,
 )
+
+    _has_lb = uncertainty.info.has_lb
+    _lower_bound = uncertainty.info.lower_bound
+    _has_ub = uncertainty.info.has_ub
+    _upper_bound = uncertainty.info.upper_bound
+    _has_fix = uncertainty.info.has_fix
+    _fixed_value = uncertainty.info.fixed_value
+    _has_start = uncertainty.info.has_start
+    _start = uncertainty.info.start
+    _binary = uncertainty.info.binary
+    _integer = uncertainty.info.integer
+
+
+    dist = uncertainty.distribution
+    if !(dist isa Distributions.UnivariateDistribution)
+        error("Only univariate distributions are supported, got a $(typeof(dist)).")
+    end
+    upper = maximum(dist)
+    lower = minimum(dist)
+    if lower == -Inf
+        error("Lower bound of the distribution ($dist) is -Inf.")
+    end
+    if upper == Inf
+        error("Upper bound of the distribution ($dist) is +Inf.")
+    end
+    if _has_lb
+        error("Enforce bounds on the distribution only")
+        # if _lower_bound != lower
+        #     error("Lower bound of the distribution ($dist) is different from the lower bound of the variable.")
+        # end
+    else
+        _lower_bound = lower
+        _has_lb = true
+    end
+    if _has_ub
+        error("Enforce bounds on the distribution only")
+        # if _upper_bound != upper
+        #     error("Upper bound of the distribution ($dist) is different from the upper bound of the variable.")
+        # end
+    else
+        _upper_bound = upper
+        _has_ub = true
+    end
+
+    info = VariableInfo(
+        _has_lb,
+        _lower_bound,
+        _has_ub,
+        _upper_bound,
+        _has_fix,
+        _fixed_value,
+        _has_start,
+        _start,
+        _binary,
+        _integer,
+    )
+
     var = JuMP.add_variable(
         model.cache_model,
-        JuMP.ScalarVariable(uncertainty.info),
+        JuMP.ScalarVariable(info),
         name,
     )
-    model.cache_uncertainty[var] = uncertainty.distribution
+    model.cache_uncertainty[var] = dist
     return var
 end
 
