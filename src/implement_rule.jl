@@ -1,8 +1,5 @@
-# get_decision(m, vf, [inflow=>0.0342])
-# get_decision(m, vf, inflow=>0.0342, demand=>33)
-
 """
-    get_decision(m, x, η)
+    get_decision(m, x, η; dual = false)
 
 Coefficient of η in the LDR of x
 """
@@ -28,7 +25,7 @@ function get_decision(model, x, η; dual = false)
 end
 
 """
-    get_decision(m, x)
+    get_decision(m, x; dual = false)
 
 Constant term in the LDR of x
 """
