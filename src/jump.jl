@@ -176,8 +176,15 @@ end
     
 ##
 
-struct Uncertainty <: JuMP.AbstractVariableRef
+struct Uncertainty end
+
+struct ScalarUncertainty <: JuMP.AbstractVariable
     info::JuMP.VariableInfo
+    distribution::Distributions.Distribution
+end
+
+struct VectorUncertainty <: JuMP.AbstractVariable
+    info::Vector{JuMP.VariableInfo}
     distribution::Distributions.Distribution
 end
 
@@ -191,7 +198,7 @@ function JuMP.build_variable(
     if distribution === nothing
         error("distribution is required.")
     end
-    return Uncertainty(info, distribution)
+    return ScalarUncertainty(info, distribution)
 end
 
 # TODO
@@ -200,7 +207,7 @@ end
 # simpler but less efficient solution is checking all bounds before solve.
 function JuMP.add_variable(
     model::LDRModel,
-    uncertainty::Uncertainty,
+    uncertainty::ScalarUncertainty,
     name::String,
 )
 
