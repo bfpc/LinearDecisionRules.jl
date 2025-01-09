@@ -43,7 +43,7 @@ We introduce positive slack variables for the inequality constraints, so that th
 \end{array}
 ```
 
-Assuming a linear decision rule $x(ξ) = X ξ$, etc, and that scenario-dependent data $c(ξ)$, $b_u(ξ)$, $b_l(ξ)$ can also be transformed to a linear form, we write the problem as
+Assuming a linear decision rule $x(ξ) = X ξ$, etc, and that scenario-dependent data $c(ξ)$, $b_e(ξ)$, $b_u(ξ)$, $b_l(ξ)$ can also be transformed to linear forms, we write the problem as
 ```math
 \begin{array}{rl}
 \min \ & E[ ξ^\top C^\top X ξ + ξ^\top X^\top Q X ξ + r ] \\[0.5ex]
@@ -80,7 +80,7 @@ Moreover, applying the trace trick to the objective function, we obtain
 ```
 
 The non-negativity constraints are dealt with by duality.
-If $S ξ ≥ 0$ for all $ξ$ in $Ξ = \{\, ξ ∈ ℝ^m \mid W ξ ≥ h \,\}$, then there exists a matrix $Λ$ such that $S = Λ W$, $Λ ≥ 0$ and $Λ h ≥ 0$.
+If $S ξ ≥ 0$ for all $ξ$ in $Ξ = \{\, ξ ∈ ℝ^m \mid W ξ ≥ h \,\}$, then there exists a matrix $Λ ≥ 0$ such that $S = Λ W$ and $Λ h ≥ 0$.
 Therefore, we introduce the matrices $Λ_{S,u}$, $Λ_{S,l}$, $Λ_{S,x,u}$, $Λ_{S,x,l}$ and obtain the equivalent problem
 ```math
 \begin{array}{rl}
@@ -114,6 +114,10 @@ E[ (A_e x(ξ) - b_e(ξ)) ξ^\top ] = 0.
 ```
 
 If the second-moment matrix $M = E[ξ ξ^\top]$ is invertible, we are justified to search for $x(ξ)$ in the form $X ξ$, since for every $x(ξ)$ there is an $X$ such that $E[ x(ξ) ξ^\top ] = X M$.
+
+The slack variables $s_{\cdot}(\xi)$ remain scenario-wise positive, and we demand that $E[ s_{\cdot}(ξ) ξ^\top ] = S_{\cdot} M$ for the reformulation of the inequality constraints.
+Again using duality, this leads to the constraints $(W - h e_0^\top) M S_{\cdot}^\top ≥ 0$, where $e_0$ is the first canonical vector.
+
 Then, the reformulation of the dual LDR problem is
 ```math
 \begin{array}{rl}
@@ -129,4 +133,3 @@ Then, the reformulation of the dual LDR problem is
 & (W - h e_0^\top) M S_{x,l}^\top ≥ 0
 \end{array}
 ```
-where $e_0$ is the first canonical vector.
