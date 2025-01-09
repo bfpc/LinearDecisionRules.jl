@@ -1,5 +1,7 @@
 # Mathematical formulations
 
+We follow the scheme from [Primal and dual linear decision rules in stochastic and robust optimization, by Kuhn, Wiesemann and Georghiou](https://link.springer.com/article/10.1007/s10107-009-0331-4).
+
 ## Derivation of primal LDR problem
 
 We start from
