@@ -34,9 +34,9 @@ This is enforced by fixing their decision rules to have coefficient equal to zer
 ## Example
 
 Consider the following classical "Newsvendor" problem:
-- A retailer must decide how many units of a product to buy (at a cost of $10).
-- The demand is uniformly distributed between 80 and 120 units, and unavailable at buying time; units are sold for $12.
-- Leftover units can be returned (for $8).
+- A retailer must decide how many units of a product to buy (at a cost of \$10).
+- The demand is uniformly distributed between 80 and 120 units, and unavailable at buying time; units are sold for \$12.
+- Leftover units can be returned (for \$8).
 
 This leads to the following optimization problem:
 ```math
