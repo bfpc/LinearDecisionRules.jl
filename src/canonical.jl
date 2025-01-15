@@ -43,16 +43,12 @@ s.t. Ae X ξ = Be ξ
 
 function _variable_maps(data::MatrixData, uncertainty_variables, first_stage_variables)
     A = data.A
-    # vals = nonzeros(A)
     m, n = size(A)
-    # n_uncertainty = length(uncertainty_variables)
 
     is_uncertainty = falses(n)
-    distributions = Distributions.Distribution[]
     for i in eachindex(data.variables)
         if data.variables[i] in keys(uncertainty_variables)
             is_uncertainty[i] = true
-            push!(distributions, uncertainty_variables[data.variables[i]])
         end
     end
     uncertainty_indices = findall(is_uncertainty)
@@ -68,10 +64,17 @@ function _variable_maps(data::MatrixData, uncertainty_variables, first_stage_var
 
     first_stage_indices = Set(findall(x -> x in first_stage_variables, data.variables))
 
-    return uncertainty_indices, variable_indices, column_to_canonical, distributions, first_stage_indices
+    return uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices
 end
 
-function _canonical(data::MatrixData, uncertainty_indices, variable_indices, distributions)
+function _canonical(
+    data::MatrixData,
+    uncertainty_indices,
+    variable_indices,
+    uncertainty_to_distribution,
+    scalar_distributions,
+    vector_distributions,
+)
     # look for rows of data.A (a sparse matrix) that are only of uncertainty
     
 
@@ -87,18 +90,49 @@ function _canonical(data::MatrixData, uncertainty_indices, variable_indices, dis
 
     A = data.A
     rows = SparseArrays.rowvals(A)
-    # vals = nonzeros(A)
     m, n = size(A)
 
     # Build matrix of E[ξ⊤ ξ] (the first index is the extra coordinate 1)
     # The first line has the means, the remaining the covariances + product of means
+
+    # precompute the means and variances of the distributions
+    scalar_means = [Distributions.mean(d) for d in scalar_distributions]
+    vector_means = [Distributions.mean(d) for d in vector_distributions]
+    scalar_vars = [Distributions.var(d) for d in scalar_distributions]
+    vector_vars = [Distributions.var(d) for d in vector_distributions]
+    # vector_idxs is used to fill the covariance matrix
+    vector_idxs = [zeros(Int, length(d)) for d in vector_distributions]
     dim_uncertainty = 1 + length(uncertainty_indices)
-    vector_means = [1; Distributions.mean.(distributions)]
+    μ = zeros(dim_uncertainty)
+    μ[1] = 1
     M = zeros(dim_uncertainty, dim_uncertainty)
-    for i in 2:dim_uncertainty
-        M[i, i] = Distributions.var(distributions[i-1])
+    # fill meand and M's diagonal
+    # there are meny indices next:
+    # - lin_idx is the index in the linearized vector (for the M matrix)
+    # - var_idx is the index in the data.variables vector
+    # - dist_idx is the index in the scalar or vector distributions
+    # - inner_idx is the internal index of a variabel inside their distribution
+    for (lin_idx, var_idx) in enumerate(uncertainty_indices)
+        var = data.variables[var_idx]
+        dist_idx, inner_idx = uncertainty_to_distribution[var]
+        if inner_idx == 0 # scalar
+            μ[1+lin_idx] = scalar_means[dist_idx]
+            M[1+lin_idx, 1+lin_idx] = scalar_vars[dist_idx]
+        else # vector
+            μ[1+lin_idx] = vector_means[dist_idx][inner_idx]
+            # this is used to fill the covariance matrix next
+            vector_idxs[dist_idx][inner_idx] = lin_idx
+        end
     end
-    M .+= vector_means .* vector_means'
+    # fill variance blocks
+    for (dist_idx, list) in enumerate(vector_idxs)
+        for (inner_idx, lin_idx) in enumerate(list)
+            for (inner_idx2, lin_idx2) in enumerate(list)
+                M[1+lin_idx, 1+lin_idx2] = vector_vars[dist_idx][inner_idx, inner_idx2]
+            end
+        end
+    end
+    M .+= μ .* μ'
 
     # Process the rows of A
     has_variables = falses(m)
@@ -206,10 +240,17 @@ function _prepare_data(model)
     data = matrix_data(model.cache_model)
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:var_to_column] = var_to_column
-    uncertainty_indices, variable_indices, column_to_canonical, distributions, first_stage_indices = 
-        _variable_maps(data, model.cache_uncertainty, model.cache_first_stage)
+    uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices = 
+        _variable_maps(data, model.uncertainty_to_distribution, model.cache_first_stage)
     model.ext[:column_to_canonical] = column_to_canonical
-    ABC = _canonical(data, uncertainty_indices, variable_indices, distributions)
+    ABC = _canonical(
+        data,
+        uncertainty_indices,
+        variable_indices,
+        model.uncertainty_to_distribution,
+        model.cache_scalar_distributions,
+        model.cache_vector_distributions,
+    )
     model.ext[:sense] = data.sense
     model.ext[:ABC] = ABC
     model.ext[:first_stage_indices] = first_stage_indices

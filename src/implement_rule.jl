@@ -8,8 +8,8 @@ function get_decision(model, x, η; dual = false)
     column_to_canonical = model.ext[:column_to_canonical] # type assert
     i = column_to_canonical[var_to_column[x]]
     j = column_to_canonical[var_to_column[η]]
-    @assert haskey(model.cache_uncertainty, η)
-    @assert !haskey(model.cache_uncertainty, x)
+    @assert haskey(model.uncertainty_to_distribution, η)
+    @assert !haskey(model.uncertainty_to_distribution, x)
     @assert JuMP.is_valid(model, η)
     @assert JuMP.is_valid(model, x)
     if dual
@@ -33,7 +33,7 @@ function get_decision(model, x; dual = false)
     var_to_column = model.ext[:var_to_column] # type assert
     column_to_canonical = model.ext[:column_to_canonical] # type assert
     i = column_to_canonical[var_to_column[x]]
-    @assert !haskey(model.cache_uncertainty, x)
+    @assert !haskey(model.uncertainty_to_distribution, x)
     @assert JuMP.is_valid(model, x)
     if dual
         if !model.solve_dual
