@@ -99,7 +99,7 @@ function _canonical(
     scalar_means = [Distributions.mean(d) for d in scalar_distributions]
     vector_means = [Distributions.mean(d) for d in vector_distributions]
     scalar_vars = [Distributions.var(d) for d in scalar_distributions]
-    vector_vars = [Distributions.var(d) for d in vector_distributions]
+    vector_vars = [Distributions.cov(d) for d in vector_distributions]
     # vector_idxs is used to fill the covariance matrix
     vector_idxs = [zeros(Int, length(d)) for d in vector_distributions]
     dim_uncertainty = 1 + length(uncertainty_indices)

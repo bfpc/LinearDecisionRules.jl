@@ -193,22 +193,29 @@ end
 
 function JuMP.build_variable(
     _err::Function,
-    info::Vector{JuMP.VariableInfo},
+    info::Vector{<:JuMP.ScalarVariable},
     set::VectorUncertainty;
     kwargs...
 )
-    return _VectorUncertainty(info, set.distribution)
+    infos = [i.info for i in info]
+    n1 = length(infos)
+    n2 = length(set.distribution)
+    @assert n1 == n2
+    return _VectorUncertainty(infos, set.distribution)
 end
 
 function JuMP.add_variable(
     model::LDRModel,
     uncertainty::_VectorUncertainty,
-    name::String,
+    names::Vector{String},
 )
     _info = uncertainty.info
+    dist = uncertainty.distribution
     ret = Vector{JuMP.VariableRef}(undef, length(_info))
     push!(model.cache_vector_distributions, dist)
     dist_index = length(model.cache_vector_distributions)
+    upper = maximum(dist)
+    lower = minimum(dist)
     for i in 1:length(_info)
         _has_lb = _info[i].has_lb
         _lower_bound = _info[i].lower_bound
@@ -221,7 +228,24 @@ function JuMP.add_variable(
         _binary = _info[i].binary
         _integer = _info[i].integer
 
-        #  TODO validate the above
+        if lower[i] == -Inf
+            error("Lower bound of the distribution ($dist) is -Inf.")
+        end
+        if upper[i] == Inf
+            error("Upper bound of the distribution ($dist) is +Inf.")
+        end
+        if _has_lb
+            error("Enforce bounds on the distribution only")
+        else
+            _lower_bound = lower[i]
+            _has_lb = true
+        end
+        if _has_ub
+            error("Enforce bounds on the distribution only")
+        else
+            _upper_bound = upper[i]
+            _has_ub = true
+        end    
 
         info = VariableInfo(
             _has_lb,
@@ -239,7 +263,7 @@ function JuMP.add_variable(
         var = JuMP.add_variable(
             model.cache_model,
             JuMP.ScalarVariable(info),
-            name,
+            names[i],
         )
         ret[i] = var
         model.uncertainty_to_distribution[var] = (dist_index, i)

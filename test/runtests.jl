@@ -145,6 +145,62 @@ function test_newsvendor()
     return
 end
 
+function test_double_newsvendor()
+
+    buy_cost = 10
+    return_value = 8
+    sell_value = 12
+
+    demand_max = 120
+    demand_min = 80
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] >= 0)
+    @variable(ldr, ret[1:2] >= 0)
+    @variable(ldr, demand[1:2] in
+        LinearDecisionRules.Uncertainty(
+            distribution = product_distribution(
+                [
+                    Uniform(demand_min, demand_max),
+                    Uniform(demand_min, demand_max),
+                ]
+            )
+        )
+    )
+
+    @constraint(ldr, [i=1:2], sell[i] + ret[i] <= buy[i])
+
+    @constraint(ldr, [i=1:2], sell[i] <= demand[i])
+
+    @objective(ldr, Max,
+        sum(
+            - buy_cost * buy[i]
+            + return_value * ret[i]
+            + sell_value * sell[i]
+            for i in 1:2
+        )
+    )
+
+    optimize!(ldr)
+
+    ldr_p_obj = objective_value(ldr)
+
+    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[2]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[2]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[1]) == 0
+
+    ldr_d_obj = objective_value(ldr, dual = true)
+
+    @show LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
+
+    return
+end
+
+
 function test_0_uniform()
 
     initial_volume = 0.5
