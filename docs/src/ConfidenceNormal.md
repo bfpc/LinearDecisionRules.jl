@@ -92,3 +92,8 @@ $$ \begin{align*}
 \int_0^\infty t^{d+1} e^{-t^2/2}\, dt
 & = 2^{d/2} \gamma(d/2 + 1, \infty) = 2^{d/2} \Gamma(d/2 + 1) \\
 \end{align*} $$
+
+As $\alpha \cdot \Gamma(d/2) = \gamma(d/2, \rho^2/2)$, using integration by parts, we have an alternative expression for the scaling factor:
+$$
+\frac{\gamma(d/2+1, \rho^2/2)}{\gamma(d/2, \rho^2/2)} \frac{\Gamma(d/2)}{\Gamma(d/2+1)} = \frac{d/2 - (\rho^2/2)^{d/2}e^{-\rho^2/2}}{d/2}.
+$$
