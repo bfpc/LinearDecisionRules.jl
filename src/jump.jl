@@ -4,8 +4,10 @@ Base.@kwdef mutable struct LDRModel <: JuMP.AbstractModel
     dual_model::JuMP.Model = JuMP.Model()
 
     # maps
-    cache_uncertainty::Dict{JuMP.VariableRef,Distributions.Distribution} = Dict{JuMP.VariableRef,Distributions.Distribution}()
     cache_first_stage::Set{JuMP.VariableRef} = Set{JuMP.VariableRef}()
+    uncertainty_to_distribution::Dict{JuMP.VariableRef,Tuple{Int,Int}} = Dict{JuMP.VariableRef,Tuple{Int,Int}}()
+    cache_scalar_distributions::Vector{Distributions.Distribution} = Vector{Distributions.Distribution}()
+    cache_vector_distributions::Vector{Distributions.Distribution} = Vector{Distributions.Distribution}()
 
     # options
     solver::Any = nothing
@@ -173,44 +175,142 @@ function JuMP.optimize!(model::LDRModel)
     end
     return
 end
-    
-##
 
-struct Uncertainty end
-
-struct ScalarUncertainty <: JuMP.AbstractVariable
-    info::JuMP.VariableInfo
+struct VectorUncertainty
     distribution::Distributions.Distribution
+    function VectorUncertainty(distribution::Distributions.Distribution)
+        if !(distribution isa Distributions.MultivariateDistribution)
+            error("Only MultivariateDistribution distributions are supported, got a $(typeof(distribution)).")
+        end
+        return new(distribution)
+    end
 end
 
-struct VectorUncertainty <: JuMP.AbstractVariable
+struct _VectorUncertainty <: JuMP.AbstractVariable
     info::Vector{JuMP.VariableInfo}
     distribution::Distributions.Distribution
 end
 
 function JuMP.build_variable(
     _err::Function,
-    info::JuMP.VariableInfo,
-    ::Type{Uncertainty};
-    distribution=nothing,
+    info::Vector{<:JuMP.ScalarVariable},
+    set::VectorUncertainty;
     kwargs...
 )
-    if distribution === nothing
-        error("distribution is required.")
-    end
-    return ScalarUncertainty(info, distribution)
+    infos = [i.info for i in info]
+    n1 = length(infos)
+    n2 = length(set.distribution)
+    @assert n1 == n2
+    return _VectorUncertainty(infos, set.distribution)
 end
 
-# TODO
-# if the users uses set_lower_bound on a variable, things migh end up in a bad state
-# solution is creating a varaible type, but there is much more work.
-# simpler but less efficient solution is checking all bounds before solve.
 function JuMP.add_variable(
     model::LDRModel,
-    uncertainty::ScalarUncertainty,
+    uncertainty::_VectorUncertainty,
+    names::Vector{String},
+)
+    _info = uncertainty.info
+    dist = uncertainty.distribution
+    ret = Vector{JuMP.VariableRef}(undef, length(_info))
+    push!(model.cache_vector_distributions, dist)
+    dist_index = length(model.cache_vector_distributions)
+    upper = maximum(dist)
+    lower = minimum(dist)
+    for i in 1:length(_info)
+        _has_lb = _info[i].has_lb
+        _lower_bound = _info[i].lower_bound
+        _has_ub = _info[i].has_ub
+        _upper_bound = _info[i].upper_bound
+        _has_fix = _info[i].has_fix
+        _fixed_value = _info[i].fixed_value
+        _has_start = _info[i].has_start
+        _start = _info[i].start
+        _binary = _info[i].binary
+        _integer = _info[i].integer
+
+        if lower[i] == -Inf
+            error("Lower bound of the distribution ($dist) is -Inf.")
+        end
+        if upper[i] == Inf
+            error("Upper bound of the distribution ($dist) is +Inf.")
+        end
+        if _has_lb
+            error("Enforce bounds on the distribution only")
+        else
+            _lower_bound = lower[i]
+            _has_lb = true
+        end
+        if _has_ub
+            error("Enforce bounds on the distribution only")
+        else
+            _upper_bound = upper[i]
+            _has_ub = true
+        end    
+
+        info = VariableInfo(
+            _has_lb,
+            _lower_bound,
+            _has_ub,
+            _upper_bound,
+            _has_fix,
+            _fixed_value,
+            _has_start,
+            _start,
+            _binary,
+            _integer,
+        )
+
+        var = JuMP.add_variable(
+            model.cache_model,
+            JuMP.ScalarVariable(info),
+            names[i],
+        )
+        ret[i] = var
+        model.uncertainty_to_distribution[var] = (dist_index, i)
+    end
+    return ret
+end
+
+function Uncertainty(; distribution::Distributions.Distribution = nothing)
+    if distribution === nothing
+        error("distribution is required.")
+    elseif distribution isa Distributions.UnivariateDistribution
+        return ScalarUncertainty(distribution)
+    elseif distribution isa Distributions.MultivariateDistribution
+        return VectorUncertainty(distribution)
+    end
+    error("Only univariate distributions are supported, got a $(typeof(distribution)).")
+end
+
+struct ScalarUncertainty
+    distribution::Distributions.Distribution
+    function ScalarUncertainty(distribution::Distributions.Distribution)
+        if !(distribution isa Distributions.UnivariateDistribution)
+            error("Only univariate distributions are supported, got a $(typeof(distribution)).")
+        end
+        return new(distribution)
+    end
+end
+
+struct _ScalarUncertainty <: JuMP.AbstractVariable
+    info::JuMP.VariableInfo
+    distribution::Distributions.Distribution
+end
+
+function JuMP.build_variable(
+    _err::Function,
+    info::JuMP.ScalarVariable,
+    set::ScalarUncertainty;
+    kwargs...
+)
+    return _ScalarUncertainty(info.info, set.distribution)
+end
+
+function JuMP.add_variable(
+    model::LDRModel,
+    uncertainty::_ScalarUncertainty,
     name::String,
 )
-
     _has_lb = uncertainty.info.has_lb
     _lower_bound = uncertainty.info.lower_bound
     _has_ub = uncertainty.info.has_ub
@@ -221,7 +321,6 @@ function JuMP.add_variable(
     _start = uncertainty.info.start
     _binary = uncertainty.info.binary
     _integer = uncertainty.info.integer
-
 
     dist = uncertainty.distribution
     if !(dist isa Distributions.UnivariateDistribution)
@@ -272,11 +371,14 @@ function JuMP.add_variable(
         JuMP.ScalarVariable(info),
         name,
     )
-    model.cache_uncertainty[var] = dist
+
+    push!(model.cache_scalar_distributions, dist)
+    dist_index = length(model.cache_scalar_distributions)
+    model.uncertainty_to_distribution[var] = (dist_index, 0)
+
     return var
 end
 
-##
 
 struct FirstStage <: JuMP.AbstractVariableRef
     info::JuMP.VariableInfo
@@ -332,8 +434,9 @@ function JuMP.add_variable(
 end
 
 function JuMP.delete(model::LDRModel, vref::JuMP.AbstractVariableRef)
+    error("not implemented")
     JuMP.delete(model.cache_model, vref)
-    delete!(model.cache_uncertainty, vref)
+    # delete!(model.cache_uncertainty, vref)
     return
 end
 

@@ -108,13 +108,13 @@ function test_newsvendor()
     ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(ldr)
 
-    # @variable(ldr, buy >= 0)
     @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
     @variable(ldr, sell >= 0)
     @variable(ldr, ret >= 0)
-    @variable(ldr, demand,
-        LinearDecisionRules.Uncertainty,
-        distribution = Uniform(demand_min, demand_max)
+    @variable(ldr, demand in
+        LinearDecisionRules.Uncertainty(
+            distribution = Uniform(demand_min, demand_max)
+        )
     )
 
     @constraint(ldr, sell + ret <= buy)
@@ -145,6 +145,114 @@ function test_newsvendor()
     return
 end
 
+function test_double_newsvendor()
+
+    buy_cost = 10
+    return_value = 8
+    sell_value = 12
+
+    demand_max = 120
+    demand_min = 80
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] >= 0)
+    @variable(ldr, ret[1:2] >= 0)
+    @variable(ldr, demand[1:2] in
+        LinearDecisionRules.Uncertainty(
+            distribution = product_distribution(
+                [
+                    Uniform(demand_min, demand_max),
+                    Uniform(demand_min, demand_max),
+                ]
+            )
+        )
+    )
+
+    @constraint(ldr, [i=1:2], sell[i] + ret[i] <= buy[i])
+
+    @constraint(ldr, [i=1:2], sell[i] <= demand[i])
+
+    @objective(ldr, Max,
+        sum(
+            - buy_cost * buy[i]
+            + return_value * ret[i]
+            + sell_value * sell[i]
+            for i in 1:2
+        )
+    )
+
+    optimize!(ldr)
+
+    ldr_p_obj = objective_value(ldr)
+
+    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[2]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[2]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[1]) == 0
+
+    ldr_d_obj = objective_value(ldr, dual = true)
+
+    @show LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
+
+    return
+end
+
+function test_double_newsvendor_nonparametric()
+
+    buy_cost = 10
+    return_value = 8
+    sell_value = 12
+
+    demand_max = 120
+    demand_min = 80
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] >= 0)
+    @variable(ldr, ret[1:2] >= 0)
+    @variable(ldr, demand[1:2] in
+        LinearDecisionRules.Uncertainty(
+            distribution = LinearDecisionRules.MvDiscreteNonParametric(
+                [[demand_min, demand_min], [demand_max, demand_max]],
+                [0.5, 0.5],
+            )
+        )
+    )
+
+    @constraint(ldr, [i=1:2], sell[i] + ret[i] <= buy[i])
+
+    @constraint(ldr, [i=1:2], sell[i] <= demand[i])
+
+    @objective(ldr, Max,
+        sum(
+            - buy_cost * buy[i]
+            + return_value * ret[i]
+            + sell_value * sell[i]
+            for i in 1:2
+        )
+    )
+
+    optimize!(ldr)
+
+    ldr_p_obj = objective_value(ldr)
+
+    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[2]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[2]) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[1]) == 0
+
+    ldr_d_obj = objective_value(ldr, dual = true)
+
+    @show LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
+
+    return
+end
+
 function test_0_uniform()
 
     initial_volume = 0.5
@@ -156,14 +264,13 @@ function test_0_uniform()
     @variable(m, 0 <= vf <= 1)
     @variable(m, gh >= 0.0)
     @variable(m, gt >= 0.0)
-    @variable(m, inflow, LinearDecisionRules.Uncertainty, distribution=Uniform(0, 0.2))
+    @variable(m, inflow in LinearDecisionRules.Uncertainty(distribution=Uniform(0, 0.2)))
 
     @constraint(m, balance, vf == vi - gh + inflow)
     @constraint(m, gt + gh == demand)
 
     @objective(m, Min, gt^2 + vf^2/2 - vf)
 
-    @test m.cache_uncertainty == Dict(inflow => Uniform(0, 0.2))
     @test m[:vi] == vi
 
     data = LinearDecisionRules.matrix_data(m.cache_model)
@@ -197,7 +304,7 @@ function test_0_non_parametric()
     @variable(m, 0 <= vf <= 1)
     @variable(m, gh >= 0.0)
     @variable(m, gt >= 0.0)
-    @variable(m, inflow, LinearDecisionRules.Uncertainty, distribution=DiscreteNonParametric([0.0 , 0.2], [0.5, 0.5]))
+    @variable(m, inflow in LinearDecisionRules.Uncertainty(distribution=DiscreteNonParametric([0.0 , 0.2], [0.5, 0.5])))
 
     @constraint(m, balance, vf == vi - gh + inflow)
     @constraint(m, gt + gh == demand)
@@ -230,7 +337,7 @@ function test_0_truncated_normal()
     @variable(m, 0 <= vf <= 1)
     @variable(m, gh >= 0.0)
     @variable(m, gt >= 0.0)
-    @variable(m, inflow, LinearDecisionRules.Uncertainty, distribution=truncated(Normal(0.1, 0.01), 0.0, 0.2))
+    @variable(m, inflow in LinearDecisionRules.Uncertainty(distribution=truncated(Normal(0.1, 0.01), 0.0, 0.2)))
 
     @constraint(m, balance, vf == vi - gh + inflow)
     @constraint(m, gt + gh == demand)
@@ -258,11 +365,11 @@ function test_1()
     
     m = LinearDecisionRules.LDRModel()
     set_silent(m)
-    @variable(m, vi, LinearDecisionRules.Uncertainty, distribution=Uniform(0, initial_volume))
+    @variable(m, vi in LinearDecisionRules.Uncertainty(distribution=Uniform(0, initial_volume)))
     @variable(m, 0 <= vf <= 1)
     @variable(m, gh >= 0.0)
     @variable(m, gt >= 0.0)
-    @variable(m, inflow, LinearDecisionRules.Uncertainty, distribution=Uniform(0, 0.2))
+    @variable(m, inflow in LinearDecisionRules.Uncertainty(distribution=Uniform(0, 0.2)))
     
     @constraint(m, balance, vf == vi - gh + inflow)
     @constraint(m, gt + gh == demand)
@@ -300,7 +407,7 @@ function test_2()
     @variable(m, 0 <= vf <= 1)
     @variable(m, gh >= 0.0)
     @variable(m, gt >= 0.0)
-    @variable(m, inflow[i = 1:3], LinearDecisionRules.Uncertainty, distribution=Uniform(0, 0.1 * i))
+    @variable(m, inflow[i = 1:3] in LinearDecisionRules.Uncertainty(distribution=Uniform(0, 0.1 * i)))
 
     @constraint(m, balance, vf == vi - gh + sum(inflow[i] for i in 1:3))
     @constraint(m, gt + gh == demand)
