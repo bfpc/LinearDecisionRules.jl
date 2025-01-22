@@ -71,13 +71,14 @@ function test_newsvendor()
 
     demand_max = 120
     demand_min = 80
+    demand_distr = Uniform(demand_min, demand_max)
 
     # SAA
 
     scenarios = 1000
 
     rng = Random.MersenneTwister(123)
-    demand = demand_min .+ rand(rng, scenarios) .* (demand_max - demand_min)
+    demand = rand(rng, demand_distr, scenarios)
 
     saa = Model(HiGHS.Optimizer)
     set_silent(saa)
@@ -113,7 +114,7 @@ function test_newsvendor()
     @variable(ldr, ret >= 0)
     @variable(ldr, demand in
         LinearDecisionRules.Uncertainty(
-            distribution = Uniform(demand_min, demand_max)
+            distribution = demand_distr
         )
     )
 
