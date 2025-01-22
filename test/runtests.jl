@@ -30,7 +30,7 @@ function test_no_random()
     set_attribute(m, LinearDecisionRules.SolveDual(), false)
     @test get_attribute(m, LinearDecisionRules.SolveDual()) == false
     optimize!(m)
-    @test_throws OptimizeNotCalled() value(x)
+    @test_throws OptimizeNotCalled() value(x) # Also prints a warning
     @test primal_status(m) == MOI.FEASIBLE_POINT
     @test termination_status(m) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
     @test LinearDecisionRules.get_decision(m, x) == 1
