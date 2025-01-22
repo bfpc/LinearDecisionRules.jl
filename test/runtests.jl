@@ -67,7 +67,7 @@ end
 function test_newsvendor()
     buy_cost = 10
     return_value = 8
-    sell_value = 12
+    sell_value = 15
 
     demand_max = 120
     demand_min = 80
@@ -149,7 +149,7 @@ function test_double_newsvendor()
 
     buy_cost = 10
     return_value = 8
-    sell_value = 12
+    sell_value = 15
 
     demand_max = 120
     demand_min = 80
@@ -204,7 +204,7 @@ function test_double_newsvendor_nonparametric()
 
     buy_cost = 10
     return_value = 8
-    sell_value = 12
+    sell_value = 15
 
     demand_max = 120
     demand_min = 80
