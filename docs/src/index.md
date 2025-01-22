@@ -35,13 +35,13 @@ This is enforced by fixing their decision rules to have coefficient equal to zer
 
 Consider the following classical "Newsvendor" problem:
 - A retailer must decide how many units of a product to buy (at a cost of \$10).
-- The demand is uniformly distributed between 80 and 120 units, and unavailable at buying time; units are sold for \$12.
+- The demand is uniformly distributed between 80 and 120 units, and unavailable at buying time; units are sold for \$15.
 - Leftover units can be returned (for \$8).
 
 This leads to the following optimization problem:
 ```math
 \begin{array}{rl}
-\max \ & - 10 \cdot \text{buy} + E [ 8 \cdot \text{return} + 12 \cdot \text{sell}] \\[0.5ex]
+\max \ & - 10 \cdot \text{buy} + E [ 8 \cdot \text{return} + 15 \cdot \text{sell}] \\[0.5ex]
 \text{s.t.} & \text{sell}(ξ) + \text{return}(ξ) ≤ \text{buy} \\
 & \text{sell}(ξ) ≤ \text{demand}(ξ) \\
 & 0 ≤ \text{sell}(ξ), \text{return}(ξ), \text{buy}
@@ -57,7 +57,7 @@ using Distributions
 
 buy_cost = 10
 return_value = 8
-sell_value = 12
+sell_value = 15
 
 demand_max = 120
 demand_min = 80
@@ -68,8 +68,9 @@ set_silent(ldr)
 @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
 @variable(ldr, sell >= 0)
 @variable(ldr, ret >= 0)
-@variable(ldr, demand, LinearDecisionRules.Uncertainty,
-    distribution = Uniform(demand_min, demand_max)
+@variable(ldr, demand in LinearDecisionRules.Uncertainty(
+        distribution = Uniform(demand_min, demand_max)
+    )
 )
 
 @constraint(ldr, sell + ret <= buy)
