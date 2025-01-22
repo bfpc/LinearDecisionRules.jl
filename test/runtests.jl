@@ -198,6 +198,14 @@ function test_double_newsvendor()
         @test LinearDecisionRules.get_decision(ldr, buy[i], demand[j], dual = true) == 0
     end
 
+    # This problem is separable, so decision rules are independent by "product"
+    for (i,j) in [(1,2), (2,1)]
+        @test LinearDecisionRules.get_decision(ldr, sell[i], demand[j]) == 0
+        @test LinearDecisionRules.get_decision(ldr, ret[i], demand[j]) == 0
+        @test LinearDecisionRules.get_decision(ldr, sell[i], demand[j], dual = true) == 0
+        @test LinearDecisionRules.get_decision(ldr, ret[i], demand[j], dual = true) == 0
+    end
+
     ldr_d_obj = objective_value(ldr, dual = true)
 
     return
