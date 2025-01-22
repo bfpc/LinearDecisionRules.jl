@@ -14,9 +14,11 @@ See presentation [video](https://youtu.be/ERO6vyTOOoI) and [slides](https://jump
 
 ```julia
 
+using JuMP, HiGHS, LinearDecisionRules, Distributions
+
 buy_cost = 10
 return_value = 8
-sell_value = 12
+sell_value = 15
 
 demand_max = 120
 demand_min = 80
@@ -27,9 +29,9 @@ set_silent(ldr)
 @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
 @variable(ldr, sell >= 0)
 @variable(ldr, ret >= 0)
-@variable(ldr, demand_min <= demand <= demand_max,
-    LinearDecisionRules.Uncertainty,
-    distribution = Uniform(demand_min, demand_max)
+@variable(ldr, demand in LinearDecisionRules.Uncertainty(
+        distribution = Uniform(demand_min, demand_max)
+    )
 )
 
 @constraint(ldr, sell + ret <= buy)
