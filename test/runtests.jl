@@ -141,7 +141,7 @@ function test_newsvendor()
 
     @test saa_obj <= ldr_d_obj + 1e-6
 
-    @show LinearDecisionRules.get_decision(ldr, buy, demand, dual = true) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy, demand, dual = true) == 0
 
     return
 end
@@ -196,7 +196,7 @@ function test_double_newsvendor()
 
     ldr_d_obj = objective_value(ldr, dual = true)
 
-    @show LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
 
     return
 end
@@ -249,7 +249,7 @@ function test_double_newsvendor_nonparametric()
 
     ldr_d_obj = objective_value(ldr, dual = true)
 
-    @show LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
+    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
 
     return
 end
