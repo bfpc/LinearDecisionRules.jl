@@ -130,17 +130,20 @@ function test_newsvendor()
 
     optimize!(ldr)
 
-
+    # Primal LDR is feasible:
+    # underperforms adaptive solution (SAA) up to estimation errors
     ldr_p_obj = objective_value(ldr)
-
     @test saa_obj >= ldr_p_obj - 1e-6
 
+    # First-stage decision do not depend on the uncertainty
     @test LinearDecisionRules.get_decision(ldr, buy, demand) == 0
 
+    # Dual LDR is a performance bound:
+    # SAA cannot yield better objective, up to estimation errors
     ldr_d_obj = objective_value(ldr, dual = true)
-
     @test saa_obj <= ldr_d_obj + 1e-6
 
+    # First-stage decision do not depend on the uncertainty
     @test LinearDecisionRules.get_decision(ldr, buy, demand, dual = true) == 0
 
     return
@@ -189,14 +192,13 @@ function test_double_newsvendor()
 
     ldr_p_obj = objective_value(ldr)
 
-    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1]) == 0
-    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[2]) == 0
-    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[2]) == 0
-    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[1]) == 0
+    # First-stage decisions do not depend on uncertainties
+    for i in 1:2, j in 1:2
+        @test LinearDecisionRules.get_decision(ldr, buy[i], demand[j]) == 0
+        @test LinearDecisionRules.get_decision(ldr, buy[i], demand[j], dual = true) == 0
+    end
 
     ldr_d_obj = objective_value(ldr, dual = true)
-
-    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
 
     return
 end
@@ -242,14 +244,13 @@ function test_double_newsvendor_nonparametric()
 
     ldr_p_obj = objective_value(ldr)
 
-    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1]) == 0
-    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[2]) == 0
-    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[2]) == 0
-    @test LinearDecisionRules.get_decision(ldr, buy[2], demand[1]) == 0
+    # First-stage decisions do not depend on uncertainties
+    for i in 1:2, j in 1:2
+        @test LinearDecisionRules.get_decision(ldr, buy[i], demand[j]) == 0
+        @test LinearDecisionRules.get_decision(ldr, buy[i], demand[j], dual = true) == 0
+    end
 
     ldr_d_obj = objective_value(ldr, dual = true)
-
-    @test LinearDecisionRules.get_decision(ldr, buy[1], demand[1], dual = true) == 0
 
     return
 end
