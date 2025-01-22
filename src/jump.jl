@@ -279,22 +279,17 @@ function Uncertainty(; distribution::Distributions.Distribution = nothing)
     elseif distribution isa Distributions.MultivariateDistribution
         return VectorUncertainty(distribution)
     end
-    error("Only univariate distributions are supported, got a $(typeof(distribution)).")
+    error("""Unexpected distribution type: $(typeof(distribution)).
+    Currently, only UnivariateDistribution and MultivariateDistribution are supported.""")
 end
 
 struct ScalarUncertainty
-    distribution::Distributions.Distribution
-    function ScalarUncertainty(distribution::Distributions.Distribution)
-        if !(distribution isa Distributions.UnivariateDistribution)
-            error("Only univariate distributions are supported, got a $(typeof(distribution)).")
-        end
-        return new(distribution)
-    end
+    distribution::Distributions.UnivariateDistribution
 end
 
 struct _ScalarUncertainty <: JuMP.AbstractVariable
     info::JuMP.VariableInfo
-    distribution::Distributions.Distribution
+    distribution::Distributions.UnivariateDistribution
 end
 
 function JuMP.build_variable(
@@ -323,9 +318,6 @@ function JuMP.add_variable(
     _integer = uncertainty.info.integer
 
     dist = uncertainty.distribution
-    if !(dist isa Distributions.UnivariateDistribution)
-        error("Only univariate distributions are supported, got a $(typeof(dist)).")
-    end
     upper = maximum(dist)
     lower = minimum(dist)
     if lower == -Inf
