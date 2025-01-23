@@ -48,6 +48,9 @@ function _solve_dual_ldr(model)
     W2 = deepcopy(W)
     W2[:, 1] .-= h 
 
+    # Constraints on slack matrices "S" are of the form
+    # (W - h e1⊤) M Sᵗ ≥ 0
+    # which are equivalent to S [(W - h e1⊤) M]ᵗ ≥ 0
     WMt = (W2 * ABC.M)'
 
     @constraint(model.dual_model, ABC.Au * X .+ Su .== ABC.Bu)
