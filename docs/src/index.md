@@ -86,6 +86,10 @@ optimize!(ldr)
 
 @show objective_value(ldr)
 @show LinearDecisionRules.get_decision(ldr, buy)
+@show LinearDecisionRules.get_decision(ldr, buy, demand)
+@show LinearDecisionRules.get_decision(ldr, sell)
+@show LinearDecisionRules.get_decision(ldr, sell, demand)
+
 @show objective_value(ldr, dual = true)
 @show LinearDecisionRules.get_decision(ldr, buy, dual = true)
 ```
