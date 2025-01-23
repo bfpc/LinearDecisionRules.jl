@@ -9,7 +9,7 @@ The `LinearDecisionRules.jl` package provides a simple `JuMP` abstraction to rep
 The problems the package deals with are of the form
 ```math
 \begin{array}{rl}
-\min \ & E[ c(ξ)^\top x(ξ) + x(ξ)^\top Q x(ξ) + r ] \\[0.5ex]
+\min \ & \mathbb{E}_ξ [ c(ξ)^\top x(ξ) + x(ξ)^\top Q x(ξ) + r ] \\[0.5ex]
 \text{s.t.} & A_e x(ξ) = b_e(ξ) \\
 & A_u x(ξ) ≤ b_u(ξ) \\
 & A_l x(ξ) ≥ b_l(ξ) \\
@@ -41,7 +41,7 @@ Consider the following classical "Newsvendor" problem:
 This leads to the following optimization problem:
 ```math
 \begin{array}{rl}
-\max \ & - 10 \cdot \text{buy} + E [ 8 \cdot \text{return} + 15 \cdot \text{sell}] \\[0.5ex]
+\max \ & - 10 \cdot \text{buy} + \mathbb{E} [ 8 \cdot \text{return} + 15 \cdot \text{sell}] \\[0.5ex]
 \text{s.t.} & \text{sell}(ξ) + \text{return}(ξ) ≤ \text{buy} \\
 & \text{sell}(ξ) ≤ \text{demand}(ξ) \\
 & 0 ≤ \text{sell}(ξ), \text{return}(ξ), \text{buy}
@@ -89,6 +89,12 @@ optimize!(ldr)
 @show objective_value(ldr, dual = true)
 @show LinearDecisionRules.get_decision(ldr, buy, dual = true)
 ```
+
+We note:
+* The model is built with `LDRModel()`, where we also set the solver that will be used for optimizing the reformulations;
+* First-stage variables are created with the `FirstStage` attribute;
+* The uncertain variable `demand` is created using `variable-in-set` syntax, where the `Uncertainty` set is parametrized by a `Distribution` object;
+* Constraints are interpreted "for all scenarios", and the objective is interpreted in expectation.
 
 ```@docs
 get_decision
