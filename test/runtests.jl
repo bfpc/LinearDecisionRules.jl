@@ -211,6 +211,73 @@ function test_double_newsvendor()
     return
 end
 
+function test_double_newsvendor_with_rejection()
+
+    buy_cost = 10
+    return_value = 8
+    sell_value = 15
+
+    demand_max = 120
+    demand_min = 80
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] >= 0)
+    @variable(ldr, ret[1:2] >= 0)
+    @variable(ldr, demand[1:2] in
+        LinearDecisionRules.Uncertainty(
+            distribution = product_distribution(
+                [
+                    Uniform(demand_min, demand_max),
+                    Uniform(demand_min, demand_max),
+                ]
+            )
+        )
+    )
+
+    @constraint(ldr, [i=1:2], sell[i] + ret[i] <= buy[i])
+
+    @constraint(ldr, [i=1:2], sell[i] <= demand[i])
+
+    @objective(ldr, Max,
+        sum(
+            - buy_cost * buy[i]
+            + return_value * ret[i]
+            + sell_value * sell[i]
+            for i in 1:2
+        )
+    )
+
+    @constraint(ldr, demand[1] <= 110)
+    @constraint(ldr, demand[1] >= 100)
+    @constraint(ldr, demand[2] >= 100)
+    @constraint(ldr, demand[2] <= 110)
+
+    optimize!(ldr)
+
+    ldr_p_obj = objective_value(ldr)
+
+    # First-stage decisions do not depend on uncertainties
+    for i in 1:2, j in 1:2
+        @test LinearDecisionRules.get_decision(ldr, buy[i], demand[j]) == 0
+        @test LinearDecisionRules.get_decision(ldr, buy[i], demand[j], dual = true) == 0
+    end
+
+    # This problem is separable, so decision rules are independent by "product"
+    for (i,j) in [(1,2), (2,1)]
+        @test LinearDecisionRules.get_decision(ldr, sell[i], demand[j]) == 0
+        @test LinearDecisionRules.get_decision(ldr, ret[i], demand[j]) == 0
+        @test LinearDecisionRules.get_decision(ldr, sell[i], demand[j], dual = true) == 0
+        @test LinearDecisionRules.get_decision(ldr, ret[i], demand[j], dual = true) == 0
+    end
+
+    ldr_d_obj = objective_value(ldr, dual = true)
+
+    return
+end
+
 function test_double_newsvendor_nonparametric()
 
     buy_cost = 10
@@ -259,6 +326,88 @@ function test_double_newsvendor_nonparametric()
     end
 
     ldr_d_obj = objective_value(ldr, dual = true)
+
+    return
+end
+
+function test_newsvendor_with_rejection_sampling()
+
+    buy_cost = 10
+    return_value = 8
+    sell_value = 15
+
+    demand_max = 120
+    demand_min = 80
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell >= 0)
+    @variable(ldr, ret >= 0)
+    @variable(ldr, demand in
+        LinearDecisionRules.Uncertainty(
+            distribution = Uniform(demand_min, demand_max),
+        )
+    )
+
+    @constraint(ldr, sell + ret <= buy)
+    @constraint(ldr, sell <= demand)
+    @objective(ldr, Max,
+        - buy_cost * buy
+        + return_value * ret
+        + sell_value * sell
+    )
+    optimize!(ldr)
+
+    ldr_p_obj = objective_value(ldr)
+    ldr_d_obj = objective_value(ldr, dual = true)
+
+    M1 = ldr.ext[:ABC].M # TODO add function to query this ??? (will need a map)
+
+    @constraint(ldr, demand <= 110)
+    @constraint(ldr, demand >= 100)
+
+    optimize!(ldr)
+
+    ldr_p_obj2 = objective_value(ldr)
+    @test ldr_p_obj < ldr_p_obj2
+    ldr_d_obj2 = objective_value(ldr, dual = true)
+    @test ldr_d_obj < ldr_d_obj2
+
+    M2 = ldr.ext[:ABC].M 
+
+    @test M1[1,1] == M2[1,1] == 1
+    @test M1[1,2] == M1[2,1] == 100
+    @test M2[1,2] == M2[2,1]
+    @test M2[1,2] ≈ 105.0 atol = 1e-1
+
+    @variable(ldr, demand2 in
+        LinearDecisionRules.Uncertainty(
+            distribution = Uniform(demand_min, demand_max),
+        )
+    )
+
+    @constraint(ldr, demand2 <= 110)
+    @constraint(ldr, demand2 >= 100)
+
+    optimize!(ldr)
+
+    ldr_p_obj3 = objective_value(ldr)
+    @test ldr_p_obj3 == ldr_p_obj2
+
+    # TODO DUAL INFEASIBLE
+    ldr_d_obj3 = objective_value(ldr, dual = true) 
+    @test_broken ldr_d_obj3 == ldr_d_obj2
+
+    @show M3 = ldr.ext[:ABC].M 
+    @test M3[1,1] == 1
+    @test M3[3,2] == M3[2,3] == 0
+    @test M3[3,3] == M3[2,2]
+
+    @constraint(ldr, sell <= demand2)
+    optimize!(ldr)
+    @show objective_value(ldr, dual = true) 
 
     return
 end

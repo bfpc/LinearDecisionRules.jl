@@ -40,8 +40,8 @@ _probs(d::MvDiscreteNonParametric) = d.p
 
 Distributions.length(d::MvDiscreteNonParametric) = length(_support(d)[1])
 
-function Distributions.rand(rng::Random.AbstractRNG, d::MvDiscreteNonParametric)
-    x = _support(d)
+function Distributions._rand!(rng::Random.AbstractRNG, d::MvDiscreteNonParametric, x::AbstractVector)
+    _x = _support(d)
     p = _probs(d)
     n = length(p)
     draw = rand(rng, float(eltype(p)))
@@ -50,7 +50,8 @@ function Distributions.rand(rng::Random.AbstractRNG, d::MvDiscreteNonParametric)
     while cp <= draw && i < n
         @inbounds cp += p[i +=1]
     end
-    return x[i]
+    x .+= _x[i]
+    return x
 end
 
 function Distributions.minimum(d::MvDiscreteNonParametric)
