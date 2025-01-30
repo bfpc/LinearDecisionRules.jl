@@ -27,8 +27,6 @@ function _solve_dual_ldr(model)
     # @variable(model.dual_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.dual_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.dual_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
-    @variable(model.dual_model, Sxu[1:size(ABC.xu, 1), 1:dim_ξ])
-    @variable(model.dual_model, Sxl[1:size(ABC.xl, 1), 1:dim_ξ])
 
     # Equality constraints
     @constraint(model.dual_model, ABC.Ae * X .== ABC.Be)
@@ -61,15 +59,17 @@ function _solve_dual_ldr(model)
 
     # Can only include rows where the bound is not +Inf
     idxs = findall(x -> x != Inf, ABC.xu)
+    @variable(model.dual_model, Sxu[idxs, 1:dim_ξ])
     @constraint(model.dual_model, X[idxs,1] .+ Sxu[idxs,1] .== ABC.xu[idxs])
     @constraint(model.dual_model, X[idxs,2:end] .+ Sxu[idxs,2:end] .== 0)
-    @constraint(model.dual_model, Sxu * WMt .>= 0)
+    @constraint(model.dual_model, Sxu.data * WMt .>= 0)
 
     # Can only include rows where the bound is not -Inf
     idxs = findall(x -> x != -Inf, ABC.xl)
+    @variable(model.dual_model, Sxl[idxs, 1:dim_ξ])
     @constraint(model.dual_model, X[idxs,1] .- Sxl[idxs,1] .== ABC.xl[idxs])
     @constraint(model.dual_model, X[idxs,2:end] .- Sxl[idxs,2:end] .== 0)
-    @constraint(model.dual_model, Sxl * WMt .>= 0)
+    @constraint(model.dual_model, Sxl.data * WMt .>= 0)
 
     @expression(model.dual_model, obj, tr(X' * ABC.P * X * ABC.M) + tr(ABC.C' * X * ABC.M) + ABC.r)
 
