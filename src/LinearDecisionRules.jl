@@ -4,7 +4,7 @@ using JuMP
 import Distributions
 import Random
 import SparseArrays
-using LinearAlgebra: tr
+import LinearAlgebra
 const MOI = JuMP.MOI
 
 include("jump.jl")

@@ -77,7 +77,6 @@ function _canonical(
 )
     # look for rows of data.A (a sparse matrix) that are only of uncertainty
     
-
     @assert length(data.binaries) == 0
     @assert length(data.integers) == 0
     if data.sense == MOI.FEASIBILITY_SENSE
@@ -91,48 +90,6 @@ function _canonical(
     A = data.A
     rows = SparseArrays.rowvals(A)
     m, n = size(A)
-
-    # Build matrix of E[ξ⊤ ξ] (the first index is the extra coordinate 1)
-    # The first line has the means, the remaining the covariances + product of means
-
-    # precompute the means and variances of the distributions
-    scalar_means = [Distributions.mean(d) for d in scalar_distributions]
-    vector_means = [Distributions.mean(d) for d in vector_distributions]
-    scalar_vars = [Distributions.var(d) for d in scalar_distributions]
-    vector_vars = [Distributions.cov(d) for d in vector_distributions]
-    # vector_idxs is used to fill the covariance matrix
-    vector_idxs = [zeros(Int, length(d)) for d in vector_distributions]
-    dim_uncertainty = 1 + length(uncertainty_indices)
-    μ = zeros(dim_uncertainty)
-    μ[1] = 1
-    M = zeros(dim_uncertainty, dim_uncertainty)
-    # fill meand and M's diagonal
-    # there are meny indices next:
-    # - lin_idx is the index in the linearized vector (for the M matrix)
-    # - var_idx is the index in the data.variables vector
-    # - dist_idx is the index in the scalar or vector distributions
-    # - inner_idx is the internal index of a variabel inside their distribution
-    for (lin_idx, var_idx) in enumerate(uncertainty_indices)
-        var = data.variables[var_idx]
-        dist_idx, inner_idx = uncertainty_to_distribution[var]
-        if inner_idx == 0 # scalar
-            μ[1+lin_idx] = scalar_means[dist_idx]
-            M[1+lin_idx, 1+lin_idx] = scalar_vars[dist_idx]
-        else # vector
-            μ[1+lin_idx] = vector_means[dist_idx][inner_idx]
-            # this is used to fill the covariance matrix next
-            vector_idxs[dist_idx][inner_idx] = lin_idx
-        end
-    end
-    # fill variance blocks
-    for (dist_idx, list) in enumerate(vector_idxs)
-        for (inner_idx, lin_idx) in enumerate(list)
-            for (inner_idx2, lin_idx2) in enumerate(list)
-                M[1+lin_idx, 1+lin_idx2] = vector_vars[dist_idx][inner_idx, inner_idx2]
-            end
-        end
-    end
-    M .+= μ .* μ'
 
     # Process the rows of A
     has_variables = falses(m)
@@ -191,7 +148,6 @@ function _canonical(
         @warn "equality constraint on uncertainty variable"
     end
 
-
     # Build the matrices (Ae, Au, Al) and vectors (be, bu, bl, xu, xl) for the problem
     #  Ae x(ξ) = be(ξ)
     #  Au x(ξ) ≤ bu(ξ)
@@ -215,8 +171,145 @@ function _canonical(
     hu = data.b_upper[u_upper_bound_rows]
     Wl = A[u_lower_bound_rows, uncertainty_indices]
     hl = data.b_lower[u_lower_bound_rows]
+    # bounds from variable input, from:
+    # - distributions defition
+    # - truncate for scalar distributions
+    # - boxed for vector distributions
     lb = data.x_lower[uncertainty_indices]
     ub = data.x_upper[uncertainty_indices]
+
+    # Build matrix M of E[ξ⊤ ξ] (the first index is the extra coordinate 1)
+    # The first line has the means, the remaining the covariances + product of means
+
+    all_groups, all_wu_rows_of_group, all_wl_rows_of_group = _compute_groups(Wu, Wl, uncertainty_indices, uncertainty_to_distribution, data)
+
+    require_group_rejection_sampling = Set{Tuple{Int, Bool}}()
+    for group in all_groups
+        union!(require_group_rejection_sampling, group)
+    end
+
+    # vector_idxs is used to fill the covariance matrix
+    vector_idxs = [zeros(Int, length(d)) for d in vector_distributions]
+    scalar_idxs = zeros(Int, length(scalar_distributions))
+    for (lin_idx, var_idx) in enumerate(uncertainty_indices)
+        var = data.variables[var_idx]
+        dist_idx, inner_idx = uncertainty_to_distribution[var]
+        if inner_idx == 0 # scalar
+            scalar_idxs[dist_idx] = lin_idx
+        else # vector
+            vector_idxs[dist_idx][inner_idx] = lin_idx
+        end
+    end
+
+    if isempty(require_group_rejection_sampling)
+        # some of these might use rejection sampling internally due to "boxed" or "truncated" distributions
+        # precompute the means and variances of the distributions
+        scalar_means = [Distributions.mean(d) for d in scalar_distributions]
+        vector_means = [Distributions.mean(d) for d in vector_distributions]
+        scalar_vars = [Distributions.var(d) for d in scalar_distributions]
+        vector_vars = [Distributions.cov(d) for d in vector_distributions]
+    else
+        @warn "Rejection sampling required"
+        scalar_means = zeros(length(scalar_distributions))
+        vector_means = Vector{Vector{Float64}}(undef, length(vector_distributions))
+        scalar_vars = zeros(length(scalar_distributions))
+        vector_vars = [zeros(0, 0) for _ in vector_distributions]
+        for (dist_idx, d) in enumerate(scalar_distributions)
+            if !((dist_idx, false) in require_group_rejection_sampling)
+                scalar_means[dist_idx] = Distributions.mean(d)
+                scalar_vars[dist_idx] = Distributions.var(d)
+            end
+        end
+        for (dist_idx, d) in enumerate(vector_distributions)
+            if !((dist_idx, true) in require_group_rejection_sampling)
+                vector_means[dist_idx] = Distributions.mean(d)
+                vector_vars[dist_idx] = Distributions.cov(d)
+            end
+        end
+    end
+
+    dim_uncertainty = 1 + length(uncertainty_indices)
+    μ = zeros(dim_uncertainty)
+    μ[1] = 1
+    M = zeros(dim_uncertainty, dim_uncertainty)
+    # fill meand and M's diagonal
+    # there are meny indices next:
+    # - lin_idx is the index in the linearized vector (for the M matrix)
+    # - var_idx is the index in the data.variables vector
+    # - dist_idx is the index in the scalar or vector distributions
+    # - inner_idx is the internal index of a variabel inside their distribution
+    for (lin_idx, var_idx) in enumerate(uncertainty_indices)
+        var = data.variables[var_idx]
+        dist_idx, inner_idx = uncertainty_to_distribution[var]
+        if inner_idx == 0 # scalar
+            μ[1+lin_idx] = scalar_means[dist_idx]
+            M[1+lin_idx, 1+lin_idx] = scalar_vars[dist_idx]
+        else # vector
+            if length(vector_vars[dist_idx]) == 0
+                continue
+            end
+            μ[1+lin_idx] = vector_means[dist_idx][inner_idx]
+        end
+    end
+    # fill variance blocks
+    for (dist_idx, list) in enumerate(vector_idxs)
+        if length(vector_vars[dist_idx]) == 0
+            continue
+        end
+        for (inner_idx, lin_idx) in enumerate(list)
+            for (inner_idx2, lin_idx2) in enumerate(list)
+                M[1+lin_idx, 1+lin_idx2] = vector_vars[dist_idx][inner_idx, inner_idx2]
+            end
+        end
+    end
+    M .+= μ .* μ'
+
+    # TODO: move this to a parameter
+    time_per_estimation = 10.0
+    seed = 1234
+    max_iterations = 1000
+    warn_attempts = 1000
+
+    # fill non analytical blocks with rejection sampling
+    candidate = zeros(length(uncertainty_indices))
+    wu_m, wu_n = size(Wu)
+    wl_m, wl_n = size(Wl)
+    cache_wu_m = zeros(wu_m)
+    cache_wl_m = zeros(wl_m)
+    for i in eachindex(all_groups)
+        group = all_groups[i]
+        wu_rows = all_wu_rows_of_group[i]
+        wl_rows = all_wl_rows_of_group[i]
+        if isempty(group)
+            continue
+        end
+        x = zeros(length(uncertainty_indices))
+        x2 = zeros(length(uncertainty_indices), length(uncertainty_indices))
+        n = 0
+        initial_time = time()
+        rng = Random.Xoshiro(seed)
+        for i in 1:max_iterations
+            _attempts = _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows, wl_rows, scalar_distributions, vector_distributions, scalar_idxs, vector_idxs, lb, ub, Wu, hu, Wl, hl)
+            if _attempts > warn_attempts
+                @warn "Rejection sampling took too long"
+            end
+            x .+= candidate
+            # x2 .+= candidate * candidate'
+            LinearAlgebra.mul!(x2, candidate, candidate', 1.0, 1.0)
+            n += 1
+            # TODO: add convergence check
+            if time() - initial_time > time_per_estimation
+                println("Estimation max time")
+                break
+            end
+        end
+        x ./= n
+        x2 ./= n
+
+        M[2:end, 2:end] .+= x2
+        M[2:end, 1] .+= x
+        M[1, 2:end] .+= x
+    end
 
     # Build the LDR matrices (Q, C) and constant r from the quadratic objective
     # [x η]⊤ Q [x η] + c⊤ [x η] + c_offset = x⊤ Q_11 x + 2 η⊤ Q_21 x + η⊤ Q_4 η + c_1⊤ x + c_2⊤ η + c_offset
@@ -257,3 +350,124 @@ function _prepare_data(model)
 
     return nothing
 end
+
+function _compute_groups(Wu, Wl, uncertainty_indices, uncertainty_to_distribution, data)
+    # for each line of the matrices W, we check which random variables might be affected
+    # we store the indices of the distributions that are affected
+    # then we compute the groups that must be sampled together
+    wu_rows = SparseArrays.rowvals(Wu)
+    wu_m, wu_n = size(Wu)
+    # wu_nz = SparseArrays.nonzeros(Wu)
+    wu_groups = [Set{Tuple{Int, Bool}}() for _ in 1:wu_m]
+    for col in 1:wu_n
+        uncertainty_idx = uncertainty_indices[col]
+        var = data.variables[uncertainty_idx]
+        dist_idx, inner_idx = uncertainty_to_distribution[var]
+        for r in SparseArrays.nzrange(Wu, col)
+            row = wu_rows[r]
+            push!(wu_groups[row], (dist_idx, inner_idx != 0))
+        end
+    end
+    wl_rows = SparseArrays.rowvals(Wl)
+    wl_m, wl_n = size(Wl)
+    # wl_nz = SparseArrays.nonzeros(Wl)
+    wl_groups = [Set{Tuple{Int, Bool}}() for _ in 1:wl_m]
+    for col in 1:wl_n
+        uncertainty_idx = uncertainty_indices[col]
+        var = data.variables[uncertainty_idx]
+        dist_idx, inner_idx = uncertainty_to_distribution[var]
+        for r in SparseArrays.nzrange(Wl, col)
+            row = wl_rows[r]
+            push!(wl_groups[row], (dist_idx, inner_idx != 0))
+        end
+    end
+    wl_row_idx = collect(1:wl_m)
+    wu_row_idx = collect(1:wu_m)
+    all_wl_rows_of_group = vcat([Set{Int}() for _ in 1:wu_m], [Set{Int}(i) for i in 1:wl_m])
+    all_wu_rows_of_group = vcat([Set{Int}(i) for i in 1:wu_m], [Set{Int}() for _ in 1:wl_m])
+    all_groups = vcat(wu_groups, wl_groups)
+
+    # groupts that must be sampled together
+    non_disjoint = true
+    to_delete = Int[]
+    while non_disjoint
+        non_disjoint = false
+        # merge groups with common elements
+        for i in 1:length(all_groups)
+            for j in i+1:length(all_groups)
+                if !isdisjoint(all_groups[i], all_groups[j])
+                    union!(all_groups[i], all_groups[j])
+                    union!(all_wu_rows_of_group[i], all_wu_rows_of_group[j])
+                    union!(all_wl_rows_of_group[i], all_wl_rows_of_group[j])
+                    empty!(all_groups[j])
+                    empty!(all_wu_rows_of_group[j])
+                    empty!(all_wl_rows_of_group[j])
+                    push!(to_delete, j)
+                    non_disjoint = true
+                end
+            end
+        end
+        deleteat!(all_groups, to_delete)
+        deleteat!(all_wu_rows_of_group, to_delete)
+        deleteat!(all_wl_rows_of_group, to_delete)
+        empty!(to_delete)
+    end
+    return all_groups, collect.(all_wu_rows_of_group), collect.(all_wl_rows_of_group)
+end
+
+function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows, wl_rows, scalar_distributions, vector_distributions, scalar_idxs, vector_idxs, lb, ub, Wu, hu, Wl, hl)
+    wu_m, wu_n = size(Wu)
+    wl_m, wl_n = size(Wl)
+    reject = true
+    cont = 0
+    fill!(candidate, 0.0)
+    while reject
+        cont += 1
+        if cont > 1000
+            println("Cannot sample a point in the set")
+            break
+        end
+        reject = false
+        for (dist_idx, is_vector) in group
+            if is_vector
+                dist = vector_distributions[dist_idx]
+                list = vector_idxs[dist_idx]
+                Random.rand!(rng, dist, @view candidate[list])
+                for i in list
+                    if !(lb[i] < candidate[i] < ub[i])
+                        reject = true
+                        break
+                    end
+                end
+            else
+                dist = scalar_distributions[dist_idx]
+                val = Random.rand(rng, dist)
+                i = scalar_idxs[dist_idx]
+                candidate[i] = val
+                if !(lb[i] < candidate[i] < ub[i])
+                    reject = true
+                    break
+                end
+            end
+        end
+        LinearAlgebra.mul!(cache_wu_m, Wu, candidate)
+        for i in wu_rows
+            if !(cache_wu_m[i] < hu[i])
+                reject = true
+                break
+            end
+        end
+        if reject
+            continue
+        end
+        LinearAlgebra.mul!(cache_wl_m, Wl, candidate)
+        for i in wl_rows
+            if !(cache_wl_m[i] > hl[i])
+                reject = true
+                break
+            end
+        end    
+    end
+    return cont
+end
+   

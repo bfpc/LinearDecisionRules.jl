@@ -71,7 +71,7 @@ function _solve_dual_ldr(model)
     @constraint(model.dual_model, X[idxs,2:end] .- Sxl[idxs,2:end] .== 0)
     @constraint(model.dual_model, Sxl * WMt .>= 0)
 
-    @expression(model.dual_model, obj, tr(X' * ABC.P * X * ABC.M) + tr(ABC.C' * X * ABC.M) + ABC.r)
+    @expression(model.dual_model, obj, LinearAlgebra.tr(X' * ABC.P * X * ABC.M) + LinearAlgebra.tr(ABC.C' * X * ABC.M) + ABC.r)
 
     if model.ext[:sense] == MOI.MIN_SENSE
         @objective(model.dual_model, Min, obj)
