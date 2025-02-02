@@ -262,7 +262,6 @@ function _canonical(
             end
         end
     end
-    M .+= μ .* μ'
 
     # TODO: move this to a parameter
     time_per_estimation = 10.0
@@ -306,10 +305,10 @@ function _canonical(
         x ./= n
         x2 ./= n
 
-        M[2:end, 2:end] .+= x2
-        M[2:end, 1] .+= x
-        M[1, 2:end] .+= x
+        M[2:end, 2:end] .+= x2 .- (x .* x')
+        μ[2:end] .+= x
     end
+    M .+= μ .* μ'
 
     # Build the LDR matrices (Q, C) and constant r from the quadratic objective
     # [x η]⊤ Q [x η] + c⊤ [x η] + c_offset = x⊤ Q_11 x + 2 η⊤ Q_21 x + η⊤ Q_4 η + c_1⊤ x + c_2⊤ η + c_offset
