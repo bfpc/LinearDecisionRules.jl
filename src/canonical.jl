@@ -76,7 +76,7 @@ function _canonical(
     vector_distributions,
 )
     # look for rows of data.A (a sparse matrix) that are only of uncertainty
-    
+
     @assert length(data.binaries) == 0
     @assert length(data.integers) == 0
     if data.sense == MOI.FEASIBILITY_SENSE
@@ -165,7 +165,7 @@ function _canonical(
     Bl = [bl -A[lower_bound_rows, uncertainty_indices]]
     xu = data.x_upper[variable_indices]
     xl = data.x_lower[variable_indices]
-    
+
     # Build the matrices (Wu, Wl) and vectors (hu, hl, lb, ub) for the uncertainty
     Wu = A[u_upper_bound_rows, uncertainty_indices]
     hu = data.b_upper[u_upper_bound_rows]
@@ -232,8 +232,8 @@ function _canonical(
     μ = zeros(dim_uncertainty)
     μ[1] = 1
     M = zeros(dim_uncertainty, dim_uncertainty)
-    # fill meand and M's diagonal
-    # there are meny indices next:
+    # fill means and M's diagonal
+    # there are many indices next:
     # - lin_idx is the index in the linearized vector (for the M matrix)
     # - var_idx is the index in the data.variables vector
     # - dist_idx is the index in the scalar or vector distributions
@@ -333,7 +333,7 @@ function _prepare_data(model)
     data = matrix_data(model.cache_model)
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:var_to_column] = var_to_column
-    uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices = 
+    uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices =
         _variable_maps(data, model.uncertainty_to_distribution, model.cache_first_stage)
     model.ext[:column_to_canonical] = column_to_canonical
     ABC = _canonical(
@@ -466,8 +466,7 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
                 reject = true
                 break
             end
-        end    
+        end
     end
     return cont
 end
-   
