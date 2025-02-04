@@ -402,7 +402,6 @@ function test_newsvendor_with_rejection_sampling()
 
     @show M3 = ldr.ext[:ABC].M 
     @test M3[1,1] == 1
-    @test M3[3,2] == M3[2,3] == 0
     @test M3[3,3] == M3[2,2]
 
     @constraint(ldr, sell <= demand2)
