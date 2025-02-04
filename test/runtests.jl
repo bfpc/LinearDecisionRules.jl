@@ -396,13 +396,12 @@ function test_newsvendor_with_rejection_sampling()
     ldr_p_obj3 = objective_value(ldr)
     @test ldr_p_obj3 == ldr_p_obj2
 
-    # TODO DUAL INFEASIBLE
     ldr_d_obj3 = objective_value(ldr, dual = true) 
-    @test_broken ldr_d_obj3 == ldr_d_obj2
+    @test ldr_d_obj3 == ldr_d_obj2
 
     @show M3 = ldr.ext[:ABC].M 
     @test M3[1,1] == 1
-    @test M3[3,2] == M3[2,3] == 0
+    @test M3[3,2] == M3[2,3] == M3[3,1] * M3[1,2]
     @test M3[3,3] == M3[2,2]
 
     @constraint(ldr, sell <= demand2)
