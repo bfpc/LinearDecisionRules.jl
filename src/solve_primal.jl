@@ -40,8 +40,6 @@ function _solve_primal_ldr(model)
     # @variable(model.primal_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.primal_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.primal_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
-    @variable(model.primal_model, Sxu[1:size(ABC.xu, 1), 1:dim_ξ])
-    @variable(model.primal_model, Sxl[1:size(ABC.xl, 1), 1:dim_ξ])
 
     # Equality constraints
     @constraint(model.primal_model, ABC.Ae * X .== ABC.Be)
@@ -69,19 +67,21 @@ function _solve_primal_ldr(model)
 
     # Can only include rows where the bound is not +Inf
     idxs = findall(x -> x != Inf, ABC.xu)
+    @variable(model.primal_model, Sxu[idxs, 1:dim_ξ])
     @constraint(model.primal_model, X[idxs,1] .+ Sxu[idxs,1] .== ABC.xu[idxs])
     @constraint(model.primal_model, X[idxs,2:end] .+ Sxu[idxs,2:end] .== 0)
-    @variable(model.primal_model, ΛSxu[1:size(ABC.xu, 1),1:nW] >= 0)
-    @constraint(model.primal_model, ΛSxu * W .== Sxu)
-    @constraint(model.primal_model, ΛSxu * h .>= 0)
+    @variable(model.primal_model, ΛSxu[idxs,1:nW] >= 0)
+    @constraint(model.primal_model, ΛSxu.data * W .== Sxu.data)
+    @constraint(model.primal_model, ΛSxu.data * h .>= 0)
 
     # Can only include rows where the bound is not -Inf
     idxs = findall(x -> x != -Inf, ABC.xl)
+    @variable(model.primal_model, Sxl[idxs, 1:dim_ξ])
     @constraint(model.primal_model, X[idxs,1] .- Sxl[idxs,1] .== ABC.xl[idxs])
     @constraint(model.primal_model, X[idxs,2:end] .- Sxl[idxs,2:end] .== 0)
-    @variable(model.primal_model, ΛSxl[1:size(ABC.xl, 1),1:nW] >= 0)
-    @constraint(model.primal_model, ΛSxl * W .== Sxl)
-    @constraint(model.primal_model, ΛSxl * h .>= 0)
+    @variable(model.primal_model, ΛSxl[idxs,1:nW] >= 0)
+    @constraint(model.primal_model, ΛSxl.data * W .== Sxl.data)
+    @constraint(model.primal_model, ΛSxl.data * h .>= 0)
 
     @expression(model.primal_model, obj, LinearAlgebra.tr(X' * ABC.P * X * ABC.M) + LinearAlgebra.tr(ABC.C' * X * ABC.M) + ABC.r)
 
