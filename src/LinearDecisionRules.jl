@@ -2,11 +2,13 @@ module LinearDecisionRules
 
 using JuMP
 import Distributions
+import Expectations
 import Random
 import SparseArrays
 import LinearAlgebra
 const MOI = JuMP.MOI
 
+include("pwl_moments.jl")
 include("jump.jl")
 include("matrix_data.jl")
 include("canonical.jl")
