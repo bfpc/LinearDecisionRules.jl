@@ -76,3 +76,11 @@ For $i < j$, these integrals can be split in three parts:
 - for $\eta_j \leq x < \eta_{\max}$, the integrand is $\Delta_i \Delta_j$.
 
 When $i = j$, the integrand for $x \in [\eta_{i-1}, \eta_i]$ is $(x - \eta_{i-1})^2$; the other two are still given by the same formula as above.
+
+### Packages
+
+We rely on the `truncated(dist, a, b)` mechanism of [`Distributions.jl`](https://juliastats.org/Distributions.jl/stable/truncate) to generate the truncations, and on the `expectation` numerical integration from the [`Expectations`](https://quantecon.github.io/Expectations.jl/dev/) package for integration.
+Specific distributions (`Uniform` and `Normal`) have mean and variance directly calculated by the `Distributions.jl` package.
+
+The integrals are performed with [`FastGaussQuadrature.jl`](https://juliaapproximation.github.io/FastGaussQuadrature.jl/stable/), which implements several Gauss quadrature rules, which are dispatched by the `Expectations` package with a reasonable setting.
+In principle, we could override the use of truncation + expectation by directly using the Gauss quadrature rules for numerical integration.
