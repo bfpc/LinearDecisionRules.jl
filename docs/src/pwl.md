@@ -68,14 +68,14 @@ m_{i,j} = E[\tilde{\eta}_i \tilde{\eta}_j]
 = \int_0^\Delta \min(\Delta_i, \max(0, x - \eta_{i-1})) \min(\Delta_j, \max(0, x - \eta_{j-1})) \, dx.
 ```
 
-where $\Delta = \eta_{\max} - \eta_{\min}$.
-
 For $i < j$, these integrals can be split in three parts:
 - for $x < \eta_{j-1}$, the integrand is zero;
-- for $\eta_{j-1} \leq x < \eta_j$, the integrand is $\Delta_i (x - \eta_{j-1})$;
-- for $\eta_j \leq x < \eta_{\max}$, the integrand is $\Delta_i \Delta_j$.
+- for $\eta_{j-1} \leq x < \eta_j$, the integrand is $\Delta_i (x - \eta_{j-1})$, so we have $\int_{\eta_{j-1}}^{\eta_j} \Delta_i (x - \eta_{j-1}) \, \rho(x) dx = \Delta_i E_{\text{truncated }\eta}[x - \eta_{j-1}] \cdot P[\eta_{j-1} < \eta < \eta_j]$;
+- for $\eta_j \leq x < \eta_{\max}$, the integrand is $\Delta_i \Delta_j$, and its contribution is $\Delta_i \Delta_j \cdot P[\eta > \eta_{j}]$.
 
-When $i = j$, the integrand for $x \in [\eta_{i-1}, \eta_i]$ is $(x - \eta_{i-1})^2$; the other two are still given by the same formula as above.
+When $i = j$, the integrand for $x \in [\eta_{i-1}, \eta_i]$ is $(x - \eta_{i-1})^2$, so we have: $\int_{\eta_{j-1}}^{\eta_j} (x - \eta_{i-1})^2 \, \rho(x) dx = E_{\text{truncated }\eta}[(x - \eta_{j-1})^2] \cdot P[\eta_{j-1} < \eta < \eta_j]$
+
+The other two are still given by the same formula as above.
 
 ### Packages
 
