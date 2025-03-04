@@ -1,0 +1,17 @@
+Lightning talk = 10 + 5 minutes
+
+Package motivation: (2 slides)
+* stochastic programming
+* decision rules reformulation
+Usage: (1 slide)
+* LinearDecisionRules.LDRModel()
+* @variable(,, uncertainty=..)
+* _solve_primal_ldr, _solve_dual_ldr (virar atributos, e usar optimize!)
+* get_decision() (?value - type piracy; set_attribute + value?)
+Baby example: two thermal plants (test_0, 2 slides)
+Package structure: (1, máx 2 slides)
+* get matrix data, form LDR matrices, auxiliary dicts
+    (diagrama de caixas / blocos)
+Next steps: (1 slide)
+* handling correlated uncertainty
+* multistage LDR extension
