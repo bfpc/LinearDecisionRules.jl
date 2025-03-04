@@ -1,0 +1,219 @@
+\documentclass[xcolor=dvipsnames]{beamer}
+
+% Standard packages
+\usepackage{amsmath,amsthm,amsfonts,mathabx}
+\usepackage{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{listings}
+
+% Basic Julia definition for lstlisting
+\input juliadef.tex
+
+\lstdefinelanguage{LDRjl}{
+  language=Julia,
+  morekeywords=[2]{LinearDecisionRules,LDRModel,Uncertainty,SolvePrimal,SolveDual,get_decision},
+  keywordstyle=[2]\bfseries\color{red},
+}
+
+\definecolor{mygreen}{RGB}{34,139,34}
+\lstset{%
+    language         = LDRjl,
+    basicstyle       = \ttfamily,
+    keywordstyle     = \bfseries\color{blue},
+    stringstyle      = \color{magenta},
+    commentstyle     = \color{mygreen},
+    showstringspaces = false,
+    breaklines       = true,
+    extendedchars    = true,
+    literate={≈}{{$\approx$}}1%
+}
+
+% Setup appearance and colors
+\usetheme{Boadilla}
+\setbeamertemplate{page number in head/foot}[appendixframenumber]
+
+\setbeamercovered{invisible}
+\usefonttheme[onlymath]{serif}
+\setbeamertemplate{enumerate items}[default]
+\definecolor{mpl-c2}{HTML}{2ca02c}
+
+\setbeamercolor{emph}{fg=blue}
+\renewcommand<>{\emph}[1]{%
+  {\usebeamercolor[fg]{emph}\only#2{\itshape}#1}%
+}
+
+\newcommand{\blue}[1]{\textcolor{blue}{#1}}
+\newcommand{\alertt}[1]{\alert{\texttt{#1}}}
+
+\DeclareMathOperator{\Tr}{Tr}
+
+% Commands
+
+
+\begin{document}
+
+\title[LinearDecisionRules.jl]
+      {\texttt{LinearDecisionRules.jl}}
+\author[Bernardo Costa]
+       {Bernardo Freitas Paulo da Costa (UFRJ \& FGV)\\[2ex]
+       with Joaquim Garcia (PSR)}
+\date[JuMP-dev 24]{JuMP-dev 2024, Montréal}
+
+% Multiple logos
+\titlegraphic{
+  % \includegraphics[width=2cm]{/media/sf_Share_VMs/Logos/UFRJ/ufrj-horizontal-cor-rgb-telas.png}
+  % \hspace{2cm}
+  % \includegraphics[width=2cm]{/media/sf_Share_VMs/Logos/Faperj-Logo.png}
+  % \hspace{2cm}
+  % \includegraphics[width=2cm]{/media/sf_Share_VMs/Logos/FGV_EMAp_logo.png}
+  % EDPonts / CERMICS
+}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\section{Introduction}
+
+\subsection{Setting}
+
+\begin{frame}{Stochastic Programming}
+  A simple model for stochastic programming:
+  \[ \begin{array}{rl}
+    \min        & \mathbb{E}\left[ c^\top x \right] \\[0.5ex]
+    \text{s.t.} & A x = b, \\
+    & x \geq 0.
+  \end{array} \]
+  where
+  \begin{itemize}
+    \item $x$ is the \alert{decision}, subject to (random) constraints;
+    \item $c$ are the (possibly random) \alert{costs};
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Linear Decision Rules}
+  We write the uncertain parameters as \only<3->{\alert{linear} }functions of an underlying random vector $\xi$, and allow for the decision to be taken \emph{after observing the realization of $\xi$}:
+  \[ \begin{array}{rll}
+    \min        & \mathbb{E}\left[
+      \alt<1-2>{c(\xi)^\top}{\xi^\top C^\top}
+      \alt<1-4>{x(\xi)}{X \xi} \right] \\[0.5ex]
+    \text{s.t.} & A \alt<1-4>{x(\xi)}{X \xi} = \alt<1-2>{b(\xi)}{B \xi} & \forall \xi \in \Xi, \\
+    & \alt<1-4>{x(\xi)}{X \xi} \geq 0 & \forall \xi \in \Xi.
+  \end{array} \]
+  \pause
+  We assume that the constraint matrix is \emph{deterministic}.
+  \pause[4]
+
+  We then posit a \alert{linear decision rule} for $x$:
+  \[
+    x(\xi) = X \xi.
+  \]
+  \pause[6]
+
+  This reduces the flexibility of the ``wait-and-see'' decision, but allows for a \emph{more tractable} optimization problem.
+\end{frame}
+
+\begin{frame}{Linear Decision Rules --- Reformulation}
+  If the uncertainty set $\Xi$ is given as the polytope $\{\, \xi : W \xi \geq h \,\}$, we can rewrite the optimization problem as a linear program over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
+  \[ \begin{array}{rl}
+    \min\limits_{X, \Lambda} & \Tr\left(\mathbb{E}\left[\xi \xi^\top \right] C^\top X \right) \\[0.5ex]
+    \text{s.t.} & A X = B, \\
+    & X = \Lambda W, \ \Lambda h \geq 0, \ \Lambda \geq 0.
+  \end{array} \]
+\end{frame}
+
+\section{Usage}
+
+\begin{frame}{The \texttt{LinearDecisionRules.jl} Package}
+  The package \texttt{LinearDecisionRules.jl} provides a JuMP extension for modeling Stochastic Programming problems with linear decision rules.
+  \pause
+
+  \begin{block}{Usage}
+    \begin{enumerate}[<+->]
+      \item We introduce \alertt{LDRModel} as an extension of \texttt{JuMP.Model};
+      \item The \texttt{@variable} macro is \alert{extended} to allow for the declaration of \emph{uncertainties} as variables in the model;
+      \item Attributes \alertt{SolvePrimal()} and \alertt{SolveDual()} enable and disable the optimization of primal and dual LDR reformulations.
+      \item We provide \alertt{get\_decision()} to extract the coefficients of the decision rule matrix $X$ in the original variables and uncertainties. A keyword argument \alertt{dual} is used for querying dual decision rule.
+    \end{enumerate}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{A toy (energy!) example}
+  \small
+  \begin{lstlisting}{language=LDRjl}
+    using JuMP, LinearDecisionRules
+    using Ipopt, Distributions
+
+    demand = 0.3
+    initial_volume = 0.5
+
+    m = LDRModel()
+    @variable(m, vi == initial_volume)
+    @variable(m, 0 <= vf <= 1)
+    @variable(m, gh >= 0.0)
+    @variable(m, gt >= 0.0)
+    @variable(m, 0 <= inflow <= 0.2, Uncertainty, distribution=Uniform(0, 0.2))
+
+    @constraint(m, balance, vf == vi - gh + inflow)
+    @constraint(m, gt + gh == demand)
+
+    @objective(m, Min, gt^2 + vf^2/2 - vf)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{A toy example (cont.)}
+  \small
+  \begin{lstlisting}{language=LDRjl}
+    # Solve the primal LDR
+    set_attribute(m, SolvePrimal(), true)
+    set_attribute(m, SolveDual(), false)
+    set_optimizer(m, Ipopt.Optimizer)
+    optimize!(m)
+
+    # Get the decision rule
+    get_decision(m, vf)         # Constant term
+    get_decision(m, vf, inflow) # Linear coefficient
+    
+    # Some checks
+    @test get_decision(m, gh) + get_decision(m, gt) ≈ demand atol=1e-6
+    @test get_decision(m, gh, inflow) + get_decision(m, gt, inflow) ≈ 0 atol=1e-6
+
+    @test get_decision(m, vi) ≈ initial_volume atol=1e-6
+    @test get_decision(m, vi, inflow) ≈ 0 atol=1e-6
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Package structure}
+  \centering \includegraphics[width=0.9\textwidth]{figures/diagram.pdf}
+\end{frame}
+
+\begin{frame}{Next steps}
+  Handle \emph{correlated uncertainties}:
+  \begin{itemize}
+    \item The current model allows for independent uncertainties, and $\Xi$ is the product of their support;
+    \item We could allow for a general form as the product of independent \emph{vector uncertainties}.
+  \end{itemize}
+  \pause
+
+  \emph{Multistage} decision rules:
+  \begin{itemize}
+    \item 2-stage optimization: a \emph{here-and-now} decision $x_0$ which does not depend on uncertainty;
+      \pause
+    \item In general, decisions $x_t$ can only depend on \emph{observed} uncertainties $\xi_1, \ldots, \xi_t$;
+    \item Will benefit from correlated uncertainties to model more complex processes.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \centering \includegraphics[width=0.5\textwidth]{figures/ldrgit.pdf}
+
+  \Huge Questions?
+\end{frame}
+
+
+\end{document}
+
+
+% vim:set spelllang=en:
