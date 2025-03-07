@@ -4,8 +4,8 @@
 Coefficient of η in the LDR of x
 """
 function get_decision(model, x, η; dual = false)
-    var_to_column = model.ext[:var_to_column] # type assert
-    column_to_canonical = model.ext[:column_to_canonical] # type assert
+    var_to_column = model.ext[:_LDR_var_to_column] # type assert
+    column_to_canonical = model.ext[:_LDR_column_to_canonical] # type assert
     i = column_to_canonical[var_to_column[x]]
     j = column_to_canonical[var_to_column[η]]
     @assert haskey(model.uncertainty_to_distribution, η)
@@ -30,8 +30,8 @@ end
 Constant term in the LDR of x
 """
 function get_decision(model, x; dual = false)
-    var_to_column = model.ext[:var_to_column] # type assert
-    column_to_canonical = model.ext[:column_to_canonical] # type assert
+    var_to_column = model.ext[:_LDR_var_to_column] # type assert
+    column_to_canonical = model.ext[:_LDR_column_to_canonical] # type assert
     i = column_to_canonical[var_to_column[x]]
     @assert !haskey(model.uncertainty_to_distribution, x)
     @assert JuMP.is_valid(model, x)

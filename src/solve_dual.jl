@@ -6,9 +6,11 @@ function _solve_dual_ldr(model)
     end
     model.dual_model.ext[:built_dual] = true
 
-    ABC = model.ext[:ABC]
+    ABC = model.ext[:_LDR_ABC]
+    M = model.ext[:_LDR_M]
+    r = model.ext[:_LDR_r]::Float64
 
-    first_stage_indices = model.ext[:first_stage_indices]
+    first_stage_indices = model.ext[:_LDR_first_stage_indices]
 
     dim_x = size(ABC.Ae, 2)
     dim_ξ = size(ABC.Be, 2)
@@ -49,7 +51,7 @@ function _solve_dual_ldr(model)
     # Constraints on slack matrices "S" are of the form
     # (W - h e1⊤) M Sᵗ ≥ 0
     # which are equivalent to S [(W - h e1⊤) M]ᵗ ≥ 0
-    WMt = (W2 * ABC.M)'
+    WMt = (W2 * M)'
 
     @constraint(model.dual_model, ABC.Au * X .+ Su .== ABC.Bu)
     @constraint(model.dual_model, Su * WMt .>= 0)
@@ -71,9 +73,9 @@ function _solve_dual_ldr(model)
     @constraint(model.dual_model, X[idxs,2:end] .- Sxl[idxs,2:end] .== 0)
     @constraint(model.dual_model, Sxl.data * WMt .>= 0)
 
-    @expression(model.dual_model, obj, LinearAlgebra.tr(X' * ABC.P * X * ABC.M) + LinearAlgebra.tr(ABC.C' * X * ABC.M) + ABC.r)
+    @expression(model.dual_model, obj, LinearAlgebra.tr(X' * ABC.P * X * M) + LinearAlgebra.tr(ABC.C' * X * M) + r)
 
-    if model.ext[:sense] == MOI.MIN_SENSE
+    if model.ext[:_LDR_sense] == MOI.MIN_SENSE
         @objective(model.dual_model, Min, obj)
     else
         @objective(model.dual_model, Max, obj)

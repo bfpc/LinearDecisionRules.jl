@@ -13,15 +13,17 @@
 #      Sxl ξ >= 0
 
 function _solve_primal_ldr(model)
-    if haskey(model.primal_model.ext, :built_primal)
+    if haskey(model.primal_model.ext, :_LDR_built_primal)
         # Lazy "flush"
         model.primal_model = JuMP.Model()
     end
-    model.primal_model.ext[:built_primal] = true
+    model.primal_model.ext[:_LDR_built_primal] = true
 
-    ABC = model.ext[:ABC]
+    ABC = model.ext[:_LDR_ABC]
+    M = model.ext[:_LDR_M]
+    r = model.ext[:_LDR_r]::Float64
 
-    first_stage_indices = model.ext[:first_stage_indices]
+    first_stage_indices = model.ext[:_LDR_first_stage_indices]
 
     dim_x = size(ABC.Ae, 2)
     dim_ξ = size(ABC.Be, 2)
@@ -83,9 +85,9 @@ function _solve_primal_ldr(model)
     @constraint(model.primal_model, ΛSxl.data * W .== Sxl.data)
     @constraint(model.primal_model, ΛSxl.data * h .>= 0)
 
-    @expression(model.primal_model, obj, LinearAlgebra.tr(X' * ABC.P * X * ABC.M) + LinearAlgebra.tr(ABC.C' * X * ABC.M) + ABC.r)
+    @expression(model.primal_model, obj, LinearAlgebra.tr(X' * ABC.P * X * M) + LinearAlgebra.tr(ABC.C' * X * M) + r)
 
-    if model.ext[:sense] == MOI.MIN_SENSE
+    if model.ext[:_LDR_sense] == MOI.MIN_SENSE
         @objective(model.primal_model, Min, obj)
     else
         @objective(model.primal_model, Max, obj)

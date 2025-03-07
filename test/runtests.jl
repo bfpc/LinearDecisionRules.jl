@@ -363,7 +363,7 @@ function test_newsvendor_with_rejection_sampling()
     ldr_p_obj = objective_value(ldr)
     ldr_d_obj = objective_value(ldr, dual = true)
 
-    M1 = ldr.ext[:ABC].M # TODO add function to query this ??? (will need a map)
+    M1 = ldr.ext[:_LDR_M] # TODO add function to query this ??? (will need a map)
 
     @constraint(ldr, demand <= 110)
     @constraint(ldr, demand >= 100)
@@ -375,7 +375,7 @@ function test_newsvendor_with_rejection_sampling()
     ldr_d_obj2 = objective_value(ldr, dual = true)
     @test ldr_d_obj < ldr_d_obj2
 
-    M2 = ldr.ext[:ABC].M 
+    M2 = ldr.ext[:_LDR_M] 
 
     @test M1[1,1] == M2[1,1] == 1
     @test M1[1,2] == M1[2,1] == 100
@@ -399,7 +399,7 @@ function test_newsvendor_with_rejection_sampling()
     ldr_d_obj3 = objective_value(ldr, dual = true) 
     @test ldr_d_obj3 == ldr_d_obj2
 
-    @show M3 = ldr.ext[:ABC].M 
+    @show M3 = ldr.ext[:_LDR_M] 
     @test M3[1,1] == 1
     @test M3[3,2] == M3[2,3] == M3[3,1] * M3[1,2]
     @test M3[3,3] == M3[2,2]
