@@ -13,15 +13,17 @@
 #      Sxl ξ >= 0
 
 function _solve_primal_ldr(model)
-    if haskey(model.primal_model.ext, :built_primal)
+    if haskey(model.primal_model.ext, :_LDR_built_primal)
         # Lazy "flush"
         model.primal_model = JuMP.Model()
     end
-    model.primal_model.ext[:built_primal] = true
+    model.primal_model.ext[:_LDR_built_primal] = true
 
-    ABC = model.ext[:ABC]
+    ABC = model.ext[:_LDR_ABC]
+    M = model.ext[:_LDR_M]
+    r = model.ext[:_LDR_r]::Float64
 
-    first_stage_indices = model.ext[:first_stage_indices]
+    first_stage_indices = model.ext[:_LDR_first_stage_indices]
 
     dim_x = size(ABC.Ae, 2)
     dim_ξ = size(ABC.Be, 2)
@@ -37,6 +39,16 @@ function _solve_primal_ldr(model)
             end
         end
     end
+    for i in ABC.bin
+        for (var, _) in X[i, 1].terms # because its is affexp
+            set_binary(var)
+        end
+    end
+    for i in ABC.int
+        for (var, _) in X[i, 1].terms # because its is affexp
+            set_integer(var)
+        end
+    end
     # @variable(model.primal_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.primal_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.primal_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
@@ -47,13 +59,17 @@ function _solve_primal_ldr(model)
     # Inequality constraints
     # Uncertainty polyhedron: W ξ ≥ h from
     # Ξ = { ξ = (1, η) ∈ ℝ^m | Wu η ≤ hu, Wl η ≥ hl, lb ≤ η ≤ ub }
-    nu = size(ABC.Wu, 1)
-    nl = size(ABC.Wl, 1)
+    Wu = vcat(ABC.Wu, ABC.Wu_v)
+    hu = vcat(ABC.hu, ABC.hu_v)
+    Wl = vcat(ABC.Wl, ABC.Wl_v)
+    hl = vcat(ABC.hl, ABC.hl_v)
+    nu = size(Wu, 1)
+    nl = size(Wl, 1)
     nW = 2dim_ξ + nu + nl
     W = [ 1 zeros(1, dim_uncertainty);
          -1 zeros(1, dim_uncertainty);
-         zeros(nu + nl + 2dim_uncertainty, 1) [-ABC.Wu; ABC.Wl; -SparseArrays.I(dim_uncertainty); SparseArrays.I(dim_uncertainty)]]
-    h = [1; -1; -ABC.hu; ABC.hl; -ABC.ub; ABC.lb]
+         zeros(nu + nl + 2dim_uncertainty, 1) [-Wu; Wl; -SparseArrays.I(dim_uncertainty); SparseArrays.I(dim_uncertainty)]]
+    h = [1; -1; -hu; hl; -ABC.ub; ABC.lb]
 
     @constraint(model.primal_model, ABC.Au * X .+ Su .== ABC.Bu)
     @variable(model.primal_model, ΛSu[1:size(ABC.Bu, 1),1:nW] >= 0)
@@ -83,9 +99,9 @@ function _solve_primal_ldr(model)
     @constraint(model.primal_model, ΛSxl.data * W .== Sxl.data)
     @constraint(model.primal_model, ΛSxl.data * h .>= 0)
 
-    @expression(model.primal_model, obj, LinearAlgebra.tr(X' * ABC.P * X * ABC.M) + LinearAlgebra.tr(ABC.C' * X * ABC.M) + ABC.r)
+    @expression(model.primal_model, obj, LinearAlgebra.tr(X' * ABC.P * X * M) + LinearAlgebra.tr(ABC.C' * X * M) + r)
 
-    if model.ext[:sense] == MOI.MIN_SENSE
+    if model.ext[:_LDR_sense] == MOI.MIN_SENSE
         @objective(model.primal_model, Min, obj)
     else
         @objective(model.primal_model, Max, obj)

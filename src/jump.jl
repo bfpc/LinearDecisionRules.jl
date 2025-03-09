@@ -1,24 +1,54 @@
-Base.@kwdef mutable struct LDRModel <: JuMP.AbstractModel
-    cache_model::JuMP.Model = JuMP.Model()
-    primal_model::JuMP.Model = JuMP.Model()
-    dual_model::JuMP.Model = JuMP.Model()
+Base.@kwdef mutable struct StochasticModel <: JuMP.AbstractModel
+    model::JuMP.Model = JuMP.Model()
 
     # maps
-    cache_first_stage::Set{JuMP.VariableRef} = Set{JuMP.VariableRef}()
+    first_stage::Set{JuMP.VariableRef} = Set{JuMP.VariableRef}()
     uncertainty_to_distribution::Dict{JuMP.VariableRef,Tuple{Int,Int}} = Dict{JuMP.VariableRef,Tuple{Int,Int}}()
-    cache_scalar_distributions::Vector{Distributions.Distribution} = Vector{Distributions.Distribution}()
-    cache_vector_distributions::Vector{Distributions.Distribution} = Vector{Distributions.Distribution}()
+    scalar_distributions::Vector{Distributions.Distribution} = Vector{Distributions.Distribution}()
+    vector_distributions::Vector{Distributions.Distribution} = Vector{Distributions.Distribution}()
+    uncertainty_valid_constraints::Set{JuMP.ConstraintRef} = Set{JuMP.ConstraintRef}()
+end
+
+mutable struct LDRModel <: JuMP.AbstractModel
+    cache_model::StochasticModel
+    pwl_model::StochasticModel
+    primal_model::JuMP.Model
+    dual_model::JuMP.Model
+
+    pwl_data::Dict{JuMP.VariableRef, Vector{Float64}}
+    map_cache_to_pwl::Union{JuMP.ReferenceMap, Nothing}
+    extended_variables::Dict{JuMP.VariableRef, Vector{JuMP.VariableRef}}
 
     # options
-    solver::Any = nothing
-    solve_primal::Bool = true
-    solve_dual::Bool = true
-    silent::Bool = false
+    solver::Any
+    solve_primal::Bool
+    solve_dual::Bool
+    silent::Bool
 
-    ext::Dict{Symbol,Any} = Dict{Symbol,Any}()
+    ext::Dict{Symbol,Any}
 
     # API part
-    obj_dict::Dict{Symbol,Any} = Dict{Symbol,Any}()
+    obj_dict::Dict{Symbol,Any}
+
+    function LDRModel()
+        model = new(
+            StochasticModel(),
+            StochasticModel(),
+            JuMP.Model(),
+            JuMP.Model(),
+            Dict{JuMP.VariableRef, Vector{Float64}}(),
+            nothing,
+            Dict{JuMP.VariableRef, Vector{JuMP.VariableRef}}(),
+            nothing,
+            true,
+            true,
+            false,
+            Dict{Symbol,Any}(),
+            Dict{Symbol,Any}(),
+        )
+        model.cache_model.model.ext[:_LDR_model] = model
+        return model
+    end
 end
 
 function LDRModel(
@@ -42,6 +72,68 @@ function JuMP.set_attribute(model::LDRModel, ::SolveDual, value::Bool)
 end
 function JuMP.get_attribute(model::LDRModel, ::SolveDual)
     return model.solve_dual
+end
+
+struct BreakPoints end
+
+function JuMP.set_attribute(x::JuMP.VariableRef, ::BreakPoints, value::Nothing)
+    model = x.model.ext[:_LDR_model]
+    if length(value) < 1
+        error("Number of breakpoints must be at least 1.")
+    end
+    if !haskey(model.cache_model.uncertainty_to_distribution, x)
+        error("Variable is not associated with an uncertainty.")
+    elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
+        error("Breakpoints only work with scalar uncertainty.")
+    end
+    delete!(model.pwl_data, x)
+    return nothing
+end
+
+function JuMP.set_attribute(x::JuMP.VariableRef, ::BreakPoints, value::Vector{Float64})
+    model = x.model.ext[:_LDR_model]
+    if length(value) < 1
+        error("Number of breakpoints must be at least 1.")
+    end
+    if !haskey(model.cache_model.uncertainty_to_distribution, x)
+        error("Variable is not associated with an uncertainty.")
+    elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
+        error("Breakpoints only work with scalar uncertainty.")
+    end
+    model.pwl_data[x] = value
+    return nothing
+end
+
+function JuMP.set_attribute(x::JuMP.VariableRef, attr::BreakPoints, num::Integer)
+    model = x.model.ext[:_LDR_model]
+    if num < 1
+        error("Number of breakpoints must be at least 1.")
+    end
+    if !haskey(model.cache_model.uncertainty_to_distribution, x)
+        error("Variable is not associated with an uncertainty.")
+    elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
+        error("Breakpoints only work with scalar uncertainty.")
+    end
+    dist = model.cache_model.scalar_distributions[model.cache_model.uncertainty_to_distribution[x][1]]
+    _min = minimum(dist)
+    _max = maximum(dist)
+    ran = range(_min, _max, length = num + 2)
+    breakpoints = collect(ran[2:end-1])
+    model.pwl_data[x] = breakpoints
+    return nothing
+end
+
+function JuMP.get_attribute(x::JuMP.VariableRef, ::BreakPoints)
+    model = x.model.ext[:_LDR_model]
+    if !haskey(model.cache_model.uncertainty_to_distribution, x)
+        error("Variable is not associated with an uncertainty.")
+    elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
+        error("Breakpoints only work with scalar uncertainty.")
+    end
+    if !haskey(model.pwl_data, x)
+        return Float64[]
+    end
+    return model.pwl_data[x]
 end
 
 _primal_disabled() = error("Primal solution mode is disabled.")
@@ -165,6 +257,9 @@ function JuMP.optimize!(model::LDRModel)
     if !model.solve_primal && !model.solve_dual
         error("Both primal and dual solution modes are disabled.")
     else
+        if !isempty(model.pwl_data)
+            _create_pwl_model(model)
+        end
         _prepare_data(model)
     end
     if model.solve_primal
@@ -212,8 +307,8 @@ function JuMP.add_variable(
     _info = uncertainty.info
     dist = uncertainty.distribution
     ret = Vector{JuMP.VariableRef}(undef, length(_info))
-    push!(model.cache_vector_distributions, dist)
-    dist_index = length(model.cache_vector_distributions)
+    push!(model.cache_model.vector_distributions, dist)
+    dist_index = length(model.cache_model.vector_distributions)
     upper = maximum(dist)
     lower = minimum(dist)
     for i in 1:length(_info)
@@ -261,12 +356,12 @@ function JuMP.add_variable(
         )
 
         var = JuMP.add_variable(
-            model.cache_model,
+            model.cache_model.model,
             JuMP.ScalarVariable(info),
             names[i],
         )
         ret[i] = var
-        model.uncertainty_to_distribution[var] = (dist_index, i)
+        model.cache_model.uncertainty_to_distribution[var] = (dist_index, i)
     end
     return ret
 end
@@ -359,14 +454,14 @@ function JuMP.add_variable(
     )
 
     var = JuMP.add_variable(
-        model.cache_model,
+        model.cache_model.model,
         JuMP.ScalarVariable(info),
         name,
     )
 
-    push!(model.cache_scalar_distributions, dist)
-    dist_index = length(model.cache_scalar_distributions)
-    model.uncertainty_to_distribution[var] = (dist_index, 0)
+    push!(model.cache_model.scalar_distributions, dist)
+    dist_index = length(model.cache_model.scalar_distributions)
+    model.cache_model.uncertainty_to_distribution[var] = (dist_index, 0)
 
     return var
 end
@@ -391,11 +486,11 @@ function JuMP.add_variable(
     name::String,
 )
     var = JuMP.add_variable(
-        model.cache_model,
+        model.cache_model.model,
         JuMP.ScalarVariable(first_stage.info),
         name,
     )
-    push!(model.cache_first_stage, var)
+    push!(model.cache_model.first_stage, var)
     return var
 end
 
@@ -406,7 +501,7 @@ function JuMP.add_variable(
     v::JuMP.AbstractVariable,
     name::String = "",
 )
-    return JuMP.add_variable(model.cache_model, v, name)
+    return JuMP.add_variable(model.cache_model.model, v, name)
 end
 
 function JuMP.add_variable(
@@ -414,7 +509,7 @@ function JuMP.add_variable(
     variable::JuMP.VariableConstrainedOnCreation,
     name::String,
 )
-    return JuMP.add_variable(model.cache_model, variable, name)
+    return JuMP.add_variable(model.cache_model.model, variable, name)
 end
 
 function JuMP.add_variable(
@@ -422,12 +517,12 @@ function JuMP.add_variable(
     variable::JuMP.VariablesConstrainedOnCreation,
     names,
 )
-    return JuMP.add_variable(model.cache_model, variable, names)
+    return JuMP.add_variable(model.cache_model.model, variable, names)
 end
 
 function JuMP.delete(model::LDRModel, vref::JuMP.AbstractVariableRef)
     error("not implemented")
-    JuMP.delete(model.cache_model, vref)
+    JuMP.delete(model.cache_model.model, vref)
     # delete!(model.cache_uncertainty, vref)
     return
 end
@@ -438,25 +533,25 @@ function JuMP.delete(model::LDRModel, vref::Vector{V}) where {V<:JuMP.AbstractVa
 end
 
 function JuMP.is_valid(model::LDRModel, vref::JuMP.AbstractVariableRef)
-    return JuMP.is_valid(model.cache_model, vref)
+    return JuMP.is_valid(model.cache_model.model, vref)
 end
 
 function JuMP.all_variables(model::LDRModel)
-    return JuMP.all_variables(model.cache_model)
+    return JuMP.all_variables(model.cache_model.model)
 end
 
-JuMP.num_variables(m::LDRModel) = JuMP.num_variables(m.cache_model)
+JuMP.num_variables(m::LDRModel) = JuMP.num_variables(m.cache_model.model)
 
 function JuMP.add_constraint(
     model::LDRModel,
     c::JuMP.AbstractConstraint,
     name::String = "",
 )
-    return JuMP.add_constraint(model.cache_model, c, name)
+    return JuMP.add_constraint(model.cache_model.model, c, name)
 end
 
 function JuMP.delete(model::LDRModel, constraint_ref::JuMP.ConstraintRef)
-    JuMP.delete(model.cache_model, constraint_ref)
+    JuMP.delete(model.cache_model.model, constraint_ref)
     # TODO: fix maps
     error("fix maps")
     return
@@ -468,7 +563,7 @@ function JuMP.delete(model::LDRModel, constraint_ref::Vector{<:JuMP.ConstraintRe
 end
 
 function JuMP.is_valid(model::LDRModel, constraint_ref::JuMP.ConstraintRef)
-    return JuMP.is_valid(model.cache_model, constraint_ref)
+    return JuMP.is_valid(model.cache_model.model, constraint_ref)
 end
 
 function JuMP.all_constraints(
@@ -476,19 +571,19 @@ function JuMP.all_constraints(
     ::Type{F},
     ::Type{S},
 ) where {F,S<:JuMP.MOI.AbstractSet}
-    return JuMP.all_constraints(model.cache_model, F, S)
+    return JuMP.all_constraints(model.cache_model.model, F, S)
 end
 
-function JuMP.constraint_object(cref::JuMP.ConstraintRef)
-    return JuMP.constraint_object(cref.model.cache_model, cref)
-end
+# function JuMP.constraint_object(cref::JuMP.ConstraintRef)
+#     return JuMP.constraint_object(cref.model.cache_model.model, cref)
+# end
 
 function JuMP.num_constraints(
     model::LDRModel,
     ::Type{F},
     ::Type{S},
 ) where {F,S<:JuMP.MOI.AbstractSet}
-    return JuMP.num_constraints(model.cache_model, F, S)
+    return JuMP.num_constraints(model.cache_model.model, F, S)
 end
 
 function JuMP.num_constraints(
@@ -496,7 +591,7 @@ function JuMP.num_constraints(
     count_variable_in_set_constraints::Bool,
 )
     return JuMP.num_constraints(
-        model.cache_model;
+        model.cache_model.model;
         count_variable_in_set_constraints = count_variable_in_set_constraints,
     )
 end
@@ -505,51 +600,51 @@ function JuMP.set_objective_function(
     m::LDRModel,
     f::Union{JuMP.AbstractJuMPScalar,Vector{<:JuMP.AbstractJuMPScalar}, Real},
 )
-    JuMP.set_objective_function(m.cache_model, f)
+    JuMP.set_objective_function(m.cache_model.model, f)
     return
 end
 
-JuMP.objective_sense(model::LDRModel) = JuMP.objective_sense(model.cache_model)
+JuMP.objective_sense(model::LDRModel) = JuMP.objective_sense(model.cache_model.model)
 
 function JuMP.set_objective_sense(model::LDRModel, sense)
-    JuMP.set_objective_sense(model.cache_model, sense)
+    JuMP.set_objective_sense(model.cache_model.model, sense)
     return
 end
 
-JuMP.objective_function_type(model::LDRModel) = JuMP.objective_function_type(model.cache_model)
+JuMP.objective_function_type(model::LDRModel) = JuMP.objective_function_type(model.cache_model.model)
 
-JuMP.objective_function(model::LDRModel) = JuMP.objective_function(model.cache_model)
+JuMP.objective_function(model::LDRModel) = JuMP.objective_function(model.cache_model.model)
 
 function JuMP.objective_function(model::LDRModel, FT::Type)
-    return JuMP.objective_function(model.cache_model, FT)
+    return JuMP.objective_function(model.cache_model.model, FT)
 end
 
 function JuMP.variable_by_name(model::LDRModel, name::String)
-    return JuMP.variable_by_name(model.cache_model, name)
+    return JuMP.variable_by_name(model.cache_model.model, name)
 end
 
 function JuMP.constraint_by_name(model::LDRModel, name::String)
-    return JuMP.constraint_by_name(model.cache_model, name)
+    return JuMP.constraint_by_name(model.cache_model.model, name)
 end
 
-JuMP.show_backend_summary(io::IO, model::LDRModel) = JuMP.show_backend_summary(io, model.cache_model)
+JuMP.show_backend_summary(io::IO, model::LDRModel) = JuMP.show_backend_summary(io, model.cache_model.model)
 
 function JuMP.show_objective_function_summary(io::IO, model::LDRModel)
-    JuMP.show_objective_function_summary(io, model.cache_model)
+    JuMP.show_objective_function_summary(io, model.cache_model.model)
     return
 end
 
 function JuMP.objective_function_string(print_mode, model::LDRModel)
-    return JuMP.objective_function_string(print_mode, model.cache_model)
+    return JuMP.objective_function_string(print_mode, model.cache_model.model)
 end
 
 function JuMP.show_constraints_summary(io::IO, model::LDRModel)
-    JuMP.show_constraints_summary(io, model.cache_model)
+    JuMP.show_constraints_summary(io, model.cache_model.model)
     return
 end
 
 function JuMP.constraints_string(print_mode, model::LDRModel)
-    return JuMP.constraints_string(print_mode, model.cache_model)
+    return JuMP.constraints_string(print_mode, model.cache_model.model)
 end
 
 function JuMP.set_optimizer(model::LDRModel, optimizer_factory)

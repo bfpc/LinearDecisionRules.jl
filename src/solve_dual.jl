@@ -6,9 +6,11 @@ function _solve_dual_ldr(model)
     end
     model.dual_model.ext[:built_dual] = true
 
-    ABC = model.ext[:ABC]
+    ABC = model.ext[:_LDR_ABC]
+    M = model.ext[:_LDR_M]
+    r = model.ext[:_LDR_r]::Float64
 
-    first_stage_indices = model.ext[:first_stage_indices]
+    first_stage_indices = model.ext[:_LDR_first_stage_indices]
 
     dim_x = size(ABC.Ae, 2)
     dim_ξ = size(ABC.Be, 2)
@@ -24,6 +26,16 @@ function _solve_dual_ldr(model)
             end
         end
     end
+    for i in ABC.bin
+        for (var, _) in X[i, 1].terms # because its is affexp
+            set_binary(var)
+        end
+    end
+    for i in ABC.int
+        for (var, _) in X[i, 1].terms # because its is affexp
+            set_integer(var)
+        end
+    end
     # @variable(model.dual_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.dual_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.dual_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
@@ -34,13 +46,17 @@ function _solve_dual_ldr(model)
     # Inequality constraints
     # Uncertainty polyhedron: W ξ ≥ h from
     # Ξ = { ξ = (1, η) ∈ ℝ^m | Wu η ≤ hu, Wl η ≥ hl, lb ≤ η ≤ ub }
-    nu = size(ABC.Wu, 1)
-    nl = size(ABC.Wl, 1)
+    Wu = vcat(ABC.Wu, ABC.Wu_v)
+    hu = vcat(ABC.hu, ABC.hu_v)
+    Wl = vcat(ABC.Wl, ABC.Wl_v)
+    hl = vcat(ABC.hl, ABC.hl_v)
+    nu = size(Wu, 1)
+    nl = size(Wl, 1)
     nW = 2dim_ξ + nu + nl
     W = [ 1 zeros(1, dim_uncertainty);
          -1 zeros(1, dim_uncertainty);
-         zeros(nu + nl + 2dim_uncertainty, 1) [-ABC.Wu; ABC.Wl; -SparseArrays.I(dim_uncertainty); SparseArrays.I(dim_uncertainty)]]
-    h = [1; -1; -ABC.hu; ABC.hl; -ABC.ub; ABC.lb]
+         zeros(nu + nl + 2dim_uncertainty, 1) [-Wu; Wl; -SparseArrays.I(dim_uncertainty); SparseArrays.I(dim_uncertainty)]]
+    h = [1; -1; -hu; hl; -ABC.ub; ABC.lb]
 
     # (W - h e1⊤)
     W2 = deepcopy(W)
@@ -49,7 +65,7 @@ function _solve_dual_ldr(model)
     # Constraints on slack matrices "S" are of the form
     # (W - h e1⊤) M Sᵗ ≥ 0
     # which are equivalent to S [(W - h e1⊤) M]ᵗ ≥ 0
-    WMt = (W2 * ABC.M)'
+    WMt = (W2 * M)'
 
     @constraint(model.dual_model, ABC.Au * X .+ Su .== ABC.Bu)
     @constraint(model.dual_model, Su * WMt .>= 0)
@@ -71,9 +87,9 @@ function _solve_dual_ldr(model)
     @constraint(model.dual_model, X[idxs,2:end] .- Sxl[idxs,2:end] .== 0)
     @constraint(model.dual_model, Sxl.data * WMt .>= 0)
 
-    @expression(model.dual_model, obj, LinearAlgebra.tr(X' * ABC.P * X * ABC.M) + LinearAlgebra.tr(ABC.C' * X * ABC.M) + ABC.r)
+    @expression(model.dual_model, obj, LinearAlgebra.tr(X' * ABC.P * X * M) + LinearAlgebra.tr(ABC.C' * X * M) + r)
 
-    if model.ext[:sense] == MOI.MIN_SENSE
+    if model.ext[:_LDR_sense] == MOI.MIN_SENSE
         @objective(model.dual_model, Min, obj)
     else
         @objective(model.dual_model, Max, obj)

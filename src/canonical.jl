@@ -41,7 +41,12 @@ s.t. Ae X ξ = Be ξ
 # Notation: Q or P for the quadratic term?
 """
 
-function _variable_maps(data::MatrixData, uncertainty_variables, first_stage_variables)
+function _model_to_matrix(
+    data::MatrixData,
+    uncertainty_variables,
+    first_stage_variables,
+    uncertainty_valid_constraints,
+)
     A = data.A
     m, n = size(A)
 
@@ -63,120 +68,41 @@ function _variable_maps(data::MatrixData, uncertainty_variables, first_stage_var
     end
 
     first_stage_indices = Set(findall(x -> x in first_stage_variables, data.variables))
+    uncertainty_valid_indices = Set(findall(x -> x in uncertainty_valid_constraints, data.affine_constraints))
 
-    return uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices
+    return uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices, uncertainty_valid_indices
 end
 
-function _canonical(
+function _second_moment_matrix(
     data::MatrixData,
     uncertainty_indices,
-    variable_indices,
     uncertainty_to_distribution,
     scalar_distributions,
     vector_distributions,
+    ABC,
 )
-    # look for rows of data.A (a sparse matrix) that are only of uncertainty
+    # Compute the second moment matrix M of the uncertainty
+    # M = E[ξ⊤ ξ]
+    # where ξ is a random vector with the following properties:
+    # - lb ≤ ξ ≤ ub
+    # - Wu ξ ≤ hu
+    # - Wl ξ ≥ hl
+    # - ξ is a vector of the random variables in uncertainty_indices
+    # - the distribution of each variable is given by uncertainty_to_distribution
+    # - scalar_distributions and vector_distributions are the distributions of the variables
+    # - Wu, hu, Wl, hl are the matrices defining the polytope Ξ
+    # - lb, ub are the lower and upper bounds of the variables
+    # The second moment matrix M is such that
+    # M[i, j] = E[ξ[i] ξ[j]]
+    # where ξ[i] is the i-th element of ξ
+    # The first element of ξ is 1 (the extra coordinate for the affine transformation
 
-    @assert length(data.binaries) == 0
-    @assert length(data.integers) == 0
-    if data.sense == MOI.FEASIBILITY_SENSE
-        error("Objective function sense is MOI.FEASIBILITY_SENSE, check your objective function.")
-    end
-    @assert length(data.variables) > 0
-    @assert length(data.affine_constraints) +
-        length(data.variable_constraints) > 0
-
-
-    A = data.A
-    rows = SparseArrays.rowvals(A)
-    m, n = size(A)
-
-    # Process the rows of A
-    has_variables = falses(m)
-    for j = variable_indices
-        for i in SparseArrays.nzrange(A, j)
-            has_variables[rows[i]] = true
-        end
-        # VERY Suboptimal since tags the same row multiple times if it has multiple variables
-    end
-    uncertainty_rows = findall(!, has_variables)
-    mixed_rows = findall(has_variables)
-
-    mm = length(mixed_rows)
-    equality_rows = Int[]
-    sizehint!(equality_rows, mm÷2)
-    upper_bound_rows = Int[]
-    sizehint!(upper_bound_rows, mm÷2)
-    lower_bound_rows = Int[]
-    sizehint!(lower_bound_rows, mm÷2)
-    interval_rows = Int[]
-    sizehint!(interval_rows, mm÷20)
-    for j in mixed_rows
-        if data.b_lower[j] == data.b_upper[j]
-            push!(equality_rows, j)
-        elseif data.b_lower[j] == -Inf
-            push!(upper_bound_rows, j)
-        elseif data.b_upper[j] == Inf
-            push!(lower_bound_rows, j)
-        else
-            push!(interval_rows, j)
-        end
-    end
-
-    uu = length(uncertainty_rows)
-    u_equality_rows = Int[]
-    sizehint!(u_equality_rows, uu÷20)
-    u_upper_bound_rows = Int[]
-    sizehint!(u_upper_bound_rows, uu÷2)
-    u_lower_bound_rows = Int[]
-    sizehint!(u_lower_bound_rows, uu÷2)
-    u_interval_rows = Int[]
-    sizehint!(u_interval_rows, uu÷20)
-    for j in uncertainty_rows
-        if data.b_lower[j] == data.b_upper[j]
-            push!(u_equality_rows, j)
-        elseif data.b_lower[j] == -Inf
-            push!(u_upper_bound_rows, j)
-        elseif data.b_upper[j] == Inf
-            push!(u_lower_bound_rows, j)
-        else
-            push!(u_interval_rows, j)
-        end
-    end
-
-    if length(u_equality_rows) > 0
-        @warn "equality constraint on uncertainty variable"
-    end
-
-    # Build the matrices (Ae, Au, Al) and vectors (be, bu, bl, xu, xl) for the problem
-    #  Ae x(ξ) = be(ξ)
-    #  Au x(ξ) ≤ bu(ξ)
-    #  Al x(ξ) ≥ bl(ξ)
-    #  I x(ξ) ≤ xu
-    #  I x(ξ) ≥ xl
-    Ae = A[equality_rows, variable_indices]
-    be = data.b_lower[equality_rows]
-    Be = [be -A[equality_rows, uncertainty_indices]]
-    Au = A[upper_bound_rows, variable_indices]
-    bu = data.b_upper[upper_bound_rows]
-    Bu = [bu -A[upper_bound_rows, uncertainty_indices]]
-    Al = A[lower_bound_rows, variable_indices]
-    bl = data.b_lower[lower_bound_rows]
-    Bl = [bl -A[lower_bound_rows, uncertainty_indices]]
-    xu = data.x_upper[variable_indices]
-    xl = data.x_lower[variable_indices]
-
-    # Build the matrices (Wu, Wl) and vectors (hu, hl, lb, ub) for the uncertainty
-    Wu = A[u_upper_bound_rows, uncertainty_indices]
-    hu = data.b_upper[u_upper_bound_rows]
-    Wl = A[u_lower_bound_rows, uncertainty_indices]
-    hl = data.b_lower[u_lower_bound_rows]
-    # bounds from variable input, from:
-    # - distributions defition
-    # - truncate for scalar distributions
-    # - boxed for vector distributions
-    lb = data.x_lower[uncertainty_indices]
-    ub = data.x_upper[uncertainty_indices]
+    Wu = ABC.Wu
+    hu = ABC.hu
+    Wl = ABC.Wl
+    hl = ABC.hl
+    lb = ABC.lb
+    ub = ABC.ub
 
     # Build matrix M of E[ξ⊤ ξ] (the first index is the extra coordinate 1)
     # The first line has the means, the remaining the covariances + product of means
@@ -288,8 +214,26 @@ function _canonical(
         initial_time = time()
         rng = Random.Xoshiro(seed)
         for i in 1:max_iterations
-            _attempts = _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows, wl_rows, scalar_distributions, vector_distributions, scalar_idxs, vector_idxs, lb, ub, Wu, hu, Wl, hl)
-            if _attempts > warn_attempts
+            _attempts = _sample_in_set!(
+                rng, 
+                candidate,
+                cache_wu_m,
+                cache_wl_m,
+                group,
+                wu_rows,
+                wl_rows,
+                scalar_distributions,
+                vector_distributions,
+                scalar_idxs,
+                vector_idxs,
+                lb,
+                ub,
+                Wu,
+                hu,
+                Wl,
+                hl,
+            )
+            if _attempts == warn_attempts
                 @warn "Rejection sampling took too long"
             end
             x .+= candidate
@@ -310,6 +254,146 @@ function _canonical(
     end
     M .+= μ .* μ'
 
+    return M
+end
+
+function _canonical(
+    data::MatrixData,
+    uncertainty_indices,
+    variable_indices,
+    first_stage_indices,
+    uncertainty_valid_indices,
+)
+    # look for rows of data.A (a sparse matrix) that are only of uncertainty
+    for var in data.binaries
+        if !(var in first_stage_indices)
+            error("Binary variable $var is not in the FirstStage")
+        end
+    end
+    for var in data.integers
+        if !(var in first_stage_indices)
+            error("Integer variable $var is not in the FirstStage")
+        end
+    end
+    if data.sense == MOI.FEASIBILITY_SENSE
+        error("Objective function sense is MOI.FEASIBILITY_SENSE, check your objective function.")
+    end
+    @assert length(data.variables) > 0
+    @assert length(data.affine_constraints) +
+        length(data.variable_constraints) > 0
+
+
+    A = data.A
+    rows = SparseArrays.rowvals(A)
+    m, n = size(A)
+
+    # Process the rows of A
+    has_variables = falses(m)
+    for j = variable_indices
+        for i in SparseArrays.nzrange(A, j)
+            has_variables[rows[i]] = true
+        end
+        # VERY Suboptimal since tags the same row multiple times if it has multiple variables
+    end
+    uncertainty_rows = findall(!, has_variables)
+    mixed_rows = findall(has_variables)
+
+    mm = length(mixed_rows)
+    equality_rows = Int[]
+    sizehint!(equality_rows, mm÷2)
+    upper_bound_rows = Int[]
+    sizehint!(upper_bound_rows, mm÷2)
+    lower_bound_rows = Int[]
+    sizehint!(lower_bound_rows, mm÷2)
+    interval_rows = Int[]
+    sizehint!(interval_rows, mm÷20)
+    for j in mixed_rows
+        if data.b_lower[j] == data.b_upper[j]
+            push!(equality_rows, j)
+        elseif data.b_lower[j] == -Inf
+            push!(upper_bound_rows, j)
+        elseif data.b_upper[j] == Inf
+            push!(lower_bound_rows, j)
+        else
+            push!(interval_rows, j)
+        end
+    end
+
+    uu = length(uncertainty_rows)
+    u_equality_rows = Int[]
+    sizehint!(u_equality_rows, uu÷20)
+    u_upper_bound_rows = Int[]
+    sizehint!(u_upper_bound_rows, uu÷2)
+    u_upper_bound_rows_v = Int[]
+    sizehint!(u_upper_bound_rows_v, length(uncertainty_valid_indices))
+    u_lower_bound_rows = Int[]
+    sizehint!(u_lower_bound_rows, uu÷2)
+    u_lower_bound_rows_v = Int[]
+    sizehint!(u_lower_bound_rows_v, length(uncertainty_valid_indices))
+    u_interval_rows = Int[]
+    sizehint!(u_interval_rows, uu÷20)
+    for j in uncertainty_rows
+        if data.b_lower[j] == data.b_upper[j]
+            push!(u_equality_rows, j)
+        elseif data.b_lower[j] == -Inf
+            if j in uncertainty_valid_indices
+                push!(u_upper_bound_rows_v, j)
+            else
+                push!(u_upper_bound_rows, j)
+            end
+        elseif data.b_upper[j] == Inf
+            if j in uncertainty_valid_indices
+                push!(u_lower_bound_rows_v, j)
+            else
+                push!(u_lower_bound_rows, j)
+            end
+        else
+            push!(u_interval_rows, j)
+        end
+    end
+
+    if length(u_equality_rows) > 0
+        @warn "pure equality constraint on uncertainty variables is not valid"
+    end
+    if length(u_interval_rows) > 0
+        @warn "pure interval constraint on uncertainty variables is not valid"
+    end
+
+    # Build the matrices (Ae, Au, Al) and vectors (be, bu, bl, xu, xl) for the problem
+    #  Ae x(ξ) = be(ξ)
+    #  Au x(ξ) ≤ bu(ξ)
+    #  Al x(ξ) ≥ bl(ξ)
+    #  I x(ξ) ≤ xu
+    #  I x(ξ) ≥ xl
+    Ae = A[equality_rows, variable_indices]
+    be = data.b_lower[equality_rows]
+    Be = [be -A[equality_rows, uncertainty_indices]]
+    Au = A[upper_bound_rows, variable_indices]
+    bu = data.b_upper[upper_bound_rows]
+    Bu = [bu -A[upper_bound_rows, uncertainty_indices]]
+    Al = A[lower_bound_rows, variable_indices]
+    bl = data.b_lower[lower_bound_rows]
+    Bl = [bl -A[lower_bound_rows, uncertainty_indices]]
+    xu = data.x_upper[variable_indices]
+    xl = data.x_lower[variable_indices]
+
+    # Build the matrices (Wu, Wl) and vectors (hu, hl, lb, ub) for the uncertainty
+    Wu = A[u_upper_bound_rows, uncertainty_indices]
+    hu = data.b_upper[u_upper_bound_rows]
+    Wl = A[u_lower_bound_rows, uncertainty_indices]
+    hl = data.b_lower[u_lower_bound_rows]
+    # same for valid constraints
+    Wu_v = A[u_upper_bound_rows_v, uncertainty_indices]
+    hu_v = data.b_upper[u_upper_bound_rows_v]
+    Wl_v = A[u_lower_bound_rows_v, uncertainty_indices]
+    hl_v = data.b_lower[u_lower_bound_rows_v]
+    # bounds from variable input, from:
+    # - distributions defition
+    # - truncate for scalar distributions
+    # - boxed for vector distributions
+    lb = data.x_lower[uncertainty_indices]
+    ub = data.x_upper[uncertainty_indices]
+
     # Build the LDR matrices (Q, C) and constant r from the quadratic objective
     # [x η]⊤ Q [x η] + c⊤ [x η] + c_offset = x⊤ Q_11 x + 2 η⊤ Q_21 x + η⊤ Q_4 η + c_1⊤ x + c_2⊤ η + c_offset
     # We define ξ = [1; η], and pose the LDR  x = X ξ; taking the expectation over ξ, we get
@@ -318,34 +402,86 @@ function _canonical(
     # = Tr(X⊤ Q_11 X M) + Tr([c_1⊤; Q_21] X M) + Tr([c_offset c_2⊤/2; c_2/2 Q_4] M)
     P = data.Q[variable_indices, variable_indices]
     C = [data.c[variable_indices] data.Q[variable_indices, uncertainty_indices]]
-    # r = [data.c_offset 0.5 * data.c[uncertainty_indices]'; 0.5 * data.c[uncertainty_indices] data.Q[uncertainty_indices, uncertainty_indices]]
-    r1 = data.c_offset
-    r2 = data.c[uncertainty_indices]' * M[2:end, 1]
-    r3 = sum(data.Q[uncertainty_indices, uncertainty_indices] .* M[2:end, 2:end])
-    r = r1 + r2 + r3[1]
+    Q = data.Q[uncertainty_indices, uncertainty_indices]
+    d = data.c[uncertainty_indices]
+    f = data.c_offset
 
-    return (Ae=Ae, Be=Be, Au=Au, Bu=Bu, Al=Al, Bl=Bl, xu=xu, xl=xl, Wu=Wu, hu=hu, Wl=Wl, hl=hl, lb=lb, ub=ub, M=M, P=P, C=C, r=r)
+    return (
+        Ae=Ae,
+        Be=Be,
+        Au=Au,
+        Bu=Bu,
+        Al=Al,
+        Bl=Bl,
+        xu=xu,
+        xl=xl,
+        Wu=Wu,
+        hu=hu,
+        Wl=Wl,
+        hl=hl,
+        Wu_v=Wu_v,
+        hu_v=hu_v,
+        Wl_v=Wl_v,
+        hl_v=hl_v,
+        lb=lb,
+        ub=ub,
+        P=P,
+        C=C,
+        Q=Q,
+        d=d,
+        f=f,
+        bin = data.binaries,
+        int = data.integers,
+    )
+end
+
+function _objective_constant(ABC, M)
+    # r = [data.c_offset 0.5 * data.c[uncertainty_indices]'; 0.5 * data.c[uncertainty_indices] data.Q[uncertainty_indices, uncertainty_indices]]
+    r1 = ABC.f
+    r2 = ABC.d' * M[2:end, 1]
+    r3 = sum(ABC.Q .* M[2:end, 2:end])
+    r = r1 + r2 + r3[1]
+    return r
 end
 
 function _prepare_data(model)
 
-    data = matrix_data(model.cache_model)
+    stoch_model = if isempty(model.pwl_data)
+        model.cache_model
+    else
+        model.pwl_model
+    end
+    data = matrix_data(stoch_model.model)
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
-    model.ext[:var_to_column] = var_to_column
-    uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices =
-        _variable_maps(data, model.uncertainty_to_distribution, model.cache_first_stage)
-    model.ext[:column_to_canonical] = column_to_canonical
+    model.ext[:_LDR_var_to_column] = var_to_column
+    uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices, uncertainty_valid_indices =
+        _model_to_matrix(
+            data,
+            stoch_model.uncertainty_to_distribution,
+            stoch_model.first_stage,
+            stoch_model.uncertainty_valid_constraints,
+        )
+    model.ext[:_LDR_column_to_canonical] = column_to_canonical
     ABC = _canonical(
         data,
         uncertainty_indices,
         variable_indices,
-        model.uncertainty_to_distribution,
-        model.cache_scalar_distributions,
-        model.cache_vector_distributions,
+        first_stage_indices,
+        uncertainty_valid_indices,
     )
-    model.ext[:sense] = data.sense
-    model.ext[:ABC] = ABC
-    model.ext[:first_stage_indices] = first_stage_indices
+    M = _second_moment_matrix(
+        data,
+        uncertainty_indices,
+        stoch_model.uncertainty_to_distribution,
+        stoch_model.scalar_distributions,
+        stoch_model.vector_distributions,
+        ABC,
+    )
+    model.ext[:_LDR_r] = _objective_constant(ABC, M)
+    model.ext[:_LDR_M] = M
+    model.ext[:_LDR_sense] = data.sense
+    model.ext[:_LDR_ABC] = ABC
+    model.ext[:_LDR_first_stage_indices] = first_stage_indices
 
     return nothing
 end
@@ -419,8 +555,8 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
     wl_m, wl_n = size(Wl)
     reject = true
     cont = 0
-    fill!(candidate, 0.0)
     while reject
+        fill!(candidate, 0.0)
         cont += 1
         if cont > 1000
             println("Cannot sample a point in the set")
@@ -433,7 +569,7 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
                 list = vector_idxs[dist_idx]
                 Random.rand!(rng, dist, @view candidate[list])
                 for i in list
-                    if !(lb[i] < candidate[i] < ub[i])
+                    if !(lb[i] <= candidate[i] <= ub[i])
                         reject = true
                         break
                     end
@@ -451,7 +587,7 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
         end
         LinearAlgebra.mul!(cache_wu_m, Wu, candidate)
         for i in wu_rows
-            if !(cache_wu_m[i] < hu[i])
+            if !(cache_wu_m[i] <= hu[i])
                 reject = true
                 break
             end
@@ -461,7 +597,7 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
         end
         LinearAlgebra.mul!(cache_wl_m, Wl, candidate)
         for i in wl_rows
-            if !(cache_wl_m[i] > hl[i])
+            if !(cache_wl_m[i] >= hl[i])
                 reject = true
                 break
             end
