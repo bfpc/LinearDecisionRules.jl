@@ -40,7 +40,7 @@ function get_decision(model, x, η; dual = false, piece = nothing)
 end
 
 """
-    get_decision(m, x; dual = false, piece = nothing)
+    get_decision(m, x; dual = false)
 
 Constant term in the LDR of x
 """
