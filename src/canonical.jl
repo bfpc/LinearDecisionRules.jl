@@ -261,12 +261,20 @@ function _canonical(
     data::MatrixData,
     uncertainty_indices,
     variable_indices,
+    first_stage_indices,
     uncertainty_valid_indices,
 )
     # look for rows of data.A (a sparse matrix) that are only of uncertainty
-
-    @assert length(data.binaries) == 0
-    @assert length(data.integers) == 0
+    for var in data.binaries
+        if !(var in first_stage_indices)
+            error("Binary variable $var is not in the FirstStage")
+        end
+    end
+    for var in data.integers
+        if !(var in first_stage_indices)
+            error("Integer variable $var is not in the FirstStage")
+        end
+    end
     if data.sense == MOI.FEASIBILITY_SENSE
         error("Objective function sense is MOI.FEASIBILITY_SENSE, check your objective function.")
     end
@@ -422,6 +430,8 @@ function _canonical(
         Q=Q,
         d=d,
         f=f,
+        bin = data.binaries,
+        int = data.integers,
     )
 end
 
@@ -456,6 +466,7 @@ function _prepare_data(model)
         data,
         uncertainty_indices,
         variable_indices,
+        first_stage_indices,
         uncertainty_valid_indices,
     )
     M = _second_moment_matrix(

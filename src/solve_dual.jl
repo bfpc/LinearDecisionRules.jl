@@ -26,6 +26,16 @@ function _solve_dual_ldr(model)
             end
         end
     end
+    for i in ABC.bin
+        for (var, _) in X[i, 1].terms # because its is affexp
+            set_binary(var)
+        end
+    end
+    for i in ABC.int
+        for (var, _) in X[i, 1].terms # because its is affexp
+            set_integer(var)
+        end
+    end
     # @variable(model.dual_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.dual_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.dual_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
