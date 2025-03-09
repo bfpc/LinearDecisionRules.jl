@@ -1,8 +1,8 @@
 using Documenter, LinearDecisionRules
 
-makedocs(sitename="LinearDecisionRules.jl documentation")
+makedocs(; sitename = "LinearDecisionRules.jl documentation")
 
-deploydocs(
+deploydocs(;
     repo = "github.com/bfpc/LinearDecisionRules.jl.git",
     push_preview = true,
 )

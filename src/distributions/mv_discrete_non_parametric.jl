@@ -7,13 +7,29 @@ struct MvDiscreteNonParametric{
 } <: Distributions.DiscreteMultivariateDistribution
     support::Tss
     p::Ps
-    function MvDiscreteNonParametric{T,P,Ts,Tss,Ps}(xs::Tss, ps::Ps; check_args::Bool=true) where {
-        T<:Real,P<:Real,Ts<:AbstractVector{T},Tss<:AbstractVector{Ts},Ps<:AbstractVector{P}}
+    function MvDiscreteNonParametric{T,P,Ts,Tss,Ps}(
+        xs::Tss,
+        ps::Ps;
+        check_args::Bool = true,
+    ) where {
+        T<:Real,
+        P<:Real,
+        Ts<:AbstractVector{T},
+        Tss<:AbstractVector{Ts},
+        Ps<:AbstractVector{P},
+    }
         check_args || return new{T,P,Ts,Tss,Ps}(xs, ps)
         Distributions.@check_args(
             MvDiscreteNonParametric,
-            (length(xs) == length(ps), "length of support and probability vector must be equal"),
-            (ps, Distributions.isprobvec(ps), "vector is not a probability vector"),
+            (
+                length(xs) == length(ps),
+                "length of support and probability vector must be equal",
+            ),
+            (
+                ps,
+                Distributions.isprobvec(ps),
+                "vector is not a probability vector",
+            ),
             # (xs, Distributions.allunique(xs), "support must contain only unique elements"),
         )
         return new{T,P,Ts,Tss,Ps}(xs, ps)
@@ -23,9 +39,13 @@ end
 function MvDiscreteNonParametric(
     xs::AbstractVector{Ts},
     ps::AbstractVector{P};
-    check_args::Bool=true,
+    check_args::Bool = true,
 ) where {T<:Real,Ts<:AbstractVector{T},P<:Real}
-    return MvDiscreteNonParametric{T,P,eltype(xs),typeof(xs),typeof(ps)}(xs, ps; check_args)
+    return MvDiscreteNonParametric{T,P,eltype(xs),typeof(xs),typeof(ps)}(
+        xs,
+        ps;
+        check_args,
+    )
 end
 
 Base.eltype(::Type{<:MvDiscreteNonParametric{T,P,Ts}}) where {T,P,Ts} = Ts
@@ -40,7 +60,11 @@ _probs(d::MvDiscreteNonParametric) = d.p
 
 Distributions.length(d::MvDiscreteNonParametric) = length(_support(d)[1])
 
-function Distributions._rand!(rng::Random.AbstractRNG, d::MvDiscreteNonParametric, x::AbstractVector)
+function Distributions._rand!(
+    rng::Random.AbstractRNG,
+    d::MvDiscreteNonParametric,
+    x::AbstractVector,
+)
     _x = _support(d)
     p = _probs(d)
     n = length(p)
@@ -48,7 +72,7 @@ function Distributions._rand!(rng::Random.AbstractRNG, d::MvDiscreteNonParametri
     cp = p[1]
     i = 1
     while cp <= draw && i < n
-        @inbounds cp += p[i +=1]
+        @inbounds cp += p[i+=1]
     end
     x .+= _x[i]
     return x

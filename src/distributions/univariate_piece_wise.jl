@@ -7,8 +7,10 @@ struct UnivariatePieceWise{
 } <: Distributions.MultivariateDistribution{S}
     original::D
     break_points::AbstractVector{T}
-    function UnivariatePieceWise(d::D, break_points::Vector{T}) where {
-        D<:Distributions.UnivariateDistribution, T<:Real}
+    function UnivariatePieceWise(
+        d::D,
+        break_points::Vector{T},
+    ) where {D<:Distributions.UnivariateDistribution,T<:Real}
         @assert eltype(d) == T
         @assert minimum(d) > -Inf
         @assert maximum(d) < Inf
@@ -20,13 +22,18 @@ struct UnivariatePieceWise{
         @assert sorted_break_points[begin] > minimum(d)
         @assert sorted_break_points[end] < maximum(d)
 
-        return new{typeof(d), Distributions.value_support(typeof(d)), T}(d, sorted_break_points)
+        return new{typeof(d),Distributions.value_support(typeof(d)),T}(
+            d,
+            sorted_break_points,
+        )
     end
 end
 
 Base.eltype(::Type{<:UnivariatePieceWise{D,S,T}}) where {D,S,T} = T
 
-Distributions.params(d::UnivariatePieceWise) = tuple(params(d.original)..., d.break_points)
+function Distributions.params(d::UnivariatePieceWise)
+    return tuple(params(d.original)..., d.break_points)
+end
 
 _original(d::UnivariatePieceWise) = d.original
 
@@ -36,7 +43,11 @@ _break_points(d::UnivariatePieceWise) = d.break_points
 
 Distributions.length(d::UnivariatePieceWise) = length(_break_points(d)) + 1
 
-function Distributions._rand!(rng::Random.AbstractRNG, d::UnivariatePieceWise, x::AbstractVector)
+function Distributions._rand!(
+    rng::Random.AbstractRNG,
+    d::UnivariatePieceWise,
+    x::AbstractVector,
+)
     draw = rand(rng, d.original)
     @assert length(d) == length(x)
     break_points = _break_points(d)
@@ -81,8 +92,14 @@ function Distributions.mean(d::UnivariatePieceWise)
     ret = zeros(eltype(d), length(d))
     for i in 1:length(d)
         Δi = vals[i+1] - vals[i]
-        E = Expectations.expectation(Distributions.truncated(d.original, vals[i], vals[i+1]))
-        ret[i] = E(x -> x - vals[i]) * (Distributions.cdf(d.original, vals[i+1]) - Distributions.cdf(d.original, vals[i]))
+        E = Expectations.expectation(
+            Distributions.truncated(d.original, vals[i], vals[i+1]),
+        )
+        ret[i] =
+            E(x -> x - vals[i]) * (
+                Distributions.cdf(d.original, vals[i+1]) -
+                Distributions.cdf(d.original, vals[i])
+            )
         ret[i] += Δi * (1 - Distributions.cdf(d.original, vals[i+1]))
     end
     ret[1] += vals[1]
@@ -98,16 +115,24 @@ function Distributions.cov(d::UnivariatePieceWise)
         for i in 1:(j-1)
             Δi = vals[i+1] - vals[i]
             Δj = vals[j+1] - vals[j]
-            E = Expectations.expectation(Distributions.truncated(d.original, vals[j], vals[j+1]))
-            part1 = Δi * E(x -> x - vals[j]) * (Distributions.cdf(d.original, vals[j+1]) - Distributions.cdf(d.original, vals[j]))
+            E = Expectations.expectation(
+                Distributions.truncated(d.original, vals[j], vals[j+1]),
+            )
+            part1 =
+                Δi *
+                E(x -> x - vals[j]) *
+                (
+                    Distributions.cdf(d.original, vals[j+1]) -
+                    Distributions.cdf(d.original, vals[j])
+                )
             part2 = Δi * Δj * (1 - Distributions.cdf(d.original, vals[j+1]))
-            ret[i,j] = part1 + part2 - _mean[i] * _mean[j]
-            ret[j,i] = part1 + part2 - _mean[j] * _mean[i]
+            ret[i, j] = part1 + part2 - _mean[i] * _mean[j]
+            ret[j, i] = part1 + part2 - _mean[j] * _mean[i]
         end
     end
     _var = Distributions.var(d)
     for i in 1:length(d)
-        ret[i,i] = _var[i]
+        ret[i, i] = _var[i]
     end
     return ret
 end
@@ -119,8 +144,14 @@ function Distributions.var(d::UnivariatePieceWise)
     ret = zeros(eltype(eltype(d)), length(d))
     for i in 1:length(d)
         Δi = vals[i+1] - vals[i]
-        E = Expectations.expectation(Distributions.truncated(d.original, vals[i], vals[i+1]))
-        part1 = E(x -> (x - vals[i])^2) * (Distributions.cdf(d.original, vals[i+1]) - Distributions.cdf(d.original, vals[i]))
+        E = Expectations.expectation(
+            Distributions.truncated(d.original, vals[i], vals[i+1]),
+        )
+        part1 =
+            E(x -> (x - vals[i])^2) * (
+                Distributions.cdf(d.original, vals[i+1]) -
+                Distributions.cdf(d.original, vals[i])
+            )
         part2 = Δi^2 * (1 - Distributions.cdf(d.original, vals[i+1]))
         ret[i] = part1 + part2 - _mean[i]^2
     end
