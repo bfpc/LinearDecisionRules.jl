@@ -114,9 +114,6 @@ function JuMP.set_attribute(x::JuMP.VariableRef, attr::BreakPoints, num::Integer
     elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
         error("Breakpoints only work with scalar uncertainty.")
     end
-    if num < 1
-        error("Number of breakpoints must be at least 1.")
-    end
     dist = model.cache_model.scalar_distributions[model.cache_model.uncertainty_to_distribution[x][1]]
     _min = minimum(dist)
     _max = maximum(dist)
