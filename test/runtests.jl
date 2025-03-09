@@ -431,7 +431,7 @@ function test_0_uniform()
 
     @test m[:vi] == vi
 
-    data = LinearDecisionRules.matrix_data(m.cache_model)
+    data = LinearDecisionRules.matrix_data(m.cache_model.model)
     @test data.variables == [vi; vf; gh; gt; inflow]
     @test data.Q == LinearDecisionRules.SparseArrays.sparse([2, 4], [2, 4], [1/2, 1], 5, 5)
     @test data.sense == MOI.MIN_SENSE
@@ -536,7 +536,7 @@ function test_1()
     
     @test m[:vi] == vi
     
-    data = LinearDecisionRules.matrix_data(m.cache_model)
+    data = LinearDecisionRules.matrix_data(m.cache_model.model)
     @test data.variables == [vi; vf; gh; gt; inflow]
     @test data.Q == LinearDecisionRules.SparseArrays.sparse([2, 4], [2, 4], [1/2, 1], 5, 5)
     @test data.sense == MOI.MIN_SENSE
@@ -576,6 +576,103 @@ function test_2()
 
     set_optimizer(m, Ipopt.Optimizer)
     optimize!(m)
+end
+
+function test_piecewise_distribution()
+
+    o_dist = Distributions.Uniform(1.0, 4.0)
+
+    p_dist = LinearDecisionRules.UnivariatePieceWise(o_dist, [2.0, 3.0])
+
+    len = length(p_dist)
+
+    nu_mean = Distributions.mean(p_dist)
+    nu_cov = Distributions.cov(p_dist)
+
+    rng = Random.MersenneTwister(123)
+
+    N = 1_000_000
+
+    mc_mean = zeros(len)
+    mc_cov = zeros(len, len)
+    x = zeros(len)
+    for i in 1:N
+        fill!(x, 0.0)
+        Random.rand!(rng, p_dist, x)
+        mc_mean .+= x
+        mc_cov .+= x * x'
+    end
+    mc_mean ./= N
+    mc_cov ./= N
+    mc_cov .-= mc_mean * mc_mean'
+
+    # @show nu_mean
+    # @show mc_mean
+    # @show nu_cov
+    # @show mc_cov
+
+    @test nu_mean ≈ mc_mean atol = 1e-2
+    @test nu_cov ≈ mc_cov atol = 1e-2
+
+    return
+end
+
+function test_newsvendor_piecewise()
+    buy_cost = 10
+    return_value = 8
+    sell_value = 15
+
+    @show demand_max = 120
+    demand_min = 80
+    demand_distr = Distributions.Uniform(demand_min, demand_max)
+
+    # LDR
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+    # unset_silent(ldr)
+
+    @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell >= 0)
+    @variable(ldr, ret >= 0)
+    @variable(ldr, demand in
+        LinearDecisionRules.Uncertainty(
+            distribution = demand_distr
+        )
+    )
+
+    @constraint(ldr, sell + ret <= buy)
+
+    @constraint(ldr, sell <= demand)
+
+    @objective(ldr, Max,
+        - buy_cost * buy
+        + return_value * ret
+        + sell_value * sell
+    )
+
+    optimize!(ldr)
+
+    ldr_p_obj = Float64[]
+    push!(ldr_p_obj, objective_value(ldr))
+    ldr_d_obj = Float64[]
+    push!(ldr_d_obj, objective_value(ldr, dual = true))
+
+    @test ldr_p_obj[] <= ldr_d_obj[] + 1e-6
+
+    for n in 1:3 # 4 fails!
+        set_attribute(demand, LinearDecisionRules.BreakPoints(), n)
+        optimize!(ldr)
+        push!(ldr_p_obj, objective_value(ldr))
+        push!(ldr_d_obj, objective_value(ldr, dual = true))
+        @test ldr_p_obj[end] <= ldr_d_obj[end]
+        @test ldr_p_obj[end] >= ldr_p_obj[end-1]
+        @test ldr_d_obj[end] <= ldr_d_obj[end-1]
+        @test ldr_p_obj[end] <= ldr_d_obj[end-1]
+        @test ldr_d_obj[end] >= ldr_p_obj[end-1]
+    end
+
+    return
 end
 
 end # TestMain module

@@ -41,7 +41,12 @@ s.t. Ae X ξ = Be ξ
 # Notation: Q or P for the quadratic term?
 """
 
-function _variable_maps(data::MatrixData, uncertainty_variables, first_stage_variables)
+function _model_to_matrix(
+    data::MatrixData,
+    uncertainty_variables,
+    first_stage_variables,
+    uncertainty_valid_constraints,
+)
     A = data.A
     m, n = size(A)
 
@@ -63,8 +68,9 @@ function _variable_maps(data::MatrixData, uncertainty_variables, first_stage_var
     end
 
     first_stage_indices = Set(findall(x -> x in first_stage_variables, data.variables))
+    uncertainty_valid_indices = Set(findall(x -> x in uncertainty_valid_constraints, data.affine_constraints))
 
-    return uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices
+    return uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices, uncertainty_valid_indices
 end
 
 function _second_moment_matrix(
@@ -227,7 +233,7 @@ function _second_moment_matrix(
                 Wl,
                 hl,
             )
-            if _attempts > warn_attempts
+            if _attempts == warn_attempts
                 @warn "Rejection sampling took too long"
             end
             x .+= candidate
@@ -255,6 +261,7 @@ function _canonical(
     data::MatrixData,
     uncertainty_indices,
     variable_indices,
+    uncertainty_valid_indices,
 )
     # look for rows of data.A (a sparse matrix) that are only of uncertainty
 
@@ -309,24 +316,39 @@ function _canonical(
     sizehint!(u_equality_rows, uu÷20)
     u_upper_bound_rows = Int[]
     sizehint!(u_upper_bound_rows, uu÷2)
+    u_upper_bound_rows_v = Int[]
+    sizehint!(u_upper_bound_rows_v, length(uncertainty_valid_indices))
     u_lower_bound_rows = Int[]
     sizehint!(u_lower_bound_rows, uu÷2)
+    u_lower_bound_rows_v = Int[]
+    sizehint!(u_lower_bound_rows_v, length(uncertainty_valid_indices))
     u_interval_rows = Int[]
     sizehint!(u_interval_rows, uu÷20)
     for j in uncertainty_rows
         if data.b_lower[j] == data.b_upper[j]
             push!(u_equality_rows, j)
         elseif data.b_lower[j] == -Inf
-            push!(u_upper_bound_rows, j)
+            if j in uncertainty_valid_indices
+                push!(u_upper_bound_rows_v, j)
+            else
+                push!(u_upper_bound_rows, j)
+            end
         elseif data.b_upper[j] == Inf
-            push!(u_lower_bound_rows, j)
+            if j in uncertainty_valid_indices
+                push!(u_lower_bound_rows_v, j)
+            else
+                push!(u_lower_bound_rows, j)
+            end
         else
             push!(u_interval_rows, j)
         end
     end
 
     if length(u_equality_rows) > 0
-        @warn "equality constraint on uncertainty variable"
+        @warn "pure equality constraint on uncertainty variables is not valid"
+    end
+    if length(u_interval_rows) > 0
+        @warn "pure interval constraint on uncertainty variables is not valid"
     end
 
     # Build the matrices (Ae, Au, Al) and vectors (be, bu, bl, xu, xl) for the problem
@@ -352,6 +374,11 @@ function _canonical(
     hu = data.b_upper[u_upper_bound_rows]
     Wl = A[u_lower_bound_rows, uncertainty_indices]
     hl = data.b_lower[u_lower_bound_rows]
+    # same for valid constraints
+    Wu_v = A[u_upper_bound_rows_v, uncertainty_indices]
+    hu_v = data.b_upper[u_upper_bound_rows_v]
+    Wl_v = A[u_lower_bound_rows_v, uncertainty_indices]
+    hl_v = data.b_lower[u_lower_bound_rows_v]
     # bounds from variable input, from:
     # - distributions defition
     # - truncate for scalar distributions
@@ -371,7 +398,31 @@ function _canonical(
     d = data.c[uncertainty_indices]
     f = data.c_offset
 
-    return (Ae=Ae, Be=Be, Au=Au, Bu=Bu, Al=Al, Bl=Bl, xu=xu, xl=xl, Wu=Wu, hu=hu, Wl=Wl, hl=hl, lb=lb, ub=ub, P=P, C=C, Q=Q, d=d, f=f)
+    return (
+        Ae=Ae,
+        Be=Be,
+        Au=Au,
+        Bu=Bu,
+        Al=Al,
+        Bl=Bl,
+        xu=xu,
+        xl=xl,
+        Wu=Wu,
+        hu=hu,
+        Wl=Wl,
+        hl=hl,
+        Wu_v=Wu_v,
+        hu_v=hu_v,
+        Wl_v=Wl_v,
+        hl_v=hl_v,
+        lb=lb,
+        ub=ub,
+        P=P,
+        C=C,
+        Q=Q,
+        d=d,
+        f=f,
+    )
 end
 
 function _objective_constant(ABC, M)
@@ -385,23 +436,34 @@ end
 
 function _prepare_data(model)
 
-    data = matrix_data(model.cache_model)
+    stoch_model = if isempty(model.pwl_data)
+        model.cache_model
+    else
+        model.pwl_model
+    end
+    data = matrix_data(stoch_model.model)
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:_LDR_var_to_column] = var_to_column
-    uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices =
-        _variable_maps(data, model.uncertainty_to_distribution, model.cache_first_stage)
+    uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices, uncertainty_valid_indices =
+        _model_to_matrix(
+            data,
+            stoch_model.uncertainty_to_distribution,
+            stoch_model.first_stage,
+            stoch_model.uncertainty_valid_constraints,
+        )
     model.ext[:_LDR_column_to_canonical] = column_to_canonical
     ABC = _canonical(
         data,
         uncertainty_indices,
         variable_indices,
+        uncertainty_valid_indices,
     )
     M = _second_moment_matrix(
         data,
         uncertainty_indices,
-        model.uncertainty_to_distribution,
-        model.cache_scalar_distributions,
-        model.cache_vector_distributions,
+        stoch_model.uncertainty_to_distribution,
+        stoch_model.scalar_distributions,
+        stoch_model.vector_distributions,
         ABC,
     )
     model.ext[:_LDR_r] = _objective_constant(ABC, M)
@@ -482,8 +544,8 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
     wl_m, wl_n = size(Wl)
     reject = true
     cont = 0
-    fill!(candidate, 0.0)
     while reject
+        fill!(candidate, 0.0)
         cont += 1
         if cont > 1000
             println("Cannot sample a point in the set")
@@ -496,7 +558,7 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
                 list = vector_idxs[dist_idx]
                 Random.rand!(rng, dist, @view candidate[list])
                 for i in list
-                    if !(lb[i] < candidate[i] < ub[i])
+                    if !(lb[i] <= candidate[i] <= ub[i])
                         reject = true
                         break
                     end
@@ -514,7 +576,7 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
         end
         LinearAlgebra.mul!(cache_wu_m, Wu, candidate)
         for i in wu_rows
-            if !(cache_wu_m[i] < hu[i])
+            if !(cache_wu_m[i] <= hu[i])
                 reject = true
                 break
             end
@@ -524,7 +586,7 @@ function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows,
         end
         LinearAlgebra.mul!(cache_wl_m, Wl, candidate)
         for i in wl_rows
-            if !(cache_wl_m[i] > hl[i])
+            if !(cache_wl_m[i] >= hl[i])
                 reject = true
                 break
             end

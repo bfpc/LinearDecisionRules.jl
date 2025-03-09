@@ -49,13 +49,17 @@ function _solve_primal_ldr(model)
     # Inequality constraints
     # Uncertainty polyhedron: W ξ ≥ h from
     # Ξ = { ξ = (1, η) ∈ ℝ^m | Wu η ≤ hu, Wl η ≥ hl, lb ≤ η ≤ ub }
-    nu = size(ABC.Wu, 1)
-    nl = size(ABC.Wl, 1)
+    Wu = vcat(ABC.Wu, ABC.Wu_v)
+    hu = vcat(ABC.hu, ABC.hu_v)
+    Wl = vcat(ABC.Wl, ABC.Wl_v)
+    hl = vcat(ABC.hl, ABC.hl_v)
+    nu = size(Wu, 1)
+    nl = size(Wl, 1)
     nW = 2dim_ξ + nu + nl
     W = [ 1 zeros(1, dim_uncertainty);
          -1 zeros(1, dim_uncertainty);
-         zeros(nu + nl + 2dim_uncertainty, 1) [-ABC.Wu; ABC.Wl; -SparseArrays.I(dim_uncertainty); SparseArrays.I(dim_uncertainty)]]
-    h = [1; -1; -ABC.hu; ABC.hl; -ABC.ub; ABC.lb]
+         zeros(nu + nl + 2dim_uncertainty, 1) [-Wu; Wl; -SparseArrays.I(dim_uncertainty); SparseArrays.I(dim_uncertainty)]]
+    h = [1; -1; -hu; hl; -ABC.ub; ABC.lb]
 
     @constraint(model.primal_model, ABC.Au * X .+ Su .== ABC.Bu)
     @variable(model.primal_model, ΛSu[1:size(ABC.Bu, 1),1:nW] >= 0)
