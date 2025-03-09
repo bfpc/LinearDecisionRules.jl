@@ -622,7 +622,7 @@ function test_newsvendor_piecewise()
     return_value = 8
     sell_value = 15
 
-    @show demand_max = 120
+    demand_max = 120
     demand_min = 80
     demand_distr = Distributions.Uniform(demand_min, demand_max)
 
@@ -680,7 +680,7 @@ function test_newsvendor_integer()
     return_value = 8
     sell_value = 15
 
-    @show demand_max = 120
+    demand_max = 120
     demand_min = 80
     demand_distr = Distributions.Uniform(demand_min, demand_max)
 
