@@ -5,6 +5,8 @@ See presentation [video](https://youtu.be/ERO6vyTOOoI) and [slides](https://jump
 [![Build Status](https://github.com/bfpc/LinearDecisionRules.jl/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bfpc/LinearDecisionRules.jl/actions?query=workflow%3ACI)
 
 [![codecov](https://codecov.io/gh/bfpc/LinearDecisionRules.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/bfpc/LinearDecisionRules.jl)
+ 
+[![dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://bfpc.github.io/LinearDecisionRules.jl/dev/)
 
 ## Install
 
