@@ -19,10 +19,10 @@ function _solve_dual_ldr(model)
     @expression(model.dual_model, X[1:dim_x, 1:dim_ξ], AffExpr(0.0))
     for i in 1:dim_x
         if i in first_stage_indices
-            X[i, 1] = @variable(model.dual_model, base_name="X[$i,1]")
+            X[i, 1] = @variable(model.dual_model, base_name = "X[$i,1]")
         else
             for j in 1:dim_ξ
-                X[i, j] = @variable(model.dual_model, base_name="X[$i,$j]")
+                X[i, j] = @variable(model.dual_model, base_name = "X[$i,$j]")
             end
         end
     end
@@ -53,14 +53,16 @@ function _solve_dual_ldr(model)
     nu = size(Wu, 1)
     nl = size(Wl, 1)
     nW = 2dim_ξ + nu + nl
-    W = [ 1 zeros(1, dim_uncertainty);
-         -1 zeros(1, dim_uncertainty);
-         zeros(nu + nl + 2dim_uncertainty, 1) [-Wu; Wl; -SparseArrays.I(dim_uncertainty); SparseArrays.I(dim_uncertainty)]]
+    W = [
+        1 zeros(1, dim_uncertainty)
+        -1 zeros(1, dim_uncertainty)
+        zeros(nu + nl + 2dim_uncertainty, 1) [-Wu; Wl; -SparseArrays.I(dim_uncertainty); SparseArrays.I(dim_uncertainty)]
+    ]
     h = [1; -1; -hu; hl; -ABC.ub; ABC.lb]
 
     # (W - h e1⊤)
     W2 = deepcopy(W)
-    W2[:, 1] .-= h 
+    W2[:, 1] .-= h
 
     # Constraints on slack matrices "S" are of the form
     # (W - h e1⊤) M Sᵗ ≥ 0
@@ -76,18 +78,24 @@ function _solve_dual_ldr(model)
     # Can only include rows where the bound is not +Inf
     idxs = findall(x -> x != Inf, ABC.xu)
     @variable(model.dual_model, Sxu[idxs, 1:dim_ξ])
-    @constraint(model.dual_model, X[idxs,1] .+ Sxu[idxs,1] .== ABC.xu[idxs])
-    @constraint(model.dual_model, X[idxs,2:end] .+ Sxu[idxs,2:end] .== 0)
+    @constraint(model.dual_model, X[idxs, 1] .+ Sxu[idxs, 1] .== ABC.xu[idxs])
+    @constraint(model.dual_model, X[idxs, 2:end] .+ Sxu[idxs, 2:end] .== 0)
     @constraint(model.dual_model, Sxu.data * WMt .>= 0)
 
     # Can only include rows where the bound is not -Inf
     idxs = findall(x -> x != -Inf, ABC.xl)
     @variable(model.dual_model, Sxl[idxs, 1:dim_ξ])
-    @constraint(model.dual_model, X[idxs,1] .- Sxl[idxs,1] .== ABC.xl[idxs])
-    @constraint(model.dual_model, X[idxs,2:end] .- Sxl[idxs,2:end] .== 0)
+    @constraint(model.dual_model, X[idxs, 1] .- Sxl[idxs, 1] .== ABC.xl[idxs])
+    @constraint(model.dual_model, X[idxs, 2:end] .- Sxl[idxs, 2:end] .== 0)
     @constraint(model.dual_model, Sxl.data * WMt .>= 0)
 
-    @expression(model.dual_model, obj, LinearAlgebra.tr(X' * ABC.P * X * M) + LinearAlgebra.tr(ABC.C' * X * M) + r)
+    @expression(
+        model.dual_model,
+        obj,
+        LinearAlgebra.tr(X' * ABC.P * X * M) +
+        LinearAlgebra.tr(ABC.C' * X * M) +
+        r
+    )
 
     if model.ext[:_LDR_sense] == MOI.MIN_SENSE
         @objective(model.dual_model, Min, obj)

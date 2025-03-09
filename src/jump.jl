@@ -3,10 +3,14 @@ Base.@kwdef mutable struct StochasticModel <: JuMP.AbstractModel
 
     # maps
     first_stage::Set{JuMP.VariableRef} = Set{JuMP.VariableRef}()
-    uncertainty_to_distribution::Dict{JuMP.VariableRef,Tuple{Int,Int}} = Dict{JuMP.VariableRef,Tuple{Int,Int}}()
-    scalar_distributions::Vector{Distributions.Distribution} = Vector{Distributions.Distribution}()
-    vector_distributions::Vector{Distributions.Distribution} = Vector{Distributions.Distribution}()
-    uncertainty_valid_constraints::Set{JuMP.ConstraintRef} = Set{JuMP.ConstraintRef}()
+    uncertainty_to_distribution::Dict{JuMP.VariableRef,Tuple{Int,Int}} =
+        Dict{JuMP.VariableRef,Tuple{Int,Int}}()
+    scalar_distributions::Vector{Distributions.Distribution} =
+        Vector{Distributions.Distribution}()
+    vector_distributions::Vector{Distributions.Distribution} =
+        Vector{Distributions.Distribution}()
+    uncertainty_valid_constraints::Set{JuMP.ConstraintRef} =
+        Set{JuMP.ConstraintRef}()
 end
 
 mutable struct LDRModel <: JuMP.AbstractModel
@@ -15,9 +19,9 @@ mutable struct LDRModel <: JuMP.AbstractModel
     primal_model::JuMP.Model
     dual_model::JuMP.Model
 
-    pwl_data::Dict{JuMP.VariableRef, Vector{Float64}}
-    map_cache_to_pwl::Union{JuMP.ReferenceMap, Nothing}
-    extended_variables::Dict{JuMP.VariableRef, Vector{JuMP.VariableRef}}
+    pwl_data::Dict{JuMP.VariableRef,Vector{Float64}}
+    map_cache_to_pwl::Union{JuMP.ReferenceMap,Nothing}
+    extended_variables::Dict{JuMP.VariableRef,Vector{JuMP.VariableRef}}
 
     # options
     solver::Any
@@ -36,9 +40,9 @@ mutable struct LDRModel <: JuMP.AbstractModel
             StochasticModel(),
             JuMP.Model(),
             JuMP.Model(),
-            Dict{JuMP.VariableRef, Vector{Float64}}(),
+            Dict{JuMP.VariableRef,Vector{Float64}}(),
             nothing,
-            Dict{JuMP.VariableRef, Vector{JuMP.VariableRef}}(),
+            Dict{JuMP.VariableRef,Vector{JuMP.VariableRef}}(),
             nothing,
             true,
             true,
@@ -51,9 +55,7 @@ mutable struct LDRModel <: JuMP.AbstractModel
     end
 end
 
-function LDRModel(
-    optimizer_factory
-)
+function LDRModel(optimizer_factory)
     model = LDRModel()
     model.solver = optimizer_factory
     return model
@@ -62,13 +64,13 @@ end
 struct SolvePrimal end
 struct SolveDual end
 function JuMP.set_attribute(model::LDRModel, ::SolvePrimal, value::Bool)
-    model.solve_primal = value
+    return model.solve_primal = value
 end
 function JuMP.get_attribute(model::LDRModel, ::SolvePrimal)
     return model.solve_primal
 end
 function JuMP.set_attribute(model::LDRModel, ::SolveDual, value::Bool)
-    model.solve_dual = value
+    return model.solve_dual = value
 end
 function JuMP.get_attribute(model::LDRModel, ::SolveDual)
     return model.solve_dual
@@ -90,7 +92,11 @@ function JuMP.set_attribute(x::JuMP.VariableRef, ::BreakPoints, value::Nothing)
     return nothing
 end
 
-function JuMP.set_attribute(x::JuMP.VariableRef, ::BreakPoints, value::Vector{Float64})
+function JuMP.set_attribute(
+    x::JuMP.VariableRef,
+    ::BreakPoints,
+    value::Vector{Float64},
+)
     model = x.model.ext[:_LDR_model]
     if length(value) < 1
         error("Number of breakpoints must be at least 1.")
@@ -104,7 +110,11 @@ function JuMP.set_attribute(x::JuMP.VariableRef, ::BreakPoints, value::Vector{Fl
     return nothing
 end
 
-function JuMP.set_attribute(x::JuMP.VariableRef, attr::BreakPoints, num::Integer)
+function JuMP.set_attribute(
+    x::JuMP.VariableRef,
+    attr::BreakPoints,
+    num::Integer,
+)
     model = x.model.ext[:_LDR_model]
     if num < 1
         error("Number of breakpoints must be at least 1.")
@@ -114,10 +124,11 @@ function JuMP.set_attribute(x::JuMP.VariableRef, attr::BreakPoints, num::Integer
     elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
         error("Breakpoints only work with scalar uncertainty.")
     end
-    dist = model.cache_model.scalar_distributions[model.cache_model.uncertainty_to_distribution[x][1]]
+    dist =
+        model.cache_model.scalar_distributions[model.cache_model.uncertainty_to_distribution[x][1]]
     _min = minimum(dist)
     _max = maximum(dist)
-    ran = range(_min, _max, length = num + 2)
+    ran = range(_min, _max; length = num + 2)
     breakpoints = collect(ran[2:end-1])
     model.pwl_data[x] = breakpoints
     return nothing
@@ -201,7 +212,6 @@ function JuMP.unset_silent(model::LDRModel)
     return nothing
 end
 
-
 struct _LDR_SolutionSummary
     primal::Any
     dual::Any
@@ -229,20 +239,27 @@ function JuMP.solution_summary(
     result::Int = 1,
     verbose::Bool = false,
 )
-    _LDR_SolutionSummary(
+    return _LDR_SolutionSummary(
         if model.solve_primal
-            JuMP.solution_summary(model.primal_model, result = result, verbose = verbose)
+            JuMP.solution_summary(
+                model.primal_model;
+                result = result,
+                verbose = verbose,
+            )
         else
             nothing
         end,
         if model.solve_dual
-            JuMP.solution_summary(model.dual_model, result = result, verbose = verbose)
+            JuMP.solution_summary(
+                model.dual_model;
+                result = result,
+                verbose = verbose,
+            )
         else
             nothing
-        end
+        end,
     )
 end
-
 
 Base.broadcastable(model::LDRModel) = Ref(model)
 
@@ -275,7 +292,9 @@ struct VectorUncertainty
     distribution::Distributions.Distribution
     function VectorUncertainty(distribution::Distributions.Distribution)
         if !(distribution isa Distributions.MultivariateDistribution)
-            error("Only MultivariateDistribution distributions are supported, got a $(typeof(distribution)).")
+            error(
+                "Only MultivariateDistribution distributions are supported, got a $(typeof(distribution)).",
+            )
         end
         return new(distribution)
     end
@@ -290,7 +309,7 @@ function JuMP.build_variable(
     _err::Function,
     info::Vector{<:JuMP.ScalarVariable},
     set::VectorUncertainty;
-    kwargs...
+    kwargs...,
 )
     infos = [i.info for i in info]
     n1 = length(infos)
@@ -340,7 +359,7 @@ function JuMP.add_variable(
         else
             _upper_bound = upper[i]
             _has_ub = true
-        end    
+        end
 
         info = VariableInfo(
             _has_lb,
@@ -374,8 +393,10 @@ function Uncertainty(; distribution::Distributions.Distribution = nothing)
     elseif distribution isa Distributions.MultivariateDistribution
         return VectorUncertainty(distribution)
     end
-    error("""Unexpected distribution type: $(typeof(distribution)).
-    Currently, only UnivariateDistribution and MultivariateDistribution are supported.""")
+    return error(
+        """Unexpected distribution type: $(typeof(distribution)).
+  Currently, only UnivariateDistribution and MultivariateDistribution are supported.""",
+    )
 end
 
 struct ScalarUncertainty
@@ -391,7 +412,7 @@ function JuMP.build_variable(
     _err::Function,
     info::JuMP.ScalarVariable,
     set::ScalarUncertainty;
-    kwargs...
+    kwargs...,
 )
     return _ScalarUncertainty(info.info, set.distribution)
 end
@@ -466,7 +487,6 @@ function JuMP.add_variable(
     return var
 end
 
-
 struct FirstStage <: JuMP.AbstractVariableRef
     info::JuMP.VariableInfo
 end
@@ -475,7 +495,7 @@ function JuMP.build_variable(
     _err::Function,
     info::JuMP.VariableInfo,
     ::Type{FirstStage};
-    kwargs...
+    kwargs...,
 )
     return FirstStage(info)
 end
@@ -527,7 +547,10 @@ function JuMP.delete(model::LDRModel, vref::JuMP.AbstractVariableRef)
     return
 end
 
-function JuMP.delete(model::LDRModel, vref::Vector{V}) where {V<:JuMP.AbstractVariableRef}
+function JuMP.delete(
+    model::LDRModel,
+    vref::Vector{V},
+) where {V<:JuMP.AbstractVariableRef}
     JuMP.delete.(model, vref)
     return
 end
@@ -557,7 +580,10 @@ function JuMP.delete(model::LDRModel, constraint_ref::JuMP.ConstraintRef)
     return
 end
 
-function JuMP.delete(model::LDRModel, constraint_ref::Vector{<:JuMP.ConstraintRef})
+function JuMP.delete(
+    model::LDRModel,
+    constraint_ref::Vector{<:JuMP.ConstraintRef},
+)
     JuMP.delete.(model, constraint_ref)
     return
 end
@@ -598,22 +624,28 @@ end
 
 function JuMP.set_objective_function(
     m::LDRModel,
-    f::Union{JuMP.AbstractJuMPScalar,Vector{<:JuMP.AbstractJuMPScalar}, Real},
+    f::Union{JuMP.AbstractJuMPScalar,Vector{<:JuMP.AbstractJuMPScalar},Real},
 )
     JuMP.set_objective_function(m.cache_model.model, f)
     return
 end
 
-JuMP.objective_sense(model::LDRModel) = JuMP.objective_sense(model.cache_model.model)
+function JuMP.objective_sense(model::LDRModel)
+    return JuMP.objective_sense(model.cache_model.model)
+end
 
 function JuMP.set_objective_sense(model::LDRModel, sense)
     JuMP.set_objective_sense(model.cache_model.model, sense)
     return
 end
 
-JuMP.objective_function_type(model::LDRModel) = JuMP.objective_function_type(model.cache_model.model)
+function JuMP.objective_function_type(model::LDRModel)
+    return JuMP.objective_function_type(model.cache_model.model)
+end
 
-JuMP.objective_function(model::LDRModel) = JuMP.objective_function(model.cache_model.model)
+function JuMP.objective_function(model::LDRModel)
+    return JuMP.objective_function(model.cache_model.model)
+end
 
 function JuMP.objective_function(model::LDRModel, FT::Type)
     return JuMP.objective_function(model.cache_model.model, FT)
@@ -627,7 +659,9 @@ function JuMP.constraint_by_name(model::LDRModel, name::String)
     return JuMP.constraint_by_name(model.cache_model.model, name)
 end
 
-JuMP.show_backend_summary(io::IO, model::LDRModel) = JuMP.show_backend_summary(io, model.cache_model.model)
+function JuMP.show_backend_summary(io::IO, model::LDRModel)
+    return JuMP.show_backend_summary(io, model.cache_model.model)
+end
 
 function JuMP.show_objective_function_summary(io::IO, model::LDRModel)
     JuMP.show_objective_function_summary(io, model.cache_model.model)

@@ -1,5 +1,4 @@
 function _create_pwl_model(model::LDRModel)
-
     cache_model = model.cache_model
     pwl_model = model.pwl_model
 
@@ -32,18 +31,16 @@ function _create_pwl_model(model::LDRModel)
         push!(pwl_model.uncertainty_valid_constraints, con_pwl)
     end
 
-    for (uncertainty_cache, (d_idx, v_idx)) in cache_model.uncertainty_to_distribution
-
+    for (uncertainty_cache, (d_idx, v_idx)) in
+        cache_model.uncertainty_to_distribution
         uncertainty_pwl = model.map_cache_to_pwl[uncertainty_cache]
         if v_idx > 0
             push!(
                 pwl_model.vector_distributions,
                 cache_model.vector_distributions[d_idx],
             )
-            pwl_model.uncertainty_to_distribution[uncertainty_pwl] = (
-                length(pwl_model.vector_distributions),
-                v_idx,
-            )
+            pwl_model.uncertainty_to_distribution[uncertainty_pwl] =
+                (length(pwl_model.vector_distributions), v_idx)
         else
             if haskey(model.pwl_data, uncertainty_cache)
                 break_points = model.pwl_data[uncertainty_cache]
@@ -51,10 +48,7 @@ function _create_pwl_model(model::LDRModel)
                     cache_model.scalar_distributions[d_idx],
                     break_points,
                 )
-                push!(
-                    pwl_model.vector_distributions,
-                    pwl_dist,
-                )
+                push!(pwl_model.vector_distributions, pwl_dist)
 
                 _lb = Distributions.minimum(pwl_dist)
                 _ub = Distributions.maximum(pwl_dist)
@@ -64,23 +58,19 @@ function _create_pwl_model(model::LDRModel)
                 set_lower_bound(uncertainty_pwl, _lb[1])
                 new_vars = JuMP.VariableRef[]
                 # add the others
-                pwl_model.uncertainty_to_distribution[uncertainty_pwl] = (
-                    length(pwl_model.vector_distributions),
-                    1,
-                )
+                pwl_model.uncertainty_to_distribution[uncertainty_pwl] =
+                    (length(pwl_model.vector_distributions), 1)
                 for i in 1:length(break_points)
                     # TODO the bounds here might need to be parametric
                     v = @variable(
                         pwl_model.model,
-                        base_name="$(uncertainty_pwl)_pwl_$i",
+                        base_name = "$(uncertainty_pwl)_pwl_$i",
                         upper_bound = _ub[i+1],
                         lower_bound = _lb[i+1],
                     )
                     push!(new_vars, v)
-                    pwl_model.uncertainty_to_distribution[v] = (
-                        length(pwl_model.vector_distributions),
-                        i+1,
-                    )
+                    pwl_model.uncertainty_to_distribution[v] =
+                        (length(pwl_model.vector_distributions), i + 1)
                 end
                 _add_pwl_vars_to_constraints(
                     pwl_model.model,
@@ -96,16 +86,15 @@ function _create_pwl_model(model::LDRModel)
                     sum(_ub),
                     pwl_model.uncertainty_valid_constraints,
                 )
-                model.extended_variables[uncertainty_pwl] = vcat(uncertainty_pwl, new_vars)
+                model.extended_variables[uncertainty_pwl] =
+                    vcat(uncertainty_pwl, new_vars)
             else
                 push!(
                     pwl_model.scalar_distributions,
                     cache_model.scalar_distributions[d_idx],
                 )
-                pwl_model.uncertainty_to_distribution[uncertainty_pwl] = (
-                    length(pwl_model.scalar_distributions),
-                    v_idx,
-                )
+                pwl_model.uncertainty_to_distribution[uncertainty_pwl] =
+                    (length(pwl_model.scalar_distributions), v_idx)
             end
         end
     end
@@ -121,7 +110,8 @@ function _add_pwl_vars_to_constraints(
     N = length(new_vars)
     new_coefs = fill(0.0, N)
     # todo: do doulbe loop with abrrier for performance
-    for con in all_constraints(model, include_variable_in_set_constraints=false)
+    for con in
+        all_constraints(model; include_variable_in_set_constraints = false)
         coef = normalized_coefficient(con, uncertainty)
         if !iszero(coef)
             fill!(new_coefs, coef)
@@ -143,26 +133,30 @@ function _add_pwl_constraints(
     if length(break_points) == 1
         con = @constraint(
             model,
-            new_vars[1] * (break_points[1] - _min) <= (uncertainty - _min) * (_max - break_points[1])
+            new_vars[1] * (break_points[1] - _min) <=
+            (uncertainty - _min) * (_max - break_points[1])
         )
         push!(uncertainty_valid_constraints, con)
         return nothing
     end
     con = @constraint(
         model,
-        new_vars[1] * (break_points[1] - _min) <= (uncertainty - _min) * (break_points[2] - break_points[1])
+        new_vars[1] * (break_points[1] - _min) <=
+        (uncertainty - _min) * (break_points[2] - break_points[1])
     )
     push!(uncertainty_valid_constraints, con)
     for i in 2:length(break_points)-1
         con = @constraint(
             model,
-            new_vars[i] * (break_points[i] - break_points[i-1]) <= new_vars[i-1] * (break_points[i+1] - break_points[i])
+            new_vars[i] * (break_points[i] - break_points[i-1]) <=
+            new_vars[i-1] * (break_points[i+1] - break_points[i])
         )
         push!(uncertainty_valid_constraints, con)
     end
     con = @constraint(
         model,
-        new_vars[end] * (break_points[end] - break_points[end-1]) <= new_vars[end-1] * (_max - break_points[end])
+        new_vars[end] * (break_points[end] - break_points[end-1]) <=
+        new_vars[end-1] * (_max - break_points[end])
     )
     push!(uncertainty_valid_constraints, con)
     return nothing

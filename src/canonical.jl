@@ -67,10 +67,20 @@ function _model_to_matrix(
         column_to_canonical[col] = i
     end
 
-    first_stage_indices = Set(findall(x -> x in first_stage_variables, data.variables))
-    uncertainty_valid_indices = Set(findall(x -> x in uncertainty_valid_constraints, data.affine_constraints))
+    first_stage_indices =
+        Set(findall(x -> x in first_stage_variables, data.variables))
+    uncertainty_valid_indices = Set(
+        findall(
+            x -> x in uncertainty_valid_constraints,
+            data.affine_constraints,
+        ),
+    )
 
-    return uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices, uncertainty_valid_indices
+    return uncertainty_indices,
+    variable_indices,
+    column_to_canonical,
+    first_stage_indices,
+    uncertainty_valid_indices
 end
 
 function _second_moment_matrix(
@@ -107,9 +117,15 @@ function _second_moment_matrix(
     # Build matrix M of E[ξ⊤ ξ] (the first index is the extra coordinate 1)
     # The first line has the means, the remaining the covariances + product of means
 
-    all_groups, all_wu_rows_of_group, all_wl_rows_of_group = _compute_groups(Wu, Wl, uncertainty_indices, uncertainty_to_distribution, data)
+    all_groups, all_wu_rows_of_group, all_wl_rows_of_group = _compute_groups(
+        Wu,
+        Wl,
+        uncertainty_indices,
+        uncertainty_to_distribution,
+        data,
+    )
 
-    require_group_rejection_sampling = Set{Tuple{Int, Bool}}()
+    require_group_rejection_sampling = Set{Tuple{Int,Bool}}()
     for group in all_groups
         union!(require_group_rejection_sampling, group)
     end
@@ -137,7 +153,8 @@ function _second_moment_matrix(
     else
         @warn "Rejection sampling required"
         scalar_means = zeros(length(scalar_distributions))
-        vector_means = Vector{Vector{Float64}}(undef, length(vector_distributions))
+        vector_means =
+            Vector{Vector{Float64}}(undef, length(vector_distributions))
         scalar_vars = zeros(length(scalar_distributions))
         vector_vars = [zeros(0, 0) for _ in vector_distributions]
         for (dist_idx, d) in enumerate(scalar_distributions)
@@ -184,7 +201,8 @@ function _second_moment_matrix(
         end
         for (inner_idx, lin_idx) in enumerate(list)
             for (inner_idx2, lin_idx2) in enumerate(list)
-                M[1+lin_idx, 1+lin_idx2] = vector_vars[dist_idx][inner_idx, inner_idx2]
+                M[1+lin_idx, 1+lin_idx2] =
+                    vector_vars[dist_idx][inner_idx, inner_idx2]
             end
         end
     end
@@ -215,7 +233,7 @@ function _second_moment_matrix(
         rng = Random.Xoshiro(seed)
         for i in 1:max_iterations
             _attempts = _sample_in_set!(
-                rng, 
+                rng,
                 candidate,
                 cache_wu_m,
                 cache_wl_m,
@@ -276,12 +294,13 @@ function _canonical(
         end
     end
     if data.sense == MOI.FEASIBILITY_SENSE
-        error("Objective function sense is MOI.FEASIBILITY_SENSE, check your objective function.")
+        error(
+            "Objective function sense is MOI.FEASIBILITY_SENSE, check your objective function.",
+        )
     end
     @assert length(data.variables) > 0
     @assert length(data.affine_constraints) +
-        length(data.variable_constraints) > 0
-
+            length(data.variable_constraints) > 0
 
     A = data.A
     rows = SparseArrays.rowvals(A)
@@ -289,7 +308,7 @@ function _canonical(
 
     # Process the rows of A
     has_variables = falses(m)
-    for j = variable_indices
+    for j in variable_indices
         for i in SparseArrays.nzrange(A, j)
             has_variables[rows[i]] = true
         end
@@ -300,13 +319,13 @@ function _canonical(
 
     mm = length(mixed_rows)
     equality_rows = Int[]
-    sizehint!(equality_rows, mm÷2)
+    sizehint!(equality_rows, mm ÷ 2)
     upper_bound_rows = Int[]
-    sizehint!(upper_bound_rows, mm÷2)
+    sizehint!(upper_bound_rows, mm ÷ 2)
     lower_bound_rows = Int[]
-    sizehint!(lower_bound_rows, mm÷2)
+    sizehint!(lower_bound_rows, mm ÷ 2)
     interval_rows = Int[]
-    sizehint!(interval_rows, mm÷20)
+    sizehint!(interval_rows, mm ÷ 20)
     for j in mixed_rows
         if data.b_lower[j] == data.b_upper[j]
             push!(equality_rows, j)
@@ -321,17 +340,17 @@ function _canonical(
 
     uu = length(uncertainty_rows)
     u_equality_rows = Int[]
-    sizehint!(u_equality_rows, uu÷20)
+    sizehint!(u_equality_rows, uu ÷ 20)
     u_upper_bound_rows = Int[]
-    sizehint!(u_upper_bound_rows, uu÷2)
+    sizehint!(u_upper_bound_rows, uu ÷ 2)
     u_upper_bound_rows_v = Int[]
     sizehint!(u_upper_bound_rows_v, length(uncertainty_valid_indices))
     u_lower_bound_rows = Int[]
-    sizehint!(u_lower_bound_rows, uu÷2)
+    sizehint!(u_lower_bound_rows, uu ÷ 2)
     u_lower_bound_rows_v = Int[]
     sizehint!(u_lower_bound_rows_v, length(uncertainty_valid_indices))
     u_interval_rows = Int[]
-    sizehint!(u_interval_rows, uu÷20)
+    sizehint!(u_interval_rows, uu ÷ 20)
     for j in uncertainty_rows
         if data.b_lower[j] == data.b_upper[j]
             push!(u_equality_rows, j)
@@ -407,29 +426,29 @@ function _canonical(
     f = data.c_offset
 
     return (
-        Ae=Ae,
-        Be=Be,
-        Au=Au,
-        Bu=Bu,
-        Al=Al,
-        Bl=Bl,
-        xu=xu,
-        xl=xl,
-        Wu=Wu,
-        hu=hu,
-        Wl=Wl,
-        hl=hl,
-        Wu_v=Wu_v,
-        hu_v=hu_v,
-        Wl_v=Wl_v,
-        hl_v=hl_v,
-        lb=lb,
-        ub=ub,
-        P=P,
-        C=C,
-        Q=Q,
-        d=d,
-        f=f,
+        Ae = Ae,
+        Be = Be,
+        Au = Au,
+        Bu = Bu,
+        Al = Al,
+        Bl = Bl,
+        xu = xu,
+        xl = xl,
+        Wu = Wu,
+        hu = hu,
+        Wl = Wl,
+        hl = hl,
+        Wu_v = Wu_v,
+        hu_v = hu_v,
+        Wl_v = Wl_v,
+        hl_v = hl_v,
+        lb = lb,
+        ub = ub,
+        P = P,
+        C = C,
+        Q = Q,
+        d = d,
+        f = f,
         bin = data.binaries,
         int = data.integers,
     )
@@ -445,7 +464,6 @@ function _objective_constant(ABC, M)
 end
 
 function _prepare_data(model)
-
     stoch_model = if isempty(model.pwl_data)
         model.cache_model
     else
@@ -454,13 +472,16 @@ function _prepare_data(model)
     data = matrix_data(stoch_model.model)
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:_LDR_var_to_column] = var_to_column
-    uncertainty_indices, variable_indices, column_to_canonical, first_stage_indices, uncertainty_valid_indices =
-        _model_to_matrix(
-            data,
-            stoch_model.uncertainty_to_distribution,
-            stoch_model.first_stage,
-            stoch_model.uncertainty_valid_constraints,
-        )
+    uncertainty_indices,
+    variable_indices,
+    column_to_canonical,
+    first_stage_indices,
+    uncertainty_valid_indices = _model_to_matrix(
+        data,
+        stoch_model.uncertainty_to_distribution,
+        stoch_model.first_stage,
+        stoch_model.uncertainty_valid_constraints,
+    )
     model.ext[:_LDR_column_to_canonical] = column_to_canonical
     ABC = _canonical(
         data,
@@ -486,14 +507,20 @@ function _prepare_data(model)
     return nothing
 end
 
-function _compute_groups(Wu, Wl, uncertainty_indices, uncertainty_to_distribution, data)
+function _compute_groups(
+    Wu,
+    Wl,
+    uncertainty_indices,
+    uncertainty_to_distribution,
+    data,
+)
     # for each line of the matrices W, we check which random variables might be affected
     # we store the indices of the distributions that are affected
     # then we compute the groups that must be sampled together
     wu_rows = SparseArrays.rowvals(Wu)
     wu_m, wu_n = size(Wu)
     # wu_nz = SparseArrays.nonzeros(Wu)
-    wu_groups = [Set{Tuple{Int, Bool}}() for _ in 1:wu_m]
+    wu_groups = [Set{Tuple{Int,Bool}}() for _ in 1:wu_m]
     for col in 1:wu_n
         uncertainty_idx = uncertainty_indices[col]
         var = data.variables[uncertainty_idx]
@@ -506,7 +533,7 @@ function _compute_groups(Wu, Wl, uncertainty_indices, uncertainty_to_distributio
     wl_rows = SparseArrays.rowvals(Wl)
     wl_m, wl_n = size(Wl)
     # wl_nz = SparseArrays.nonzeros(Wl)
-    wl_groups = [Set{Tuple{Int, Bool}}() for _ in 1:wl_m]
+    wl_groups = [Set{Tuple{Int,Bool}}() for _ in 1:wl_m]
     for col in 1:wl_n
         uncertainty_idx = uncertainty_indices[col]
         var = data.variables[uncertainty_idx]
@@ -518,8 +545,10 @@ function _compute_groups(Wu, Wl, uncertainty_indices, uncertainty_to_distributio
     end
     wl_row_idx = collect(1:wl_m)
     wu_row_idx = collect(1:wu_m)
-    all_wl_rows_of_group = vcat([Set{Int}() for _ in 1:wu_m], [Set{Int}(i) for i in 1:wl_m])
-    all_wu_rows_of_group = vcat([Set{Int}(i) for i in 1:wu_m], [Set{Int}() for _ in 1:wl_m])
+    all_wl_rows_of_group =
+        vcat([Set{Int}() for _ in 1:wu_m], [Set{Int}(i) for i in 1:wl_m])
+    all_wu_rows_of_group =
+        vcat([Set{Int}(i) for i in 1:wu_m], [Set{Int}() for _ in 1:wl_m])
     all_groups = vcat(wu_groups, wl_groups)
 
     # groupts that must be sampled together
@@ -547,10 +576,30 @@ function _compute_groups(Wu, Wl, uncertainty_indices, uncertainty_to_distributio
         deleteat!(all_wl_rows_of_group, to_delete)
         empty!(to_delete)
     end
-    return all_groups, collect.(all_wu_rows_of_group), collect.(all_wl_rows_of_group)
+    return all_groups,
+    collect.(all_wu_rows_of_group),
+    collect.(all_wl_rows_of_group)
 end
 
-function _sample_in_set!(rng, candidate, cache_wu_m, cache_wl_m, group, wu_rows, wl_rows, scalar_distributions, vector_distributions, scalar_idxs, vector_idxs, lb, ub, Wu, hu, Wl, hl)
+function _sample_in_set!(
+    rng,
+    candidate,
+    cache_wu_m,
+    cache_wl_m,
+    group,
+    wu_rows,
+    wl_rows,
+    scalar_distributions,
+    vector_distributions,
+    scalar_idxs,
+    vector_idxs,
+    lb,
+    ub,
+    Wu,
+    hu,
+    Wl,
+    hl,
+)
     wu_m, wu_n = size(Wu)
     wl_m, wl_n = size(Wl)
     reject = true

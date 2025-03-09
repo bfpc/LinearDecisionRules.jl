@@ -14,10 +14,14 @@ function get_decision(model, x, η; dual = false, piece = nothing)
         if haskey(model.pwl_data, η)
             pieces = model.extended_variables[η]
             if piece === nothing
-                error("piece index keword argument not provided for piecewise linear decision rule.")
+                error(
+                    "piece index keword argument not provided for piecewise linear decision rule.",
+                )
             end
             if !(1 <= piece <= length(pieces))
-                error("Piece index, $piece, out of bounds 1 to $(length(pieces))")
+                error(
+                    "Piece index, $piece, out of bounds 1 to $(length(pieces))",
+                )
             end
             η = pieces[piece]
         end
@@ -31,12 +35,12 @@ function get_decision(model, x, η; dual = false, piece = nothing)
         if !model.solve_dual
             error("SolveDual() is set to false, no result available.")
         end
-        return value(model.dual_model[:X][i,j+1])
+        return value(model.dual_model[:X][i, j+1])
     end
     if !model.solve_primal
         error("SolvePrimal() is set to false, no result available.")
     end
-    return value(model.primal_model[:X][i,j+1])
+    return value(model.primal_model[:X][i, j+1])
 end
 
 """
@@ -57,11 +61,10 @@ function get_decision(model, x; dual = false)
         if !model.solve_dual
             error("SolveDual() is set to false, no result available.")
         end
-        return value(model.dual_model[:X][i,1])
+        return value(model.dual_model[:X][i, 1])
     end
     if !model.solve_primal
         error("SolvePrimal() is set to false, no result available.")
     end
-    return value(model.primal_model[:X][i,1])
+    return value(model.primal_model[:X][i, 1])
 end
-
