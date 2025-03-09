@@ -4,4 +4,5 @@ makedocs(sitename="LinearDecisionRules.jl documentation")
 
 deploydocs(
     repo = "github.com/bfpc/LinearDecisionRules.jl.git",
+    push_preview = true,
 )
