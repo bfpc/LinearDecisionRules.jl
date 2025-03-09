@@ -1,7 +1,7 @@
 name = "LinearDecisionRules"
 uuid = "ee4db4e3-7eec-47e5-9935-9699b02754f6"
 authors = ["Bernado Freitas Paulo da Costa, Joaquim Dias Garcia"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
