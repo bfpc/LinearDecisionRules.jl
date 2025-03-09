@@ -660,16 +660,20 @@ function test_newsvendor_piecewise()
 
     @test ldr_p_obj[] <= ldr_d_obj[] + 1e-6
 
-    for n in 1:3 # 4 fails!
-        set_attribute(demand, LinearDecisionRules.BreakPoints(), n)
+    for n_intervals in 2:12
+        set_attribute(demand, LinearDecisionRules.BreakPoints(), n_intervals-1)
         optimize!(ldr)
         push!(ldr_p_obj, objective_value(ldr))
         push!(ldr_d_obj, objective_value(ldr, dual = true))
-        @test ldr_p_obj[end] <= ldr_d_obj[end]
-        @test ldr_p_obj[end] >= ldr_p_obj[end-1]
-        @test ldr_d_obj[end] <= ldr_d_obj[end-1]
-        @test ldr_p_obj[end] <= ldr_d_obj[end-1]
-        @test ldr_d_obj[end] >= ldr_p_obj[end-1]
+        @test ldr_p_obj[end] <= ldr_d_obj[end] + 1e-6
+        for j in 1:n_intervals÷2
+            # Divisibility for LDR improvement
+            if n_intervals % j != 0
+                continue
+            end
+            @test ldr_p_obj[end] >= ldr_p_obj[j] - 1e-6
+            @test ldr_d_obj[end] <= ldr_d_obj[j] + 1e-6
+        end
     end
 
     return
