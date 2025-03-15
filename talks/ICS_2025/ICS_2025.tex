@@ -1,0 +1,286 @@
+\documentclass[xcolor=dvipsnames,aspectratio=169]{beamer}
+
+% Standard packages
+\usepackage{amsmath,amsthm,amsfonts,mathabx}
+\usepackage{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{listings}
+
+% Basic Julia definition for lstlisting
+\input juliadef.tex
+
+\lstdefinelanguage{LDRjl}{
+  language=Julia,
+  morekeywords=[2]{LinearDecisionRules,LDRModel,Uncertainty,SolvePrimal,SolveDual,get_decision,FirstStage,BreakPoints},
+  keywordstyle=[2]\bfseries\color{red},
+}
+
+\definecolor{mygreen}{RGB}{34,139,34}
+\lstset{%
+    language         = LDRjl,
+    basicstyle       = \ttfamily,
+    keywordstyle     = \bfseries\color{blue},
+    stringstyle      = \color{magenta},
+    commentstyle     = \color{mygreen},
+    showstringspaces = false,
+    breaklines       = true,
+    extendedchars    = true,
+    literate={≈}{{$\approx$}}1%
+}
+
+% Setup appearance and colors
+\usetheme{Boadilla}
+\setbeamertemplate{page number in head/foot}[appendixframenumber]
+
+\setbeamercovered{invisible}
+\usefonttheme[onlymath]{serif}
+\setbeamertemplate{enumerate items}[default]
+\definecolor{mpl-c2}{HTML}{2ca02c}
+
+\setbeamercolor{emph}{fg=blue}
+\renewcommand<>{\emph}[1]{%
+  {\usebeamercolor[fg]{emph}\only#2{\itshape}#1}%
+}
+
+\newcommand{\blue}[1]{\textcolor{blue}{#1}}
+\newcommand{\alertt}[1]{\alert{\texttt{#1}}}
+
+\DeclareMathOperator{\Tr}{Tr}
+
+% Commands
+
+
+\begin{document}
+
+\title[LinearDecisionRules.jl]
+      {\texttt{LinearDecisionRules.jl}}
+\author[Bernardo Costa]
+       {Bernardo Freitas Paulo da Costa (FGV)\\[2ex]
+       with Joaquim Garcia (PSR)}
+\date[ICS 2025]{ICS 2025, Toronto}
+
+% Multiple logos
+\titlegraphic{
+  % \includegraphics[width=2cm]{/media/sf_Share_VMs/Logos/UFRJ/ufrj-horizontal-cor-rgb-telas.png}
+  % \hspace{2cm}
+  % \includegraphics[width=2cm]{/media/sf_Share_VMs/Logos/Faperj-Logo.png}
+  % \hspace{2cm}
+  % \includegraphics[width=2cm]{/media/sf_Share_VMs/Logos/FGV_EMAp_logo.png}
+  % EDPonts / CERMICS
+}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\section{Introduction}
+
+\subsection{Setting}
+
+\begin{frame}{Stochastic Programming}
+  A simple model for stochastic programming:
+  \[ \begin{array}{rl}
+    \min        & \mathbb{E}\left[ c^\top x \right] \\[0.5ex]
+    \text{s.t.} & A x = b, \\
+    & x \geq 0.
+  \end{array} \]
+  where
+  \begin{itemize}
+    \item $x$ is the \alert{decision}, subject to (random) constraints;
+    \item $c$ are the (possibly random) \alert{costs};
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Linear Decision Rules}
+  We write the uncertain parameters as functions of an underlying random vector $\xi$ (but $A$ is fixed), and allow for the decision to be taken \emph{after observing the realization of $\xi$}:
+  \[ \begin{array}{rll}
+    \min        & \mathbb{E}\left[
+      \alt<1>{c(\xi)^\top}{\xi^\top C^\top}
+      \alt<1-3>{x(\xi)}{X \xi} \right] \\[0.5ex]
+    \text{s.t.} & A \alt<1-3>{x(\xi)}{X \xi} = \alt<1>{b(\xi)}{B \xi} & \forall \xi \in \Xi, \\
+    & \alt<1-3>{x(\xi)}{X \xi} \geq 0 & \forall \xi \in \Xi.
+  \end{array} \]
+  \pause We fix a parametrization where $c(\xi) = C \xi$ and $b(\xi) = B \xi$ are \alert<2->{linear} in $\xi$.
+  \pause[3]\medskip
+
+  We then posit a \alert{linear decision rule} for $x$:
+  \[
+    x(\xi) = X \xi.
+  \]
+  \pause[5]
+
+  This reduces the flexibility of the ``wait-and-see'' decision, but allows for a \emph{more tractable} optimization problem.
+\end{frame}
+
+\begin{frame}{Linear Decision Rules --- Reformulation}
+  If the uncertainty set $\Xi$ is given as the polytope $\{\, \xi : W \xi \geq h \,\}$, we can rewrite the optimization problem as a linear program over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
+  \[ \begin{array}{rl}
+    \min\limits_{X, \Lambda} & \Tr\left(\mathbb{E}\left[\xi \xi^\top \right] C^\top X \right) \\[0.5ex]
+    \text{s.t.} & A X = B, \\
+    & X = \Lambda W, \ \Lambda h \geq 0, \ \Lambda \geq 0.
+  \end{array} \]
+  \pause\medskip
+
+  This involves essentially manipulating the constraint / cost data to build the matrices $A$, $B$, $C$, $W$ and~$h$.
+
+  \pause\medskip
+
+  However, constructing the expectation $\mathbb{E}\left[\xi \xi^\top \right]$ depends on the \emph{probability distribution of $\xi$}.
+\end{frame}
+
+\section{Usage}
+
+\begin{frame}{The \texttt{LinearDecisionRules.jl} Package}
+  Provides a \texttt{JuMP} extension for modeling Stochastic Programming problems with LDR's.
+  \pause
+
+  \begin{block}{Usage}
+    \begin{enumerate}[<+->]
+      \item We introduce \alertt{LDRModel} as an extension of \texttt{JuMP.Model};
+      \item The \texttt{@variable} macro is \alert{extended} to allow for the declaration of \emph{uncertainties} as variables in the model;
+      \begin{itemize}
+        \item Probabilities can come from \texttt{Distributions.jl};
+        \item We provide \texttt{DiscreteMvNonParametric} for explicit scenarios.      
+      \end{itemize}
+      \item Attributes \alertt{SolvePrimal()} and \alertt{SolveDual()} enable and disable the optimization of primal and dual LDR reformulations.
+      \item \alertt{get\_decision()} extracts the coefficients of the decision rule matrix $X$ in the original variables and uncertainties. A keyword argument \alertt{dual} is used for querying dual decision rules.
+    \end{enumerate}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{A toy example}
+  \small
+  \begin{lstlisting}{language=LDRjl}
+    using JuMP, LinearDecisionRules
+    using Ipopt, Distributions
+
+    demand = 0.3
+    initial_volume = 0.5
+
+    m = LDRModel()
+    @variable(m, vi == initial_volume)
+    @variable(m, 0 <= vf <= 1)
+    @variable(m, gh >= 0.0)
+    @variable(m, gt >= 0.0)
+    @variable(m, inflow, Uncertainty, distribution=Uniform(0, 0.2))
+
+    @constraint(m, balance, vf == vi - gh + inflow)
+    @constraint(m, gt + gh == demand)
+
+    @objective(m, Min, gt^2 + vf^2/2 - vf)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{A toy example (cont.)}
+  \small
+  \begin{lstlisting}{language=LDRjl}
+    # Solve the primal LDR
+    set_attribute(m, SolvePrimal(), true)
+    set_attribute(m, SolveDual(), false)
+    set_optimizer(m, Ipopt.Optimizer)
+    optimize!(m)
+
+    # Get the decision rule
+    get_decision(m, vf)         # Constant term
+    get_decision(m, vf, inflow) # Linear coefficient
+    
+    # Some checks
+    @test get_decision(m, gh) + get_decision(m, gt) ≈ demand atol=1e-6
+
+    @test get_decision(m, vi) ≈ initial_volume atol=1e-6
+    @test get_decision(m, vi, inflow) ≈ 0 atol=1e-6
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Package structure}
+  \centering \includegraphics[height=0.8\textheight]{figures/diagram.pdf}
+\end{frame}
+
+\begin{frame}{Features}
+  \begin{enumerate}[<+->]
+    \item Some decision variables can be labled as \alertt{FirstStage} to accomodate ``here-and-now'' decisions;
+    \item First-stage decisions can even be \emph{integer} or \emph{binary};
+    \medskip
+
+    \item Uncertainties have bounded support, and \alertt{Distributions.truncated} works well with the package;
+    \item Multivariate distributions (such as \alertt{MvNormal}) can be truncated explicitly via \texttt{@constraint} statements and lead to \emph{rejection sampling} for estimating the second-moment matrix.
+    \item This mechanism works for imposing arbitrary inequality constraints on the uncertainties.
+    \medskip
+
+    \item Univariate distributions can be \emph{lifted} to piecewise-linear decision rules, allowing more flexibility, via the \alertt{BreakPoints()} attribute.
+    \medskip
+
+    \item \emph{Efficient} formulas whenever possible for the second-moment matrix $\mathbb{E}\left[\xi \xi^\top \right]$.
+  \end{enumerate}
+
+\end{frame}
+
+\begin{frame}[fragile]{Stochastic Unit Commitment}
+  \small
+  \begin{lstlisting}{language=LDRjl}
+    # Uncertainty in the demand (wrt. baseline)
+    dist_d = Normal.(0.0, sigma_d)
+    dist_d = truncated.(dist_d, -3 * sigma_d, 3 * sigma_d)
+
+    # Model modifications
+    # plant on/off & startup indicator
+    @variable(uc_ldr, 0 <= x[i in Gens, t in 0:T] <= 1, LDR.FirstStage, integer=true)
+    @variable(uc_ldr, 0 <= y[i in Gens, t in 1:T] <= 1, LDR.FirstStage, integer=true)
+    # variable Demand
+    @variable(uc_ldr, extra_demand[t in 1:T] in LDR.Uncertainty(distribution=dist_d[t]))
+    # load balance
+    @constraint(uc_ldr, LoadBalance[t in 1:T], sum(g[i, t] for i in Gens) + deficit[t] == demand[t] + extra_demand[t])
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Stochastic Unit Commitment}
+  \begin{table}
+    \caption{Several models for StochUC}
+    \begin{tabular}{lrr}
+      Model & In-sample & Out-of-sample \\ \hline
+      Deterministic  & 542507 & 550183 \\
+      SAA            & 542425 & 542702 \\
+      LDR Scenarios  & 542654 & 542702 \\
+      LDR Polyhedral & 543359 & 542698 \\ \hline
+    \end{tabular}
+  \end{table}
+  \pause
+
+  The LDR model with scenarios can lead to \emph{negative} dispatch during out-of-sample simulation.
+
+\end{frame}
+
+\begin{frame}{Next steps}
+  Improve \emph{correlated uncertainties}:
+  \begin{itemize}
+    \item Implement confidence ellipsoids for \texttt{MvNormal} uncertainties with exact second-moments;
+    \item Allow the user to tune rejection sampling;
+  \end{itemize}
+  \pause\medskip
+
+  \emph{Multistage} decision rules:
+  \begin{itemize}
+    \item Generalize \alertt{FirstStage} do accomodate decisions $x_t$ which can only depend on \emph{observed} uncertainties $\xi_1, \ldots, \xi_t$;
+    \item Will benefit from correlated uncertainties to model more complex processes.
+  \end{itemize}
+  \pause\medskip
+
+  \emph{Performance}:
+  \begin{itemize}
+    \item Speed-up model building for larger problems;
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \centering \includegraphics[width=0.45\textwidth]{figures/ldrgit.pdf}
+
+  \Huge Questions?
+\end{frame}
+
+
+\end{document}
+
+
+% vim:set spelllang=en:
