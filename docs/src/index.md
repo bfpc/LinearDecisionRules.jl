@@ -26,10 +26,11 @@ where $Ξ ⊂ ℝ^m$ is a polytope described by
 & = \{\, ξ ∈ ℝ^m \mid W ξ ≥ h \,\}.
 \end{align*}
 ```
-Variable $η$ cannot appear in equality constraints, since the linear span of $Ξ$ must be all of $ℝ^m$.
+Variable $η$ cannot appear in equality constraints in the equations for $\Xi$, since the linear span of $Ξ$ must be all of $ℝ^m$.
 
 Non-anticipative variables are not allowed to depend on the random variable $ξ$.
 This is enforced by fixing their decision rules to have coefficient equal to zero, except for the constant term.
+However, non-anticipative variables can be declared as integer (or binary) as they appear directly in the resulting QP.
 
 ## Example
 
@@ -99,6 +100,8 @@ We note:
 * First-stage variables are created with the `FirstStage` attribute;
 * The uncertain variable `demand` is created using `variable-in-set` syntax, where the `Uncertainty` set is parametrized by a `Distribution` object;
 * Constraints are interpreted "for all scenarios", and the objective is interpreted in expectation.
+
+---
 
 ```@docs
 get_decision
