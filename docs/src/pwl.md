@@ -84,3 +84,20 @@ Specific distributions (`Uniform` and `Normal`) have mean and variance directly 
 
 The integrals are performed with [`FastGaussQuadrature.jl`](https://juliaapproximation.github.io/FastGaussQuadrature.jl/stable/), which implements several Gauss quadrature rules, which are dispatched by the `Expectations` package with a reasonable setting.
 In principle, we could override the use of truncation + expectation by directly using the Gauss quadrature rules for numerical integration.
+
+## Implementation details
+
+Currently, the lift is not performed exactly as described above, but in an affine transformation:
+```math
+\eta = \tilde{\eta}_1 + \dots + \tilde{\eta}_k = e^\top \tilde{\eta},
+```
+where the first coordinate now includes the lower bound $\eta_{\min}$.
+
+The bounding box constraints are now $\eta_{\min} \leq \tilde{\eta}_1 \leq \eta_1$, and $0 \leq \tilde{\eta}_k \leq \eta_{k} - \eta_{k-1}$ for $k \geq 2$, and the convex hull inequalities need to shift the first one to:
+```math
+\frac{\tilde{\eta}_2}{\eta_2 - \eta_1} \leq \frac{\tilde{\eta}_1 - \eta_{\min}}{\eta_1 - \eta_{\min}}.
+```
+
+This also changes the way to evaluate expectations of the first component, which also trickles down to the second-moment matrix (the covariance matrix is the same, but we do not need to calculate it explicitly).
+
+On the other hand, this does not change the constant part of the RHS matrix $B$: only the expansion is needed.
