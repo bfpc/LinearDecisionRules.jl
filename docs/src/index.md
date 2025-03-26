@@ -101,6 +101,15 @@ We note:
 * The uncertain variable `demand` is created using `variable-in-set` syntax, where the `Uncertainty` set is parametrized by a `Distribution` object;
 * Constraints are interpreted "for all scenarios", and the objective is interpreted in expectation.
 
+## Syntax
+
+* Declaring the model: `ldr = LDRModel(optimizer)`;
+* First-stage decision variables: `@variable(ldr, x, FirstStage [, integer = true])`;
+* Univariate uncertainties: `@variable(ldr, ξ in Uncertainty(distribution = d))`, where the distribution `d` has bounded support; also supports:
+    - Uniform breakpoints: `set_attribute(ξ, BreakPoints(), n_intervals - 1)`
+    - List of breakpoints: `set_attribute(ξ, BreakPoints(), v::Vector{Float64})`
+* Multivarite uncertainties: `@variable(ldr, ξ[1:n] in Uncertainty(distribution = d))`
+
 ---
 
 ```@docs
