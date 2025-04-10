@@ -3,7 +3,7 @@
 If we generalize the linear decision rule to a piecewise linear decision rule, we can get a better approximation of the optimal decision rule.
 
 This implies some changes in the structure of the problem.
-For simplicity, we will assume that we have a single coordinate of the uncertainty $η$.
+For simplicity, we will focus on the case where the uncertainty $η$ is one-dimensional.
 
 ## Breakpoints and modification of the uncertainty polyhedron $Ξ$
 
@@ -13,9 +13,9 @@ The lengths of the segments are $Δ_i = η_i - η_{i-1}$.
 
 The random variable $\eta$ will be the sum of its components along the segments, i.e.,
 ```math
-\eta = \eta_{\min} + \tilde{\eta}_1 + \dots + \tilde{\eta}_k = [\eta_{\min} \ 1 \cdots \ 1] \cdot \tilde{\eta} = \eta_{\min} + e^\top \tilde{\eta},
+\eta = \eta_{\min} + \tilde{\eta}_1 + \dots + \tilde{\eta}_k = \eta_{\min} + e^\top \tilde{\eta},
 ```
-where $\tilde{\eta} = [\tilde{\eta}_1; \dots; \tilde{\eta}_k]$ is the lifted vector corresponding to $\eta$ and $e = [1; \dots; 1]$.
+where we write $\tilde{\eta} = [\tilde{\eta}_1; \dots; \tilde{\eta}_k]$ for the lifted vector corresponding to $\eta$ and $e = [1; \dots; 1]$.
 
 So a previous constraint of the form $W_u \eta \leq h_u$ becomes $W_u (\eta_{\min} + e^\top \tilde{\eta}) \leq h_u$, which defines a matrix $\tilde{W}_u = W_u e^\top$ and modifies the right-hand side vector to $\tilde{h}_u = h_u - W_u \eta_{\min}$.
 In this example, $\eta$ is a 1-dimensional random variable, so $W_u$ is a column vector.
