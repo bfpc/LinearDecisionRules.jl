@@ -185,7 +185,7 @@
     # Get the decision rule
     get_decision(m, vf)         # Constant term
     get_decision(m, vf, inflow) # Linear coefficient
-    
+
     # Some checks
     @test get_decision(m, gh) + get_decision(m, gt) ≈ demand atol=1e-6
 
@@ -200,7 +200,7 @@
 
 \begin{frame}{Features}
   \begin{enumerate}[<+->]
-    \item Some decision variables can be labled as \alertt{FirstStage} to accomodate ``here-and-now'' decisions;
+    \item Some decision variables can be labeled as \alertt{FirstStage} to accomodate ``here-and-now'' decisions;
     \item First-stage decisions can even be \emph{integer} or \emph{binary};
     \medskip
 
@@ -262,7 +262,7 @@
 
   \emph{Multistage} decision rules:
   \begin{itemize}
-    \item Generalize \alertt{FirstStage} do accomodate decisions $x_t$ which can only depend on \emph{observed} uncertainties $\xi_1, \ldots, \xi_t$;
+    \item Generalize \alertt{FirstStage} to accommodate decisions $x_t$ which can only depend on \emph{observed} uncertainties $\xi_1, \ldots, \xi_t$;
     \item Will benefit from correlated uncertainties to model more complex processes.
   \end{itemize}
   \pause\medskip
