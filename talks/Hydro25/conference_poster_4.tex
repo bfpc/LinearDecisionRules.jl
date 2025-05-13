@@ -1,0 +1,309 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% baposter Landscape Poster
+% LaTeX Template
+% Version 1.0 (11/06/13)
+%
+% baposter Class Created by:
+% Brian Amberg (baposter@brian-amberg.de)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[a0paper,fontscale=0.285]{baposter} % Adjust the font scale/size here
+
+\usepackage{graphicx} % Required for including images
+\graphicspath{{figures/}} % Directory in which figures are stored
+
+\usepackage{amsmath,amssymb}
+
+\usepackage{booktabs} % Top and bottom rules for tables
+\usepackage{enumitem} % Used to reduce itemize/enumerate spacing
+\usepackage{palatino} % Use the Palatino font
+\usepackage[font=small,labelfont=bf]{caption} % Required for specifying captions to tables and figures
+
+\usepackage{multicol} % Required for multiple columns
+\setlength{\columnsep}{1.5em} % Slightly increase the space between columns
+\setlength{\columnseprule}{0mm} % No horizontal rule between columns
+
+\usepackage{tikz} % Required for flow chart
+\usetikzlibrary{shapes,arrows} % Tikz libraries required for the flow chart in the template
+
+\newcommand{\compresslist}{ % Define a command to reduce spacing within itemize/enumerate environments, this is used right after \begin{itemize} or \begin{enumerate}
+\setlength{\itemsep}{1pt}
+\setlength{\parskip}{0pt}
+\setlength{\parsep}{0pt}
+}
+
+\definecolor{lightblue}{rgb}{0.145,0.6666,1} % Defines the color used for content box headers
+
+\usepackage{listings}
+
+% Basic Julia definition for lstlisting
+\input juliadef.tex
+
+\lstdefinelanguage{LDRjl}{
+  language=Julia,
+  morekeywords=[2]{LinearDecisionRules,LDRModel,Uncertainty,SolvePrimal,SolveDual,get_decision,FirstStage,BreakPoints},
+  keywordstyle=[2]\bfseries\color{red},
+}
+
+\definecolor{mygreen}{RGB}{34,139,34}
+\lstset{%
+    language         = LDRjl,
+    basicstyle       = \ttfamily,
+    keywordstyle     = \bfseries\color{blue},
+    stringstyle      = \color{magenta},
+    commentstyle     = \color{mygreen},
+    showstringspaces = false,
+    breaklines       = true,
+    extendedchars    = true,
+    literate={≈}{{$\approx$}}1%
+}
+
+\DeclareMathOperator{\Tr}{Tr}
+\newcommand{\alert}[1]{\textcolor{blue}{#1}}
+\newcommand{\alertt}[1]{\alert{\texttt{#1}}}
+
+
+\begin{document}
+
+\begin{poster}
+{
+headerborder=closed, % Adds a border around the header of content boxes
+colspacing=1em, % Column spacing
+bgColorOne=white, % Background color for the gradient on the left side of the poster
+bgColorTwo=white, % Background color for the gradient on the right side of the poster
+borderColor=lightblue, % Border color
+headerColorOne=black, % Background color for the header in the content boxes (left side)
+headerColorTwo=lightblue, % Background color for the header in the content boxes (right side)
+headerFontColor=white, % Text color for the header text in the content boxes
+boxColorOne=white, % Background color of the content boxes
+textborder=roundedleft, % Format of the border around content boxes, can be: none, bars, coils, triangles, rectangle, rounded, roundedsmall, roundedright or faded
+eyecatcher=true, % Set to false for ignoring the left logo in the title and move the title left
+headerheight=0.1\textheight, % Height of the header
+headershape=roundedright, % Specify the rounded corner in the content box headers, can be: rectangle, small-rounded, roundedright, roundedleft or rounded
+headerfont=\Large\bf\textsc, % Large, bold and sans serif font in the headers of content boxes
+%textfont={\setlength{\parindent}{1.5em}}, % Uncomment for paragraph indentation
+linewidth=2pt % Width of the border lines around content boxes
+}
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION 
+%----------------------------------------------------------------------------------------
+%
+{\includegraphics[height=2em]{emap_logo.pdf}} % First university/lab logo on the left
+{\bf\textsc{LinearDecisionRules.jl}\vspace{0.5em}} % Poster title
+{\textsc{Bernardo Costa \& Joaquim Garcia}} % Author names and institution
+{\includegraphics[height=4em]{logo_hpsc.png}} % Second university/lab logo on the right
+
+%----------------------------------------------------------------------------------------
+%	OBJECTIVES
+%----------------------------------------------------------------------------------------
+
+\headerbox{Setting}{name=setting,column=0,row=0}{
+
+Several optimization problems need to take \emph{uncertainty} into account.
+A simple model is stochastic \emph{linear} programming, where uncertainty
+is modeled as a random variable $\xi$:
+\[ \begin{array}{rl}
+  \min        & \mathbb{E}\left[ c(\xi)^\top x(\xi) \right] \\[0.5ex]
+  \text{s.t.} & A x(\xi) = b(\xi), \\
+  & x(\xi) \geq 0.
+\end{array} \]
+
+There
+\begin{itemize}
+  \item $x$ is the \textbf{decision}, depending on the realization $\xi \in \Xi$,
+  \item $c$ are the (possibly random) \textbf{costs};
+\end{itemize}
+
+}
+
+%----------------------------------------------------------------------------------------
+%	INTRODUCTION
+%----------------------------------------------------------------------------------------
+\headerbox{LDR Reformulation}{name=reformulation,column=1,row=0}{
+  We posit $x(\xi) = X \cdot \xi$ as a \textbf{Linear Decision Rule} for the decision
+  $x$.
+
+  If the uncertainty set $\Xi$ is given as the polytope $\{\, \xi : W \xi \geq h \,\}$, we can rewrite the optimization problem as a linear program over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
+  \[ \begin{array}{rl}
+    \min\limits_{X, \Lambda} & \Tr\left(\mathbb{E}\left[\xi \xi^\top \right] C^\top X \right) \\[0.5ex]
+    \text{s.t.} & A X = B, \\
+    & X = \Lambda W, \ \Lambda h \geq 0, \ \Lambda \geq 0.
+  \end{array} \]
+
+  This involves manipulating constraint / cost data to build the matrices $A$, $B$, $C$, $W$ and~$h$.
+
+  However, constructing the expectation $\mathbb{E}\left[\xi \xi^\top \right]$ depends on the \emph{probability distribution of $\xi$}.
+}
+
+\headerbox{Objectives}{name=objectives,column=2,row=0}{
+
+\begin{enumerate}\compresslist
+  \item Provide a \texttt{JuMP} interface for modeling uncertain problems;
+  \item Simplify the construction of Linear Decision Rules for stochastic optimization;
+  \item Allow for higher-complexity models such as piecewise-linear DR's.
+\end{enumerate}
+
+% \vspace{0.3em} % When there are two boxes, some whitespace may need to be added if the one on the right has more content
+%
+}
+
+%----------------------------------------------------------------------------------------
+%	Package Features
+%----------------------------------------------------------------------------------------
+\headerbox{Features}{name=features,column=2,below=objectives}{
+
+  \begin{enumerate}\compresslist
+    \item Some decision variables can be labeled as \alertt{FirstStage} to accomodate ``here-and-now'' decisions;
+    \item First-stage decisions can even be \emph{integer} or \emph{binary};
+      \medskip
+
+    \item Uncertainties have bounded support, and can use \alertt{Distributions.} \alertt{truncated};
+    \item Univariate distributions can be \emph{lifted} to piecewise-LDRs: more flexibility via \alertt{BreakPoints()}.
+    \item \emph{Efficient} formulas for the second-moment matrix $\mathbb{E}\left[\xi \xi^\top \right]$.
+      \medskip
+
+    \item Multivariate distributions (such as \alertt{MvNormal}) can be truncated explicitly via \texttt{@constraint} statements and lead to \emph{rejection sampling} for estimating the second-moment matrix.
+    \item This mechanism works for imposing arbitrary inequality constraints on the uncertainties.
+  \end{enumerate}
+
+}
+
+%----------------------------------------------------------------------------------------
+%	First example: Hydro dispatch
+%----------------------------------------------------------------------------------------
+
+\begin{posterbox}[name=example1,column=0,span=2,below=reformulation]
+{Simple hydrothermal dispatch example}
+
+  \begin{multicols}{2}
+  \small
+  \begin{lstlisting}{language=LDRjl}
+using JuMP, LinearDecisionRules
+using Ipopt, Distributions
+
+demand = 0.3
+initial_volume = 0.5
+
+m = LDRModel(Ipopt.Optimizer)
+@variable(m, vi == initial_volume)
+@variable(m, 0 <= vf <= 1)
+@variable(m, gh >= 0.0)
+@variable(m, gt >= 0.0)
+@variable(m, inflow, Uncertainty, distribution=Uniform(0, 0.2))
+
+@constraint(m, balance, vf == vi - gh + inflow)
+@constraint(m, gt + gh == demand)
+@objective(m, Min, gt^2 + vf^2 - vf)
+
+# Solve the primal LDR
+set_attribute(m, SolvePrimal(), true)
+set_attribute(m, SolveDual(), false)
+optimize!(m)
+
+# Get constant term and linear coefficient in decision rule
+get_decision(m, vf)
+get_decision(m, vf, inflow)
+  \end{lstlisting}
+  \end{multicols}
+\end{posterbox}
+
+%----------------------------------------------------------------------------------------
+%	Second example: Stoch UC
+%----------------------------------------------------------------------------------------
+
+\begin{posterbox}[name=example2,column=0,span=2,below=example1]
+{Stochastic Unit Commitment}
+  % This block's bottom aligns with the bottom of the conclusion block
+  { \footnotesize
+  \begin{lstlisting}{language=LDRjl}
+# Uncertainty in the demand (wrt. baseline)
+dist_d = Normal.(0.0, sigma_d)
+dist_d = truncated.(dist_d, -3 * sigma_d, 3 * sigma_d)
+
+# Model modifications
+# plant on/off & startup indicator
+@variable(uc_ldr, 0 <= x[i in Gens, t in 0:T] <= 1, LDR.FirstStage, integer=true)
+@variable(uc_ldr, 0 <= y[i in Gens, t in 1:T] <= 1, LDR.FirstStage, integer=true)
+# Variable for uncertainty in demand
+@variable(uc_ldr, extra_demand[t in 1:T] in LDR.Uncertainty(distribution=dist_d[t]))
+# generation / flow / ... decision variables will be LDRs of extra_demand
+# load balance constraint
+@constraint(uc_ldr, LoadBalance[t in 1:T], sum(g[i, t] for i in Gens) + deficit[t] == demand[t] + extra_demand[t])
+  \end{lstlisting} }
+
+  \begin{center}
+    \begin{tabular}{lrr}
+      \toprule
+      Model & In-sample & Out-of-sample \\ \midrule
+      Deterministic  & 542507 & 550183 \\
+      SAA            & 542425 & 542702 \\
+      LDR Scenarios  & 542654 & 542702 \\
+      LDR Polyhedral & 543359 & 542698 \\ \bottomrule
+    \end{tabular}
+    \captionof{table}{Several models for StochUC}
+  \end{center}
+
+  The SAA model is the most flexible one, but all stochastic models perform well
+  out-of-sample.
+
+  The LDR model with scenarios can lead to \emph{negative} dispatch during out-of-sample simulation.
+
+\end{posterbox}
+
+%----------------------------------------------------------------------------------------
+%	Next steps
+%----------------------------------------------------------------------------------------
+
+\headerbox{Next steps}{name=nextsteps,column=0,span=2,above=bottom,below=example2}{
+
+\begin{multicols}{2}
+  Improve \emph{correlated uncertainties}, e.g. confidence ellipsoids for
+  \texttt{MvNormal} distributions.
+
+  \emph{Multistage} decision rules, generalizing \alertt{FirstStage} decisions.
+
+  \emph{Performance} for building large-scale problems
+
+\end{multicols}
+}
+
+%----------------------------------------------------------------------------------------
+%	CONTACT INFORMATION
+%----------------------------------------------------------------------------------------
+
+\headerbox{More Information}{name=more,column=2,above=bottom}{
+
+  \centering \includegraphics[width=0.5\textwidth]{../ICS_2025/figures/ldrgit.pdf}
+}
+
+
+%----------------------------------------------------------------------------------------
+
+\end{poster}
+
+\end{document}
+
+A typical 2-stage formulation is
+\[ \begin{array}{rl}
+    \min        & c^\top x + \mathbb{E}\left[ d^\top y\right] \\[0.5ex]
+    \text{s.t.} & A x = b, \ \  x \geq 0 \\
+    & T x + W y = h \ \ y \geq 0.
+\end{array} \]
+where
+\begin{itemize}
+  \item $x$ is the \textbf{strategic decision}
+  \item $y$ is the \textbf{recourse decision}, subject to (random) constraints;
+  \item $c$ and $d$ are \textbf{costs} ($d$ can be random);
+\end{itemize}
+
