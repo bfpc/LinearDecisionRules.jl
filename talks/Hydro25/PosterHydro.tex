@@ -21,7 +21,7 @@
 \documentclass[a0paper,fontscale=0.285]{baposter} % Adjust the font scale/size here
 
 \usepackage{graphicx} % Required for including images
-\graphicspath{{figures/}} % Directory in which figures are stored
+\graphicspath{{figures/}{../ICS_2025/figures}} % Directory in which figures are stored
 
 \usepackage{amsmath,amssymb}
 
@@ -282,9 +282,19 @@ dist_d = truncated.(dist_d, -3 * sigma_d, 3 * sigma_d)
 %	CONTACT INFORMATION
 %----------------------------------------------------------------------------------------
 
-\headerbox{More Information}{name=more,column=2,above=bottom}{
+\headerbox{Try it out!}{name=more,column=2,above=bottom}{
 
-  \centering \includegraphics[width=0.5\textwidth]{../ICS_2025/figures/ldrgit.pdf}
+\begin{multicols}{2}
+  \centering
+  Github Package
+
+  \includegraphics[width=0.45\textwidth]{ldrgit.pdf}
+
+  Documentation
+
+  \includegraphics[width=0.45\textwidth]{ldrdoc.pdf}
+\end{multicols}
+
 }
 
 
@@ -307,3 +317,4 @@ where
   \item $c$ and $d$ are \textbf{costs} ($d$ can be random);
 \end{itemize}
 
+% vim:set spelllang=en:
