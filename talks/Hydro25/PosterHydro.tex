@@ -119,11 +119,14 @@ is modeled as a random variable $\xi$:
   & x(\xi) \geq 0.
 \end{array} \]
 
-There
-\begin{itemize}
-  \item $x$ is the \textbf{decision}, depending on the realization $\xi \in \Xi$,
+\begin{itemize}\compresslist
+  \item $x$ is the \textbf{decision};
   \item $c$ are the (possibly random) \textbf{costs};
+  \item $b$ are the (again random) \textbf{resources}.
 \end{itemize}
+\smallskip
+
+\emph{LDR approximation}: posit $x(\xi) = X \cdot \xi$ as a \textbf{Linear Decision Rule} for the decision $x$.
 
 }
 
@@ -131,9 +134,6 @@ There
 %	INTRODUCTION
 %----------------------------------------------------------------------------------------
 \headerbox{LDR Reformulation}{name=reformulation,column=1,row=0}{
-  We posit $x(\xi) = X \cdot \xi$ as a \textbf{Linear Decision Rule} for the decision
-  $x$.
-
   If the uncertainty set $\Xi$ is given as the polytope $\{\, \xi : W \xi \geq h \,\}$, we can rewrite the optimization problem as a linear program over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
   \[ \begin{array}{rl}
     \min\limits_{X, \Lambda} & \Tr\left(\mathbb{E}\left[\xi \xi^\top \right] C^\top X \right) \\[0.5ex]
@@ -267,15 +267,14 @@ dist_d = truncated.(dist_d, -3 * sigma_d, 3 * sigma_d)
 
 \headerbox{Next steps}{name=nextsteps,column=0,span=2,above=bottom,below=example2}{
 
-\begin{multicols}{2}
-  Improve \emph{correlated uncertainties}, e.g. confidence ellipsoids for
-  \texttt{MvNormal} distributions.
+\begin{enumerate}\compresslist
+  \item Improve \emph{correlated uncertainties}, e.g. confidence ellipsoids for
+    \texttt{MvNormal} distributions.
 
-  \emph{Multistage} decision rules, generalizing \alertt{FirstStage} decisions.
+  \item \emph{Multistage} decision rules, generalizing \alertt{FirstStage} decisions.
 
-  \emph{Performance} for building large-scale problems
-
-\end{multicols}
+  \item Higher \emph{performance} for building large-scale problems
+\end{enumerate}
 }
 
 %----------------------------------------------------------------------------------------
