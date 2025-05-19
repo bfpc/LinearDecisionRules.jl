@@ -224,14 +224,14 @@ get_decision(m, vf, inflow)
 
 \begin{posterbox}[name=example2,column=0,span=2,below=example1]
 {Stochastic Unit Commitment}
-  % This block's bottom aligns with the bottom of the conclusion block
+Only need \emph{very few} modifications in the model needed to adapt to using LDR's:
+
   { \footnotesize
   \begin{lstlisting}{language=LDRjl}
 # Uncertainty in the demand (wrt. baseline)
 dist_d = Normal.(0.0, sigma_d)
 dist_d = truncated.(dist_d, -3 * sigma_d, 3 * sigma_d)
 
-# Model modifications
 # plant on/off & startup indicator
 @variable(uc_ldr, 0 <= x[i in Gens, t in 0:T] <= 1, LDR.FirstStage, integer=true)
 @variable(uc_ldr, 0 <= y[i in Gens, t in 1:T] <= 1, LDR.FirstStage, integer=true)
@@ -251,8 +251,10 @@ dist_d = truncated.(dist_d, -3 * sigma_d, 3 * sigma_d)
       LDR Scenarios  & 542654 & 542702 \\
       LDR Polyhedral & 543359 & 542698 \\ \bottomrule
     \end{tabular}
-    \captionof{table}{Several models for StochUC}
+    \captionof{table}{Results for several Stochastic UC models }
   \end{center}
+
+  In-sample costs are very similar, but the deterministic decision is \emph{not resilient}.
 
   The SAA model is the most flexible one, but all stochastic models perform well
   out-of-sample.
