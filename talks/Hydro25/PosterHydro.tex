@@ -73,6 +73,13 @@
 \newcommand{\alert}[1]{\textcolor{blue}{#1}}
 \newcommand{\alertt}[1]{\alert{\texttt{#1}}}
 
+\newbox\boxLogos
+\newbox\boxEMAp
+\setbox\boxEMAp\hbox{\includegraphics[height=2em]{emap_logo.pdf}}
+\setbox\boxLogos\vbox{%
+  \copy\boxEMAp%
+  \hbox to \wd\boxEMAp{\hss\includegraphics[height=3.5em]{logo_psr.pdf} \hss}%
+}
 
 \begin{document}
 
@@ -99,10 +106,7 @@ linewidth=2pt % Width of the border lines around content boxes
 %	TITLE SECTION 
 %----------------------------------------------------------------------------------------
 %
-{\vbox{%
-  \hbox{\includegraphics[height=2em]{emap_logo.pdf}}
-  \hbox{\includegraphics[height=3.5em]{logo_psr.pdf}}%
-  }} % First university/lab logo on the left
+{\copy\boxLogos} % First university/lab logo on the left
 {\textsc{LinearDecisionRules.jl}\vspace{0.5em}} % Poster title
 {\textsc{Bernardo Costa \& Joaquim Garcia}} % Author names and institution
 {\includegraphics[height=4em]{logo_hpsc.png}} % Second university/lab logo on the right
