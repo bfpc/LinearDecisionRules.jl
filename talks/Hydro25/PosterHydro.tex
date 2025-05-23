@@ -155,11 +155,22 @@ is modeled as a random variable $\xi$:
     & X = \Lambda W, \ \Lambda h \geq 0, \ \Lambda \geq 0.
   \end{array} \]
 
-  This involves manipulating constraint / cost data to build the matrices $A$, $B$, $C$, $W$ and~$h$.
-
-  However, constructing the expectation $\mathbb{E}\left[\xi \xi^\top \right]$ depends on the \emph{probability distribution of $\xi$}.
+  \begin{itemize}\compresslist
+    \item Involves manipulating constraint / cost data to build the matrices $A$, $B$, $C$, $W$ and~$h$.
+    \item Constructing the \emph{second-moment matrix}
+      \[ M = \mathbb{E}\left[\xi \xi^\top \right] \]
+    needs the \emph{probability distribution of $\xi$}.
+  \end{itemize}
 }
 
+\headerbox{Dual LDR}{name=dualldr,column=0,below=reformulation}{
+  Yields a \emph{dual bound} on the primal reformulation,
+  which can be used to assess \emph{suboptimality} of the primal policy.
+  \[ \begin{array}{rl}
+    \min\limits_{X, \Lambda} & \Tr\left(M C^\top X \right) \\[0.5ex]
+    \text{s.t.} & A X = B, \\
+    & (W - h e_1^\top) M S^\top \geq 0.
+  \end{array} \]
 
 }
 
