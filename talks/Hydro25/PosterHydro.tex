@@ -99,8 +99,11 @@ linewidth=2pt % Width of the border lines around content boxes
 %	TITLE SECTION 
 %----------------------------------------------------------------------------------------
 %
-{\includegraphics[height=2em]{emap_logo.pdf}} % First university/lab logo on the left
-{\bf\textsc{LinearDecisionRules.jl}\vspace{0.5em}} % Poster title
+{\vbox{%
+  \hbox{\includegraphics[height=2em]{emap_logo.pdf}}
+  \hbox{\includegraphics[height=3.5em]{logo_psr.pdf}}%
+  }} % First university/lab logo on the left
+{\textsc{LinearDecisionRules.jl}\vspace{0.5em}} % Poster title
 {\textsc{Bernardo Costa \& Joaquim Garcia}} % Author names and institution
 {\includegraphics[height=4em]{logo_hpsc.png}} % Second university/lab logo on the right
 
@@ -108,7 +111,7 @@ linewidth=2pt % Width of the border lines around content boxes
 %	OBJECTIVES
 %----------------------------------------------------------------------------------------
 
-\headerbox{Setting}{name=setting,column=0,row=0}{
+\begin{posterbox}[name=setting,column=0,row=0]{Setting}
 
 Several optimization problems need to take \emph{uncertainty} into account.
 A simple model is stochastic \emph{linear} programming, where uncertainty
@@ -128,7 +131,7 @@ is modeled as a random variable $\xi$:
 
 \emph{LDR approximation}: posit $x(\xi) = X \cdot \xi$ as a \textbf{Linear Decision Rule} for the decision $x$.
 
-}
+\end{posterbox}
 
 %----------------------------------------------------------------------------------------
 %	INTRODUCTION
