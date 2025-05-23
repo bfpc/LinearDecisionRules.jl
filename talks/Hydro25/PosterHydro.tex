@@ -110,8 +110,22 @@ linewidth=2pt % Width of the border lines around content boxes
 %----------------------------------------------------------------------------------------
 %	OBJECTIVES
 %----------------------------------------------------------------------------------------
+\headerbox{Objectives}{name=objectives,column=0,row=0}{
 
-\begin{posterbox}[name=setting,column=0,row=0]{Setting}
+\begin{enumerate}\compresslist
+  \item Provide a \texttt{JuMP} interface for modeling uncertain problems;
+  \item Simplify the construction of Linear Decision Rules for stochastic optimization;
+  \item Allow for higher-complexity models such as piecewise-linear DR's.
+\end{enumerate}
+
+% \vspace{0.3em} % When there are two boxes, some whitespace may need to be added if the one on the right has more content
+%
+}
+
+%----------------------------------------------------------------------------------------
+%	INTRODUCTION
+%----------------------------------------------------------------------------------------
+\begin{posterbox}[name=setting,column=0,below=objectives]{Setting}
 
 Several optimization problems need to take \emph{uncertainty} into account.
 A simple model is stochastic \emph{linear} programming, where uncertainty
@@ -133,10 +147,7 @@ is modeled as a random variable $\xi$:
 
 \end{posterbox}
 
-%----------------------------------------------------------------------------------------
-%	INTRODUCTION
-%----------------------------------------------------------------------------------------
-\headerbox{LDR Reformulation}{name=reformulation,column=1,row=0}{
+\headerbox{LDR Reformulation}{name=reformulation,column=0,below=setting}{
   If the uncertainty set $\Xi$ is given as the polytope $\{\, \xi : W \xi \geq h \,\}$, we can rewrite the optimization problem as a linear program over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
   \[ \begin{array}{rl}
     \min\limits_{X, \Lambda} & \Tr\left(\mathbb{E}\left[\xi \xi^\top \right] C^\top X \right) \\[0.5ex]
@@ -149,23 +160,15 @@ is modeled as a random variable $\xi$:
   However, constructing the expectation $\mathbb{E}\left[\xi \xi^\top \right]$ depends on the \emph{probability distribution of $\xi$}.
 }
 
-\headerbox{Objectives}{name=objectives,column=2,row=0}{
 
-\begin{enumerate}\compresslist
-  \item Provide a \texttt{JuMP} interface for modeling uncertain problems;
-  \item Simplify the construction of Linear Decision Rules for stochastic optimization;
-  \item Allow for higher-complexity models such as piecewise-linear DR's.
-\end{enumerate}
-
-% \vspace{0.3em} % When there are two boxes, some whitespace may need to be added if the one on the right has more content
-%
 }
 
 %----------------------------------------------------------------------------------------
 %	Package Features
 %----------------------------------------------------------------------------------------
-\headerbox{Features}{name=features,column=2,below=objectives}{
+\headerbox{Features}{name=features,column=1,span=2}{
 
+\begin{multicols}{2}
   \begin{enumerate}\compresslist
     \item Some decision variables can be labeled as \alertt{FirstStage} to accomodate ``here-and-now'' decisions;
     \item First-stage decisions can even be \emph{integer} or \emph{binary};
@@ -180,13 +183,14 @@ is modeled as a random variable $\xi$:
     \item This mechanism works for imposing arbitrary inequality constraints on the uncertainties.
   \end{enumerate}
 
+\end{multicols}
 }
 
 %----------------------------------------------------------------------------------------
 %	First example: Hydro dispatch
 %----------------------------------------------------------------------------------------
 
-\begin{posterbox}[name=example1,column=0,span=2,below=reformulation]
+\begin{posterbox}[name=example1,column=1,span=2,below=features]
 {Simple hydrothermal dispatch example}
 
   \begin{multicols}{2}
@@ -225,7 +229,7 @@ get_decision(m, vf, inflow)
 %	Second example: Stoch UC
 %----------------------------------------------------------------------------------------
 
-\begin{posterbox}[name=example2,column=0,span=2,below=example1]
+\begin{posterbox}[name=example2,column=1,span=2,below=example1]
 {Stochastic Unit Commitment}
 Only need \emph{very few} modifications in the model needed to adapt to using LDR's:
 
@@ -270,7 +274,7 @@ dist_d = truncated.(dist_d, -3 * sigma_d, 3 * sigma_d)
 %	Next steps
 %----------------------------------------------------------------------------------------
 
-\headerbox{Next steps}{name=nextsteps,column=0,span=2,above=bottom,below=example2}{
+\headerbox{Next steps}{name=nextsteps,column=1,span=2,above=bottom,below=example2}{
 
 \begin{enumerate}\compresslist
   \item Improve \emph{correlated uncertainties}, e.g. confidence ellipsoids for
@@ -286,7 +290,7 @@ dist_d = truncated.(dist_d, -3 * sigma_d, 3 * sigma_d)
 %	CONTACT INFORMATION
 %----------------------------------------------------------------------------------------
 
-\headerbox{Try it out!}{name=more,column=2,above=bottom}{
+\headerbox{Try it out!}{name=more,column=0,above=bottom}{
 
 \begin{multicols}{2}
   \centering
