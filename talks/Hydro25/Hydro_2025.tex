@@ -201,12 +201,6 @@
     # Get the decision rule
     get_decision(m, vf)         # Constant term
     get_decision(m, vf, inflow) # Linear coefficient
-
-    # Some checks
-    @test get_decision(m, gh) + get_decision(m, gt) ≈ demand atol=1e-6
-
-    @test get_decision(m, vi) ≈ initial_volume atol=1e-6
-    @test get_decision(m, vi, inflow) ≈ 0 atol=1e-6
   \end{lstlisting}
 \end{frame}
 
