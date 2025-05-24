@@ -128,20 +128,27 @@
   \end{columns}
 \end{frame}
 
-\begin{frame}{Linear Decision Rules --- Reformulation}
-  If the uncertainty set $\Xi$ is given by linear constraints $\{\, \xi : W \xi \geq h \,\}$, we can rewrite the optimization problem as a \emph{deterministic} linear program over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
-  \[ \begin{array}{rl}
-    \min\limits_{X, \Lambda} & \Tr\left(\mathbb{E}\left[\xi \xi^\top \right] C^\top X \right) \\[0.5ex]
-    \text{s.t.} & A X = B, \\
-    & X = \Lambda W, \ \Lambda h \geq 0, \ \Lambda \geq 0.
-  \end{array} \]
-  \pause\medskip
+\begin{frame}{Linear Decision Rules --- LP Reformulation}
+  \begin{itemize}
+    \item If $\Xi = \{\, \xi : W \xi \geq h \,\}$, rewrite as a \emph{deterministic} LP over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
+      \[ \begin{array}{rll}
+        \min        & \mathbb{E}\left[ \xi^\top C^\top X \xi \right] \\[0.5ex]
+        \text{s.t.} & A X \xi = B \xi & \forall \xi \in \Xi, \\
+                    &   X \xi \geq 0  & \forall \xi \in \Xi.
+      \end{array}
+      \quad \to \quad
+      \begin{array}{rl}
+        \min\limits_{X, \Lambda} & \Tr\left(\mathbb{E}\left[\xi \xi^\top \right] C^\top X \right) \\[0.5ex]
+        \text{s.t.} & A X = B, \\
+        & X = \Lambda W, \ \Lambda h \geq 0, \ \Lambda \geq 0.
+      \end{array} \]
+      \pause\medskip
 
-  This involves manipulating the constraint / cost data to build the matrices $A$, $B$, $C$, $W$ and~$h$.
+    \item Involves manipulating the constraint / cost data to build matrices $A$, $B$, $C$, $W$ and~$h$.
+      \pause\medskip
 
-  \pause\medskip
-
-  Constructing the expectation $\mathbb{E}\left[\xi \xi^\top \right]$ depends on the \emph{probability distribution of $\xi$}.
+    \item The expectation $\mathbb{E}\left[\xi \xi^\top \right]$ depends on the \emph{probability distribution of $\xi$}.
+  \end{itemize}
 \end{frame}
 
 \section{Usage}
