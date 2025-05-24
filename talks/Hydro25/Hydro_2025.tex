@@ -80,49 +80,52 @@
 
 \subsection{Setting}
 
-\begin{frame}{Stochastic Programming}
-  A simple model for stochastic programming:
-  \[ \begin{array}{rl}
-    \min        & \mathbb{E}\left[ c^\top x \right] \\[0.5ex]
-    \text{s.t.} & A x = b, \\
-    & x \geq 0.
-  \end{array} \]
-  where
-  \begin{itemize}
-    \item $x$ is the \alert{decision}, subject to (random) constraints;
-    \item $c$ are the (possibly random) \alert{costs};
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Linear Decision Rules}
+\begin{frame}{What is a Linear Decision Rule?}
   \def\xiC{\textcolor{blue}{\xi^\top C^\top}}
   \def\Bxi{\textcolor{blue}{B \xi}}
   \def\Cxi{\textcolor{blue}{C \xi}}
   \def\Xxi{\textcolor{darkorchid}{X \xi}}
-  Motto: write everything as \emph{linear} functions of a random vector $\xi \in \Xi$.
-  \begin{itemize}
-    \item Write $b$ and $c$ as functions of $\xi$, and allow the decision $x$ to be taken \alert{after observing the realization of $\xi$}:
+  \begin{columns}[t]
+    \begin{column}{0.5\textwidth}
+      Fully-flexible Stochastic optimization:
+      \begin{itemize}\itemsep0pt
+        \item The ``recourse'' decision $x(\xi)$ is independently chosen for each scenario.
+          \uncover<2->{%
+          \begin{itemize}
+            \item The SAA problem may be large if we need several scenarios.
+          \end{itemize}}
+      \end{itemize}
+      \bigskip
+      \bigskip
+
       \[ \begin{array}{rll}
-        \min        & \mathbb{E}\left[
-          \alt<1>{c(\xi)^\top}{\xiC}
-          \alt<1-3>{x(\xi)}{\Xxi} \right] \\[0.5ex]
-        \text{s.t.} & A \alt<1-3>{x(\xi)}{\Xxi} = \alt<1>{b(\xi)}{\Bxi} & \forall \xi \in \Xi, \\
-        & \alt<1-3>{x(\xi)}{\Xxi} \geq 0 & \forall \xi \in \Xi.
+        \min        & \mathbb{E}\left[ c(\xi)^\top x(\xi) \right] \\[0.5ex]
+        \text{s.t.} & A x(\xi) = b(\xi) & \forall \xi \in \Xi, \\
+                    &   x(\xi) \geq 0   & \forall \xi \in \Xi.
       \end{array} \]
+    \end{column}
+    \pause[3]
+    \begin{column}{0.5\textwidth}
+      % Motto: write everything as \emph{linear} functions of the uncertainty $\xi \in \Xi$.
+      Linear Decision Rule:
+      \begin{itemize}\itemsep0pt
+        \item Write $x(\xi) = X \cdot \xi$.
 
-      \pause
+          \uncover<4>{
+          \begin{itemize}
+            \item Choose a parametrization where $c(\xi) = \Cxi$ and $b(\xi) = \Bxi$ are \emph{linear} in $\xi$.
+            \item Simpler dependency, suboptimal, but easier to optimize (and interpret).
+          \end{itemize}}
+      \end{itemize}
+      \medskip
 
-    \item Fix a parametrization where $c(\xi) = \Cxi$ and $b(\xi) = \Bxi$ are \emph{linear} in $\xi$.
-      \pause
-
-    \item Posit a \emph{linear decision rule} for $x(\xi)$:
-      \[
-        x(\xi) = \Xxi.
-      \]
-      \pause[5]
-
-    \item \textcolor{darkorchid}{Reduces the flexibility} of the ``wait-and-see'' decision $x(\xi)$, but allows for a \emph{more tractable} optimization problem.
-  \end{itemize}
+      \[ \begin{array}{rll}
+        \min        & \mathbb{E}\left[ \alt<3>{c(\xi)}{\xiC} \Xxi \right] \\[0.5ex]
+        \text{s.t.} & A \Xxi = \alt<3>{b(\xi)}{\Bxi} & \forall \xi \in \Xi, \\
+                    &   \Xxi \geq 0                  & \forall \xi \in \Xi.
+      \end{array} \]
+    \end{column}
+  \end{columns}
 \end{frame}
 
 \begin{frame}{Linear Decision Rules --- Reformulation}
