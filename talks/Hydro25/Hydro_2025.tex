@@ -129,7 +129,7 @@
 \end{frame}
 
 \begin{frame}{Linear Decision Rules --- Reformulation}
-  If the uncertainty set $\Xi$ is given by linear constraints $\{\, \xi : W \xi \geq h \,\}$, we can rewrite the optimization problem as a linear program over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
+  If the uncertainty set $\Xi$ is given by linear constraints $\{\, \xi : W \xi \geq h \,\}$, we can rewrite the optimization problem as a \emph{deterministic} linear program over the decision rule matrix $X$ and auxiliary variables $\Lambda$ (for the positivity constraints):
   \[ \begin{array}{rl}
     \min\limits_{X, \Lambda} & \Tr\left(\mathbb{E}\left[\xi \xi^\top \right] C^\top X \right) \\[0.5ex]
     \text{s.t.} & A X = B, \\
