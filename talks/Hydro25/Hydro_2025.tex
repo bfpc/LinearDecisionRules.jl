@@ -154,21 +154,21 @@
 \section{Usage}
 
 \begin{frame}{The \texttt{LinearDecisionRules.jl} Package}
-  Is a \texttt{JuMP} extension for modeling problems with LDR's.
+  \texttt{JuMP} extension for modeling problems with LDR's.
   \pause
 
   \begin{block}{Basics}
     \begin{enumerate}
       \item \alertt{LDRModel} is an extension of \texttt{JuMP.Model};
-      \item The \texttt{@variable} macro is \alert{extended} to declare \emph{uncertainties} in the model;
+      \item The \alertt{@variable} macro is \alert{extended} to declare \emph{uncertainties} in the model;
       \begin{itemize}
         \item Probabilities can come from \texttt{Distributions.jl};
         \item \texttt{DiscreteMvNonParametric} can be used for explicit scenarios.
       \end{itemize}
       \pause\medskip
 
-      \item Attributes \alertt{SolvePrimal()} and \alertt{SolveDual()} enable and disable the optimization of primal and dual LDR reformulations.
-      \item \alertt{get\_decision()} extracts the coefficients of the decision rule matrix $X$ in the original variables and uncertainties. A keyword argument \alertt{dual} is used for querying dual decision rules.
+      \item \alertt{SolvePrimal()} and \alertt{SolveDual()} enable and disable the optimization of primal and dual LDR reformulations.
+      \item \alertt{get\_decision()} extracts the coefficients from the decision rule matrix $X$ in the original variables and uncertainties. A keyword argument \alertt{dual} is used for dual decision rules.
     \end{enumerate}
   \end{block}
 \end{frame}
