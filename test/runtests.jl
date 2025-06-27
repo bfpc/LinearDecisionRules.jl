@@ -801,6 +801,156 @@ function test_newsvendor_integer()
     return
 end
 
+function test_recursion()
+    initial_volume = 0.5
+    demand = 0.3
+
+    m = LinearDecisionRules.LDRModel()
+
+    set_silent(m)
+
+    @variable(
+        m,
+        vi in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.Uniform(
+                initial_volume * 0.9,
+                initial_volume * 1.1,
+            ),
+        )
+    )
+    @variable(m, 0 <= vf <= 1)
+    @variable(m, gh >= 0.0)
+    @variable(m, gt >= 0.0)
+    @variable(
+        m,
+        inflow[i = 1:3] in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.Uniform(0, 0.1 * i),
+        )
+    )
+
+    @constraint(m, balance, vf == vi - gh + sum(inflow[i] for i in 1:3))
+    @constraint(m, gt + gh == demand)
+
+    @objective(m, Min, gt^2 + vf^2 / 2 - vf)
+
+    set_optimizer(m, HiGHS.Optimizer)
+    optimize!(m)
+
+    m_0 = LinearDecisionRules.LDRModel()
+    set_silent(m_0)
+    @show LinearDecisionRules.set_parametric_objective!(m_0, m, Dict())
+
+    m_2 = LinearDecisionRules.LDRModel()
+    set_silent(m_2)
+
+    @variable(m_2, vi_2 == initial_volume)
+    @variable(m_2, 0 <= vf_2 <= 1)
+    @variable(m_2, gh_2 >= 0.0)
+    @variable(m_2, gt_2 >= 0.0)
+    @variable(
+        m_2,
+        inflow_2[i = 1:3] in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.Uniform(0, 0.1 * i),
+        )
+    )
+
+    @constraint(
+        m_2,
+        balance_2,
+        vf_2 == vi_2 - gh_2 + sum(inflow_2[i] for i in 1:3)
+    )
+    @constraint(m_2, gt_2 + gh_2 == demand)
+
+    @objective(m_2, Min, gt_2^2)
+
+    @show LinearDecisionRules.set_parametric_objective!(
+        m_2,
+        m,
+        Dict(vi => vf_2),
+    )
+
+    set_optimizer(m_2, Ipopt.Optimizer)
+    optimize!(m_2)
+
+    return
+end
+
+function test_recursion_pwl()
+    initial_volume = 0.5
+    demand = 0.3
+
+    m = LinearDecisionRules.LDRModel()
+
+    set_silent(m)
+
+    @variable(
+        m,
+        vi in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.Uniform(
+                initial_volume * 0.9,
+                initial_volume * 1.1,
+            ),
+        )
+    )
+    @variable(m, 0 <= vf <= 1)
+    @variable(m, gh >= 0.0)
+    @variable(m, gt >= 0.0)
+    @variable(
+        m,
+        inflow[i = 1:3] in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.Uniform(0, 0.1 * i),
+        )
+    )
+
+    @constraint(m, balance, vf == vi - gh + sum(inflow[i] for i in 1:3))
+    @constraint(m, gt + gh == demand)
+
+    @objective(m, Min, gt^2 + vf^2 / 2 - vf)
+
+    set_attribute(vi, LinearDecisionRules.BreakPoints(), 3)
+
+    set_optimizer(m, HiGHS.Optimizer)
+    optimize!(m)
+
+    m_0 = LinearDecisionRules.LDRModel()
+    set_silent(m_0)
+    @show LinearDecisionRules.set_parametric_objective!(m_0, m, Dict())
+
+    m_2 = LinearDecisionRules.LDRModel()
+    set_silent(m_2)
+
+    @variable(m_2, vi_2 == initial_volume)
+    @variable(m_2, 0 <= vf_2 <= 1)
+    @variable(m_2, gh_2 >= 0.0)
+    @variable(m_2, gt_2 >= 0.0)
+    @variable(
+        m_2,
+        inflow_2[i = 1:3] in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.Uniform(0, 0.1 * i),
+        )
+    )
+
+    @constraint(
+        m_2,
+        balance_2,
+        vf_2 == vi_2 - gh_2 + sum(inflow_2[i] for i in 1:3)
+    )
+    @constraint(m_2, gt_2 + gh_2 == demand)
+
+    @objective(m_2, Min, gt_2^2)
+
+    @show LinearDecisionRules.set_parametric_objective!(
+        m_2,
+        m,
+        Dict(vi => vf_2),
+    )
+
+    set_optimizer(m_2, HiGHS.Optimizer)
+    optimize!(m_2)
+
+    return
+end
+
 end # TestMain module
 
 TestMain.runtests()

@@ -626,6 +626,9 @@ function JuMP.set_objective_function(
     m::LDRModel,
     f::Union{JuMP.AbstractJuMPScalar,Vector{<:JuMP.AbstractJuMPScalar},Real},
 )
+    if haskey(m.ext, :_LDR_value_function_set)
+        error("Value function already set in the new model.")
+    end
     JuMP.set_objective_function(m.cache_model.model, f)
     return
 end

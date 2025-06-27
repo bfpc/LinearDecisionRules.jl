@@ -35,6 +35,9 @@ function _create_pwl_model(model::LDRModel)
         cache_model.uncertainty_to_distribution
         uncertainty_pwl = model.map_cache_to_pwl[uncertainty_cache]
         if v_idx > 0
+            # case of vector distribution:
+            # this is simples for now as we do not do PWL reformulations
+            # for vector distributions
             push!(
                 pwl_model.vector_distributions,
                 cache_model.vector_distributions[d_idx],
@@ -43,6 +46,9 @@ function _create_pwl_model(model::LDRModel)
                 (length(pwl_model.vector_distributions), v_idx)
         else
             if haskey(model.pwl_data, uncertainty_cache)
+
+                # converts a scalar distribution to PWL
+                # the result is a vector distribution
                 break_points = model.pwl_data[uncertainty_cache]
                 pwl_dist = UnivariatePieceWise(
                     cache_model.scalar_distributions[d_idx],
@@ -50,16 +56,24 @@ function _create_pwl_model(model::LDRModel)
                 )
                 push!(pwl_model.vector_distributions, pwl_dist)
 
+                # we have two options
+                # 1 - create length(break_points) + 1 variables and
+                #   add the constraint: uncertainty_pwl = sum pieces
+                # 2 - create length(break_points) variables and
+                #   re-use uncertainty_pwl as one of the pieces
+                # We use 2!!!
+
+                # for the new vector distribution we get its bounds
                 _lb = Distributions.minimum(pwl_dist)
                 _ub = Distributions.maximum(pwl_dist)
-                # set bounds of the first one
-                # TODO the bounds here might need to be parametric
+                # set bounds of the first one (the re-used: uncertainty_pwl)
+                # TODO the bounds here might need to be parametric for performance
                 set_upper_bound(uncertainty_pwl, _ub[1])
                 set_lower_bound(uncertainty_pwl, _lb[1])
-                new_vars = JuMP.VariableRef[]
-                # add the others
                 pwl_model.uncertainty_to_distribution[uncertainty_pwl] =
                     (length(pwl_model.vector_distributions), 1)
+                # add the others
+                new_vars = JuMP.VariableRef[]
                 for i in 1:length(break_points)
                     # TODO the bounds here might need to be parametric
                     v = @variable(
@@ -89,6 +103,7 @@ function _create_pwl_model(model::LDRModel)
                 model.extended_variables[uncertainty_pwl] =
                     vcat(uncertainty_pwl, new_vars)
             else
+                # case of scalar distribution that will not be PWL
                 push!(
                     pwl_model.scalar_distributions,
                     cache_model.scalar_distributions[d_idx],
@@ -122,7 +137,7 @@ function _add_pwl_vars_to_constraints(
 end
 
 function _add_pwl_constraints(
-    model::Model,
+    model,
     uncertainty::VariableRef,
     new_vars::Vector{VariableRef},
     break_points::Vector{Float64},

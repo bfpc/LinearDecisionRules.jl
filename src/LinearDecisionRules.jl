@@ -14,6 +14,7 @@ include("canonical.jl")
 include("solve_primal.jl")
 include("solve_dual.jl")
 include("implement_rule.jl")
+include("recursion.jl")
 
 # distributions
 include("distributions/mv_discrete_non_parametric.jl")

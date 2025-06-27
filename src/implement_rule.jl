@@ -10,8 +10,9 @@ function get_decision(model, x, η; dual = false, piece = nothing)
     @assert JuMP.is_valid(model, x)
     if !isempty(model.extended_variables) # then its is PWL
         x = model.map_cache_to_pwl[x]
-        η = model.map_cache_to_pwl[η]
-        if haskey(model.pwl_data, η)
+        η_cache = η
+        η = model.map_cache_to_pwl[η_cache]
+        if haskey(model.pwl_data, η_cache)
             pieces = model.extended_variables[η]
             if piece === nothing
                 error(
