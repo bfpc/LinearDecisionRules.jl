@@ -16,6 +16,9 @@
 
 #! format: off
 
+using Pkg
+Pkg.activate(@__DIR__)
+
 using JuMP
 import SDDP
 import HiGHS
