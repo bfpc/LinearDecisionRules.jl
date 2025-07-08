@@ -151,7 +151,7 @@ function hydro_thermal_sddp(; stages = 12)
                 inflow[i = 1:4] == data.inflow_initial[i]
             end
         )
-        @stageobjective(
+        SDDP.@stageobjective(
             sp,
             sum(data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4) +
             sum(
