@@ -195,6 +195,67 @@ function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
     return model
 end
 
+# Maybe factorize the "distribution = " part further, but
+# MvDiscreteNonParametric has a different semantics for [i = rees].
+function set_inflow!(m, t, data, rees, inflow_dist)
+    r = (t - 1) % 12 == 0 ? 12 : (t - 1) % 12
+    n_scenarios = length(data.inflow_scenarios[1][r])
+    if inflow_dist == :mnp
+        @variable(
+            m,
+            inflow[i = rees] in LinearDecisionRules.Uncertainty(;
+                distribution = LinearDecisionRules.MvDiscreteNonParametric(
+                    [
+                        [data.inflow_scenarios[i][r][ω] for i = rees] for
+                        ω in 1:n_scenarios
+                    ],
+                    [1 / n_scenarios for _ in 1:n_scenarios],
+                ),
+            ),
+        )
+    elseif inflow_dist == :uni
+        @variable(
+            m,
+            inflow[i = rees] in LinearDecisionRules.Uncertainty(;
+                distribution = Distributions.Uniform(
+                    minimum(data.inflow_scenarios[i][r]),
+                    maximum(data.inflow_scenarios[i][r]),
+                ),
+            ),
+        )
+    elseif inflow_dist == :tri
+        mean = Dict{Int,Float64}()
+        side = Dict{Int,Float64}()
+        for i in rees
+            lb = minimum(data.inflow_scenarios[i][r])
+            ub = maximum(data.inflow_scenarios[i][r])
+            mean[i] = (lb + ub) / 2
+            side[i] = (ub - lb) / 2
+        end
+        @variable(
+            m,
+            inflow[i = rees] in LinearDecisionRules.Uncertainty(;
+                distribution = Distributions.SymTriangularDist(
+                    mean[i],
+                    side[i],
+                ),
+            ),
+        )
+    else
+        # @variable(
+        #     m,
+        #     inflow[i = rees] in LinearDecisionRules.Uncertainty(;
+        #         distribution = Distributions.Normal(
+        #             data.inflow_initial[i],
+        #             0.1 * data.inflow_initial[i],
+        #         ),
+        #     ),
+        # )
+    end
+
+    return inflow
+end
+
 function hydro_thermal_rpwldr(;
     stages = 12, rees=1:4, subsys=1:5,
     stored_energy_breakpoints = 0,
@@ -259,56 +320,8 @@ function hydro_thermal_rpwldr(;
                 # )
             end
         end
-        r = (t - 1) % 12 == 0 ? 12 : (t - 1) % 12
-        n_scenarios = length(data.inflow_scenarios[1][r])
-        if inflow_dist == :mnp
-            @variable(
-                m,
-                inflow[1:4] in LinearDecisionRules.Uncertainty(;
-                    distribution = LinearDecisionRules.MvDiscreteNonParametric(
-                        [
-                            [data.inflow_scenarios[i][r][ω] for i in 1:4] for
-                            ω in 1:n_scenarios
-                        ],
-                        [1 / n_scenarios for _ in 1:n_scenarios],
-                    ),
-                ),
-            )
-        elseif inflow_dist == :uni
-            @variable(
-                m,
-                inflow[i = 1:4] in LinearDecisionRules.Uncertainty(;
-                    distribution = Distributions.Uniform(
-                        minimum(data.inflow_scenarios[i][r]),
-                        maximum(data.inflow_scenarios[i][r]),
-                    ),
-                ),
-            )
-        elseif inflow_dist == :tri
-            lb = [minimum(data.inflow_scenarios[i][r]) for i in 1:4]
-            ub = [maximum(data.inflow_scenarios[i][r]) for i in 1:4]
-            mean = (lb + ub) / 2
-            side = (ub - lb) / 2
-            @variable(
-                m,
-                inflow[i = 1:4] in LinearDecisionRules.Uncertainty(;
-                    distribution = Distributions.SymTriangularDist(
-                        mean[i],
-                        side[i],
-                    ),
-                ),
-            )
-        else
-            # @variable(
-            #     m,
-            #     inflow[i = 1:4] in LinearDecisionRules.Uncertainty(;
-            #         distribution = Distributions.Normal(
-            #             data.inflow_initial[i],
-            #             0.1 * data.inflow_initial[i],
-            #         ),
-            #     ),
-            # )
-        end
+        inflow = set_inflow!(m, t, data, rees, inflow_dist)
+
         @variables(
             m,
             begin
