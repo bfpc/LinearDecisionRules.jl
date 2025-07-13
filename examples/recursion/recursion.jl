@@ -119,7 +119,8 @@ end
 
 #! format: on
 
-function hydro_thermal_sddp(; stages = 12)
+function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
+    @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
     data = hydro_thermal_data()
 
     model = SDDP.LinearPolicyGraph(;
@@ -132,52 +133,54 @@ function hydro_thermal_sddp(; stages = 12)
         month = t % 12 == 0 ? 12 : t % 12  # Year to month conversion.
         @variable(
             sp,
-            0 <= stored_energy[i = 1:4] <= data.stored_energy_ub[i],
+            0 <= stored_energy[i = rees] <= data.stored_energy_ub[i],
             SDDP.State,
             initial_value = data.stored_energy_initial[i]
         )
         @variables(
             sp,
             begin
-                0 <= spillEnergy[i = 1:4]
-                0 <= hydroGeneration[i = 1:4] <= data.hydro_ub[i]
+                0 <= spillEnergy[i = rees]
+                0 <= hydroGeneration[i = rees] <= data.hydro_ub[i]
                 data.thermal_lb[i][j] <=
-                thermal[i = 1:4, j = 1:length(data.thermal_ub[i])] <=
+                thermal[i = rees, j = 1:length(data.thermal_ub[i])] <=
                 data.thermal_ub[i][j]
-                0 <= exchange[i = 1:5, j = 1:5] <= data.exchange_ub[i][j]
+                0 <= exchange[i = subsys, j = subsys] <= data.exchange_ub[i][j]
                 0 <=
-                deficit[i = 1:4, j = 1:4] <=
+                deficit[i = rees, j = 1:4] <=
                 data.demand[month][i] * data.deficit_ub[j]
-                inflow[i = 1:4] == data.inflow_initial[i]
+                inflow[i = rees] == data.inflow_initial[i]
             end
         )
         SDDP.@stageobjective(
             sp,
             sum(data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4) +
             sum(
-                data.thermal_obj[i][j] * thermal[i, j] for i in 1:4 for
+                data.thermal_obj[i][j] * thermal[i, j] for i = rees for
                 j in 1:length(data.thermal_ub[i])
             )
         )
         @constraints(
             sp,
             begin
-                [i = 1:4],
+                [i = rees],
                 sum(deficit[i, :]) +
                 (data.water_scale / data.energy_scale) * hydroGeneration[i] +
                 sum(thermal[i, j] for j in 1:length(data.thermal_ub[i])) +
                 sum(exchange[:, i]) - sum(exchange[i, :]) ==
                 data.demand[month][i]
-                [i = 1:4],
+                [i = rees],
                 stored_energy[i].out + spillEnergy[i] + hydroGeneration[i] -
                 stored_energy[i].in == inflow[i]
-                sum(exchange[:, 5]) == sum(exchange[5, :])
             end
         )
+        if 5 in subsys
+            @constraint(sp, sum(exchange[:, 5]) == sum(exchange[5, :]))
+        end
         if t != 1  # t=1 is handled in the @variable constructor.
             r = (t - 1) % 12 == 0 ? 12 : (t - 1) % 12
             SDDP.parameterize(sp, 1:length(data.inflow_scenarios[1][r])) do ω
-                for i in 1:4
+                for i = rees
                     JuMP.fix(inflow[i], data.inflow_scenarios[i][r][ω])
                 end
             end
@@ -189,19 +192,22 @@ function hydro_thermal_sddp(; stages = 12)
         print_level = 2,
         cut_deletion_minimum = 50,
     )
-    return
+    return model
 end
 
 function hydro_thermal_rpwldr(;
-    stages = 12,
+    stages = 12, rees=1:4, subsys=1:5,
     stored_energy_breakpoints = 0,
     stored_energy_dist = :tri,
     inflow_dist = :tri,
     inflow_breakpoints = 0,
 )
+    @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
     data = hydro_thermal_data()
 
     previous_model = LinearDecisionRules.LDRModel()
+    value_functions = Dict{Int,JuMP.Model}()
+    models = Dict{Int,LinearDecisionRules.LDRModel}()
     for t in stages:-1:1
         month = t % 12 == 0 ? 12 : t % 12  # Year to month conversion.
 
@@ -210,17 +216,18 @@ function hydro_thermal_rpwldr(;
         set_attribute(m, LinearDecisionRules.SolveDual(), false)
         set_attribute(m, LinearDecisionRules.SolvePrimal(), true)
         set_silent(m)
+        models[t] = m
 
         if t == 1
             @variable(
                 m,
-                stored_energy_init[i = 1:4] == data.stored_energy_initial[i],
+                stored_energy_init[i = rees] == data.stored_energy_initial[i],
             )
         else
             if stored_energy_dist == :uni
                 @variable(
                     m,
-                    stored_energy_init[i = 1:4] in
+                    stored_energy_init[i = rees] in
                     LinearDecisionRules.Uncertainty(;
                         distribution = Distributions.Uniform(
                             0,
@@ -231,7 +238,7 @@ function hydro_thermal_rpwldr(;
             elseif stored_energy_dist == :tri
                 @variable(
                     m,
-                    stored_energy_init[i = 1:4] in
+                    stored_energy_init[i = rees] in
                     LinearDecisionRules.Uncertainty(;
                         distribution = Distributions.SymTriangularDist(
                             data.stored_energy_ub[i] / 2,
@@ -242,7 +249,7 @@ function hydro_thermal_rpwldr(;
             else
                 # @variable(
                 #     m,
-                #     stored_energy_init[i = 1:4] in
+                #     stored_energy_init[i = rees] in
                 #     LinearDecisionRules.Uncertainty(;
                 #         distribution = Distributions.Normal(
                 #             data.stored_energy_initial[i],
@@ -305,43 +312,45 @@ function hydro_thermal_rpwldr(;
         @variables(
             m,
             begin
-                0 <= spillEnergy[i = 1:4]
-                0 <= hydroGeneration[i = 1:4] <= data.hydro_ub[i]
+                0 <= spillEnergy[i = rees]
+                0 <= hydroGeneration[i = rees] <= data.hydro_ub[i]
                 data.thermal_lb[i][j] <=
-                thermal[i = 1:4, j = 1:length(data.thermal_ub[i])] <=
+                thermal[i = rees, j = 1:length(data.thermal_ub[i])] <=
                 data.thermal_ub[i][j]
-                0 <= exchange[i = 1:5, j = 1:5] <= data.exchange_ub[i][j]
+                0 <= exchange[i = subsys, j = subsys] <= data.exchange_ub[i][j]
                 0 <=
-                deficit[i = 1:4, j = 1:4] <=
+                deficit[i = rees, j = 1:4] <=
                 data.demand[month][i] * data.deficit_ub[j]
-                0 <= stored_energy[i = 1:4] <= data.stored_energy_ub[i]
+                0 <= stored_energy[i = rees] <= data.stored_energy_ub[i]
             end
         )
         @constraints(
             m,
             begin
-                [i = 1:4],
+                [i = rees],
                 sum(deficit[i, :]) +
                 (data.water_scale / data.energy_scale) * hydroGeneration[i] +
                 sum(thermal[i, j] for j in 1:length(data.thermal_ub[i])) +
                 sum(exchange[:, i]) - sum(exchange[i, :]) ==
                 data.demand[month][i]
-                [i = 1:4],
+                [i = rees],
                 stored_energy[i] + spillEnergy[i] + hydroGeneration[i] -
                 stored_energy_init[i] == inflow[i]
-                sum(exchange[:, 5]) == sum(exchange[5, :])
             end
         )
+        if 5 in subsys
+            @constraint(m, sum(exchange[:, 5]) == sum(exchange[5, :]))
+        end
         @objective(
             m,
             Min,
             sum(data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4) + sum(
-                data.thermal_obj[i][j] * thermal[i, j] for i in 1:4 for
+                data.thermal_obj[i][j] * thermal[i, j] for i = rees for
                 j in 1:length(data.thermal_ub[i])
             )
         )
 
-        for i in 1:4
+        for i = rees
             if stored_energy_breakpoints > 0 && t > 1
                 set_attribute(
                     stored_energy_init[i],
@@ -360,14 +369,30 @@ function hydro_thermal_rpwldr(;
         end
 
         if t != stages  # t=stages is handled in the @variable constructor.
+            # Incorporate value function into the current model
             LinearDecisionRules.set_parametric_objective!(
                 m,
                 previous_model,
                 Dict(
                     previous_model[:stored_energy_init][i] => stored_energy[i]
-                    for i in 1:4
+                    for i = rees
                 ),
             )
+
+            # And save it for analysis
+            vf = JuMP.Model(HiGHS.Optimizer)
+            set_silent(vf)
+            @variable(vf, stored_energy[i = rees])
+            @objective(vf, Min, 0.0)  # Set objective sense
+            LinearDecisionRules.set_parametric_objective!(
+                vf,
+                previous_model,
+                Dict(
+                    previous_model[:stored_energy_init][i] => stored_energy[i]
+                    for i = rees
+                ),
+            )
+            value_functions[t] = vf
         end
 
         optimize!(m)
@@ -383,7 +408,7 @@ function hydro_thermal_rpwldr(;
         previous_model = m
     end
 
-    return
+    return models, value_functions
 end
 
 # hydro_thermal_sddp(; stages = 4)
