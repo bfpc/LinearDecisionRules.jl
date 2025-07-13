@@ -129,7 +129,6 @@ function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
         optimizer = () -> HiGHS.Optimizer(),
     ) do sp, t
         set_silent(sp)  # Suppress output.
-        # set_optimizer_attribute(sp, "OutputFlag", 0)
         month = t % 12 == 0 ? 12 : t % 12  # Year to month conversion.
         @variable(
             sp,
