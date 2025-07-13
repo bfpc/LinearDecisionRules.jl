@@ -423,6 +423,40 @@ function hydro_thermal_rpwldr(;
     return models, value_functions
 end
 
+function eval_vf(vf, rees, stored_energy_initial)
+    # Evaluate the value function at a specific state
+    JuMP.fix.(vf[:stored_energy], stored_energy_initial[rees])
+    optimize!(vf)
+    return objective_value(vf)
+end
+
+import PyPlot
+plt = PyPlot
+function nice_plots(sddp_model, ldr_vfs, t)
+    xs = 0:200
+
+    V = SDDP.ValueFunction(sddp_model[t])
+    y_dy_sddp = [SDDP.evaluate(V, Dict(Symbol("stored_energy[1]") => x)) for x in xs]
+    y_sddp = first.(y_dy_sddp)
+    dy_sddp = [ydy[2][Symbol("stored_energy[1]")] for ydy in y_dy_sddp]
+
+    y_ldr = [eval_vf(ldr_vfs[t], 1:1, [x]) for x in xs]
+
+    plt.figure()
+    plt.plot(xs, y_sddp, label="SDDP")
+    plt.plot(xs, y_ldr, label="LDR")
+    plt.legend()
+    plt.xlabel("Stored Energy")
+    plt.title("Value Function")
+
+    plt.figure()
+    plt.plot(xs, -dy_sddp, label="SDDP")
+    plt.plot((xs[2:end]+xs[1:end-1])/2, -diff(y_ldr), label="LDR")
+    plt.legend()
+    plt.xlabel("Stored Energy")
+    plt.title("Water Value")
+end
+
 # hydro_thermal_sddp(; stages = 4)
 
 # hydro_thermal_rpwldr(; stages = 4, stored_energy_breakpoints = 8, inflow_breakpoints = 8)
