@@ -425,6 +425,6 @@ end
 
 # hydro_thermal_sddp(; stages = 4)
 
-hydro_thermal_rpwldr(; stages = 4, stored_energy_breakpoints = 8, inflow_breakpoints = 8)
+# hydro_thermal_rpwldr(; stages = 4, stored_energy_breakpoints = 8, inflow_breakpoints = 8)
 # hydro_thermal_rpwldr(; stages = 4, stored_energy_breakpoints = 4)
 # hydro_thermal_rpwldr(; stages = 4, stored_energy_breakpoints = 8)
