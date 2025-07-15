@@ -119,6 +119,47 @@ end
 
 #! format: on
 
+function create_variables!(m, data, rees, subsys, month)
+    @variables(
+        m,
+        begin
+            0 <= spillEnergy[i = rees]
+            0 <= hydroGeneration[i = rees] <= data.hydro_ub[i]
+            data.thermal_lb[i][j] <=
+            thermal[i = rees, j = 1:length(data.thermal_ub[i])] <=
+            data.thermal_ub[i][j]
+            0 <= exchange[i = subsys, j = subsys] <= data.exchange_ub[i][j]
+            0 <=
+            deficit[i = rees, j = 1:4] <=
+            data.demand[month][i] * data.deficit_ub[j]
+        end
+    )
+    return spillEnergy, hydroGeneration, thermal, exchange, deficit
+end
+
+function add_constraints!(m, data, rees, subsys, month, inflow, stored_energy_init, stored_energy_out,
+     spillEnergy, hydroGeneration, thermal, exchange, deficit)
+    @constraints(
+        m,
+        begin
+            # Energy balance
+            [i = rees],
+            sum(deficit[i, :]) +
+            (data.water_scale / data.energy_scale) * hydroGeneration[i] +
+            sum(thermal[i, j] for j in 1:length(data.thermal_ub[i])) +
+            sum(exchange[:, i]) - sum(exchange[i, :]) ==
+            data.demand[month][i]
+            # Water balance
+            [i = rees],
+            stored_energy_out[i] + spillEnergy[i] + hydroGeneration[i] -
+            stored_energy_init[i] == inflow[i]
+        end
+    )
+    if 5 in subsys
+        @constraint(m, sum(exchange[:, 5]) == sum(exchange[5, :]))
+    end
+end
+
 function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
     @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
     data = hydro_thermal_data()
@@ -136,21 +177,15 @@ function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
             SDDP.State,
             initial_value = data.stored_energy_initial[i]
         )
-        @variables(
-            sp,
-            begin
-                0 <= spillEnergy[i = rees]
-                0 <= hydroGeneration[i = rees] <= data.hydro_ub[i]
-                data.thermal_lb[i][j] <=
-                thermal[i = rees, j = 1:length(data.thermal_ub[i])] <=
-                data.thermal_ub[i][j]
-                0 <= exchange[i = subsys, j = subsys] <= data.exchange_ub[i][j]
-                0 <=
-                deficit[i = rees, j = 1:4] <=
-                data.demand[month][i] * data.deficit_ub[j]
-                inflow[i = rees] == data.inflow_initial[i]
-            end
-        )
+        # Could have been a @container, but not sure what's best
+        @expression(sp, stored_energy_init[i = rees], stored_energy[i].in)
+        @expression(sp, stored_energy_out[i = rees], stored_energy[i].out)
+        @variable(sp, inflow[i = rees] == data.inflow_initial[i])
+        spillEnergy, hydroGeneration, thermal, exchange, deficit =
+            create_variables!(sp, data, rees, subsys, month)
+        add_constraints!(sp, data, rees, subsys, month, inflow, stored_energy_init, stored_energy_out,
+            spillEnergy, hydroGeneration, thermal, exchange, deficit)
+
         SDDP.@stageobjective(
             sp,
             sum(data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4) +
@@ -159,23 +194,7 @@ function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
                 j in 1:length(data.thermal_ub[i])
             )
         )
-        @constraints(
-            sp,
-            begin
-                [i = rees],
-                sum(deficit[i, :]) +
-                (data.water_scale / data.energy_scale) * hydroGeneration[i] +
-                sum(thermal[i, j] for j in 1:length(data.thermal_ub[i])) +
-                sum(exchange[:, i]) - sum(exchange[i, :]) ==
-                data.demand[month][i]
-                [i = rees],
-                stored_energy[i].out + spillEnergy[i] + hydroGeneration[i] -
-                stored_energy[i].in == inflow[i]
-            end
-        )
-        if 5 in subsys
-            @constraint(sp, sum(exchange[:, 5]) == sum(exchange[5, :]))
-        end
+
         if t != 1  # t=1 is handled in the @variable constructor.
             r = (t - 1) % 12 == 0 ? 12 : (t - 1) % 12
             SDDP.parameterize(sp, 1:length(data.inflow_scenarios[1][r])) do ω
@@ -319,40 +338,15 @@ function hydro_thermal_rpwldr(;
                 # )
             end
         end
+
+        @variable(m, 0 <= stored_energy_out[i = rees] <= data.stored_energy_ub[i])
         inflow = set_inflow!(m, t, data, rees, inflow_dist)
 
-        @variables(
-            m,
-            begin
-                0 <= spillEnergy[i = rees]
-                0 <= hydroGeneration[i = rees] <= data.hydro_ub[i]
-                data.thermal_lb[i][j] <=
-                thermal[i = rees, j = 1:length(data.thermal_ub[i])] <=
-                data.thermal_ub[i][j]
-                0 <= exchange[i = subsys, j = subsys] <= data.exchange_ub[i][j]
-                0 <=
-                deficit[i = rees, j = 1:4] <=
-                data.demand[month][i] * data.deficit_ub[j]
-                0 <= stored_energy[i = rees] <= data.stored_energy_ub[i]
-            end
-        )
-        @constraints(
-            m,
-            begin
-                [i = rees],
-                sum(deficit[i, :]) +
-                (data.water_scale / data.energy_scale) * hydroGeneration[i] +
-                sum(thermal[i, j] for j in 1:length(data.thermal_ub[i])) +
-                sum(exchange[:, i]) - sum(exchange[i, :]) ==
-                data.demand[month][i]
-                [i = rees],
-                stored_energy[i] + spillEnergy[i] + hydroGeneration[i] -
-                stored_energy_init[i] == inflow[i]
-            end
-        )
-        if 5 in subsys
-            @constraint(m, sum(exchange[:, 5]) == sum(exchange[5, :]))
-        end
+        spillEnergy, hydroGeneration, thermal, exchange, deficit =
+            create_variables!(m, data, rees, subsys, month)
+        add_constraints!(m, data, rees, subsys, month, inflow, stored_energy_init, stored_energy_out,
+            spillEnergy, hydroGeneration, thermal, exchange, deficit)
+
         @objective(
             m,
             Min,
@@ -386,7 +380,7 @@ function hydro_thermal_rpwldr(;
                 m,
                 previous_model,
                 Dict(
-                    previous_model[:stored_energy_init][i] => stored_energy[i]
+                    previous_model[:stored_energy_init][i] => stored_energy_out[i]
                     for i = rees
                 ),
             )
