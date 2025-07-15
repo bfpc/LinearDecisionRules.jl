@@ -169,7 +169,7 @@ function get_cost_expr(m, data, rees, thermal, deficit)
     )
 end
 
-function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
+function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5, train::Bool=true)
     @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
     data = hydro_thermal_data()
 
@@ -207,12 +207,14 @@ function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
             end
         end
     end
+    if train
     SDDP.train(
         model;
         time_limit = 10,
         print_level = 2,
         cut_deletion_minimum = 50,
     )
+    end
     return model
 end
 
@@ -446,6 +448,37 @@ function nice_plots(sddp_model, ldr_vfs, t)
     plt.legend()
     plt.xlabel("Stored Energy")
     plt.title("Water Value")
+end
+
+function hydro_thermal_mixed_simul(ldr_models, n=1; stages = 12, rees=1:4, subsys=1:5)
+    sddp_models = hydro_thermal_sddp(; stages = stages, rees = rees, subsys = subsys, train = false)
+    for (stage, node) in sddp_models.nodes
+        if stage == stages
+            continue
+        end
+        sp = node.subproblem
+        stored_energy_out = sp[:stored_energy_out]
+        previous_model = ldr_models[stage+1]
+        LinearDecisionRules.set_parametric_objective!(
+            sp,
+            previous_model,
+            Dict(
+                previous_model[:stored_energy_init][i] => stored_energy_out[i]
+                for i = rees
+            ),
+        )
+    end
+
+    return SDDP.simulate(sddp_models, n)
+end
+
+function hydro_thermal_sddp_simul(n=1; stages = 12, rees=1:4, subsys=1:5)
+    sddp_models = hydro_thermal_sddp(; stages = stages, rees = rees, subsys = subsys, train = true)
+    return SDDP.simulate(sddp_models, n)
+end
+
+function simulation_cost(result)
+    sum(x[:stage_objective] for x in result)
 end
 
 # hydro_thermal_sddp(; stages = 4)
