@@ -160,6 +160,15 @@ function add_constraints!(m, data, rees, subsys, month, inflow, stored_energy_in
     end
 end
 
+function get_cost_expr(m, data, rees, thermal, deficit)
+    return sum(
+        data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4
+    ) + sum(
+        data.thermal_obj[i][j] * thermal[i, j] for i = rees for
+        j in 1:length(data.thermal_ub[i])
+    )
+end
+
 function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
     @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
     data = hydro_thermal_data()
@@ -186,14 +195,8 @@ function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5)
         add_constraints!(sp, data, rees, subsys, month, inflow, stored_energy_init, stored_energy_out,
             spillEnergy, hydroGeneration, thermal, exchange, deficit)
 
-        SDDP.@stageobjective(
-            sp,
-            sum(data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4) +
-            sum(
-                data.thermal_obj[i][j] * thermal[i, j] for i = rees for
-                j in 1:length(data.thermal_ub[i])
-            )
-        )
+        immediate_cost = get_cost_expr(sp, data, rees, thermal, deficit)
+        SDDP.@stageobjective(sp, immediate_cost)
 
         if t != 1  # t=1 is handled in the @variable constructor.
             r = (t - 1) % 12 == 0 ? 12 : (t - 1) % 12
@@ -347,14 +350,8 @@ function hydro_thermal_rpwldr(;
         add_constraints!(m, data, rees, subsys, month, inflow, stored_energy_init, stored_energy_out,
             spillEnergy, hydroGeneration, thermal, exchange, deficit)
 
-        @objective(
-            m,
-            Min,
-            sum(data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4) + sum(
-                data.thermal_obj[i][j] * thermal[i, j] for i = rees for
-                j in 1:length(data.thermal_ub[i])
-            )
-        )
+        immediate_cost = get_cost_expr(m, data, rees, thermal, deficit)
+        @objective(m, Min, immediate_cost)
 
         for i = rees
             if stored_energy_breakpoints > 0 && t > 1
