@@ -195,6 +195,22 @@ function JuMP.get_attribute(model::LDRModel, ::NumScenarios)
 end
 
 """
+    SlackAsExpr
+
+Attribute to get/set whether to model slack variables `Sᵢ` directly as
+their equivalent expressions `Λᵢ ⋅ W` in the primal LDR model.
+Default: `false` (i.e., create both `Sᵢ` and `Λᵢ` in the model).
+"""
+struct SlackAsExpr end
+function JuMP.set_attribute(model::LDRModel, ::SlackAsExpr, value::Bool)
+    model.ext[:slack_as_expr] = value
+    return nothing
+end
+function JuMP.get_attribute(model::LDRModel, ::SlackAsExpr)
+    return get(model.ext, :slack_as_expr, false)
+end
+
+"""
     RejectionSamplingTimeLimit
 
 Attribute to get/set the time limit (seconds) spent on rejection sampling
@@ -541,7 +557,8 @@ function JuMP.optimize!(model::LDRModel)
     end
     _prepare_data(model)
     if model.solve_primal
-        _solve_primal_ldr(model)
+        slack_as_expr = JuMP.get_attribute(model, SlackAsExpr())
+        _solve_primal_ldr(model; slack_as_expr)
     end
     if model.solve_dual
         _solve_dual_ldr(model)
