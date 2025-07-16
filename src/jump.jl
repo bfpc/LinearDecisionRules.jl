@@ -80,9 +80,6 @@ struct BreakPoints end
 
 function JuMP.set_attribute(x::JuMP.VariableRef, ::BreakPoints, value::Nothing)
     model = x.model.ext[:_LDR_model]
-    if length(value) < 1
-        error("Number of breakpoints must be at least 1.")
-    end
     if !haskey(model.cache_model.uncertainty_to_distribution, x)
         error("Variable is not associated with an uncertainty.")
     elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
