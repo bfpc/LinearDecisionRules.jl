@@ -450,7 +450,8 @@ function nice_plots(sddp_model, ldr_vfs, t)
     plt.title("Water Value")
 end
 
-function hydro_thermal_mixed_simul(ldr_models, n=1; stages = 12, rees=1:4, subsys=1:5)
+using Random
+function hydro_thermal_mixed_simul(ldr_models, n=1, seed=0; stages = 12, rees=1:4, subsys=1:5)
     sddp_models = hydro_thermal_sddp(; stages = stages, rees = rees, subsys = subsys, train = false)
     for (stage, node) in sddp_models.nodes
         if stage == stages
@@ -469,16 +470,48 @@ function hydro_thermal_mixed_simul(ldr_models, n=1; stages = 12, rees=1:4, subsy
         )
     end
 
+    Random.seed!(seed)
     return SDDP.simulate(sddp_models, n)
 end
 
-function hydro_thermal_sddp_simul(n=1; stages = 12, rees=1:4, subsys=1:5)
+function hydro_thermal_sddp_simul(n=1, seed=0; stages = 12, rees=1:4, subsys=1:5)
     sddp_models = hydro_thermal_sddp(; stages = stages, rees = rees, subsys = subsys, train = true)
+    Random.seed!(seed)
     return SDDP.simulate(sddp_models, n)
 end
 
 function simulation_cost(result)
     sum(x[:stage_objective] for x in result)
+end
+
+function hydro_thermal_compare(n=100, seed=0; stages = 12, rees=1:4, subsys=1:5,
+    stored_energy_breakpoints = 0,
+    stored_energy_dist = :tri,
+    inflow_dist = :tri,
+    inflow_breakpoints = 0,
+)
+    sddp_result = hydro_thermal_sddp_simul(n, seed; stages, rees, subsys)
+    ldr_models, ldr_vfs = hydro_thermal_rpwldr(; stages, rees, subsys,
+        stored_energy_breakpoints,
+        stored_energy_dist,
+        inflow_dist,
+        inflow_breakpoints,
+    )
+    mixed_result = hydro_thermal_mixed_simul(ldr_models, n, seed; stages, rees, subsys)
+
+    sddp_costs = simulation_cost.(sddp_result)
+    ldr_costs =  simulation_cost.(mixed_result)
+    plt.figure()
+    plt.scatter(sddp_costs, ldr_costs, label = "Mixed vs SDDP", alpha = 0.5)
+    plt.plot([0, maximum(sddp_costs)], [0, maximum(sddp_costs)], "C1--", label = "y=x")
+    ymax = maximum([maximum(sddp_costs), maximum(ldr_costs)])
+    plt.plot([0, ymax/2], [0, ymax], "C2--", label = "y=2x")
+    plt.xlabel("SDDP Cost")
+    plt.ylabel("LDR VF Cost")
+    plt.legend()
+    plt.title("Cost Comparison\n$(stored_energy_breakpoints) state breakpoints\n$(inflow_breakpoints) inflow breakpoints")
+
+    return sddp_result, ldr_models, ldr_vfs, mixed_result
 end
 
 # hydro_thermal_sddp(; stages = 4)
