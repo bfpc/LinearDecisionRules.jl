@@ -12,7 +12,7 @@
 #      Sxu ξ >= 0
 #      Sxl ξ >= 0
 
-function _solve_primal_ldr(model)
+function _solve_primal_ldr(model; slack_as_expr=false)
     if haskey(model.primal_model.ext, :_LDR_built_primal)
         # Lazy "flush"
         model.primal_model = JuMP.Model()
@@ -49,9 +49,6 @@ function _solve_primal_ldr(model)
             set_integer(var)
         end
     end
-    # @variable(model.primal_model, X[1:dim_x, 1:dim_ξ])
-    @variable(model.primal_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
-    @variable(model.primal_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
 
     # Equality constraints
     @constraint(model.primal_model, ABC.Ae * X .== ABC.Be)
@@ -73,33 +70,52 @@ function _solve_primal_ldr(model)
     ]
     h = [1; -1; -hu; hl; -ABC.ub; ABC.lb]
 
-    @constraint(model.primal_model, ABC.Au * X .+ Su .== ABC.Bu)
     @variable(model.primal_model, ΛSu[1:size(ABC.Bu, 1), 1:nW] >= 0)
-    @constraint(model.primal_model, ΛSu * W .== Su)
     @constraint(model.primal_model, ΛSu * h .>= 0)
 
-    @constraint(model.primal_model, ABC.Al * X .- Sl .== ABC.Bl)
     @variable(model.primal_model, ΛSl[1:size(ABC.Bl, 1), 1:nW] >= 0)
-    @constraint(model.primal_model, ΛSl * W .== Sl)
     @constraint(model.primal_model, ΛSl * h .>= 0)
+
+    if slack_as_expr
+        @constraint(model.primal_model, ABC.Au * X .+ ΛSu * W .== ABC.Bu)
+        @constraint(model.primal_model, ABC.Al * X .- ΛSl * W .== ABC.Bl)
+    else
+        @variable(model.primal_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
+        @variable(model.primal_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
+        @constraint(model.primal_model, ΛSu * W .== Su)
+        @constraint(model.primal_model, ΛSl * W .== Sl)
+        @constraint(model.primal_model, ABC.Au * X .+ Su .== ABC.Bu)
+        @constraint(model.primal_model, ABC.Al * X .- Sl .== ABC.Bl)
+    end
+
 
     # Can only include rows where the bound is not +Inf
     idxs = findall(x -> x != Inf, ABC.xu)
-    @variable(model.primal_model, Sxu[idxs, 1:dim_ξ])
-    @constraint(model.primal_model, X[idxs, 1] .+ Sxu[idxs, 1] .== ABC.xu[idxs])
-    @constraint(model.primal_model, X[idxs, 2:end] .+ Sxu[idxs, 2:end] .== 0)
     @variable(model.primal_model, ΛSxu[idxs, 1:nW] >= 0)
-    @constraint(model.primal_model, ΛSxu.data * W .== Sxu.data)
     @constraint(model.primal_model, ΛSxu.data * h .>= 0)
+    if slack_as_expr
+        @constraint(model.primal_model, X[idxs, 1] .+ ΛSxu.data * W[:, 1] .== ABC.xu[idxs])
+        @constraint(model.primal_model, X[idxs, 2:end] .+ ΛSxu.data * W[:, 2:end] .== 0)
+    else
+        @variable(model.primal_model, Sxu[idxs, 1:dim_ξ])
+        @constraint(model.primal_model, ΛSxu.data * W .== Sxu.data)
+        @constraint(model.primal_model, X[idxs, 1] .+ Sxu[idxs, 1] .== ABC.xu[idxs])
+        @constraint(model.primal_model, X[idxs, 2:end] .+ Sxu[idxs, 2:end] .== 0)
+    end
 
     # Can only include rows where the bound is not -Inf
     idxs = findall(x -> x != -Inf, ABC.xl)
-    @variable(model.primal_model, Sxl[idxs, 1:dim_ξ])
-    @constraint(model.primal_model, X[idxs, 1] .- Sxl[idxs, 1] .== ABC.xl[idxs])
-    @constraint(model.primal_model, X[idxs, 2:end] .- Sxl[idxs, 2:end] .== 0)
     @variable(model.primal_model, ΛSxl[idxs, 1:nW] >= 0)
-    @constraint(model.primal_model, ΛSxl.data * W .== Sxl.data)
     @constraint(model.primal_model, ΛSxl.data * h .>= 0)
+    if slack_as_expr
+        @constraint(model.primal_model, X[idxs, 1] .- ΛSxl.data * W[:, 1] .== ABC.xl[idxs])
+        @constraint(model.primal_model, X[idxs, 2:end] .- ΛSxl.data * W[:, 2:end] .== 0)
+    else
+        @variable(model.primal_model, Sxl[idxs, 1:dim_ξ])
+        @constraint(model.primal_model, ΛSxl.data * W .== Sxl.data)
+        @constraint(model.primal_model, X[idxs, 1] .- Sxl[idxs, 1] .== ABC.xl[idxs])
+        @constraint(model.primal_model, X[idxs, 2:end] .- Sxl[idxs, 2:end] .== 0)
+    end
 
     @expression(
         model.primal_model,
