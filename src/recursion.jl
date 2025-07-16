@@ -1,9 +1,8 @@
 function set_parametric_objective!(new_model, model, uncertainty_to_var::Dict)
-    
     if haskey(new_model.ext, :_LDR_value_function_set)
         error("Value function already set in the new model.")
     end
-    
+
     # validate input
     for (η, new_var) in uncertainty_to_var
         @assert JuMP.is_valid(model, η)
@@ -21,7 +20,10 @@ function set_parametric_objective!(new_model, model, uncertainty_to_var::Dict)
     #     undef,
     #     dim_ξ,
     # )
-    M = similar(_M, JuMP.GenericQuadExpr{Float64,JuMP.GenericVariableRef{Float64}})
+    M = similar(
+        _M,
+        JuMP.GenericQuadExpr{Float64,JuMP.GenericVariableRef{Float64}},
+    )
     M .= _M
     ξ = Dict{Int,JuMP.GenericVariableRef{Float64}}()
     # for i in eachindex(ξ)

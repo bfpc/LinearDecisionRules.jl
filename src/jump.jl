@@ -182,6 +182,22 @@ function JuMP.primal_status(model::LDRModel; dual = false)
     end
 end
 
+function JuMP.raw_status(model::LDRModel; dual = false)
+    if dual
+        if !model.solve_dual
+            return MOI.NO_SOLUTION
+        else
+            return JuMP.raw_status(model.dual_model)
+        end
+    else
+        if !model.solve_primal
+            return MOI.NO_SOLUTION
+        else
+            return JuMP.raw_status(model.primal_model)
+        end
+    end
+end
+
 function JuMP.dual_status(model::LDRModel; dual = false)
     return MOI.NO_SOLUTION
 end
