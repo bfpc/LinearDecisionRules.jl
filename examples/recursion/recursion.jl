@@ -315,6 +315,7 @@ function hydro_thermal_rpwldr(;
     stored_energy_dist = :tri,
     inflow_dist = :tri,
     inflow_breakpoints = 0,
+    slack_as_expr = true,
 )
     @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
     data = hydro_thermal_data()
@@ -329,6 +330,7 @@ function hydro_thermal_rpwldr(;
         set_optimizer(m, HiGHS.Optimizer)
         set_attribute(m, LinearDecisionRules.SolveDual(), false)
         set_attribute(m, LinearDecisionRules.SolvePrimal(), true)
+        set_attribute(m, LinearDecisionRules.SlackAsExpr(), slack_as_expr)
         set_silent(m)
         models[t] = m
 
@@ -446,7 +448,7 @@ function hydro_thermal_rpwldr(;
             value_functions[t] = vf
         end
 
-        optimize!(m)
+        @time optimize!(m)
         @show t
         @show objective_value(m)
 
