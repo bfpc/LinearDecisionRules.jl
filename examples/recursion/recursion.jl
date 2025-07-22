@@ -184,6 +184,7 @@ function hydro_thermal_sddp(;
     rees = 1:4,
     subsys = 1:5,
     train::Bool = true,
+    time_limit = 10,
 )
     @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
     data = hydro_thermal_data()
@@ -238,7 +239,7 @@ function hydro_thermal_sddp(;
     if train
         SDDP.train(
             model;
-            time_limit = 10,
+            time_limit,
             print_level = 2,
             cut_deletion_minimum = 50,
         )
@@ -541,12 +542,14 @@ function hydro_thermal_sddp_simul(
     stages = 12,
     rees = 1:4,
     subsys = 1:5,
+    time_limit = 10,
 )
     sddp_models = hydro_thermal_sddp(;
         stages = stages,
         rees = rees,
         subsys = subsys,
         train = true,
+        time_limit = time_limit,
     )
     Random.seed!(seed)
     return SDDP.simulate(sddp_models, n)
@@ -562,12 +565,13 @@ function hydro_thermal_compare(
     stages = 12,
     rees = 1:4,
     subsys = 1:5,
+    time_limit = 10,
     stored_energy_breakpoints = 0,
     stored_energy_dist = :tri,
     inflow_dist = :tri,
     inflow_breakpoints = 0,
 )
-    sddp_result = hydro_thermal_sddp_simul(n, seed; stages, rees, subsys)
+    sddp_result = hydro_thermal_sddp_simul(n, seed; stages, rees, subsys, time_limit)
     ldr_models, ldr_vfs = hydro_thermal_rpwldr(;
         stages,
         rees,
