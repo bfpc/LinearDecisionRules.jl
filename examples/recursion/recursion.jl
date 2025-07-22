@@ -308,6 +308,23 @@ function set_inflow!(m, t, data, rees, inflow_dist)
     return inflow
 end
 
+# Convert an Int or a Vector of Ints to a Dict with keys from `keys`.
+function to_dict(n::Int, ks)
+    return Dict(k => n for k in ks)
+end
+function to_dict(ns::Vector, ks)
+    if length(ns) != length(ks)
+        throw(ArgumentError("Length of ns must match length of ks."))
+    end
+    return Dict(k => ns[i] for (i, k) in enumerate(ks))
+end
+function to_dict(d::Dict, ks)
+    if !all(k in d for k in keys(ks))
+        throw(ArgumentError("All keys from ks must appear in d."))
+    end
+    return Dict(k => d[k] for k in ks)
+end
+
 function hydro_thermal_rpwldr(;
     stages = 12,
     rees = 1:4,
@@ -319,6 +336,8 @@ function hydro_thermal_rpwldr(;
     slack_as_expr = true,
 )
     @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
+    stored_energy_breakpoints = to_dict(stored_energy_breakpoints, rees)
+    inflow_breakpoints = to_dict(inflow_breakpoints, rees)
     data = hydro_thermal_data()
 
     previous_model = LinearDecisionRules.LDRModel()
@@ -404,20 +423,20 @@ function hydro_thermal_rpwldr(;
         immediate_cost = get_cost_expr(m, data, rees, thermal, deficit)
         @objective(m, Min, immediate_cost)
 
-        for i in rees
-            if stored_energy_breakpoints > 0 && t > 1
+        for i = rees
+            if stored_energy_breakpoints[i] > 0 && t > 1
                 set_attribute(
                     stored_energy_init[i],
                     LinearDecisionRules.BreakPoints(),
-                    stored_energy_breakpoints,
+                    stored_energy_breakpoints[i],
                 )
             end
-            if inflow_breakpoints > 0 && t > 1 && inflow_dist != :mnp
+            if inflow_breakpoints[i] > 0 && t > 1 && inflow_dist != :mnp
                 # Note: inflow_breakpoints is not used for MvDiscreteNonParametric.
                 set_attribute(
                     inflow[i],
                     LinearDecisionRules.BreakPoints(),
-                    inflow_breakpoints,
+                    inflow_breakpoints[i],
                 )
             end
         end
