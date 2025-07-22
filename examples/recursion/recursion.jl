@@ -552,7 +552,7 @@ function hydro_thermal_sddp_simul(
         time_limit = time_limit,
     )
     Random.seed!(seed)
-    return SDDP.simulate(sddp_models, n)
+    return sddp_models, SDDP.simulate(sddp_models, n)
 end
 
 function simulation_cost(result)
@@ -571,7 +571,8 @@ function hydro_thermal_compare(
     inflow_dist = :tri,
     inflow_breakpoints = 0,
 )
-    sddp_result = hydro_thermal_sddp_simul(n, seed; stages, rees, subsys, time_limit)
+    sddp_models, sddp_result =
+        hydro_thermal_sddp_simul(n, seed; stages, rees, subsys, time_limit)
     ldr_models, ldr_vfs = hydro_thermal_rpwldr(;
         stages,
         rees,
@@ -584,6 +585,12 @@ function hydro_thermal_compare(
     mixed_result =
         hydro_thermal_mixed_simul(ldr_models, n, seed; stages, rees, subsys)
 
+    sddp_ldr_scatter(sddp_result, mixed_result, stored_energy_breakpoints, inflow_breakpoints)
+
+    return sddp_models, sddp_result, ldr_models, ldr_vfs, mixed_result
+end
+
+function sddp_ldr_scatter(sddp_result, mixed_result, stored_energy_breakpoints, inflow_breakpoints)
     sddp_costs = simulation_cost.(sddp_result)
     ldr_costs = simulation_cost.(mixed_result)
     plt.figure()
@@ -603,7 +610,7 @@ function hydro_thermal_compare(
         "Cost Comparison\n$(stored_energy_breakpoints) state breakpoints\n$(inflow_breakpoints) inflow breakpoints",
     )
 
-    return sddp_result, ldr_models, ldr_vfs, mixed_result
+    return
 end
 
 # hydro_thermal_sddp(; stages = 4)
