@@ -1,0 +1,3 @@
+The use of linear decision rules is an attractive alternative to multistage decision making under uncertainty, combining simplicity and interpretability of the policies and computational tractability.
+We introduce a modeling extension to the LinearDecisionRules.jl package that allows the user to formulate and optimize value functions in this framework.
+The extension also simplifies incorporating such value functions as convex formulations to be used in further optimization problems.
