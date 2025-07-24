@@ -528,13 +528,13 @@ function hydro_thermal_mixed_simul(
     rees = 1:4,
     subsys = 1:5,
 )
-    sddp_models = hydro_thermal_sddp(;
+    mixed_models = hydro_thermal_sddp(;
         stages = stages,
         rees = rees,
         subsys = subsys,
         train = false,
     )
-    for (stage, node) in sddp_models.nodes
+    for (stage, node) in mixed_models.nodes
         if stage == stages
             continue
         end
@@ -552,7 +552,7 @@ function hydro_thermal_mixed_simul(
     end
 
     Random.seed!(seed)
-    return SDDP.simulate(sddp_models, n)
+    return SDDP.simulate(mixed_models, n)
 end
 
 function hydro_thermal_sddp_simul(
