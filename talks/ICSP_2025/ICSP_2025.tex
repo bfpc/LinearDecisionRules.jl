@@ -201,23 +201,9 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Some observations}
-  \begin{itemize}
-    \item In time-decomposition, the decisions $y_t$ (and $x_t$) depend on the previous state $x_{t-1}$ and the uncertainty $\xi_t$;
-    \item We could posit $y_t = Y_{t,\xi} \cdot \xi_t + Y_{t,x} \cdot x_{t-1}$, where $Y_{t,\xi}$ and $Y_{t,x}$ are decision rule matrices;\pause
-    \item However, recursively substituting a decision rule for $x_{t-1}$ leads to a \emph{product} of decision rule matrices, which is not linear in the uncertainties.
-  \end{itemize}
-  \pause
-
-  We can form a recursion for ``LDR''-Value functions:
-  \[
-  \min \mathbb{E}_{\xi_t}\left[ c_t(\xi_t)^\top y_t \cdot \xi_t + V_{t+1}(x_t) \right],
-  \]
-  because $V_{t+1}$ is convex and $y_t$ and $x_t$ are linear in the decision rule matrices ($Y_{t,\xi}$, $Y_{t,x}$, $X_{t,\xi}$, $X_{t,x}$).
-\end{frame}
 
 \begin{frame}{Back to the 2-stage problem}
-  We adopt a notation for $x$ the incoming state, $y$ the decision, and $z$ the outgoing state:
+  We adopt a notation where $x$ is the incoming state, $y$ the decision, and $z$ the outgoing state:
   \[
     V(x) = \begin{array}[t]{rl}
       \min        & \mathbb{E}\left[ c(\xi)^\top y(\xi) + f(z(\xi)) \right] \\[0.5ex]
@@ -227,7 +213,8 @@
   \]
   \pause
 
-  \begin{itemize}
+  \begin{itemize}[<+->]
+    \item Decisions $y$ (and $z$) depend on the previous state $x$ and the uncertainty $\xi$;
     \item The LDR for this problem sets $y(x,\xi) = Y_\xi(x) \cdot \xi$ and $z(x,\xi) = Z_\xi(x) \cdot \xi$;
     \item The Linear Feedback Decision Rule (LFDR) sets
     $\begin{cases}
@@ -235,22 +222,38 @@
       z(x,\xi) = Z_\xi \cdot \xi + Z_x \cdot x.
     \end{cases}$
   \end{itemize}
-  \pause
-
-  For fixed $x$, the LFDR is a feasible LDR for both $y$ and $z$, so $V_{LFDR}(x) \geq V_{LDR}(x) \geq V(x)$.
 \end{frame}
 
-\begin{frame}{However}
-  Such a policy is too simplistic, leading to $\frac{\partial V_{LFDR}(x)}{\partial x}$ being constant \alert{VERIFY}.
-  Therefore
+\begin{frame}{Some observations}
+
+  \begin{enumerate}[<+->]
+    \item We can form a recursion for value functions:
+  \begin{align*}
+    V(x) & = \mathbb{E}_{\xi} \left[ c(\xi)^\top y^*(\xi) + f(z^*(\xi)) \right] \\
+    V_{LDR}(x) & = \mathbb{E}_{\xi} \left[ c(\xi)^\top Y^*(x) \cdot \xi + \alt<3->{\blue{F^*(x) \cdot \xi}}{f(Z^*(x) \cdot \xi)} \right] \\
+    V_{LFDR}(x) & = \mathbb{E}_{\xi} \left[ c(\xi)^\top (Y_\xi \cdot \xi + Y_x \cdot x) + \alt<3->{\blue{F_\xi \cdot \xi + F_x \cdot x}}{f(Z_\xi \cdot \xi + Z_x \cdot x)} \right].
+  \end{align*}
+  
+  \item For fixed $x$, the LFDR is a feasible LDR for both $y$ and $z$, so $V_{LFDR}(x) \geq V_{LDR}(x) \geq V(x)$.
+  \medskip
+
+  \item We also need to represent $f(z)$ as \blue{linear functions\ldots}
+  \item So $\frac{\partial V_{LFDR}(x)}{\partial x}$ is constant!
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{More general decision rules}
+  
   \begin{itemize}
     \item We \emph{lift} $x$ to a higher-dimensional space and only require that the decision rule is linear in the \emph{lifted} variables;
     \item If $x = \sum x_i$, this leads to a piecewise-linear decision rule.
-  \end{itemize}
+    \pause
 
-  Now, we have $V_{PWLF}(x) = \mathbb{E}\left[ c(\xi)^\top \hat{Y}_\xi \cdot \xi + c_x^\top \hat{Y}_x \cdot L(x) \right]$.
-  However, $L(x)$ is a \emph{piecewise-linear} function, so we might need to \emph{convexify} $V$ to ensure the recursion remains manageable.
-  But, again, the PWLF is a feasible LDR, so $V_{PWLF}(x) \geq V_{LDR}(x) \geq V(x)$, and the former are feasible, so the (natural) convexification leads to a valid upper bound for $V(x)$.
+    \item We have $V_{PWLF}(x) = \mathbb{E}\left[ c(\xi)^\top (\hat{Y}_\xi \cdot \xi + \hat{Y}_x \cdot \blue{L(x)}) + \ldots \right]$.
+    \pause
+    \item $L(x)$ is a \emph{piecewise-linear} function, so we might need to \emph{convexify} $V$.
+    \item The (natural) convexification leads to a valid upper bound for $V_{LDR}(x)$, so for $V(x)$.
+\end{itemize}
 \end{frame}
 
 
@@ -329,13 +332,10 @@
 
 
 \begin{frame}{Next steps}
-  Improve \emph{correlated uncertainties};
-  \pause\medskip
-
   \emph{Multistage} decision rules:
   \begin{itemize}
     \item Generalize \alertt{FirstStage} to accommodate decisions $x_t$ which can only depend on \emph{observed} uncertainties $\xi_1, \ldots, \xi_t$;
-    \item Will benefit from correlated uncertainties to model more complex processes.
+    \item Will benefit from \alert{correlated uncertainties} to model more complex processes.
   \end{itemize}
   \pause\medskip
 
