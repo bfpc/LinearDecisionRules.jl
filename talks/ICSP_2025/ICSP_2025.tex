@@ -246,14 +246,24 @@
   
   \begin{itemize}
     \item We \emph{lift} $x$ to a higher-dimensional space and only require that the decision rule is linear in the \emph{lifted} variables;
-    \item If $x = \sum x_i$, this leads to a piecewise-linear decision rule.
+    \item If $x = \sum_{i=1}^J x_i$, this leads to a piecewise-linear decision rule.
     \pause
 
     \item We have $V_{PWLF}(x) = \mathbb{E}\left[ c(\xi)^\top (\hat{Y}_\xi \cdot \xi + \hat{Y}_x \cdot \blue{L(x)}) + \ldots \right]$.
     \pause
-    \item $L(x)$ is a \emph{piecewise-linear} function, so we might need to \emph{convexify} $V$.
-    \item The (natural) convexification leads to a valid upper bound for $V_{LDR}(x)$, so for $V(x)$.
-\end{itemize}
+    \item $L(x)$ is a \emph{piecewise-linear} function, so we might need to \emph{convexify} $V_{PWLF}$.
+  \end{itemize}
+  \pause
+  \begin{theorem}
+    The natural polyhedral representation, including the simplicial constraints
+    \[ 0 \leq x_J \leq \cdots \leq x_2 \leq x_1 \leq (\max x)/J \]
+    \pause
+    yields \(
+    \begin{cases}
+      \text{a convexification of $V_{PWLF}$;} \\ \pause
+      \text{which remains a valid upper bound for $V_{LDR}(x)$, so for $V(x)$.}
+    \end{cases} \)
+  \end{theorem}
 \end{frame}
 
 
