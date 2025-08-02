@@ -203,12 +203,12 @@
 
 
 \begin{frame}{Back to the 2-stage problem}
-  We adopt a notation where $x$ is the incoming state, $y$ the decision, and $z$ the outgoing state:
+  Notation: $x$ is the incoming state, $y$ the decision, and $z$ the outgoing state:
   \[
     V(x) = \begin{array}[t]{rl}
-      \min        & \mathbb{E}\left[ c(\xi)^\top y(\xi) + f(z(\xi)) \right] \\[0.5ex]
-      \text{s.t.} & T x + W_y y(\xi) + W_z z(\xi) = h(\xi) \\
-      & y(\xi), z(\xi) \geq 0.
+      \min        & \mathbb{E}\left[ c(\xi)^\top y(x, \xi) + f(z(x, \xi)) \right] \\[0.5ex]
+      \text{s.t.} & T x + W_y y(x, \xi) + W_z z(x, \xi) = h(\xi) \\
+      & y(x, \xi), z(x, \xi) \geq 0.
     \end{array}
   \]
   \pause
