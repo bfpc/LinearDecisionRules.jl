@@ -383,6 +383,7 @@ function hydro_thermal_rpwldr(;
                     ),
                 )
             else
+                @error "Unrecognized stored_energy_dist: $stored_energy_dist.  Use either :uni or :tri."
                 # @variable(
                 #     m,
                 #     stored_energy_init[i = rees] in
