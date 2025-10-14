@@ -4,22 +4,24 @@ using PyPlot
 
 LDR = LinearDecisionRules
 
-demand = 0.3
+# Global parameters
+demand = 0.5
+inflow_dist = Uniform(0, 0.3)
 
 # PWLF value function
 begin
 m = LDR.LDRModel(Ipopt.Optimizer)
 set_silent(m)
 @variable(m, vi in LDR.Uncertainty(distribution=Uniform(0, 1)))
-@variable(m, inflow in LDR.Uncertainty(distribution=Uniform(0, 0.2)))
+@variable(m, inflow in LDR.Uncertainty(distribution=inflow_dist))
 @variable(m, 0 <= vf <= 1)
 @variable(m, gh >= 0.0)
-@variable(m, gt >= 0.0)
+@variable(m, 0 <= gt[1:3] <= 0.2)
 
 @constraint(m, balance, vf == vi - gh + inflow)
-@constraint(m, gt + gh == demand)
+@constraint(m, sum(gt) + gh == demand)
 
-@objective(m, Min, gt^2 + vf^2/2 - vf + 0.5)
+@objective(m, Min, gt[1] + 2gt[2] + 3gt[3] + vf^2/2 - vf + 0.5)
 
 # Solve the primal LDR
 set_attribute(m, LDR.SolvePrimal(), true)
@@ -53,15 +55,15 @@ begin
 m = LDR.LDRModel(Ipopt.Optimizer)
 set_silent(m)
 @variable(m, vi)
-@variable(m, inflow in LDR.Uncertainty(distribution=Uniform(0, 0.2)))
+@variable(m, inflow in LDR.Uncertainty(distribution=inflow_dist))
 @variable(m, 0 <= vf <= 1)
 @variable(m, gh >= 0.0)
-@variable(m, gt >= 0.0)
+@variable(m, 0 <= gt[1:3] <= 0.2)
 
 @constraint(m, balance, vf == vi - gh + inflow)
-@constraint(m, gt + gh == demand)
+@constraint(m, sum(gt) + gh == demand)
 
-@objective(m, Min, gt^2 + vf^2/2 - vf + 0.5)
+@objective(m, Min, gt[1] + 2gt[2] + 3gt[3] + vf^2/2 - vf + 0.5)
 
 # Solve the primal LDR
 set_attribute(m, LDR.SolvePrimal(), true)
@@ -89,14 +91,13 @@ set_silent(m)
 @variable(m, vi)
 @variable(m, 0 <= vf[1:Nscen] <= 1)
 @variable(m, gh[1:Nscen] >= 0.0)
-@variable(m, gt[1:Nscen] >= 0.0)
+@variable(m, 0 <= gt[1:3, 1:Nscen] <= 0.2)
 @variable(m, inflow[1:Nscen])
 @constraint(m, [s=1:Nscen], vf[s] == vi - gh[s] + inflow[s])
-@constraint(m, [s=1:Nscen], gt[s] + gh[s] == demand)
-@objective(m, Min, (1/Nscen) * sum(gt[s]^2 + vf[s]^2/2 - vf[s] + 0.5 for s=1:Nscen))
+@constraint(m, [s=1:Nscen], sum(gt[:,s]) + gh[s] == demand)
+@objective(m, Min, (1/Nscen) * sum(gt[1,s] + 2gt[2,s] + 3gt[3,s] + vf[s]^2/2 - vf[s] + 0.5 for s=1:Nscen))
 
 # Sample inflows
-inflow_dist = Uniform(0, 0.2)
 for s in 1:Nscen
     fix(inflow[s], rand(inflow_dist))
 end
