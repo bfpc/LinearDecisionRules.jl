@@ -183,6 +183,7 @@ function hydro_thermal_sddp(;
     stages = 12,
     rees = 1:4,
     subsys = 1:5,
+    inflow_dist = :tri,
     train::Bool = true,
     time_limit = 10,
 )
@@ -229,9 +230,26 @@ function hydro_thermal_sddp(;
 
         if t != 1  # t=1 is handled in the @variable constructor.
             r = (t - 1) % 12 == 0 ? 12 : (t - 1) % 12
-            SDDP.parameterize(sp, 1:length(data.inflow_scenarios[1][r])) do ω
+            if inflow_dist == :tri
+                dist = Dict{Int,Distributions.SymTriangularDist}()
                 for i in rees
-                    JuMP.fix(inflow[i], data.inflow_scenarios[i][r][ω])
+                    lb = minimum(data.inflow_scenarios[i][r])
+                    ub = maximum(data.inflow_scenarios[i][r])
+                    mean = (lb + ub) / 2
+                    side = (ub - lb) / 2
+                    dist[i] = Distributions.SymTriangularDist(mean, side)
+                end
+                samples = [[rand(dist[i]) for i in rees] for i in 1:100]
+                SDDP.parameterize(sp, 1:100) do ω
+                    for i = rees
+                        JuMP.fix(inflow[i], samples[ω][i])
+                    end
+                end
+            else
+                SDDP.parameterize(sp, 1:length(data.inflow_scenarios[1][r])) do ω
+                    for i in rees
+                        JuMP.fix(inflow[i], data.inflow_scenarios[i][r][ω])
+                    end
                 end
             end
         end
