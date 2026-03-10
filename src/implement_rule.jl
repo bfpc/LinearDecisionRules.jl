@@ -1,5 +1,5 @@
 """
-    get_decision(m, x, η; dual = false, piece = nothing)
+    get_decision(m::LDRModel, x, η; dual = false, piece = nothing)
 
 Return the coefficient of uncertainty `η` in the linear decision rule for `x`.
 
@@ -22,7 +22,7 @@ x1 = LinearDecisionRules.get_decision(ldr, sell, demand)
 c2 = LinearDecisionRules.get_decision(ldr, sell, demand; piece = 2)
 ```
 """
-function get_decision(model, x, η; dual = false, piece = nothing)
+function get_decision(model::LDRModel, x, η; dual = false, piece = nothing)
     @assert haskey(model.cache_model.uncertainty_to_distribution, η)
     @assert !haskey(model.cache_model.uncertainty_to_distribution, x)
     @assert JuMP.is_valid(model, η)
@@ -64,7 +64,7 @@ function get_decision(model, x, η; dual = false, piece = nothing)
 end
 
 """
-    get_decision(m, x; dual = false)
+    get_decision(m::LDRModel, x; dual = false)
 
 Return the constant term in the linear decision rule for `x`.
 
@@ -81,7 +81,7 @@ x0 = LinearDecisionRules.get_decision(ldr, sell)
 # Decision rule: sell(demand) = x0 + x1 * demand
 ```
 """
-function get_decision(model, x; dual = false)
+function get_decision(model::LDRModel, x; dual = false)
     @assert !haskey(model.cache_model.uncertainty_to_distribution, x)
     @assert JuMP.is_valid(model, x)
     if !isempty(model.extended_variables) # then its is PWL
