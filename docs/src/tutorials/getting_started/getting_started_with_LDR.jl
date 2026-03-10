@@ -252,6 +252,7 @@ sell_at_120 = sell_constant + sell_coefficient * demand_value
 # ## What's next?
 
 # Now that you understand the basics, you can:
-#  * Learn about the [mathematical formulation](@ref math_formulation)
-#  * Explore [piecewise linear extensions](@ref pwl_extensions) for better
+#  * Find out [supported distributions](@ref distributions_tutorial) for uncertainty modeling
+#  * Explore [piecewise linear extensions](@ref piecewise_linear_tutorial) for better
 #    approximations
+#  * Learn about the [mathematical formulation](@ref math_formulation)
