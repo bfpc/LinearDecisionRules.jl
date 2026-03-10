@@ -153,6 +153,14 @@ Example
 set_attribute(
     x,
     LinearDecisionRules.BreakPoints(),
+    3
+)
+
+# If the support of `x` is [6.0, 14.0], this is equivalent to
+
+set_attribute(
+    x,
+    LinearDecisionRules.BreakPoints(),
     [8.0, 10.0, 12.0],
 )
 ```
@@ -505,6 +513,23 @@ import Distributions
         Distributions.Uniform(0, 10),
         Distributions.Uniform(0, 20),
     ]),
+))
+```
+
+## Note
+
+Uncertain parameters declared as different `@variable`s are assumed to be
+independent.  So, the last example is equivalent to declaring two separate
+scalar uncertainties with uniform distributions.
+
+```julia
+import Distributions
+
+@variable(ldr, inflow1 in LinearDecisionRules.Uncertainty(
+    distribution = Distributions.Uniform(0, 10),
+))
+@variable(ldr, inflow2 in LinearDecisionRules.Uncertainty(
+    distribution = Distributions.Uniform(0, 20),
 ))
 ```
 """
