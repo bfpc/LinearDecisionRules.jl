@@ -242,10 +242,10 @@ sell_at_120 = sell_constant + sell_coefficient * demand_value
 
 # ## Key concepts recap
 
-# 1. **LDRModel**: The main model type, similar to JuMP's `Model`
+# 1. **LDRModel**: The main model type, extending JuMP's `Model`
 # 2. **FirstStage**: Attribute for variables decided before uncertainty is revealed
-# 3. **Uncertainty**: Set for declaring uncertain parameters with a distribution
-# 4. **Constraints**: Interpreted as holding for all scenarios
+# 3. **Uncertainty**: `MOI` Set for declaring uncertain parameters with a distribution
+# 4. **Constraints**: Interpreted as holding for all scenarios ("almost-sure")
 # 5. **Objective**: Interpreted as an expectation
 # 6. **get_decision**: Retrieve the decision rule coefficients
 

@@ -49,6 +49,12 @@ Non-anticipative variables cannot depend on the random variable ``\xi``. This is
 equivalent to fixing their decision rules to have coefficient equal to zero,
 except for the constant term.
 
+
+!!! note
+    For duality arguments underlying the reformulations, the uncertainty set
+    $\Xi$ is assumed to span the entire space $\mathbb{R}^m$.  In practice,
+    this implies that uncertain variables $\eta$ do not appear in _equality constraints_.
+
 ## Installation
 
 ```julia
