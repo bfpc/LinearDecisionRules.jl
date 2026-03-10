@@ -27,12 +27,7 @@ function _literate_directory(dir)
         @info "Testing $filename"
         _include_sandbox(filename)
         # Generate markdown
-        Literate.markdown(
-            filename,
-            dir;
-            documenter = true,
-            credit = false,
-        )
+        Literate.markdown(filename, dir; documenter = true, credit = false)
     end
     return nothing
 end
@@ -62,11 +57,8 @@ const _PAGES = [
         "tutorials/distributions.md",
         "tutorials/advanced_distributions.md",
     ],
-    "Manual" => [
-        "manual/math.md",
-        "manual/pwl.md",
-        "manual/ConfidenceNormal.md",
-    ],
+    "Manual" =>
+        ["manual/math.md", "manual/pwl.md", "manual/ConfidenceNormal.md"],
     "API Reference" => "api.md",
 ]
 

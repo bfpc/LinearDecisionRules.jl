@@ -186,7 +186,7 @@ p1 = Plots.plot(
     title = "PWL Decision Rules: Bound Convergence",
     marker = :circle,
     linewidth = 2,
-    legend = :right,
+    legend = :bottomright,
 )
 
 #-
@@ -231,7 +231,7 @@ p_conv = Plots.plot(
     title = "Convergence of bounds (0–10 breakpoints)",
     linewidth = 2,
     color = [:steelblue :darkorange],
-    legend = :right,
+    legend = :bottomright,
 )
 
 ## Highlight the nested points 0 ⊂ 1 ⊂ 3 ⊂ 7 to illustrate monotonicity

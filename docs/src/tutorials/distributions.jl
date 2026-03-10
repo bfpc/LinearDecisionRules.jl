@@ -36,23 +36,41 @@ function solve_inventory(demand_distribution; name = "")
     @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
     @variable(ldr, sell >= 0)
     @variable(ldr, salvage >= 0)
-    @variable(ldr, demand in LinearDecisionRules.Uncertainty(
-        distribution = demand_distribution,
-    ))
+    @variable(
+        ldr,
+        demand in
+        LinearDecisionRules.Uncertainty(; distribution = demand_distribution)
+    )
 
     @constraint(ldr, sell + salvage <= buy)
     @constraint(ldr, sell <= demand)
 
-    @objective(ldr, Max, -buy_cost * buy + sell_price * sell + salvage_value * salvage)
+    @objective(
+        ldr,
+        Max,
+        -buy_cost * buy + sell_price * sell + salvage_value * salvage
+    )
 
     optimize!(ldr)
 
     println("Distribution: $name")
-    println("  Expected demand: ", round(Distributions.mean(demand_distribution), digits=2))
-    println("  Demand std dev:  ", round(Distributions.std(demand_distribution), digits=2))
-    println("  Optimal buy:     ", round(LinearDecisionRules.get_decision(ldr, buy), digits=2))
-    println("  Primal bound:    ", round(objective_value(ldr), digits=2))
-    println("  Dual bound:      ", round(objective_value(ldr; dual=true), digits=2))
+    println(
+        "  Expected demand: ",
+        round(Distributions.mean(demand_distribution); digits = 2),
+    )
+    println(
+        "  Demand std dev:  ",
+        round(Distributions.std(demand_distribution); digits = 2),
+    )
+    println(
+        "  Optimal buy:     ",
+        round(LinearDecisionRules.get_decision(ldr, buy); digits = 2),
+    )
+    println("  Primal bound:    ", round(objective_value(ldr); digits = 2))
+    println(
+        "  Dual bound:      ",
+        round(objective_value(ldr; dual = true); digits = 2),
+    )
     println()
 
     return ldr
@@ -71,7 +89,8 @@ solve_inventory(uniform_dist; name = "Uniform(80, 120)");
 
 # When demand follows a bell curve but is bounded (e.g., cannot be negative):
 
-truncated_normal_dist = Distributions.truncated(Distributions.Normal(100.0, 15.0), 60.0, 140.0)
+truncated_normal_dist =
+    Distributions.truncated(Distributions.Normal(100.0, 15.0), 60.0, 140.0)
 solve_inventory(truncated_normal_dist; name = "Truncated Normal(μ=100, σ=15)");
 
 # !!! note
@@ -108,9 +127,21 @@ println()
 
 distributions = [
     ("Uniform(80, 120)", Distributions.Uniform(80.0, 120.0)),
-    ("Triangular(70, 130, 100)", Distributions.TriangularDist(70.0, 130.0, 100.0)),
-    ("Truncated Normal", Distributions.truncated(Distributions.Normal(100.0, 12.0), 70.0, 130.0)),
-    ("Discrete (symmetric)", Distributions.DiscreteNonParametric([80.0, 100.0, 120.0], [0.25, 0.5, 0.25])),
+    (
+        "Triangular(70, 130, 100)",
+        Distributions.TriangularDist(70.0, 130.0, 100.0),
+    ),
+    (
+        "Truncated Normal",
+        Distributions.truncated(Distributions.Normal(100.0, 12.0), 70.0, 130.0),
+    ),
+    (
+        "Discrete (symmetric)",
+        Distributions.DiscreteNonParametric(
+            [80.0, 100.0, 120.0],
+            [0.25, 0.5, 0.25],
+        ),
+    ),
 ]
 
 for (name, dist) in distributions
@@ -135,24 +166,38 @@ function solve_two_product_inventory(demand_distribution; name = "")
     @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
     @variable(ldr, sell[1:2] >= 0)
     @variable(ldr, salvage[1:2] >= 0)
-    @variable(ldr, demand[1:2] in LinearDecisionRules.Uncertainty(
-        distribution = demand_distribution,
-    ))
+    @variable(
+        ldr,
+        demand[1:2] in
+        LinearDecisionRules.Uncertainty(; distribution = demand_distribution)
+    )
 
     for i in 1:2
         @constraint(ldr, sell[i] + salvage[i] <= buy[i])
         @constraint(ldr, sell[i] <= demand[i])
     end
 
-    @objective(ldr, Max,
-        sum(-buy_cost * buy[i] + sell_price * sell[i] + salvage_value * salvage[i] for i in 1:2)
+    @objective(
+        ldr,
+        Max,
+        sum(
+            -buy_cost * buy[i] +
+            sell_price * sell[i] +
+            salvage_value * salvage[i] for i in 1:2
+        )
     )
 
     optimize!(ldr)
 
     println("Distribution: $name")
-    println("  Optimal buy:  ", [round(LinearDecisionRules.get_decision(ldr, buy[i]), digits=2) for i in 1:2])
-    println("  Primal bound: ", round(objective_value(ldr), digits=2))
+    println(
+        "  Optimal buy:  ",
+        [
+            round(LinearDecisionRules.get_decision(ldr, buy[i]); digits = 2) for
+            i in 1:2
+        ],
+    )
+    println("  Primal bound: ", round(objective_value(ldr); digits = 2))
     println()
 
     return ldr
@@ -182,7 +227,10 @@ product_truncated_normal = Distributions.product_distribution([
     Distributions.truncated(Distributions.Normal(100.0, 10.0), 70.0, 130.0),
     Distributions.truncated(Distributions.Normal(80.0, 15.0), 40.0, 120.0),
 ])
-solve_two_product_inventory(product_truncated_normal; name = "Product of Truncated Normals");
+solve_two_product_inventory(
+    product_truncated_normal;
+    name = "Product of Truncated Normals",
+);
 
 # ### Multivariate Discrete Non-Parametric
 
@@ -199,8 +247,12 @@ scenarios_mv = [
 ]
 probs_mv = [0.2, 0.3, 0.2, 0.15, 0.15]
 
-mv_discrete = LinearDecisionRules.MvDiscreteNonParametric(scenarios_mv, probs_mv)
-solve_two_product_inventory(mv_discrete; name = "MvDiscreteNonParametric (5 scenarios)");
+mv_discrete =
+    LinearDecisionRules.MvDiscreteNonParametric(scenarios_mv, probs_mv)
+solve_two_product_inventory(
+    mv_discrete;
+    name = "MvDiscreteNonParametric (5 scenarios)",
+);
 
 # !!! tip
 #     Use `MvDiscreteNonParametric` when:

@@ -81,9 +81,12 @@ set_silent(ldr)
 @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
 @variable(ldr, sell >= 0)
 @variable(ldr, ret >= 0)
-@variable(ldr, demand in LinearDecisionRules.Uncertainty(
-    distribution = Distributions.Uniform(80, 120),
-))
+@variable(
+    ldr,
+    demand in LinearDecisionRules.Uncertainty(;
+        distribution = Distributions.Uniform(80, 120),
+    )
+)
 
 @constraint(ldr, sell + ret <= buy)
 @constraint(ldr, sell <= demand)
@@ -132,9 +135,12 @@ set_silent(ldr)
 
 # Uncertain parameters are declared using `Uncertainty` with a distribution:
 
-@variable(ldr, demand in LinearDecisionRules.Uncertainty(
-    distribution = Distributions.Uniform(80, 120),
-))
+@variable(
+    ldr,
+    demand in LinearDecisionRules.Uncertainty(;
+        distribution = Distributions.Uniform(80, 120),
+    )
+)
 
 # The distribution specifies the support and probability distribution of the
 # uncertainty. Here, demand is uniformly distributed between 80 and 120.
