@@ -1,4 +1,4 @@
-# Piecewise linear lifts
+# [Piecewise linear extensions](@id pwl_extensions)
 
 If we generalize the linear decision rule to a piecewise linear decision rule, we can get a better approximation of the optimal decision rule.
 

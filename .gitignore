@@ -28,3 +28,5 @@ Manifest.toml
 
 # log files
 *.log
+docs/src/tutorials/*.md
+docs/src/tutorials/getting_started/*.md

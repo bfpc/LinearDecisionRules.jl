@@ -1,3 +1,30 @@
+"""
+    MvDiscreteNonParametric(support, probs)
+
+A multivariate discrete distribution with explicit support points and
+probabilities. Use this for scenario-based uncertainty with joint realizations
+across multiple uncertain parameters.
+
+## Arguments
+
+- `support`: vector of scenario vectors (each scenario is a `Vector{<:Real}`)
+- `probs`: vector of probabilities (must sum to 1)
+
+## Example
+
+```julia
+scenarios = [
+    [80.0, 60.0],   # Low demand for both products
+    [100.0, 80.0],  # Medium demand
+    [120.0, 100.0], # High demand for both
+]
+probs = [0.3, 0.4, 0.3]
+
+@variable(ldr, demand[1:2] in LinearDecisionRules.Uncertainty(
+    distribution = LinearDecisionRules.MvDiscreteNonParametric(scenarios, probs),
+))
+```
+"""
 struct MvDiscreteNonParametric{
     T<:Real,
     P<:Real,

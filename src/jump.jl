@@ -13,6 +13,32 @@ Base.@kwdef mutable struct StochasticModel <: JuMP.AbstractModel
         Set{JuMP.ConstraintRef}()
 end
 
+"""
+    LDRModel
+
+Main model type for Linear Decision Rules optimization problems.
+
+Examples
+========
+
+```julia
+using LinearDecisionRules
+import Distributions
+using JuMP
+import HiGHS
+model = LDRModel(HiGHS.Optimizer)
+@variable(
+    model,
+    x >= 0,
+    Uncertainty(distribution = Distributions.Normal(10.0, 2.0)),
+)
+@variable(model, y >= 0, FirstStage())
+@objective(model, Min, x + y)
+@constraint(model, x + 2y >= 20)
+optimize!(model)
+println("Objective value: ", objective_value(model))
+```
+"""
 mutable struct LDRModel <: JuMP.AbstractModel
     cache_model::StochasticModel
     pwl_model::StochasticModel
@@ -61,7 +87,38 @@ function LDRModel(optimizer_factory)
     return model
 end
 
+"""
+    SolvePrimal
+
+Attribute to get/set whether to solve the primal LDR model.
+
+Example
+=======
+```julia
+set_attribute(
+    model,
+    LinearDecisionRules.SolvePrimal(),
+    false,
+)
+```
+"""
 struct SolvePrimal end
+
+"""
+    SolveDual
+
+Attribute to get/set whether to solve the dual LDR model.
+
+Example
+=======
+```julia
+set_attribute(
+    model,
+    LinearDecisionRules.SolveDual(),
+    false,
+)
+```
+"""
 struct SolveDual end
 function JuMP.set_attribute(model::LDRModel, ::SolvePrimal, value::Bool)
     return model.solve_primal = value
@@ -76,6 +133,30 @@ function JuMP.get_attribute(model::LDRModel, ::SolveDual)
     return model.solve_dual
 end
 
+"""
+    BreakPoints
+
+Attribute to get/set the breakpoints for piecewise linear approximation
+of the recourse function associated with a variable.
+
+If set to `nothing`, the piecewise linear approximation is removed.
+
+If set to a `Vector{Float64}`, the breakpoints are set to the given values.
+
+If set to an `Integer`, the breakpoints are set to that number of
+equally spaced points between the minimum and maximum of the
+uncertainty distribution associated with the variable.
+
+Example
+=======
+```julia
+set_attribute(
+    x,
+    LinearDecisionRules.BreakPoints(),
+    [8.0, 10.0, 12.0],
+)
+```
+"""
 struct BreakPoints end
 
 function JuMP.set_attribute(x::JuMP.VariableRef, ::BreakPoints, value::Nothing)
@@ -398,6 +479,35 @@ function JuMP.add_variable(
     return ret
 end
 
+"""
+    Uncertainty(; distribution)
+
+Declare an uncertain parameter with a specified probability distribution.
+The distribution must have finite bounds.
+
+## Arguments
+
+- `distribution`: a `Distributions.jl` univariate or multivariate distribution
+
+## Example
+
+```julia
+import Distributions
+
+# Scalar uncertainty
+@variable(ldr, demand in LinearDecisionRules.Uncertainty(
+    distribution = Distributions.Uniform(80, 120),
+))
+
+# Vector uncertainty (independent components)
+@variable(ldr, inflow[1:2] in LinearDecisionRules.Uncertainty(
+    distribution = Distributions.product_distribution([
+        Distributions.Uniform(0, 10),
+        Distributions.Uniform(0, 20),
+    ]),
+))
+```
+"""
 function Uncertainty(; distribution::Distributions.Distribution = nothing)
     if distribution === nothing
         error("distribution is required.")
@@ -500,6 +610,18 @@ function JuMP.add_variable(
     return var
 end
 
+"""
+    FirstStage
+
+Attribute to declare first-stage decision variables.
+These variables are decided before the uncertainty is revealed.
+
+Example
+=======
+```julia
+@variable(model, y >= 0, FirstStage)
+```
+"""
 struct FirstStage <: JuMP.AbstractVariableRef
     info::JuMP.VariableInfo
 end

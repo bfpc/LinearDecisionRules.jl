@@ -1,7 +1,26 @@
 """
     get_decision(m, x, η; dual = false, piece = nothing)
 
-Coefficient of η in the LDR of x
+Return the coefficient of uncertainty `η` in the linear decision rule for `x`.
+
+## Arguments
+
+- `m`: the `LDRModel`
+- `x`: the decision variable
+- `η`: the uncertainty variable
+- `dual = false`: if `true`, return the coefficient from the dual solution
+- `piece = nothing`: for piecewise linear rules, the piece index (1-indexed);
+  required when breakpoints have been set on `η`
+
+## Example
+
+```julia
+x1 = LinearDecisionRules.get_decision(ldr, sell, demand)
+# Decision rule: sell(demand) = x0 + x1 * demand
+
+# For a piecewise linear rule with 2 breakpoints (3 pieces):
+c2 = LinearDecisionRules.get_decision(ldr, sell, demand; piece = 2)
+```
 """
 function get_decision(model, x, η; dual = false, piece = nothing)
     @assert haskey(model.cache_model.uncertainty_to_distribution, η)
@@ -47,7 +66,20 @@ end
 """
     get_decision(m, x; dual = false)
 
-Constant term in the LDR of x
+Return the constant term in the linear decision rule for `x`.
+
+## Arguments
+
+- `m`: the `LDRModel`
+- `x`: the decision variable
+- `dual = false`: if `true`, return the constant from the dual solution
+
+## Example
+
+```julia
+x0 = LinearDecisionRules.get_decision(ldr, sell)
+# Decision rule: sell(demand) = x0 + x1 * demand
+```
 """
 function get_decision(model, x; dual = false)
     @assert !haskey(model.cache_model.uncertainty_to_distribution, x)

@@ -1,4 +1,4 @@
-# Calculation for Confidence MvNormal
+# [Confidence MvNormal](@id confidence_mvnormal)
 
 Suppose we have a normal distribution with mean $\mu$ and covariance $\Sigma$.
 The `ConfidenceMvNormal` with parameters `μ`, `Σ` and `α` represents the truncated distribution on an ellipsoid centered at $\mu$, with $0 \leq \alpha \leq 1$ probability mass.
