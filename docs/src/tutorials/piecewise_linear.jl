@@ -53,7 +53,7 @@
 
 # ## Setup
 
-ENV["GKSwstype"] = "100"  # src - needed for headless CI rendering
+ENV["GKSwstype"] = "100"  #hide
 using JuMP
 import LinearDecisionRules
 import HiGHS
@@ -189,10 +189,6 @@ p1 = Plots.plot(
     legend = :bottomright,
 )
 
-#-
-
-p1
-
 # !!! tip
 #     As the number of breakpoints increases:
 #     - The **primal bound** (inner approximation) typically increases
@@ -253,10 +249,6 @@ Plots.scatter!(
     markersize = 8,
     color = :darkorange,
 )
-
-#-
-
-p_conv
 
 # ## Part 3: Custom breakpoint positions
 
@@ -364,8 +356,6 @@ for bp in custom_breakpoints
         alpha = 0.5,
     )
 end
-
-#-
 
 p2
 
