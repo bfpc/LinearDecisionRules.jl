@@ -101,3 +101,73 @@ As $\alpha \cdot \Gamma(d/2) = \gamma(d/2, \rho^2/2)$, using integration by part
 ```math
 \frac{\gamma(d/2+1, \rho^2/2)}{\gamma(d/2, \rho^2/2)} \frac{\Gamma(d/2)}{\Gamma(d/2+1)} = \frac{d/2 - (\rho^2/2)^{d/2}e^{-\rho^2/2}}{d/2}.
 ```
+
+## Implementation via chi-squared functions
+
+The code avoids incomplete-gamma functions entirely by observing that
+the standardized radius and covariance scaling have natural chi-squared
+interpretations.
+
+### Radius
+
+In the standardized space $z = L^{-1}(x - \mu)$, the ball $B(0,\rho)$
+condition is simply
+
+```math
+\|z\|^2 \leq \rho^2, \qquad z \sim \mathcal{N}(0, I_d).
+```
+
+Because the components of $z$ are i.i.d. standard normals, their squared
+norm follows a chi-squared distribution:
+
+```math
+\|z\|^2 \sim \chi^2(d).
+```
+
+So requiring $P(\|z\|^2 \leq \rho^2) = \alpha$ is exactly the definition of
+the $\alpha$-quantile of $\chi^2(d)$:
+
+```math
+\rho^2 = F_{\chi^2(d)}^{-1}(\alpha),
+```
+
+implemented as
+
+```julia
+ρ² = quantile(Chisq(d), α)
+```
+
+The bridge to the gamma-function form is the identity
+$F_{\chi^2(k)}(x) = \gamma(k/2, x/2)/\Gamma(k/2)$, which turns the quantile
+condition into $\gamma(d/2, \rho^2/2) = \alpha\,\Gamma(d/2)$, matching the
+derivation above.
+
+### Covariance scaling
+
+The scaling factor from the derivation is
+
+```math
+s = \frac{1}{\alpha} \cdot \frac{\gamma(d/2+1,\;\rho^2/2)}{\Gamma(d/2+1)}.
+```
+
+Applying the same bridge identity with $k = d+2$ gives
+
+```math
+F_{\chi^2(d+2)}(\rho^2) = \frac{\gamma((d+2)/2,\;\rho^2/2)}{\Gamma((d+2)/2)}
+= \frac{\gamma(d/2+1,\;\rho^2/2)}{\Gamma(d/2+1)},
+```
+
+so $s = F_{\chi^2(d+2)}(\rho^2) / \alpha$, implemented as
+
+```julia
+scaling = cdf(Chisq(d + 2), ρ²) / α
+```
+
+## Equivalence summary
+
+| Quantity | Incomplete-gamma form | Chi-squared form |
+|----------|-----------------------|------------------|
+| $\rho^2$ | $2\,\gamma^{-1}(d/2,\;\alpha\,\Gamma(d/2))$ | `quantile(Chisq(d), α)` |
+| Cov. scaling $s$ | $\gamma(d/2+1,\;\rho^2/2)\;/\;(\alpha\,\Gamma(d/2+1))$ | `cdf(Chisq(d+2), ρ²) / α` |
+
+Both columns are related by $F_{\chi^2(k)}(x) = \gamma(k/2, x/2)/\Gamma(k/2)$.

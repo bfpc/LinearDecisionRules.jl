@@ -56,6 +56,7 @@ const _PAGES = [
         "tutorials/piecewise_linear.md",
         "tutorials/distributions.md",
         "tutorials/advanced_distributions.md",
+        "tutorials/confidence_mv_normal.md",
     ],
     "Manual" =>
         ["manual/math.md", "manual/pwl.md", "manual/ConfidenceNormal.md"],

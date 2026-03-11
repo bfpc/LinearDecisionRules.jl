@@ -19,5 +19,6 @@ include("recursion.jl")
 # distributions
 include("distributions/mv_discrete_non_parametric.jl")
 include("distributions/univariate_piece_wise.jl")
+include("distributions/confidence_mv_normal.jl")
 
 end # module LinearDecisionRules
