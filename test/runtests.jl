@@ -1165,6 +1165,83 @@ function test_rejection_sampling_attributes()
     return nothing
 end
 
+function test_get_decision_invalid_inputs()
+    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(m)
+    @variable(m, x >= 0, LinearDecisionRules.FirstStage)
+    @variable(m, y >= 0)
+    @variable(
+        m,
+        demand in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)),
+    )
+    @objective(m, Min, y)
+    optimize!(m)
+
+    # η is not an uncertainty variable
+    @test_throws ArgumentError LinearDecisionRules.get_decision(m, y, x)
+    # x is an uncertainty variable (passed as the decision)
+    @test_throws ArgumentError LinearDecisionRules.get_decision(
+        m,
+        demand,
+        demand,
+    )
+    # single-arg form: x is an uncertainty variable
+    @test_throws ArgumentError LinearDecisionRules.get_decision(m, demand)
+
+    return nothing
+end
+
+function test_univariate_piecewise_constructor_errors()
+    o_dist = Distributions.Uniform(1.0, 4.0)
+
+    # break point at or above upper bound
+    @test_throws ArgumentError LinearDecisionRules.UnivariatePieceWise(
+        o_dist,
+        [3.5, 4.5],
+    )
+    # break point at or below lower bound
+    @test_throws ArgumentError LinearDecisionRules.UnivariatePieceWise(
+        o_dist,
+        [0.5, 2.0],
+    )
+    # empty break_points
+    @test_throws ArgumentError LinearDecisionRules.UnivariatePieceWise(
+        o_dist,
+        Float64[],
+    )
+    # NaN break point
+    @test_throws ArgumentError LinearDecisionRules.UnivariatePieceWise(
+        o_dist,
+        [NaN],
+    )
+
+    return nothing
+end
+
+function test_break_points_getter()
+    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(m)
+    @variable(
+        m,
+        demand in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)),
+    )
+
+    # before setting: returns nothing
+    @test get_attribute(demand, LinearDecisionRules.BreakPoints()) === nothing
+
+    # after setting: returns the vector
+    set_attribute(demand, LinearDecisionRules.BreakPoints(), [0.5])
+    @test get_attribute(demand, LinearDecisionRules.BreakPoints()) == [0.5]
+
+    # after clearing: returns nothing again
+    set_attribute(demand, LinearDecisionRules.BreakPoints(), nothing)
+    @test get_attribute(demand, LinearDecisionRules.BreakPoints()) === nothing
+
+    return nothing
+end
+
 function test_delete_not_allowed()
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)

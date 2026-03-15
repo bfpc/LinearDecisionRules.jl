@@ -254,6 +254,7 @@ function _second_moment_matrix(
                 hu,
                 Wl,
                 hl,
+                warn_attempts,
             )
             if _attempts == warn_attempts
                 @warn "Rejection sampling took too long"
@@ -607,6 +608,7 @@ function _sample_in_set!(
     hu,
     Wl,
     hl,
+    max_attempts::Int,
 )
     wu_m, wu_n = size(Wu)
     wl_m, wl_n = size(Wl)
@@ -615,8 +617,8 @@ function _sample_in_set!(
     while reject
         fill!(candidate, 0.0)
         cont += 1
-        if cont > 1000
-            println("Cannot sample a point in the set")
+        if cont > max_attempts
+            @warn "Rejection sampling: cannot find a valid sample after $cont attempts"
             break
         end
         reject = false

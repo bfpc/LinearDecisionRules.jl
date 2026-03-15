@@ -6,21 +6,59 @@ struct UnivariatePieceWise{
     T<:Real,
 } <: Distributions.MultivariateDistribution{S}
     original::D
-    break_points::AbstractVector{T}
+    break_points::Vector{T}
     function UnivariatePieceWise(
         d::D,
         break_points::Vector{T},
     ) where {D<:Distributions.UnivariateDistribution,T<:Real}
-        @assert eltype(d) == T
-        @assert minimum(d) > -Inf
-        @assert maximum(d) < Inf
-        @assert length(break_points) > 0
-        @assert !any(isnan.(break_points))
+        if eltype(d) != T
+            throw(
+                ArgumentError(
+                    "Distribution element type $(eltype(d)) does not match break_points element type $T",
+                ),
+            )
+        end
+        if minimum(d) <= -Inf
+            throw(
+                ArgumentError(
+                    "Distribution minimum must be finite, got $(minimum(d))",
+                ),
+            )
+        end
+        if maximum(d) >= Inf
+            throw(
+                ArgumentError(
+                    "Distribution maximum must be finite, got $(maximum(d))",
+                ),
+            )
+        end
+        if length(break_points) == 0
+            throw(ArgumentError("break_points must not be empty"))
+        end
+        if any(isnan.(break_points))
+            throw(ArgumentError("break_points contains NaN values"))
+        end
         sorted_break_points = sort(break_points)
-        @assert sorted_break_points[begin] > -Inf
-        @assert sorted_break_points[end] < Inf
-        @assert sorted_break_points[begin] > minimum(d)
-        @assert sorted_break_points[end] < maximum(d)
+        if sorted_break_points[begin] <= -Inf
+            throw(ArgumentError("break_points minimum must be finite"))
+        end
+        if sorted_break_points[end] >= Inf
+            throw(ArgumentError("break_points maximum must be finite"))
+        end
+        if sorted_break_points[begin] <= minimum(d)
+            throw(
+                ArgumentError(
+                    "break_points must lie strictly within the distribution support: $(sorted_break_points[begin]) <= $(minimum(d))",
+                ),
+            )
+        end
+        if sorted_break_points[end] >= maximum(d)
+            throw(
+                ArgumentError(
+                    "break_points must lie strictly within the distribution support: $(sorted_break_points[end]) >= $(maximum(d))",
+                ),
+            )
+        end
 
         return new{typeof(d),Distributions.value_support(typeof(d)),T}(
             d,
@@ -51,7 +89,7 @@ function Distributions._rand!(
     draw = rand(rng, d.original)
     @assert length(d) == length(x)
     break_points = _break_points(d)
-    pos = findlast(x -> x < draw, break_points)
+    pos = findlast(bp -> bp < draw, break_points)
     fill!(x, zero(eltype(x)))
 
     if pos === nothing

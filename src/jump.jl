@@ -309,11 +309,8 @@ function JuMP.get_attribute(x::JuMP.VariableRef, ::BreakPoints)
     elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
         error("Breakpoints only work with scalar uncertainty.")
     end
-    # Returns Float64[] when no breakpoints are set, which is equivalent to
-    # the state after set_attribute(x, BreakPoints(), nothing) (deletion).
-    # Callers should treat Float64[] as "no piecewise approximation".
     if !haskey(model.pwl_data, x)
-        return Float64[]
+        return nothing
     end
     return model.pwl_data[x]
 end
