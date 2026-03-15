@@ -471,7 +471,7 @@ Return implied halfspace constraints `(W, h)` such that `W * ξ ≤ h` for every
 are available.
 
 The default method returns `nothing`.  Distributions may override this to
-provide tighter outer approximations used in the dual uncertainty polytope
+provide tighter outer approximations used in the uncertainty polytope
 without affecting the moment computation (and hence without triggering
 rejection sampling).
 """
