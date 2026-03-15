@@ -476,6 +476,17 @@ function JuMP.add_variable(
         ret[i] = var
         model.cache_model.uncertainty_to_distribution[var] = (dist_index, i)
     end
+    vc = _valid_constraints(dist)
+    if vc !== nothing
+        W, h = vc.W, vc.h
+        for i in axes(W, 1)
+            con = @constraint(
+                model.cache_model.model,
+                sum(W[i, j] * ret[j] for j in axes(W, 2)) <= h[i],
+            )
+            push!(model.cache_model.uncertainty_valid_constraints, con)
+        end
+    end
     return ret
 end
 

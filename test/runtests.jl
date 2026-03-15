@@ -1113,11 +1113,9 @@ end
 function test_confidence_mv_normal_rotated_box()
     # The rotated (principal-axis) box gives a tighter outer approximation of the
     # ellipsoidal support than the axis-aligned box.  This test verifies that:
-    #   1. No rejection-sampling warning is emitted (implied constraints bypass
-    #      _compute_groups entirely).
-    #   2. The dual is solved successfully with a finite bound.
-    #   3. Wu_implied has the correct shape: 2d rows (d upper + d lower halfspaces).
-    #   4. For a correlated distribution the dual bound is at least as tight as
+    #   1. No rejection-sampling warning is emitted.
+    #   2. Both primal and dual are solved successfully.
+    #   3. For a correlated distribution the dual bound is at least as tight as
     #      that obtained with an uncorrelated distribution of the same marginals.
     μ = [100.0, 80.0]
     Σ_corr = [100.0 40.0; 40.0 64.0]   # off-diagonal → rotated box strictly tighter
@@ -1137,14 +1135,10 @@ function test_confidence_mv_normal_rotated_box()
     # Verify no rejection-sampling warning is emitted.
     @test_logs min_level = Logging.Warn optimize!(ldr)
 
+    @test termination_status(ldr; dual = false) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
     @test termination_status(ldr; dual = true) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
     obj_corr = objective_value(ldr; dual = true)
     @test isfinite(obj_corr)
-
-    # Wu_implied should have 2d = 4 rows and d = 2 uncertainty columns.
-    ABC = ldr.ext[:_LDR_ABC]
-    @test size(ABC.Wu_implied, 1) == 4
-    @test size(ABC.Wu_implied, 2) == 2
 
     # --- (b) uncorrelated demands (Σ diagonal) ---
     # With diagonal Σ the rotated box coincides with the axis-aligned box, so

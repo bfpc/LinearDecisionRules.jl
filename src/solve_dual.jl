@@ -46,8 +46,8 @@ function _solve_dual_ldr(model)
     # Inequality constraints
     # Uncertainty polyhedron: W ξ ≥ h from
     # Ξ = { ξ = (1, η) ∈ ℝ^m | Wu η ≤ hu, Wl η ≥ hl, lb ≤ η ≤ ub }
-    Wu = vcat(ABC.Wu, ABC.Wu_v, ABC.Wu_implied)
-    hu = vcat(ABC.hu, ABC.hu_v, ABC.hu_implied)
+    Wu = vcat(ABC.Wu, ABC.Wu_v)
+    hu = vcat(ABC.hu, ABC.hu_v)
     Wl = vcat(ABC.Wl, ABC.Wl_v)
     hl = vcat(ABC.hl, ABC.hl_v)
     nu = size(Wu, 1)
