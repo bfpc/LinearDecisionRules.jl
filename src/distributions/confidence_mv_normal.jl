@@ -132,7 +132,7 @@ For the ellipsoid `{ξ : (ξ-μ)'Σ⁻¹(ξ-μ) ≤ ρ²}` with eigendecompositi
 
 This gives 2d halfspace constraints encoded as `W = [V'; -V']` and
 `h = [V'μ + ρ·√λ; -V'μ + ρ·√λ]`.  These are implied by the ellipsoid
-and tighten the dual uncertainty polytope without triggering rejection
+and tighten the uncertainty polytope without triggering rejection
 sampling.
 """
 function _valid_constraints(d::ConfidenceMvNormal)
