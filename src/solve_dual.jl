@@ -1,10 +1,10 @@
 
 function _solve_dual_ldr(model)
-    if haskey(model.dual_model.ext, :built_dual)
+    if haskey(model.dual_model.ext, :_LDR_built_dual)
         # Lazy "flush"
         model.dual_model = JuMP.Model()
     end
-    model.dual_model.ext[:built_dual] = true
+    model.dual_model.ext[:_LDR_built_dual] = true
 
     ABC = model.ext[:_LDR_ABC]
     M = model.ext[:_LDR_M]
@@ -36,7 +36,6 @@ function _solve_dual_ldr(model)
             set_integer(var)
         end
     end
-    # @variable(model.dual_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.dual_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.dual_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
 

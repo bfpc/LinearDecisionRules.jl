@@ -23,10 +23,22 @@ c2 = LinearDecisionRules.get_decision(ldr, sell, demand; piece = 2)
 ```
 """
 function get_decision(model::LDRModel, x, η; dual = false, piece = nothing)
-    @assert haskey(model.cache_model.uncertainty_to_distribution, η)
-    @assert !haskey(model.cache_model.uncertainty_to_distribution, x)
-    @assert JuMP.is_valid(model, η)
-    @assert JuMP.is_valid(model, x)
+    if !haskey(model.cache_model.uncertainty_to_distribution, η)
+        throw(ArgumentError("η is not an uncertainty variable in the model"))
+    end
+    if haskey(model.cache_model.uncertainty_to_distribution, x)
+        throw(
+            ArgumentError(
+                "x is an uncertainty variable; it must be a decision variable",
+            ),
+        )
+    end
+    if !JuMP.is_valid(model, η)
+        throw(ArgumentError("η does not belong to the given model"))
+    end
+    if !JuMP.is_valid(model, x)
+        throw(ArgumentError("x does not belong to the given model"))
+    end
     if !isempty(model.extended_variables) # then its is PWL
         x = model.map_cache_to_pwl[x]
         η_cache = η
@@ -82,8 +94,16 @@ x0 = LinearDecisionRules.get_decision(ldr, sell)
 ```
 """
 function get_decision(model::LDRModel, x; dual = false)
-    @assert !haskey(model.cache_model.uncertainty_to_distribution, x)
-    @assert JuMP.is_valid(model, x)
+    if haskey(model.cache_model.uncertainty_to_distribution, x)
+        throw(
+            ArgumentError(
+                "x is an uncertainty variable; it must be a decision variable",
+            ),
+        )
+    end
+    if !JuMP.is_valid(model, x)
+        throw(ArgumentError("x does not belong to the given model"))
+    end
     if !isempty(model.extended_variables) # then its is PWL
         x = model.map_cache_to_pwl[x]
     end

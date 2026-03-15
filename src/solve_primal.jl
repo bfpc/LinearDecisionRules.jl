@@ -49,7 +49,6 @@ function _solve_primal_ldr(model)
             set_integer(var)
         end
     end
-    # @variable(model.primal_model, X[1:dim_x, 1:dim_ξ])
     @variable(model.primal_model, Su[1:size(ABC.Bu, 1), 1:dim_ξ])
     @variable(model.primal_model, Sl[1:size(ABC.Bl, 1), 1:dim_ξ])
 
