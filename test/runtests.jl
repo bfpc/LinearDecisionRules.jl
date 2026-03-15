@@ -9,6 +9,7 @@ using JuMP
 using Ipopt
 using HiGHS
 using Distributions
+using LinearAlgebra
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -949,6 +950,163 @@ function test_recursion_pwl()
     optimize!(m_2)
 
     return
+end
+
+function test_confidence_mv_normal()
+    # --- Unit tests on the distribution object ---
+    μ = [1.0, 2.0]
+    Σ = [1.0 0.5; 0.5 2.0]
+    α = 0.90
+    d = LinearDecisionRules.ConfidenceMvNormal(μ, Σ, α)
+
+    @test Distributions.length(d) == 2
+    @test Distributions.mean(d) ≈ μ
+
+    # Covariance should be a positive scalar multiple of Σ
+    cov_d = Distributions.cov(d)
+    ratio = cov_d ./ Σ
+    @test all(isapprox.(ratio, ratio[1, 1]; rtol = 1e-10))
+    # Scaling must be < 1 (truncation reduces variance)
+    @test ratio[1, 1] < 1.0
+    @test ratio[1, 1] > 0.0
+
+    # Bounds: μ_k ± ρ·√Σ_kk
+    ρ = sqrt(Distributions.quantile(Distributions.Chisq(2), α))
+    @test Distributions.minimum(d) ≈ μ - ρ .* sqrt.(LinearAlgebra.diag(Σ))
+    @test Distributions.maximum(d) ≈ μ + ρ .* sqrt.(LinearAlgebra.diag(Σ))
+
+    # insupport: centre is always in the ellipsoid
+    @test Distributions.insupport(d, μ)
+    # A point far outside should not be in support
+    @test !Distributions.insupport(d, μ + [1000.0, 1000.0])
+
+    # Sampling: empirical mean should be close to μ
+    rng = Random.MersenneTwister(42)
+    N = 50_000
+    samples = [rand(rng, d) for _ in 1:N]
+    emp_mean = sum(samples) / N
+    @test norm(emp_mean - μ) < 0.05
+
+    # --- 1-D case: compare with analytic truncated normal ---
+    # For d=1, Σ=[σ²], α gives ρ = σ·z_{(1+α)/2}
+    σ = 2.0
+    d1 = LinearDecisionRules.ConfidenceMvNormal([0.0], [σ^2;;], 0.95)
+    trunc_dist = truncated(Normal(0.0, σ), -d1.ρ * σ, d1.ρ * σ)
+    @test Distributions.var(d1)[1] ≈ Distributions.var(trunc_dist) rtol = 1e-4
+    @test Distributions.params(d)[1] == μ
+
+    # --- Integration with LDR: 2-D newsvendor ---
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+    set_attribute(ldr, LinearDecisionRules.SolveDual(), false)
+
+    μ_d = [100.0, 80.0]
+    Σ_d = [100.0 20.0; 20.0 64.0]
+    dist_ldr = LinearDecisionRules.ConfidenceMvNormal(μ_d, Σ_d, 0.95)
+
+    @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] >= 0)
+    @variable(
+        ldr,
+        demand[1:2] in
+        LinearDecisionRules.Uncertainty(; distribution = dist_ldr)
+    )
+
+    @constraint(ldr, [i = 1:2], sell[i] <= buy[i])
+    @constraint(ldr, [i = 1:2], sell[i] <= demand[i])
+    @objective(ldr, Max, sum(-10 * buy[i] + 15 * sell[i] for i in 1:2))
+
+    optimize!(ldr)
+    @test termination_status(ldr) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    return nothing
+end
+
+function test_confidence_mv_normal_bounds()
+    # The ellipsoid in original space is {x : (x-μ)'Σ⁻¹(x-μ) ≤ ρ²}.
+    # Via Σ = LL', this is the image of the ball B(0,ρ) under x = μ + Lz.
+    # The bounding box is lb[k] = μ[k] - ρ√Σ_kk, ub[k] = μ[k] + ρ√Σ_kk.
+    # We test two properties:
+    #   1. Containment: every point in the ellipsoid lies within [lb, ub].
+    #   2. Tightness:   each face of the box is touched by the ellipsoid.
+    test_cases = [
+        ([0.0, 0.0], [1.0 0.0; 0.0 1.0], 0.95),           # identity covariance
+        ([100.0, 80.0], [100.0 40.0; 40.0 64.0], 0.95),    # correlated 2-D
+        ([1.0, 2.0, 3.0], [2.0 0.5 0.1; 0.5 1.0 0.3; 0.1 0.3 1.5], 0.80),  # 3-D
+    ]
+    for (μ_tc, Σ_tc, α) in test_cases
+        dist = LinearDecisionRules.ConfidenceMvNormal(μ_tc, Σ_tc, α)
+        lb = Distributions.minimum(dist)
+        ub = Distributions.maximum(dist)
+        n = length(μ_tc)
+        ρ = dist.ρ
+        L = dist.L
+
+        # --- Containment check 1: deterministic grid ---
+        # Sweep a uniform grid over the unit ball in z-space (‖z‖ ≤ 1),
+        # scale by ρ, then map to x = μ + L(ρz).  Every resulting x must
+        # lie inside [lb, ub].
+        grid = range(-1, 1; length = 30)
+        violations = 0
+        for z_unit in Iterators.product(fill(grid, n)...)
+            z = collect(z_unit)
+            norm(z) > 1 && continue   # keep only points inside the unit ball
+            x = μ_tc + L * (ρ .* z)
+            if any(x .< lb .- 1e-10) || any(x .> ub .+ 1e-10)
+                violations += 1
+            end
+        end
+        @test violations == 0
+
+        # --- Containment check 2: random ellipsoid boundary ---
+        # Draw a random unit vector, scale to ‖z‖ = ρ (boundary of the ball),
+        # then map to x = μ + Lz.  Boundary points are the hardest cases for
+        # the box constraint, so this is a strong probabilistic check.
+        rng = Random.MersenneTwister(42)
+        violations_sampled = 0
+        for _ in 1:1000
+            z = randn(rng, n)
+            z .*= ρ / norm(z)   # scale to ellipsoid boundary
+            x = μ_tc + L * z
+            if any(x .< lb .- 1e-10) || any(x .> ub .+ 1e-10)
+                violations_sampled += 1
+            end
+        end
+        @test violations_sampled == 0
+
+        # --- Containment check 3: samples from the distribution ---
+        # rand(dist) uses rejection sampling internally (draw z ~ N(0,I),
+        # accept if ‖z‖² ≤ ρ², return μ + Lz).  Samples are strictly inside
+        # the ellipsoid, so they must also be inside [lb, ub].
+        violations_dist = 0
+        for _ in 1:1000
+            x = rand(rng, dist)
+            if any(x .< lb .- 1e-10) || any(x .> ub .+ 1e-10)
+                violations_dist += 1
+            end
+        end
+        @test violations_dist == 0
+
+        # --- Tightness: each bound is achieved by an analytic tangent point ---
+        # To show ub[k] = μ[k] + ρ√Σ_kk is tight we need a point on the
+        # ellipsoid boundary whose k-th coordinate equals ub[k].
+        #
+        # Maximise eₖ'x = eₖ'(μ + Lz) subject to ‖z‖ = ρ.
+        # The maximum of a linear function on a sphere is achieved in the
+        # direction of the gradient, so z* = ρ · L'eₖ / ‖L'eₖ‖.
+        #
+        # The achieved value is:
+        #   x*[k] = μ[k] + eₖ'L z* = μ[k] + ρ · eₖ'LL'eₖ / ‖L'eₖ‖
+        #         = μ[k] + ρ · ‖L'eₖ‖ = μ[k] + ρ√Σ_kk = ub[k].
+        for k in 1:n
+            ek = zeros(n)
+            ek[k] = 1.0
+            Lt_ek = L' * ek                        # gradient direction in z-space
+            z_star = ρ * Lt_ek / norm(Lt_ek)       # tangent point on ball boundary
+            x_star = μ_tc + L * z_star             # map back to original space
+            @test x_star[k] ≈ ub[k] rtol = 1e-10
+        end
+    end
+    return nothing
 end
 
 function test_tutorials()
