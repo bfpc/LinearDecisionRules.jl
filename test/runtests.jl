@@ -1127,7 +1127,10 @@ function test_confidence_mv_normal_rotated_box()
     dist = LinearDecisionRules.ConfidenceMvNormal(μ, Σ_corr, α)
     @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
     @variable(ldr, sell[1:2] >= 0)
-    @variable(ldr, demand[1:2] in LinearDecisionRules.Uncertainty(distribution = dist))
+    @variable(
+        ldr,
+        demand[1:2] in LinearDecisionRules.Uncertainty(; distribution = dist)
+    )
     @constraint(ldr, [i = 1:2], sell[i] <= buy[i])
     @constraint(ldr, [i = 1:2], sell[i] <= demand[i])
     @objective(ldr, Max, sum(-10 * buy[i] + 15 * sell[i] for i in 1:2))
@@ -1135,8 +1138,10 @@ function test_confidence_mv_normal_rotated_box()
     # Verify no rejection-sampling warning is emitted.
     @test_logs min_level = Logging.Warn optimize!(ldr)
 
-    @test termination_status(ldr; dual = false) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
-    @test termination_status(ldr; dual = true) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    @test termination_status(ldr; dual = false) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    @test termination_status(ldr; dual = true) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
     obj_corr = objective_value(ldr; dual = true)
     @test isfinite(obj_corr)
 
@@ -1149,12 +1154,16 @@ function test_confidence_mv_normal_rotated_box()
     dist2 = LinearDecisionRules.ConfidenceMvNormal(μ, Σ_diag, α)
     @variable(ldr2, buy2[1:2] >= 0, LinearDecisionRules.FirstStage)
     @variable(ldr2, sell2[1:2] >= 0)
-    @variable(ldr2, demand2[1:2] in LinearDecisionRules.Uncertainty(distribution = dist2))
+    @variable(
+        ldr2,
+        demand2[1:2] in LinearDecisionRules.Uncertainty(; distribution = dist2)
+    )
     @constraint(ldr2, [i = 1:2], sell2[i] <= buy2[i])
     @constraint(ldr2, [i = 1:2], sell2[i] <= demand2[i])
     @objective(ldr2, Max, sum(-10 * buy2[i] + 15 * sell2[i] for i in 1:2))
     @test_logs min_level = Logging.Warn optimize!(ldr2)
-    @test termination_status(ldr2; dual = true) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    @test termination_status(ldr2; dual = true) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
     obj_diag = objective_value(ldr2; dual = true)
 
     # The correlated problem has strictly smaller feasible set (tighter polytope),
