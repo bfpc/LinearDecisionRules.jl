@@ -463,7 +463,7 @@ function _objective_constant(ABC, M)
     r1 = ABC.f
     r2 = ABC.d' * M[2:end, 1]
     r3 = sum(ABC.Q .* M[2:end, 2:end])
-    r = r1 + r2 + r3[1]
+    r = r1 + r2 + r3
     return r
 end
 

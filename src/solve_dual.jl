@@ -76,14 +76,14 @@ function _solve_dual_ldr(model)
     @constraint(model.dual_model, Sl * WMt .>= 0)
 
     # Can only include rows where the bound is not +Inf
-    idxs = findall(x -> x != Inf, ABC.xu)
+    idxs = findall(isfinite, ABC.xu)
     @variable(model.dual_model, Sxu[idxs, 1:dim_ξ])
     @constraint(model.dual_model, X[idxs, 1] .+ Sxu[idxs, 1] .== ABC.xu[idxs])
     @constraint(model.dual_model, X[idxs, 2:end] .+ Sxu[idxs, 2:end] .== 0)
     @constraint(model.dual_model, Sxu.data * WMt .>= 0)
 
     # Can only include rows where the bound is not -Inf
-    idxs = findall(x -> x != -Inf, ABC.xl)
+    idxs = findall(isfinite, ABC.xl)
     @variable(model.dual_model, Sxl[idxs, 1:dim_ξ])
     @constraint(model.dual_model, X[idxs, 1] .- Sxl[idxs, 1] .== ABC.xl[idxs])
     @constraint(model.dual_model, X[idxs, 2:end] .- Sxl[idxs, 2:end] .== 0)

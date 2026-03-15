@@ -370,6 +370,8 @@ function JuMP.raw_status(model::LDRModel; dual = false)
 end
 
 function JuMP.dual_status(model::LDRModel; dual = false)
+    # No dual solutions are available in LDRModel, so we return NO_SOLUTION regardless of the mode.
+    # Do not confuse dual solution with the dual LDR model.
     return MOI.NO_SOLUTION
 end
 
