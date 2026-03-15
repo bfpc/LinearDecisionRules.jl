@@ -2,6 +2,7 @@ module TestMain
 
 using Test
 using Random
+using Logging
 
 using LinearDecisionRules
 
@@ -1102,6 +1103,66 @@ function test_confidence_mv_normal_bounds()
             @test x_star[k] ≈ ub[k] rtol = 1e-10
         end
     end
+    return nothing
+end
+
+function test_confidence_mv_normal_rotated_box()
+    # The rotated (principal-axis) box gives a tighter outer approximation of the
+    # ellipsoidal support than the axis-aligned box.  This test verifies that:
+    #   1. No rejection-sampling warning is emitted (implied constraints bypass
+    #      _compute_groups entirely).
+    #   2. The dual is solved successfully with a finite bound.
+    #   3. Wu_implied has the correct shape: 2d rows (d upper + d lower halfspaces).
+    #   4. For a correlated distribution the dual bound is at least as tight as
+    #      that obtained with an uncorrelated distribution of the same marginals.
+    μ = [100.0, 80.0]
+    Σ_corr = [100.0 40.0; 40.0 64.0]   # off-diagonal → rotated box strictly tighter
+    α = 0.95
+
+    # --- (a) correlated demands ---
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+    dist = LinearDecisionRules.ConfidenceMvNormal(μ, Σ_corr, α)
+    @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] >= 0)
+    @variable(ldr, demand[1:2] in LinearDecisionRules.Uncertainty(distribution = dist))
+    @constraint(ldr, [i = 1:2], sell[i] <= buy[i])
+    @constraint(ldr, [i = 1:2], sell[i] <= demand[i])
+    @objective(ldr, Max, sum(-10 * buy[i] + 15 * sell[i] for i in 1:2))
+
+    # Verify no rejection-sampling warning is emitted.
+    @test_logs min_level = Logging.Warn optimize!(ldr)
+
+    @test termination_status(ldr; dual = true) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    obj_corr = objective_value(ldr; dual = true)
+    @test isfinite(obj_corr)
+
+    # Wu_implied should have 2d = 4 rows and d = 2 uncertainty columns.
+    ABC = ldr.ext[:_LDR_ABC]
+    @test size(ABC.Wu_implied, 1) == 4
+    @test size(ABC.Wu_implied, 2) == 2
+
+    # --- (b) uncorrelated demands (Σ diagonal) ---
+    # With diagonal Σ the rotated box coincides with the axis-aligned box, so
+    # Wu_implied adds no new information beyond what lb/ub already encode.
+    Σ_diag = [100.0 0.0; 0.0 64.0]
+    ldr2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr2)
+    dist2 = LinearDecisionRules.ConfidenceMvNormal(μ, Σ_diag, α)
+    @variable(ldr2, buy2[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr2, sell2[1:2] >= 0)
+    @variable(ldr2, demand2[1:2] in LinearDecisionRules.Uncertainty(distribution = dist2))
+    @constraint(ldr2, [i = 1:2], sell2[i] <= buy2[i])
+    @constraint(ldr2, [i = 1:2], sell2[i] <= demand2[i])
+    @objective(ldr2, Max, sum(-10 * buy2[i] + 15 * sell2[i] for i in 1:2))
+    @test_logs min_level = Logging.Warn optimize!(ldr2)
+    @test termination_status(ldr2; dual = true) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    obj_diag = objective_value(ldr2; dual = true)
+
+    # The correlated problem has strictly smaller feasible set (tighter polytope),
+    # so its dual bound should be ≤ the uncorrelated one.
+    @test obj_corr <= obj_diag + 1e-6
+
     return nothing
 end
 

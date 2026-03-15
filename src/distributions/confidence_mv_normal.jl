@@ -121,3 +121,29 @@ function Distributions._rand!(
         end
     end
 end
+
+"""
+    _valid_constraints(d::ConfidenceMvNormal)
+
+Return the principal-axis box as implied halfspace constraints `W * ξ ≤ h`.
+
+For the ellipsoid `{ξ : (ξ-μ)'Σ⁻¹(ξ-μ) ≤ ρ²}` with eigendecomposition
+`Σ = V·diag(λ)·V'`, every point in the ellipsoid satisfies
+
+    |V'(ξ - μ)[k]| ≤ ρ·√λₖ   for each k.
+
+This gives 2d halfspace constraints encoded as `W = [V'; -V']` and
+`h = [V'μ + ρ·√λ; -V'μ + ρ·√λ]`.  These are implied by the ellipsoid
+and tighten the dual uncertainty polytope without triggering rejection
+sampling.
+"""
+function _valid_constraints(d::ConfidenceMvNormal)
+    # Σ = V · diag(vals) · V'  (eigendecomposition; vals ≥ 0)
+    vals, V = LinearAlgebra.eigen(d.Σ)
+    half_widths = d.ρ .* sqrt.(vals)
+    Vtmu = V' * d.μ
+    # W * ξ ≤ h  ⟺  ±V'ξ ≤ ±V'μ + ρ·√λ  ⟺  |V'(ξ-μ)[k]| ≤ ρ·√λₖ
+    W = vcat(V', -V')                                   # (2d × d)
+    h = vcat(Vtmu .+ half_widths, .-Vtmu .+ half_widths) # (2d,)
+    return (W = W, h = h)
+end

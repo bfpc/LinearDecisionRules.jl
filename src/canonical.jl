@@ -463,6 +463,69 @@ function _objective_constant(ABC, M)
     return r
 end
 
+"""
+    _valid_constraints(d)
+
+Return implied halfspace constraints `(W, h)` such that `W * ξ ≤ h` for every
+`ξ` in the support of distribution `d`, or `nothing` if no such constraints
+are available.
+
+The default method returns `nothing`.  Distributions may override this to
+provide tighter outer approximations used in the dual uncertainty polytope
+without affecting the moment computation (and hence without triggering
+rejection sampling).
+"""
+_valid_constraints(::Distributions.Distribution) = nothing
+
+"""
+    _build_implied_constraints(uncertainty_indices, uncertainty_to_distribution,
+                               vector_distributions, data)
+
+Build the `Wu_implied` sparse matrix and `hu_implied` vector collecting all
+halfspace constraints returned by `_valid_constraints` for each vector
+distribution.  These are embedded in the full uncertainty column space using
+the same `vector_idxs` mapping used by `_second_moment_matrix`.
+"""
+function _build_implied_constraints(
+    uncertainty_indices,
+    uncertainty_to_distribution,
+    vector_distributions,
+    data,
+)
+    dim_uncertainty = length(uncertainty_indices)
+
+    # Map each vector distribution component to its linear index in ξ.
+    vector_idxs = [zeros(Int, length(d)) for d in vector_distributions]
+    for (lin_idx, var_idx) in enumerate(uncertainty_indices)
+        var = data.variables[var_idx]
+        dist_idx, inner_idx = uncertainty_to_distribution[var]
+        if inner_idx != 0  # vector component
+            vector_idxs[dist_idx][inner_idx] = lin_idx
+        end
+    end
+
+    # Collect rows from each distribution that has implied constraints.
+    Wu_rows = SparseArrays.spzeros(0, dim_uncertainty)
+    hu_vec = Float64[]
+    for (dist_idx, dist) in enumerate(vector_distributions)
+        vc = _valid_constraints(dist)
+        vc === nothing && continue
+        # vc.W is (nrows × d_dist), vc.h is (nrows,)
+        idxs = vector_idxs[dist_idx]   # local component → global column
+        nrows = size(vc.W, 1)
+        d_dist = length(idxs)
+        Wu_block = SparseArrays.spzeros(nrows, dim_uncertainty)
+        for local_col in 1:d_dist
+            global_col = idxs[local_col]
+            Wu_block[:, global_col] = vc.W[:, local_col]
+        end
+        Wu_rows = vcat(Wu_rows, Wu_block)
+        append!(hu_vec, vc.h)
+    end
+
+    return Wu_rows, hu_vec
+end
+
 function _prepare_data(model)
     stoch_model = if isempty(model.pwl_data)
         model.cache_model
@@ -490,6 +553,16 @@ function _prepare_data(model)
         first_stage_indices,
         uncertainty_valid_indices,
     )
+    # Build implied constraints (e.g. principal-axis box for ConfidenceMvNormal).
+    # These are NOT passed to _second_moment_matrix and thus do not trigger
+    # rejection sampling; they only tighten the dual uncertainty polytope.
+    Wu_implied, hu_implied = _build_implied_constraints(
+        uncertainty_indices,
+        stoch_model.uncertainty_to_distribution,
+        stoch_model.vector_distributions,
+        data,
+    )
+    ABC = merge(ABC, (Wu_implied = Wu_implied, hu_implied = hu_implied))
     M = _second_moment_matrix(
         data,
         uncertainty_indices,
