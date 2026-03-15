@@ -155,7 +155,10 @@ function JuMP.set_attribute(
 )
     return model.rejection_sampling_time_limit = value
 end
-function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingTimeLimitPerGroup)
+function JuMP.get_attribute(
+    model::LDRModel,
+    ::RejectionSamplingTimeLimitPerGroup,
+)
     return model.rejection_sampling_time_limit
 end
 
@@ -165,7 +168,11 @@ end
 Attribute to get/set the random seed used for rejection sampling. Default: `1234`.
 """
 struct RejectionSamplingSeed end
-function JuMP.set_attribute(model::LDRModel, ::RejectionSamplingSeed, value::Int)
+function JuMP.set_attribute(
+    model::LDRModel,
+    ::RejectionSamplingSeed,
+    value::Int,
+)
     return model.rejection_sampling_seed = value
 end
 function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingSeed)
@@ -779,7 +786,12 @@ function JuMP.add_variable(
 end
 
 function JuMP.delete(_::LDRModel, vref::JuMP.AbstractVariableRef)
-    throw(MOI.DeleteNotAllowed(vref.index, "Deleting variables is not supported in LDRModel."))
+    throw(
+        MOI.DeleteNotAllowed(
+            vref.index,
+            "Deleting variables is not supported in LDRModel.",
+        ),
+    )
 end
 
 function JuMP.delete(
