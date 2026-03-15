@@ -54,6 +54,10 @@ mutable struct LDRModel <: JuMP.AbstractModel
     solve_primal::Bool
     solve_dual::Bool
     silent::Bool
+    rejection_sampling_time_limit::Float64
+    rejection_sampling_seed::Int
+    rejection_sampling_max_iterations::Int
+    rejection_sampling_warn_attempts::Int
 
     ext::Dict{Symbol,Any}
 
@@ -73,6 +77,10 @@ mutable struct LDRModel <: JuMP.AbstractModel
             true,
             true,
             false,
+            10.0,
+            1234,
+            1000,
+            1000,
             Dict{Symbol,Any}(),
             Dict{Symbol,Any}(),
         )
@@ -131,6 +139,73 @@ function JuMP.set_attribute(model::LDRModel, ::SolveDual, value::Bool)
 end
 function JuMP.get_attribute(model::LDRModel, ::SolveDual)
     return model.solve_dual
+end
+
+"""
+    RejectionSamplingTimeLimitPerGroup
+
+Attribute to get/set the time limit (seconds) spent on rejection sampling
+per uncertainty group. Default: `10.0`.
+"""
+struct RejectionSamplingTimeLimitPerGroup end
+function JuMP.set_attribute(
+    model::LDRModel,
+    ::RejectionSamplingTimeLimitPerGroup,
+    value::Float64,
+)
+    return model.rejection_sampling_time_limit = value
+end
+function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingTimeLimitPerGroup)
+    return model.rejection_sampling_time_limit
+end
+
+"""
+    RejectionSamplingSeed
+
+Attribute to get/set the random seed used for rejection sampling. Default: `1234`.
+"""
+struct RejectionSamplingSeed end
+function JuMP.set_attribute(model::LDRModel, ::RejectionSamplingSeed, value::Int)
+    return model.rejection_sampling_seed = value
+end
+function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingSeed)
+    return model.rejection_sampling_seed
+end
+
+"""
+    RejectionSamplingMaxIterations
+
+Attribute to get/set the maximum number of rejection sampling iterations
+per uncertainty group. Default: `1000`.
+"""
+struct RejectionSamplingMaxIterations end
+function JuMP.set_attribute(
+    model::LDRModel,
+    ::RejectionSamplingMaxIterations,
+    value::Int,
+)
+    return model.rejection_sampling_max_iterations = value
+end
+function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingMaxIterations)
+    return model.rejection_sampling_max_iterations
+end
+
+"""
+    RejectionSamplingWarnAttempts
+
+Attribute to get/set the number of failed attempts before a warning is issued
+during rejection sampling. Default: `1000`.
+"""
+struct RejectionSamplingWarnAttempts end
+function JuMP.set_attribute(
+    model::LDRModel,
+    ::RejectionSamplingWarnAttempts,
+    value::Int,
+)
+    return model.rejection_sampling_warn_attempts = value
+end
+function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingWarnAttempts)
+    return model.rejection_sampling_warn_attempts
 end
 
 """
@@ -227,6 +302,9 @@ function JuMP.get_attribute(x::JuMP.VariableRef, ::BreakPoints)
     elseif model.cache_model.uncertainty_to_distribution[x][2] != 0
         error("Breakpoints only work with scalar uncertainty.")
     end
+    # Returns Float64[] when no breakpoints are set, which is equivalent to
+    # the state after set_attribute(x, BreakPoints(), nothing) (deletion).
+    # Callers should treat Float64[] as "no piecewise approximation".
     if !haskey(model.pwl_data, x)
         return Float64[]
     end
@@ -700,11 +778,8 @@ function JuMP.add_variable(
     return JuMP.add_variable(model.cache_model.model, variable, names)
 end
 
-function JuMP.delete(model::LDRModel, vref::JuMP.AbstractVariableRef)
-    error("not implemented")
-    JuMP.delete(model.cache_model.model, vref)
-    # delete!(model.cache_uncertainty, vref)
-    return
+function JuMP.delete(_::LDRModel, vref::JuMP.AbstractVariableRef)
+    throw(MOI.DeleteNotAllowed(vref.index, "Deleting variables is not supported in LDRModel."))
 end
 
 function JuMP.delete(
@@ -733,11 +808,13 @@ function JuMP.add_constraint(
     return JuMP.add_constraint(model.cache_model.model, c, name)
 end
 
-function JuMP.delete(model::LDRModel, constraint_ref::JuMP.ConstraintRef)
-    JuMP.delete(model.cache_model.model, constraint_ref)
-    # TODO: fix maps
-    error("fix maps")
-    return
+function JuMP.delete(_::LDRModel, constraint_ref::JuMP.ConstraintRef)
+    throw(
+        MOI.DeleteNotAllowed(
+            constraint_ref.index,
+            "Deleting constraints is not supported in LDRModel.",
+        ),
+    )
 end
 
 function JuMP.delete(
