@@ -1007,7 +1007,11 @@ function test_confidence_mv_normal()
 
     @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
     @variable(ldr, sell[1:2] >= 0)
-    @variable(ldr, demand[1:2] in LinearDecisionRules.Uncertainty(distribution = dist_ldr))
+    @variable(
+        ldr,
+        demand[1:2] in
+        LinearDecisionRules.Uncertainty(; distribution = dist_ldr)
+    )
 
     @constraint(ldr, [i = 1:2], sell[i] <= buy[i])
     @constraint(ldr, [i = 1:2], sell[i] <= demand[i])
