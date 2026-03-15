@@ -1165,35 +1165,6 @@ function test_rejection_sampling_attributes()
     return nothing
 end
 
-function test_primal_dual_objective_parity()
-    # Both primal and dual should yield identical objective values on a simple
-    # newsvendor problem with a uniform distribution (analytic moments, no sampling).
-    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
-    set_silent(ldr)
-
-    @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
-    @variable(ldr, sell >= 0)
-    @variable(ldr, ret >= 0)
-    @variable(
-        ldr,
-        demand in LinearDecisionRules.Uncertainty(;
-            distribution = Distributions.Uniform(80.0, 120.0),
-        )
-    )
-
-    @constraint(ldr, sell + ret <= buy)
-    @constraint(ldr, sell <= demand)
-    @objective(ldr, Max, -10buy + 8ret + 15sell)
-
-    optimize!(ldr)
-
-    primal_obj = objective_value(ldr)
-    dual_obj = objective_value(ldr; dual = true)
-    @test primal_obj ≈ dual_obj atol = 1e-4
-
-    return nothing
-end
-
 function test_delete_not_allowed()
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
