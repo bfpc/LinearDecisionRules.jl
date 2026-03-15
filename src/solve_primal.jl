@@ -84,7 +84,7 @@ function _solve_primal_ldr(model)
     @constraint(model.primal_model, ΛSl * h .>= 0)
 
     # Can only include rows where the bound is not +Inf
-    idxs = findall(x -> x != Inf, ABC.xu)
+    idxs = findall(isfinite, ABC.xu)
     @variable(model.primal_model, Sxu[idxs, 1:dim_ξ])
     @constraint(model.primal_model, X[idxs, 1] .+ Sxu[idxs, 1] .== ABC.xu[idxs])
     @constraint(model.primal_model, X[idxs, 2:end] .+ Sxu[idxs, 2:end] .== 0)
@@ -93,7 +93,7 @@ function _solve_primal_ldr(model)
     @constraint(model.primal_model, ΛSxu.data * h .>= 0)
 
     # Can only include rows where the bound is not -Inf
-    idxs = findall(x -> x != -Inf, ABC.xl)
+    idxs = findall(isfinite, ABC.xl)
     @variable(model.primal_model, Sxl[idxs, 1:dim_ξ])
     @constraint(model.primal_model, X[idxs, 1] .- Sxl[idxs, 1] .== ABC.xl[idxs])
     @constraint(model.primal_model, X[idxs, 2:end] .- Sxl[idxs, 2:end] .== 0)

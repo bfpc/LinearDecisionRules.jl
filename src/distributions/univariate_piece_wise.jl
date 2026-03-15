@@ -15,7 +15,7 @@ struct UnivariatePieceWise{
         @assert minimum(d) > -Inf
         @assert maximum(d) < Inf
         @assert length(break_points) > 0
-        @assert all(break_points .!= NaN)
+        @assert !any(isnan.(break_points))
         sorted_break_points = sort(break_points)
         @assert sorted_break_points[begin] > -Inf
         @assert sorted_break_points[end] < Inf

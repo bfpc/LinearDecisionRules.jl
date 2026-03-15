@@ -89,7 +89,11 @@ function _second_moment_matrix(
     uncertainty_to_distribution,
     scalar_distributions,
     vector_distributions,
-    ABC,
+    ABC;
+    time_per_estimation::Float64 = 10.0,
+    seed::Int = 1234,
+    max_iterations::Int = 1000,
+    warn_attempts::Int = 1000,
 )
     # Compute the second moment matrix M of the uncertainty
     # M = E[ξ⊤ ξ]
@@ -171,6 +175,12 @@ function _second_moment_matrix(
         end
     end
 
+    # Augmented-vector convention: ξ̃ = [1; ξ], so the first coordinate is
+    # always 1. This allows affine decision rules x(ξ) = X ξ̃ to capture a
+    # constant term via the first column of X, without special-casing it.
+    # dim_uncertainty is the full augmented dimension (true uncertainty dim + 1).
+    # All indices into μ and M are therefore offset by 1 (e.g. μ[2] is the
+    # mean of the first uncertainty variable).
     dim_uncertainty = 1 + length(uncertainty_indices)
     μ = zeros(dim_uncertainty)
     μ[1] = 1
@@ -206,12 +216,6 @@ function _second_moment_matrix(
             end
         end
     end
-
-    # TODO: move this to a parameter
-    time_per_estimation = 10.0
-    seed = 1234
-    max_iterations = 1000
-    warn_attempts = 1000
 
     # fill non analytical blocks with rejection sampling
     candidate = zeros(length(uncertainty_indices))
@@ -260,7 +264,7 @@ function _second_moment_matrix(
             n += 1
             # TODO: add convergence check
             if time() - initial_time > time_per_estimation
-                println("Estimation max time")
+                @warn "Rejection sampling reached time limit, estimation may be inaccurate"
                 break
             end
         end
@@ -459,7 +463,7 @@ function _objective_constant(ABC, M)
     r1 = ABC.f
     r2 = ABC.d' * M[2:end, 1]
     r3 = sum(ABC.Q .* M[2:end, 2:end])
-    r = r1 + r2 + r3[1]
+    r = r1 + r2 + r3
     return r
 end
 
@@ -496,7 +500,11 @@ function _prepare_data(model)
         stoch_model.uncertainty_to_distribution,
         stoch_model.scalar_distributions,
         stoch_model.vector_distributions,
-        ABC,
+        ABC;
+        time_per_estimation = model.rejection_sampling_time_limit,
+        seed = model.rejection_sampling_seed,
+        max_iterations = model.rejection_sampling_max_iterations,
+        warn_attempts = model.rejection_sampling_warn_attempts,
     )
     model.ext[:_LDR_r] = _objective_constant(ABC, M)
     model.ext[:_LDR_M] = M

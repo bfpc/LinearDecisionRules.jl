@@ -436,14 +436,14 @@ function test_newsvendor_with_rejection_sampling()
     ldr_d_obj3 = objective_value(ldr; dual = true)
     @test ldr_d_obj3 == ldr_d_obj2
 
-    @show M3 = ldr.ext[:_LDR_M]
+    M3 = ldr.ext[:_LDR_M]
     @test M3[1, 1] == 1
     @test M3[3, 2] == M3[2, 3] == M3[3, 1] * M3[1, 2]
     @test M3[3, 3] == M3[2, 2]
 
     @constraint(ldr, sell <= demand2)
     optimize!(ldr)
-    @show objective_value(ldr, dual = true)
+    objective_value(ldr; dual = true)
 
     return
 end
@@ -839,7 +839,7 @@ function test_recursion()
 
     m_0 = LinearDecisionRules.LDRModel()
     set_silent(m_0)
-    @show LinearDecisionRules.set_parametric_objective!(m_0, m, Dict())
+    LinearDecisionRules.set_parametric_objective!(m_0, m, Dict())
 
     m_2 = LinearDecisionRules.LDRModel()
     set_silent(m_2)
@@ -864,11 +864,7 @@ function test_recursion()
 
     @objective(m_2, Min, gt_2^2)
 
-    @show LinearDecisionRules.set_parametric_objective!(
-        m_2,
-        m,
-        Dict(vi => vf_2),
-    )
+    LinearDecisionRules.set_parametric_objective!(m_2, m, Dict(vi => vf_2))
 
     set_optimizer(m_2, Ipopt.Optimizer)
     optimize!(m_2)
@@ -915,7 +911,7 @@ function test_recursion_pwl()
 
     m_0 = LinearDecisionRules.LDRModel()
     set_silent(m_0)
-    @show LinearDecisionRules.set_parametric_objective!(m_0, m, Dict())
+    LinearDecisionRules.set_parametric_objective!(m_0, m, Dict())
 
     m_2 = LinearDecisionRules.LDRModel()
     set_silent(m_2)
@@ -940,11 +936,7 @@ function test_recursion_pwl()
 
     @objective(m_2, Min, gt_2^2)
 
-    @show LinearDecisionRules.set_parametric_objective!(
-        m_2,
-        m,
-        Dict(vi => vf_2),
-    )
+    LinearDecisionRules.set_parametric_objective!(m_2, m, Dict(vi => vf_2))
 
     set_optimizer(m_2, HiGHS.Optimizer)
     optimize!(m_2)
@@ -1124,6 +1116,64 @@ function test_tutorials()
             end
         end
     end
+    return nothing
+end
+
+function test_rejection_sampling_attributes()
+    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(m)
+
+    # defaults
+    @test get_attribute(
+        m,
+        LinearDecisionRules.RejectionSamplingTimeLimitPerGroup(),
+    ) == 10.0
+    @test get_attribute(m, LinearDecisionRules.RejectionSamplingSeed()) == 1234
+    @test get_attribute(
+        m,
+        LinearDecisionRules.RejectionSamplingMaxIterations(),
+    ) == 1000
+    @test get_attribute(
+        m,
+        LinearDecisionRules.RejectionSamplingWarnAttempts(),
+    ) == 1000
+
+    # round-trip set/get
+    set_attribute(
+        m,
+        LinearDecisionRules.RejectionSamplingTimeLimitPerGroup(),
+        5.0,
+    )
+    set_attribute(m, LinearDecisionRules.RejectionSamplingSeed(), 42)
+    set_attribute(m, LinearDecisionRules.RejectionSamplingMaxIterations(), 500)
+    set_attribute(m, LinearDecisionRules.RejectionSamplingWarnAttempts(), 200)
+
+    @test get_attribute(
+        m,
+        LinearDecisionRules.RejectionSamplingTimeLimitPerGroup(),
+    ) == 5.0
+    @test get_attribute(m, LinearDecisionRules.RejectionSamplingSeed()) == 42
+    @test get_attribute(
+        m,
+        LinearDecisionRules.RejectionSamplingMaxIterations(),
+    ) == 500
+    @test get_attribute(
+        m,
+        LinearDecisionRules.RejectionSamplingWarnAttempts(),
+    ) == 200
+
+    return nothing
+end
+
+function test_delete_not_allowed()
+    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(m)
+    @variable(m, x >= 0, LinearDecisionRules.FirstStage)
+    @constraint(m, con, x >= 0)
+
+    @test_throws MOI.DeleteNotAllowed JuMP.delete(m, x)
+    @test_throws MOI.DeleteNotAllowed JuMP.delete(m, con)
+
     return nothing
 end
 
