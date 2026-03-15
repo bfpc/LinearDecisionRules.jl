@@ -33,7 +33,6 @@ struct ConfidenceMvNormal <: Distributions.ContinuousMultivariateDistribution
     # derived
     d::Int
     L::LinearAlgebra.LowerTriangular{Float64,Matrix{Float64}}
-    ρ²::Float64
     ρ::Float64
     _cov::Matrix{Float64}
     _lb::Vector{Float64}
@@ -74,7 +73,6 @@ struct ConfidenceMvNormal <: Distributions.ContinuousMultivariateDistribution
             Float64(α),
             d,
             L,
-            ρ²,
             ρ,
             _cov,
             _lb,
@@ -100,7 +98,7 @@ Distributions.maximum(d::ConfidenceMvNormal) = copy(d._ub)
 function Distributions.insupport(d::ConfidenceMvNormal, x::AbstractVector)
     length(x) == d.d || return false
     z = d.L \ (x - d.μ)
-    return LinearAlgebra.dot(z, z) <= d.ρ² + sqrt(eps(d.ρ²))
+    return LinearAlgebra.dot(z, z) <= d.ρ^2
 end
 
 function Distributions._rand!(
@@ -114,7 +112,7 @@ function Distributions._rand!(
     z = similar(x)
     while true
         Random.randn!(rng, z)
-        if LinearAlgebra.dot(z, z) <= d.ρ²
+        if LinearAlgebra.dot(z, z) <= d.ρ^2
             LinearAlgebra.mul!(x, d.L, z)
             x .+= d.μ
             return x

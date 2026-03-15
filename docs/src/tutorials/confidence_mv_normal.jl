@@ -35,15 +35,20 @@ import Distributions
 # ## Inspecting the distribution
 
 μ = [100.0, 80.0]
-Σ = [100.0 40.0
-     40.0  64.0]
+Σ = [
+    100.0 40.0
+    40.0 64.0
+]
 
 dist_95 = LinearDecisionRules.ConfidenceMvNormal(μ, Σ, 0.95)
 
 println("α = 0.95")
 println("  Ellipsoid radius  ρ = ", round(dist_95.ρ; digits = 4))
 println("  Mean              = ", Distributions.mean(dist_95))
-println("  Covariance        = ", round.(Distributions.cov(dist_95); digits = 2))
+println(
+    "  Covariance        = ",
+    round.(Distributions.cov(dist_95); digits = 2),
+)
 println("  Component bounds:")
 for i in 1:2
     lo = round(Distributions.minimum(dist_95)[i]; digits = 2)
@@ -72,9 +77,9 @@ end
 # | Sell price | \$15 |
 # | Salvage value | \$5 |
 
-buy_cost    = 10.0
-sell_price  = 15.0
-salvage_val =  5.0
+buy_cost = 10.0
+sell_price = 15.0
+salvage_val = 5.0
 
 function solve_inventory(α)
     dist = LinearDecisionRules.ConfidenceMvNormal(μ, Σ, α)
@@ -84,11 +89,11 @@ function solve_inventory(α)
     set_attribute(ldr, LinearDecisionRules.SolveDual(), true)
 
     @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
-    @variable(ldr, sell[1:2]    >= 0)
+    @variable(ldr, sell[1:2] >= 0)
     @variable(ldr, salvage[1:2] >= 0)
     @variable(
         ldr,
-        demand[1:2] in LinearDecisionRules.Uncertainty(distribution = dist),
+        demand[1:2] in LinearDecisionRules.Uncertainty(; distribution = dist),
     )
 
     for i in 1:2
@@ -100,16 +105,17 @@ function solve_inventory(α)
         ldr,
         Max,
         sum(
-            -buy_cost * buy[i] + sell_price * sell[i] + salvage_val * salvage[i]
-            for i in 1:2
+            -buy_cost * buy[i] +
+            sell_price * sell[i] +
+            salvage_val * salvage[i] for i in 1:2
         ),
     )
 
     optimize!(ldr)
     return (
-        buy    = [LinearDecisionRules.get_decision(ldr, buy[i]) for i in 1:2],
+        buy = [LinearDecisionRules.get_decision(ldr, buy[i]) for i in 1:2],
         primal = objective_value(ldr),
-        dual   = objective_value(ldr; dual = true),
+        dual = objective_value(ldr; dual = true),
     )
 end
 
@@ -156,4 +162,3 @@ end
 #   for tighter primal–dual gaps
 # - Use [advanced constraint-based uncertainty](@ref advanced_distributions_tutorial)
 #   for polytope uncertainty sets
-

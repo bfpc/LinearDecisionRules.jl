@@ -137,8 +137,21 @@ function create_variables!(m, data, rees, subsys, month)
     return spillEnergy, hydroGeneration, thermal, exchange, deficit
 end
 
-function add_constraints!(m, data, rees, subsys, month, inflow, stored_energy_init, stored_energy_out,
-     spillEnergy, hydroGeneration, thermal, exchange, deficit)
+function add_constraints!(
+    m,
+    data,
+    rees,
+    subsys,
+    month,
+    inflow,
+    stored_energy_init,
+    stored_energy_out,
+    spillEnergy,
+    hydroGeneration,
+    thermal,
+    exchange,
+    deficit,
+)
     @constraints(
         m,
         begin
@@ -147,8 +160,7 @@ function add_constraints!(m, data, rees, subsys, month, inflow, stored_energy_in
             sum(deficit[i, :]) +
             (data.water_scale / data.energy_scale) * hydroGeneration[i] +
             sum(thermal[i, j] for j in 1:length(data.thermal_ub[i])) +
-            sum(exchange[:, i]) - sum(exchange[i, :]) ==
-            data.demand[month][i]
+            sum(exchange[:, i]) - sum(exchange[i, :]) == data.demand[month][i]
             # Water balance
             [i = rees],
             stored_energy_out[i] + spillEnergy[i] + hydroGeneration[i] -
@@ -161,15 +173,18 @@ function add_constraints!(m, data, rees, subsys, month, inflow, stored_energy_in
 end
 
 function get_cost_expr(m, data, rees, thermal, deficit)
-    return sum(
-        data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4
-    ) + sum(
-        data.thermal_obj[i][j] * thermal[i, j] for i = rees for
+    return sum(data.deficit_obj[j] * sum(deficit[:, j]) for j in 1:4) + sum(
+        data.thermal_obj[i][j] * thermal[i, j] for i in rees for
         j in 1:length(data.thermal_ub[i])
     )
 end
 
-function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5, train::Bool=true)
+function hydro_thermal_sddp(;
+    stages = 12,
+    rees = 1:4,
+    subsys = 1:5,
+    train::Bool = true,
+)
     @assert all(i in subsys for i in rees) "REES must be a subset of subsystems."
     data = hydro_thermal_data()
 
@@ -192,8 +207,21 @@ function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5, train::Bool=tru
         @variable(sp, inflow[i = rees] == data.inflow_initial[i])
         spillEnergy, hydroGeneration, thermal, exchange, deficit =
             create_variables!(sp, data, rees, subsys, month)
-        add_constraints!(sp, data, rees, subsys, month, inflow, stored_energy_init, stored_energy_out,
-            spillEnergy, hydroGeneration, thermal, exchange, deficit)
+        add_constraints!(
+            sp,
+            data,
+            rees,
+            subsys,
+            month,
+            inflow,
+            stored_energy_init,
+            stored_energy_out,
+            spillEnergy,
+            hydroGeneration,
+            thermal,
+            exchange,
+            deficit,
+        )
 
         immediate_cost = get_cost_expr(sp, data, rees, thermal, deficit)
         SDDP.@stageobjective(sp, immediate_cost)
@@ -201,19 +229,19 @@ function hydro_thermal_sddp(; stages = 12, rees=1:4, subsys=1:5, train::Bool=tru
         if t != 1  # t=1 is handled in the @variable constructor.
             r = (t - 1) % 12 == 0 ? 12 : (t - 1) % 12
             SDDP.parameterize(sp, 1:length(data.inflow_scenarios[1][r])) do ω
-                for i = rees
+                for i in rees
                     JuMP.fix(inflow[i], data.inflow_scenarios[i][r][ω])
                 end
             end
         end
     end
     if train
-    SDDP.train(
-        model;
-        time_limit = 10,
-        print_level = 2,
-        cut_deletion_minimum = 50,
-    )
+        SDDP.train(
+            model;
+            time_limit = 10,
+            print_level = 2,
+            cut_deletion_minimum = 50,
+        )
     end
     return model
 end
@@ -229,7 +257,7 @@ function set_inflow!(m, t, data, rees, inflow_dist)
             inflow[i = rees] in LinearDecisionRules.Uncertainty(;
                 distribution = LinearDecisionRules.MvDiscreteNonParametric(
                     [
-                        [data.inflow_scenarios[i][r][ω] for i = rees] for
+                        [data.inflow_scenarios[i][r][ω] for i in rees] for
                         ω in 1:n_scenarios
                     ],
                     [1 / n_scenarios for _ in 1:n_scenarios],
@@ -280,7 +308,9 @@ function set_inflow!(m, t, data, rees, inflow_dist)
 end
 
 function hydro_thermal_rpwldr(;
-    stages = 12, rees=1:4, subsys=1:5,
+    stages = 12,
+    rees = 1:4,
+    subsys = 1:5,
     stored_energy_breakpoints = 0,
     stored_energy_dist = :tri,
     inflow_dist = :tri,
@@ -344,18 +374,34 @@ function hydro_thermal_rpwldr(;
             end
         end
 
-        @variable(m, 0 <= stored_energy_out[i = rees] <= data.stored_energy_ub[i])
+        @variable(
+            m,
+            0 <= stored_energy_out[i = rees] <= data.stored_energy_ub[i]
+        )
         inflow = set_inflow!(m, t, data, rees, inflow_dist)
 
         spillEnergy, hydroGeneration, thermal, exchange, deficit =
             create_variables!(m, data, rees, subsys, month)
-        add_constraints!(m, data, rees, subsys, month, inflow, stored_energy_init, stored_energy_out,
-            spillEnergy, hydroGeneration, thermal, exchange, deficit)
+        add_constraints!(
+            m,
+            data,
+            rees,
+            subsys,
+            month,
+            inflow,
+            stored_energy_init,
+            stored_energy_out,
+            spillEnergy,
+            hydroGeneration,
+            thermal,
+            exchange,
+            deficit,
+        )
 
         immediate_cost = get_cost_expr(m, data, rees, thermal, deficit)
         @objective(m, Min, immediate_cost)
 
-        for i = rees
+        for i in rees
             if stored_energy_breakpoints > 0 && t > 1
                 set_attribute(
                     stored_energy_init[i],
@@ -379,8 +425,8 @@ function hydro_thermal_rpwldr(;
                 m,
                 previous_model,
                 Dict(
-                    previous_model[:stored_energy_init][i] => stored_energy_out[i]
-                    for i = rees
+                    previous_model[:stored_energy_init][i] =>
+                        stored_energy_out[i] for i in rees
                 ),
             )
 
@@ -394,7 +440,7 @@ function hydro_thermal_rpwldr(;
                 previous_model,
                 Dict(
                     previous_model[:stored_energy_init][i] => stored_energy[i]
-                    for i = rees
+                    for i in rees
                 ),
             )
             value_functions[t] = vf
@@ -429,30 +475,43 @@ function nice_plots(sddp_model, ldr_vfs, t)
     xs = 0:200
 
     V = SDDP.ValueFunction(sddp_model[t])
-    y_dy_sddp = [SDDP.evaluate(V, Dict(Symbol("stored_energy[1]") => x)) for x in xs]
+    y_dy_sddp =
+        [SDDP.evaluate(V, Dict(Symbol("stored_energy[1]") => x)) for x in xs]
     y_sddp = first.(y_dy_sddp)
     dy_sddp = [ydy[2][Symbol("stored_energy[1]")] for ydy in y_dy_sddp]
 
     y_ldr = [eval_vf(ldr_vfs[t], 1:1, [x]) for x in xs]
 
     plt.figure()
-    plt.plot(xs, y_sddp, label="SDDP")
-    plt.plot(xs, y_ldr, label="LDR")
+    plt.plot(xs, y_sddp; label = "SDDP")
+    plt.plot(xs, y_ldr; label = "LDR")
     plt.legend()
     plt.xlabel("Stored Energy")
     plt.title("Value Function")
 
     plt.figure()
-    plt.plot(xs, -dy_sddp, label="SDDP")
-    plt.plot((xs[2:end]+xs[1:end-1])/2, -diff(y_ldr), label="LDR")
+    plt.plot(xs, -dy_sddp; label = "SDDP")
+    plt.plot((xs[2:end] + xs[1:end-1]) / 2, -diff(y_ldr); label = "LDR")
     plt.legend()
     plt.xlabel("Stored Energy")
-    plt.title("Water Value")
+    return plt.title("Water Value")
 end
 
 using Random
-function hydro_thermal_mixed_simul(ldr_models, n=1, seed=0; stages = 12, rees=1:4, subsys=1:5)
-    sddp_models = hydro_thermal_sddp(; stages = stages, rees = rees, subsys = subsys, train = false)
+function hydro_thermal_mixed_simul(
+    ldr_models,
+    n = 1,
+    seed = 0;
+    stages = 12,
+    rees = 1:4,
+    subsys = 1:5,
+)
+    sddp_models = hydro_thermal_sddp(;
+        stages = stages,
+        rees = rees,
+        subsys = subsys,
+        train = false,
+    )
     for (stage, node) in sddp_models.nodes
         if stage == stages
             continue
@@ -465,7 +524,7 @@ function hydro_thermal_mixed_simul(ldr_models, n=1, seed=0; stages = 12, rees=1:
             previous_model,
             Dict(
                 previous_model[:stored_energy_init][i] => stored_energy_out[i]
-                for i = rees
+                for i in rees
             ),
         )
     end
@@ -474,42 +533,69 @@ function hydro_thermal_mixed_simul(ldr_models, n=1, seed=0; stages = 12, rees=1:
     return SDDP.simulate(sddp_models, n)
 end
 
-function hydro_thermal_sddp_simul(n=1, seed=0; stages = 12, rees=1:4, subsys=1:5)
-    sddp_models = hydro_thermal_sddp(; stages = stages, rees = rees, subsys = subsys, train = true)
+function hydro_thermal_sddp_simul(
+    n = 1,
+    seed = 0;
+    stages = 12,
+    rees = 1:4,
+    subsys = 1:5,
+)
+    sddp_models = hydro_thermal_sddp(;
+        stages = stages,
+        rees = rees,
+        subsys = subsys,
+        train = true,
+    )
     Random.seed!(seed)
     return SDDP.simulate(sddp_models, n)
 end
 
 function simulation_cost(result)
-    sum(x[:stage_objective] for x in result)
+    return sum(x[:stage_objective] for x in result)
 end
 
-function hydro_thermal_compare(n=100, seed=0; stages = 12, rees=1:4, subsys=1:5,
+function hydro_thermal_compare(
+    n = 100,
+    seed = 0;
+    stages = 12,
+    rees = 1:4,
+    subsys = 1:5,
     stored_energy_breakpoints = 0,
     stored_energy_dist = :tri,
     inflow_dist = :tri,
     inflow_breakpoints = 0,
 )
     sddp_result = hydro_thermal_sddp_simul(n, seed; stages, rees, subsys)
-    ldr_models, ldr_vfs = hydro_thermal_rpwldr(; stages, rees, subsys,
+    ldr_models, ldr_vfs = hydro_thermal_rpwldr(;
+        stages,
+        rees,
+        subsys,
         stored_energy_breakpoints,
         stored_energy_dist,
         inflow_dist,
         inflow_breakpoints,
     )
-    mixed_result = hydro_thermal_mixed_simul(ldr_models, n, seed; stages, rees, subsys)
+    mixed_result =
+        hydro_thermal_mixed_simul(ldr_models, n, seed; stages, rees, subsys)
 
     sddp_costs = simulation_cost.(sddp_result)
-    ldr_costs =  simulation_cost.(mixed_result)
+    ldr_costs = simulation_cost.(mixed_result)
     plt.figure()
-    plt.scatter(sddp_costs, ldr_costs, label = "Mixed vs SDDP", alpha = 0.5)
-    plt.plot([0, maximum(sddp_costs)], [0, maximum(sddp_costs)], "C1--", label = "y=x")
+    plt.scatter(sddp_costs, ldr_costs; label = "Mixed vs SDDP", alpha = 0.5)
+    plt.plot(
+        [0, maximum(sddp_costs)],
+        [0, maximum(sddp_costs)],
+        "C1--";
+        label = "y=x",
+    )
     ymax = maximum([maximum(sddp_costs), maximum(ldr_costs)])
-    plt.plot([0, ymax/2], [0, ymax], "C2--", label = "y=2x")
+    plt.plot([0, ymax / 2], [0, ymax], "C2--"; label = "y=2x")
     plt.xlabel("SDDP Cost")
     plt.ylabel("LDR VF Cost")
     plt.legend()
-    plt.title("Cost Comparison\n$(stored_energy_breakpoints) state breakpoints\n$(inflow_breakpoints) inflow breakpoints")
+    plt.title(
+        "Cost Comparison\n$(stored_energy_breakpoints) state breakpoints\n$(inflow_breakpoints) inflow breakpoints",
+    )
 
     return sddp_result, ldr_models, ldr_vfs, mixed_result
 end
