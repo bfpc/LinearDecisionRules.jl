@@ -17,8 +17,12 @@ two-stage stochastic optimization problems where:
  * **First-stage decisions** are made before uncertainty is revealed
  * **Second-stage decisions** can adapt (linearly) to the realized uncertainty
 
-The package reformulates these problems into tractable deterministic equivalent
-optimization problems and provides both primal and dual bounds.
+This package implements tractable reformulations of both primal and dual linear
+decision rules, inspired by the paper
+[Primal and dual linear decision rules in stochastic and robust optimization](https://link.springer.com/article/10.1007/s10107-009-0331-4).
+Those reformulations result in **finite** optimization problems and provide
+both primal and dual bounds.  The primal decision rule is feasible over the
+entire uncertainty set.
 
 ## Problem formulation
 
@@ -44,6 +48,12 @@ where ``\Xi \subset \mathbb{R}^m`` is a polytope described by:
 Non-anticipative variables cannot depend on the random variable ``\xi``. This is
 equivalent to fixing their decision rules to have coefficient equal to zero,
 except for the constant term.
+
+
+!!! note
+    For duality arguments underlying the reformulations, the uncertainty set
+    $\Xi$ is assumed to span the entire space $\mathbb{R}^m$.  In practice,
+    this implies that uncertain variables $\eta$ do not appear in _equality constraints_.
 
 ## Installation
 

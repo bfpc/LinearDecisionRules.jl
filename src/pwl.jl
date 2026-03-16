@@ -124,7 +124,7 @@ function _add_pwl_vars_to_constraints(
 )
     N = length(new_vars)
     new_coefs = fill(0.0, N)
-    # todo: do doulbe loop with abrrier for performance
+    # todo: do double loop with barrier for performance
     for con in
         all_constraints(model; include_variable_in_set_constraints = false)
         coef = normalized_coefficient(con, uncertainty)

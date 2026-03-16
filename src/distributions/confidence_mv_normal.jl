@@ -120,6 +120,16 @@ function Distributions._rand!(
     end
 end
 
+import Base.show
+function show(io::IO, d::ConfidenceMvNormal)
+    μ, Σ, α = Distributions.params(d)
+    return Distributions.show_multline(
+        io,
+        d,
+        [(:dim, length(d)), (:μ, μ), (:Σ, Σ), (:α, α)],
+    )
+end
+
 """
     _valid_constraints(d::ConfidenceMvNormal)
 

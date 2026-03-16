@@ -54,6 +54,10 @@ mutable struct LDRModel <: JuMP.AbstractModel
     solve_primal::Bool
     solve_dual::Bool
     silent::Bool
+    rejection_sampling_time_limit::Float64
+    rejection_sampling_seed::Int
+    rejection_sampling_max_iterations::Int
+    rejection_sampling_warn_attempts::Int
 
     ext::Dict{Symbol,Any}
 
@@ -73,6 +77,10 @@ mutable struct LDRModel <: JuMP.AbstractModel
             true,
             true,
             false,
+            10.0,
+            1234,
+            1000,
+            1000,
             Dict{Symbol,Any}(),
             Dict{Symbol,Any}(),
         )
@@ -134,6 +142,80 @@ function JuMP.get_attribute(model::LDRModel, ::SolveDual)
 end
 
 """
+    RejectionSamplingTimeLimitPerGroup
+
+Attribute to get/set the time limit (seconds) spent on rejection sampling
+per uncertainty group. Default: `10.0`.
+"""
+struct RejectionSamplingTimeLimitPerGroup end
+function JuMP.set_attribute(
+    model::LDRModel,
+    ::RejectionSamplingTimeLimitPerGroup,
+    value::Float64,
+)
+    return model.rejection_sampling_time_limit = value
+end
+function JuMP.get_attribute(
+    model::LDRModel,
+    ::RejectionSamplingTimeLimitPerGroup,
+)
+    return model.rejection_sampling_time_limit
+end
+
+"""
+    RejectionSamplingSeed
+
+Attribute to get/set the random seed used for rejection sampling. Default: `1234`.
+"""
+struct RejectionSamplingSeed end
+function JuMP.set_attribute(
+    model::LDRModel,
+    ::RejectionSamplingSeed,
+    value::Int,
+)
+    return model.rejection_sampling_seed = value
+end
+function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingSeed)
+    return model.rejection_sampling_seed
+end
+
+"""
+    RejectionSamplingMaxIterations
+
+Attribute to get/set the maximum number of rejection sampling iterations
+per uncertainty group. Default: `1000`.
+"""
+struct RejectionSamplingMaxIterations end
+function JuMP.set_attribute(
+    model::LDRModel,
+    ::RejectionSamplingMaxIterations,
+    value::Int,
+)
+    return model.rejection_sampling_max_iterations = value
+end
+function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingMaxIterations)
+    return model.rejection_sampling_max_iterations
+end
+
+"""
+    RejectionSamplingWarnAttempts
+
+Attribute to get/set the number of failed attempts before a warning is issued
+during rejection sampling. Default: `1000`.
+"""
+struct RejectionSamplingWarnAttempts end
+function JuMP.set_attribute(
+    model::LDRModel,
+    ::RejectionSamplingWarnAttempts,
+    value::Int,
+)
+    return model.rejection_sampling_warn_attempts = value
+end
+function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingWarnAttempts)
+    return model.rejection_sampling_warn_attempts
+end
+
+"""
     BreakPoints
 
 Attribute to get/set the breakpoints for piecewise linear approximation
@@ -150,6 +232,14 @@ uncertainty distribution associated with the variable.
 Example
 =======
 ```julia
+set_attribute(
+    x,
+    LinearDecisionRules.BreakPoints(),
+    3
+)
+
+# If the support of `x` is [6.0, 14.0], this is equivalent to
+
 set_attribute(
     x,
     LinearDecisionRules.BreakPoints(),
@@ -220,7 +310,7 @@ function JuMP.get_attribute(x::JuMP.VariableRef, ::BreakPoints)
         error("Breakpoints only work with scalar uncertainty.")
     end
     if !haskey(model.pwl_data, x)
-        return Float64[]
+        return nothing
     end
     return model.pwl_data[x]
 end
@@ -277,6 +367,8 @@ function JuMP.raw_status(model::LDRModel; dual = false)
 end
 
 function JuMP.dual_status(model::LDRModel; dual = false)
+    # No dual solutions are available in LDRModel, so we return NO_SOLUTION regardless of the mode.
+    # Do not confuse dual solution with the dual LDR model.
     return MOI.NO_SOLUTION
 end
 
@@ -518,6 +610,23 @@ import Distributions
     ]),
 ))
 ```
+
+## Note
+
+Uncertain parameters declared as different `@variable`s are assumed to be
+independent.  So, the last example is equivalent to declaring two separate
+scalar uncertainties with uniform distributions.
+
+```julia
+import Distributions
+
+@variable(ldr, inflow1 in LinearDecisionRules.Uncertainty(
+    distribution = Distributions.Uniform(0, 10),
+))
+@variable(ldr, inflow2 in LinearDecisionRules.Uncertainty(
+    distribution = Distributions.Uniform(0, 20),
+))
+```
 """
 function Uncertainty(; distribution::Distributions.Distribution = nothing)
     if distribution === nothing
@@ -686,11 +795,13 @@ function JuMP.add_variable(
     return JuMP.add_variable(model.cache_model.model, variable, names)
 end
 
-function JuMP.delete(model::LDRModel, vref::JuMP.AbstractVariableRef)
-    error("not implemented")
-    JuMP.delete(model.cache_model.model, vref)
-    # delete!(model.cache_uncertainty, vref)
-    return
+function JuMP.delete(_::LDRModel, vref::JuMP.AbstractVariableRef)
+    throw(
+        MOI.DeleteNotAllowed(
+            vref.index,
+            "Deleting variables is not supported in LDRModel.",
+        ),
+    )
 end
 
 function JuMP.delete(
@@ -719,11 +830,13 @@ function JuMP.add_constraint(
     return JuMP.add_constraint(model.cache_model.model, c, name)
 end
 
-function JuMP.delete(model::LDRModel, constraint_ref::JuMP.ConstraintRef)
-    JuMP.delete(model.cache_model.model, constraint_ref)
-    # TODO: fix maps
-    error("fix maps")
-    return
+function JuMP.delete(_::LDRModel, constraint_ref::JuMP.ConstraintRef)
+    throw(
+        MOI.DeleteNotAllowed(
+            constraint_ref.index,
+            "Deleting constraints is not supported in LDRModel.",
+        ),
+    )
 end
 
 function JuMP.delete(
