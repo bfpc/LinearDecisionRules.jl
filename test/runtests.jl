@@ -1790,7 +1790,7 @@ function test_vector_uncertainty_with_pwl()
 end
 
 function test_vector_distribution_infinite_bounds()
-    # MvNormal: lower bound is -Inf for each component → jump.jl:532
+    # MvNormal has -Inf lower bounds, which are not supported
     m1 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     @test_throws ErrorException @variable(
         m1,
@@ -1799,7 +1799,7 @@ function test_vector_distribution_infinite_bounds()
         )
     )
 
-    # product_distribution with Exponential: upper bound is +Inf → jump.jl:535
+    # Exponential has +Inf upper bound, which is not supported
     m2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     @test_throws ErrorException @variable(
         m2,
@@ -1831,7 +1831,7 @@ function test_set_objective_after_parametric()
     @variable(m_new, 0 <= vf_new <= 1)
     @objective(m_new, Min, 0)
     LinearDecisionRules.set_parametric_objective!(m_new, m, Dict(vi => vf_new))
-    # Calling set_objective_function again after parametric set → jump.jl:878
+    # setting objective again after parametric objective has been set should error
     @test_throws ErrorException JuMP.set_objective_function(m_new, vf_new + 1.0)
     return nothing
 end
@@ -1914,8 +1914,8 @@ function test_interval_constraint()
         demand in
         LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
     )
-    @constraint(m, x in MOI.Interval(0.0, 2.0))   # variable interval → matrix_data.jl:126
-    @constraint(m, 0.0 <= 1.0 * x <= 2.0)          # affine interval  → canonical.jl:342
+    @constraint(m, x in MOI.Interval(0.0, 2.0))   # variable interval constraint
+    @constraint(m, 0.0 <= 1.0 * x <= 2.0)          # affine interval constraint
     @constraint(m, y <= demand)
     @objective(m, Max, y - x)
     optimize!(m)
@@ -1931,13 +1931,13 @@ function test_feasibility_sense_error()
         m,
         d in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
     )
-    # no @objective → FEASIBILITY_SENSE → canonical.jl:302
+    # no @objective → FEASIBILITY_SENSE, which is not supported
     @test_throws ErrorException optimize!(m)
     return nothing
 end
 
 function test_mixed_rejection_sampling()
-    # d1 constrained (rejection sampling) + d2 free → canonical.jl:166-167
+    # d1 constrained (rejection sampling) + d2 free: mixed grouped/ungrouped uncertainties
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     @variable(m, x >= 0, LinearDecisionRules.FirstStage)
@@ -1954,7 +1954,7 @@ function test_mixed_rejection_sampling()
     optimize!(m)
     @test termination_status(m) == MOI.OPTIMAL
 
-    # add free vector distribution → canonical.jl:172-173
+    # free vector distribution alongside constrained scalar
     m2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m2)
     @variable(m2, x2 >= 0, LinearDecisionRules.FirstStage)
@@ -1976,7 +1976,7 @@ function test_mixed_rejection_sampling()
 end
 
 function test_uncertainty_constraint_warnings()
-    # equality constraint on uncertainty → canonical.jl:361, 380
+    # equality constraint on uncertainty is not valid and should warn
     m1 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m1)
     @variable(m1, x >= 0, LinearDecisionRules.FirstStage)
@@ -1989,7 +1989,7 @@ function test_uncertainty_constraint_warnings()
     optimize!(m1)
     @test termination_status(m1) == MOI.OPTIMAL
 
-    # interval constraint on uncertainty → canonical.jl:375, 383
+    # interval constraint on uncertainty is not valid and should warn
     m2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m2)
     @variable(m2, x2 >= 0, LinearDecisionRules.FirstStage)
@@ -2006,8 +2006,6 @@ end
 
 function test_confidence_mv_normal_with_pwl()
     # ConfidenceMvNormal as vector uncertainty + scalar PWL breakpoints in same model.
-    # cache_model.uncertainty_valid_constraints is empty (TODO in pwl.jl:28),
-    # so lines 30-32 are not covered here, but the model should solve correctly.
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     @variable(m, buy >= 0, LinearDecisionRules.FirstStage)
@@ -2035,7 +2033,7 @@ function test_confidence_mv_normal_with_pwl()
 end
 
 function test_rejection_sampling_warnings()
-    # canonical.jl:621-622 — inner warn: cont > max_attempts when warn_attempts=0
+    # warn fires when rejection sampling exceeds max attempts
     m1 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m1)
     @variable(m1, x >= 0, LinearDecisionRules.FirstStage)
@@ -2049,8 +2047,8 @@ function test_rejection_sampling_warnings()
     optimize!(m1)
     @test termination_status(m1) == MOI.OPTIMAL
 
-    # canonical.jl:260 — outer warn: _attempts == warn_attempts when warn_attempts=1
-    # constraint d1+d2 >= 0.01 is always satisfied by Uniform(0,1) → cont=1=warn_attempts
+    # warn fires when _attempts reaches warn_attempts threshold
+    # d1+d2 >= 0.01 is always satisfied by Uniform(0,1), so first attempt triggers the warn
     m2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m2)
     @variable(m2, x2 >= 0, LinearDecisionRules.FirstStage)
@@ -2068,7 +2066,7 @@ function test_rejection_sampling_warnings()
     optimize!(m2)
     @test termination_status(m2) == MOI.OPTIMAL
 
-    # canonical.jl:268-269 — time limit warn: time_per_estimation=0.0 always fires after first iteration
+    # time limit warn fires when RejectionSamplingTimeLimitPerGroup is 0.0
     m3 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m3)
     @variable(m3, x3 >= 0, LinearDecisionRules.FirstStage)
@@ -2089,7 +2087,7 @@ function test_rejection_sampling_warnings()
 end
 
 function test_univariate_piecewise_params()
-    # Covers univariate_piece_wise.jl:72-73 after bug fix (Distributions.params)
+    # Distributions.params should return original params plus break_points
     d = LinearDecisionRules.UnivariatePieceWise(Uniform(0.0, 1.0), [0.3, 0.7])
     ps = Distributions.params(d)
     @test length(ps) == 3  # (a, b) from Uniform + break_points
@@ -2098,7 +2096,7 @@ function test_univariate_piecewise_params()
 end
 
 function test_get_decision_invalid_eta()
-    # implement_rule.jl:37 — η in dict but JuMP.is_valid returns false (destroyed state)
+    # η exists in the uncertainty dict but has been deleted from the inner model
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     @variable(m, x >= 0, LinearDecisionRules.FirstStage)
@@ -2112,6 +2110,42 @@ function test_get_decision_invalid_eta()
     JuMP.delete(m.cache_model.model, demand)
     # demand IS in uncertainty_to_distribution but is_valid(m, demand) = false
     @test_throws ArgumentError LinearDecisionRules.get_decision(m, x, demand)
+    return nothing
+end
+
+function test_vector_uncertainty_non_multivariate()
+    # VectorUncertainty requires a MultivariateDistribution
+    @test_throws ErrorException LinearDecisionRules.VectorUncertainty(
+        Uniform(0, 1),
+    )
+    return nothing
+end
+
+function test_variables_constrained_on_creation()
+    # variables constrained on creation (e.g. MOI.Nonnegatives) are forwarded to inner model
+    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(m)
+    @variable(m, x[1:2] in MOI.Nonnegatives(2))
+    @test length(x) == 2
+    return nothing
+end
+
+function test_matrix_data_unsupported_constraint()
+    # nonlinear constraints are not supported by matrix_data
+    inner = JuMP.Model()
+    @variable(inner, x)
+    @constraint(inner, sin(x) <= 1)
+    @objective(inner, Min, x)
+    @test_throws ErrorException LinearDecisionRules.matrix_data(inner)
+    return nothing
+end
+
+function test_matrix_data_unsupported_objective()
+    # nonlinear objectives are not supported by matrix_data
+    inner = JuMP.Model()
+    @variable(inner, x)
+    @objective(inner, Min, sin(x))
+    @test_throws ErrorException LinearDecisionRules.matrix_data(inner)
     return nothing
 end
 
