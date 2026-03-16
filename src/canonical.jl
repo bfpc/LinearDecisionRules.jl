@@ -638,7 +638,7 @@ function _sample_in_set!(
                 val = Random.rand(rng, dist)
                 i = scalar_idxs[dist_idx]
                 candidate[i] = val
-                if !(lb[i] < candidate[i] < ub[i])
+                if !(lb[i] <= candidate[i] <= ub[i])
                     reject = true
                     break
                 end
