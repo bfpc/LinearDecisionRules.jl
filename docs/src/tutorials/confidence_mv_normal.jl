@@ -17,20 +17,20 @@ import Distributions
 # Suppose demand follows a multivariate normal distribution
 # ``d \sim \mathcal{N}(\mu, \Sigma)``.
 # In practice we may not want to plan for the entire (unbounded) support.
-# `ConfidenceMvNormal(μ, Σ, α)` restricts the uncertainty to the
-# smallest **ellipsoid** centred at ``\mu`` that contains fraction ``\alpha``
-# of the probability mass:
-# ```
-# E_{α} = { x :  (x - μ)' Σ⁻¹ (x - μ) ≤ ρ²(α) }
+# `ConfidenceMvNormal(μ, Σ, α)` restricts the uncertainty to an
+# **ellipsoid** centred at ``\mu`` that contains fraction ``\alpha`` of the
+# probability mass:
+# ```math
+# E_{\alpha} = \{\, x :  (x - \mu)' \Sigma^{-1} (x - \mu) \leq \rho^2(\alpha) \,\}
 # ```
 # where ``\rho^2(\alpha) = \text{quantile}(\chi^2_d, \alpha)``.
 
 # The distribution provides the LDR framework with:
 # * **Mean** – equal to ``\mu`` (the ellipsoid is symmetric)
-# * **Covariance** – a scalar multiple of ``\Sigma``, smaller than ``\Sigma``
-#   because the tails are cut
+# * **Covariance** – a scalar multiple of ``\Sigma`` (smaller than ``\Sigma``
+#   because the tails are cut)
 # * **Finite bounds** – required by the framework, given by the
-#   axis-aligned box that contains the ellipsoid
+#   axis-aligned box that is tangent to the ellipsoid
 
 # ## Inspecting the distribution
 
@@ -56,7 +56,7 @@ for i in 1:2
     println("    demand[$i] ∈ [$lo, $hi]")
 end
 
-# As ``\alpha`` grows the ellipsoid expands, so the covariance approaches
+# As ``\alpha`` grows, the ellipsoid expands, so the covariance approaches
 # ``\Sigma`` and the bounds widen:
 
 for α in [0.50, 0.80, 0.95, 0.99]
@@ -135,7 +135,8 @@ end
 
 # !!! note
 #     Higher ``\alpha`` → wider ellipsoid → demand can be further from the mean
-#     → optimal buy quantities grow to cover extreme scenarios.
+#     → optimal buy quantities change to accomodate more scenarios (more
+#     conservative solution).
 
 # ## Bounds: box approximation of the ellipsoid
 
