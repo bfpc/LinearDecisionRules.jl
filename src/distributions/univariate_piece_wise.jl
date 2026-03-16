@@ -70,7 +70,7 @@ end
 Base.eltype(::Type{<:UnivariatePieceWise{D,S,T}}) where {D,S,T} = T
 
 function Distributions.params(d::UnivariatePieceWise)
-    return tuple(params(d.original)..., d.break_points)
+    return tuple(Distributions.params(d.original)..., d.break_points)
 end
 
 _original(d::UnivariatePieceWise) = d.original
