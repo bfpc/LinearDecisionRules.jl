@@ -11,26 +11,30 @@ using JuMP
 import LinearDecisionRules
 import HiGHS
 import Distributions
+import Random
+
+import LinearAlgebra
+import Plots
 
 # ## What is `ConfidenceMvNormal`?
 
 # Suppose demand follows a multivariate normal distribution
 # ``d \sim \mathcal{N}(\mu, \Sigma)``.
 # In practice we may not want to plan for the entire (unbounded) support.
-# `ConfidenceMvNormal(μ, Σ, α)` restricts the uncertainty to the
-# smallest **ellipsoid** centred at ``\mu`` that contains fraction ``\alpha``
-# of the probability mass:
-# ```
-# E_{α} = { x :  (x - μ)' Σ⁻¹ (x - μ) ≤ ρ²(α) }
+# `ConfidenceMvNormal(μ, Σ, α)` restricts the uncertainty to an
+# **ellipsoid** centred at ``\mu`` that contains fraction ``\alpha`` of the
+# probability mass:
+# ```math
+# E_{\alpha} = \{\, x :  (x - \mu)' \Sigma^{-1} (x - \mu) \leq \rho^2(\alpha) \,\}
 # ```
 # where ``\rho^2(\alpha) = \text{quantile}(\chi^2_d, \alpha)``.
 
 # The distribution provides the LDR framework with:
 # * **Mean** – equal to ``\mu`` (the ellipsoid is symmetric)
-# * **Covariance** – a scalar multiple of ``\Sigma``, smaller than ``\Sigma``
-#   because the tails are cut
+# * **Covariance** – a scalar multiple of ``\Sigma`` (smaller than ``\Sigma``
+#   because the tails are cut)
 # * **Finite bounds** – required by the framework, given by the
-#   axis-aligned box that contains the ellipsoid
+#   axis-aligned box that is tangent to the ellipsoid
 
 # ## Inspecting the distribution
 
@@ -56,7 +60,7 @@ for i in 1:2
     println("    demand[$i] ∈ [$lo, $hi]")
 end
 
-# As ``\alpha`` grows the ellipsoid expands, so the covariance approaches
+# As ``\alpha`` grows, the ellipsoid expands, so the covariance approaches
 # ``\Sigma`` and the bounds widen:
 
 for α in [0.50, 0.80, 0.95, 0.99]
@@ -135,7 +139,8 @@ end
 
 # !!! note
 #     Higher ``\alpha`` → wider ellipsoid → demand can be further from the mean
-#     → optimal buy quantities grow to cover extreme scenarios.
+#     → optimal buy quantities change to accomodate more scenarios (more
+#     conservative solution).
 
 # ## Bounds: box approximation of the ellipsoid
 
@@ -153,6 +158,53 @@ end
 # A future extension could use *rotated box* bounds aligned with the
 # principal axes of ``\Sigma``, which would be tighter for highly correlated
 # distributions.
+
+function draw_ellipse(d::LinearDecisionRules.ConfidenceMvNormal)
+    @assert length(d) == 2
+
+    L = d.L
+    U, sigma, _ = LinearAlgebra.svd(L)
+    μ = d.μ
+    ρ = d.ρ
+
+    ## Confidence ellipsoid: image of the ball of radius ρ under the linear map L
+    θ = range(0, 2π, length=100)
+    ellipse = [μ .+ ρ .* (L * [cos(t); sin(t)]) for t in θ]
+    p = Plots.plot(first.(ellipse), last.(ellipse), label="Confidence Ellipse", aspect_ratio=:equal)
+
+    ## Axis-aligned bounding box
+    xmin, ymin = Distributions.minimum(d)
+    xmax, ymax = Distributions.maximum(d)
+    Plots.plot!(p,
+        [xmin, xmax, xmax, xmin, xmin], [ymin, ymin, ymax, ymax, ymin],
+        label="Coordinate-axis Box",
+        linestyle=:dash
+    )
+
+    ## Box aligned with principal axes
+    points = [[-ρ, -ρ], [-ρ, ρ], [ρ, ρ], [ρ, -ρ], [-ρ, -ρ]]
+    points = [μ .+ U * (sigma .* p) for p in points]
+    Plots.plot!(p,
+        [first.(points)], [last.(points)],
+        label="Principal-axis Box",
+        linestyle=:dashdot
+    )
+
+    ## Sample points from the distribution
+    rng = Random.MersenneTwister(42)
+    samples = [rand(rng, d) for _ in 1:1000]
+    Plots.scatter!(p, first.(samples), last.(samples), label="Samples", alpha=0.5)
+
+    ## Compare the volume of bounding boxes
+    vol_bbox = prod(Distributions.maximum(d) .- Distributions.minimum(d))
+    vol_Lbox = 4 * prod(sigma) * ρ^2
+    println("Volume of coordinate-axis box: $vol_bbox")
+    println("Volume of  principal-axis box: $vol_Lbox")
+
+    return p
+end
+
+draw_ellipse(dist_95)
 
 # ## What's next?
 
