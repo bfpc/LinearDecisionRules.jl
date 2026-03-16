@@ -168,32 +168,47 @@ function draw_ellipse(d::LinearDecisionRules.ConfidenceMvNormal)
     ρ = d.ρ
 
     ## Confidence ellipsoid: image of the ball of radius ρ under the linear map L
-    θ = range(0, 2π, length=100)
+    θ = range(0, 2π; length = 100)
     ellipse = [μ .+ ρ .* (L * [cos(t); sin(t)]) for t in θ]
-    p = Plots.plot(first.(ellipse), last.(ellipse), label="Confidence Ellipse", aspect_ratio=:equal)
+    p = Plots.plot(
+        first.(ellipse),
+        last.(ellipse);
+        label = "Confidence Ellipse",
+        aspect_ratio = :equal,
+    )
 
     ## Axis-aligned bounding box
     xmin, ymin = Distributions.minimum(d)
     xmax, ymax = Distributions.maximum(d)
-    Plots.plot!(p,
-        [xmin, xmax, xmax, xmin, xmin], [ymin, ymin, ymax, ymax, ymin],
-        label="Coordinate-axis Box",
-        linestyle=:dash
+    Plots.plot!(
+        p,
+        [xmin, xmax, xmax, xmin, xmin],
+        [ymin, ymin, ymax, ymax, ymin];
+        label = "Coordinate-axis Box",
+        linestyle = :dash,
     )
 
     ## Box aligned with principal axes
     points = [[-ρ, -ρ], [-ρ, ρ], [ρ, ρ], [ρ, -ρ], [-ρ, -ρ]]
     points = [μ .+ U * (sigma .* p) for p in points]
-    Plots.plot!(p,
-        [first.(points)], [last.(points)],
-        label="Principal-axis Box",
-        linestyle=:dashdot
+    Plots.plot!(
+        p,
+        [first.(points)],
+        [last.(points)];
+        label = "Principal-axis Box",
+        linestyle = :dashdot,
     )
 
     ## Sample points from the distribution
     rng = Random.MersenneTwister(42)
     samples = [rand(rng, d) for _ in 1:1000]
-    Plots.scatter!(p, first.(samples), last.(samples), label="Samples", alpha=0.5)
+    Plots.scatter!(
+        p,
+        first.(samples),
+        last.(samples);
+        label = "Samples",
+        alpha = 0.5,
+    )
 
     ## Compare the volume of bounding boxes
     vol_bbox = prod(Distributions.maximum(d) .- Distributions.minimum(d))

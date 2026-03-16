@@ -123,5 +123,9 @@ end
 import Base.show
 function show(io::IO, d::ConfidenceMvNormal)
     μ, Σ, α = Distributions.params(d)
-    Distributions.show_multline(io, d, [(:dim, length(d)), (:μ, μ), (:Σ, Σ), (:α, α)])
+    return Distributions.show_multline(
+        io,
+        d,
+        [(:dim, length(d)), (:μ, μ), (:Σ, Σ), (:α, α)],
+    )
 end
