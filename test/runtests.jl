@@ -1595,7 +1595,8 @@ function test_model_api_queries()
     @test length(cs) >= 1
     JuMP.delete(m, JuMP.VariableRef[])
     JuMP.delete(m, typeof(con)[])
-    @test JuMP.num_constraints(m, JuMP.VariableRef, MOI.GreaterThan{Float64}) >= 1
+    @test JuMP.num_constraints(m, JuMP.VariableRef, MOI.GreaterThan{Float64}) >=
+          1
     @test JuMP.num_constraints(m; count_variable_in_set_constraints = true) >= 1
 
     @variable(m, z in MOI.ZeroOne())  # VariableConstrainedOnCreation path
@@ -1682,7 +1683,6 @@ function test_breakpoints_getter_and_vector_nothing()
     )
     return nothing
 end
-
 
 function test_first_stage_binary()
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
@@ -1789,7 +1789,6 @@ function test_vector_uncertainty_with_pwl()
     return nothing
 end
 
-
 function test_vector_distribution_infinite_bounds()
     # MvNormal: lower bound is -Inf for each component → jump.jl:532
     m1 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
@@ -1805,7 +1804,10 @@ function test_vector_distribution_infinite_bounds()
     @test_throws ErrorException @variable(
         m2,
         pe[1:2] in LinearDecisionRules.Uncertainty(;
-            distribution = product_distribution([Uniform(0, 1), Exponential(1)]),
+            distribution = product_distribution([
+                Uniform(0, 1),
+                Exponential(1),
+            ]),
         )
     )
     return nothing
@@ -1814,7 +1816,11 @@ end
 function test_set_objective_after_parametric()
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
-    @variable(m, vi in LinearDecisionRules.Uncertainty(; distribution = Uniform(0.4, 0.6)))
+    @variable(
+        m,
+        vi in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(0.4, 0.6))
+    )
     @variable(m, 0 <= vf <= 1)
     @objective(m, Min, vf^2)
     optimize!(m)
@@ -1935,8 +1941,14 @@ function test_mixed_rejection_sampling()
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     @variable(m, x >= 0, LinearDecisionRules.FirstStage)
-    @variable(m, d1 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
-    @variable(m, d2 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
+    @variable(
+        m,
+        d1 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
+    @variable(
+        m,
+        d2 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
     @constraint(m, d1 <= 0.8)
     @objective(m, Min, x)
     optimize!(m)
@@ -1946,7 +1958,10 @@ function test_mixed_rejection_sampling()
     m2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m2)
     @variable(m2, x2 >= 0, LinearDecisionRules.FirstStage)
-    @variable(m2, d3 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
+    @variable(
+        m2,
+        d3 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
     @variable(
         m2,
         vec_d[1:2] in LinearDecisionRules.Uncertainty(;
@@ -1965,7 +1980,10 @@ function test_uncertainty_constraint_warnings()
     m1 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m1)
     @variable(m1, x >= 0, LinearDecisionRules.FirstStage)
-    @variable(m1, d in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
+    @variable(
+        m1,
+        d in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
     @constraint(m1, d == 0.5)
     @objective(m1, Min, x)
     optimize!(m1)
@@ -1975,7 +1993,10 @@ function test_uncertainty_constraint_warnings()
     m2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m2)
     @variable(m2, x2 >= 0, LinearDecisionRules.FirstStage)
-    @variable(m2, d2 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
+    @variable(
+        m2,
+        d2 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
     @constraint(m2, 0.2 <= d2 <= 0.8)
     @objective(m2, Min, x2)
     optimize!(m2)
@@ -2018,7 +2039,10 @@ function test_rejection_sampling_warnings()
     m1 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m1)
     @variable(m1, x >= 0, LinearDecisionRules.FirstStage)
-    @variable(m1, d in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
+    @variable(
+        m1,
+        d in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
     @constraint(m1, d <= 0.5)
     @objective(m1, Min, x)
     set_attribute(m1, LinearDecisionRules.RejectionSamplingWarnAttempts(), 0)
@@ -2030,8 +2054,14 @@ function test_rejection_sampling_warnings()
     m2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m2)
     @variable(m2, x2 >= 0, LinearDecisionRules.FirstStage)
-    @variable(m2, d1 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
-    @variable(m2, d2 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
+    @variable(
+        m2,
+        d1 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
+    @variable(
+        m2,
+        d2 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
     @constraint(m2, d1 + d2 >= 0.01)
     @objective(m2, Min, x2)
     set_attribute(m2, LinearDecisionRules.RejectionSamplingWarnAttempts(), 1)
@@ -2042,10 +2072,17 @@ function test_rejection_sampling_warnings()
     m3 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m3)
     @variable(m3, x3 >= 0, LinearDecisionRules.FirstStage)
-    @variable(m3, d3 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)))
+    @variable(
+        m3,
+        d3 in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1))
+    )
     @constraint(m3, d3 <= 0.5)
     @objective(m3, Min, x3)
-    set_attribute(m3, LinearDecisionRules.RejectionSamplingTimeLimitPerGroup(), 0.0)
+    set_attribute(
+        m3,
+        LinearDecisionRules.RejectionSamplingTimeLimitPerGroup(),
+        0.0,
+    )
     optimize!(m3)
     @test termination_status(m3) == MOI.OPTIMAL
     return nothing
@@ -2067,7 +2104,8 @@ function test_get_decision_invalid_eta()
     @variable(m, x >= 0, LinearDecisionRules.FirstStage)
     @variable(
         m,
-        demand in LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)),
+        demand in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 1)),
     )
     @objective(m, Min, x)
     # Manually destroy: delete demand from the inner model while keeping it in the dict
