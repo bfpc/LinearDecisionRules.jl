@@ -511,6 +511,10 @@ function _prepare_data(model)
     model.ext[:_LDR_first_stage_indices] = first_stage_indices
 
     if model.solve_sampled
+        if Sys.WORD_SIZE == 32
+            println("DEBUG [_prepare_data] starting sampled path")
+            flush(stdout)
+        end
         Ξ = _sample_scenarios(
             data,
             uncertainty_indices,
@@ -524,15 +528,31 @@ function _prepare_data(model)
         )
         model.ext[:_LDR_scenarios] = Ξ
         N = model.num_scenarios
+        if Sys.WORD_SIZE == 32
+            println("DEBUG [_prepare_data] scenarios sampled, Ξ size=$(size(Ξ)), N=$N")
+            flush(stdout)
+        end
         # Check if objective is linear: P == 0 and no cross-terms in C
         # In theory we could re-use the M̂ computed for the primal/dual,
         # but we consider more coherent to compute it from the scenarios,
         # and we need to compute the empirical mean in any case
         needs_M̂ = !iszero(ABC.P) || !iszero(@view ABC.C[:, 2:end])
         if needs_M̂
+            if Sys.WORD_SIZE == 32
+                println("DEBUG [_prepare_data] needs_M̂=true, computing M̂...")
+                flush(stdout)
+            end
             M̂ = (Ξ * Ξ') ./ N
             model.ext[:_LDR_M_empirical] = M̂
+            if Sys.WORD_SIZE == 32
+                println("DEBUG [_prepare_data] M̂=$(M̂), computing r_sampled...")
+                flush(stdout)
+            end
             model.ext[:_LDR_r_sampled] = _objective_constant(ABC, M̂)
+            if Sys.WORD_SIZE == 32
+                println("DEBUG [_prepare_data] r_sampled=$(model.ext[:_LDR_r_sampled])")
+                flush(stdout)
+            end
         else
             # Only need empirical mean μ̂ for the objective
             μ̂ = vec(sum(Ξ; dims = 2)) ./ N
@@ -542,6 +562,10 @@ function _prepare_data(model)
                 ABC.f +
                 ABC.d' * μ̂[2:end] +
                 sum(ABC.Q .* (μ̂[2:end] * μ̂[2:end]'))
+        end
+        if Sys.WORD_SIZE == 32
+            println("DEBUG [_prepare_data] sampled path done")
+            flush(stdout)
         end
     end
 
