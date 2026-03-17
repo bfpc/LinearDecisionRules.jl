@@ -1504,6 +1504,47 @@ function test_mv_discrete_stats()
     @test Distributions.var(d) == LinearAlgebra.diag(Distributions.cov(d))
     @test Distributions.insupport(d, [3.0, 1.0])
     @test !Distributions.insupport(d, [0.0, 0.0])
+
+    # rand must return one of the two support points
+    rng = Random.Xoshiro(42)
+    for _ in 1:20
+        x = rand(rng, d)
+        @test x == [3.0, 1.0] || x == [1.0, 3.0]
+    end
+
+    # Integer eltype
+    d_int = LinearDecisionRules.MvDiscreteNonParametric(
+        [[1, 2], [3, 4], [5, 6]],
+        [0.2, 0.3, 0.5],
+    )
+    @test Base.eltype(typeof(d_int)) == Int
+    @test Distributions.length(d_int) == 2
+    @test Distributions.minimum(d_int) == [1, 2]
+    @test Distributions.maximum(d_int) == [5, 6]
+    @test Distributions.insupport(d_int, [3, 4])
+    @test !Distributions.insupport(d_int, [2, 3])
+
+    rng2 = Random.Xoshiro(123)
+    for _ in 1:20
+        x = rand(rng2, d_int)
+        @test x == [1, 2] || x == [3, 4] || x == [5, 6]
+    end
+
+    # Int32 eltype
+    d_i32 = LinearDecisionRules.MvDiscreteNonParametric(
+        [Int32[10, 20], Int32[30, 40]],
+        [0.5, 0.5],
+    )
+    @test Base.eltype(typeof(d_i32)) == Int32
+    @test Distributions.minimum(d_i32) == Int32[10, 20]
+    @test Distributions.maximum(d_i32) == Int32[30, 40]
+
+    rng3 = Random.Xoshiro(7)
+    for _ in 1:20
+        x = rand(rng3, d_i32)
+        @test x == Int32[10, 20] || x == Int32[30, 40]
+    end
+
     return nothing
 end
 
