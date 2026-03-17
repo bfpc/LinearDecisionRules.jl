@@ -75,7 +75,7 @@ function MvDiscreteNonParametric(
     )
 end
 
-Base.eltype(::Type{<:MvDiscreteNonParametric{T,P,Ts}}) where {T,P,Ts} = Ts
+Base.eltype(::Type{<:MvDiscreteNonParametric{T}}) where {T} = T
 
 Distributions.params(d::MvDiscreteNonParametric) = (d.support, d.p)
 

@@ -1714,7 +1714,7 @@ function test_mv_discrete_params()
         [[1.0, 2.0], [3.0, 4.0]],
         [0.4, 0.6],
     )
-    @test Base.eltype(typeof(d)) == Vector{Float64}
+    @test Base.eltype(typeof(d)) == Float64
     xs, ps = Distributions.params(d)
     @test length(xs) == 2
     @test sum(ps) ≈ 1.0
@@ -2419,6 +2419,277 @@ function test_get_decision_dual_and_sampled_error()
         dual = true,
         sampled = true,
     )
+
+    return nothing
+end
+
+function test_solve_sampled_quadratic_objective()
+    # Tests the M̂ path in _prepare_data (needs_M̂ = true)
+    # HiGHS supports QP objectives needed for the sampled sub-model
+    initial_volume = 0.5
+    demand = 0.3
+
+    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(m)
+    @variable(m, vi == initial_volume)
+    @variable(m, 0 <= vf <= 1)
+    @variable(m, gh >= 0.0)
+    @variable(m, gt >= 0.0)
+    @variable(
+        m,
+        inflow in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(0, 0.2))
+    )
+
+    @constraint(m, balance, vf == vi - gh + inflow)
+    @constraint(m, gt + gh == demand)
+    @objective(m, Min, gt^2 + vf^2 / 2 - vf)
+
+    set_attribute(m, LinearDecisionRules.SolvePrimal(), false)
+    set_attribute(m, LinearDecisionRules.SolveDual(), false)
+    set_attribute(m, LinearDecisionRules.SolveSampled(), true)
+    set_attribute(m, LinearDecisionRules.NumScenarios(), 50)
+    optimize!(m)
+
+    # Verify the M̂ path was taken (not the μ̂ path)
+    @test haskey(m.ext, :_LDR_M_empirical)
+    @test !haskey(m.ext, :_LDR_μ_empirical)
+    @test termination_status(m; sampled = true) == MOI.OPTIMAL
+
+    # Sampled decision rules should satisfy balance constraint
+    gh_const = LinearDecisionRules.get_decision(m, gh; sampled = true)
+    gt_const = LinearDecisionRules.get_decision(m, gt; sampled = true)
+    @test gh_const + gt_const ≈ demand atol = 1e-4
+
+    return nothing
+end
+
+function test_solve_sampled_reoptimize()
+    # Tests the rebuild path in _solve_sampled_ldr
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell >= 0)
+    @variable(ldr, ret >= 0)
+    @variable(
+        ldr,
+        demand in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(80.0, 120.0))
+    )
+
+    @constraint(ldr, sell + ret <= buy)
+    @constraint(ldr, sell <= demand)
+    @objective(ldr, Max, -10 * buy + 8 * ret + 15 * sell)
+
+    set_attribute(ldr, LinearDecisionRules.SolvePrimal(), false)
+    set_attribute(ldr, LinearDecisionRules.SolveDual(), false)
+    set_attribute(ldr, LinearDecisionRules.SolveSampled(), true)
+    set_attribute(ldr, LinearDecisionRules.NumScenarios(), 30)
+
+    optimize!(ldr)
+    obj1 = objective_value(ldr; sampled = true)
+    @test obj1 > 0
+
+    # Re-optimize should rebuild the sampled model
+    optimize!(ldr)
+    obj2 = objective_value(ldr; sampled = true)
+    @test obj2 > 0
+
+    return nothing
+end
+
+function test_solve_sampled_minimization()
+    # All other sampled tests use Max; this tests Min
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, x >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, y >= 0)
+    @variable(
+        ldr,
+        η in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(0.0, 1.0))
+    )
+
+    @constraint(ldr, y >= η)
+    @constraint(ldr, x + y >= 1)
+    @objective(ldr, Min, x + y)
+
+    set_attribute(ldr, LinearDecisionRules.SolvePrimal(), false)
+    set_attribute(ldr, LinearDecisionRules.SolveDual(), false)
+    set_attribute(ldr, LinearDecisionRules.SolveSampled(), true)
+    set_attribute(ldr, LinearDecisionRules.NumScenarios(), 50)
+
+    optimize!(ldr)
+
+    @test termination_status(ldr; sampled = true) == MOI.OPTIMAL
+    @test objective_value(ldr; sampled = true) >= 1.0 - 1e-6
+
+    return nothing
+end
+
+function test_solve_sampled_discrete_nonparametric()
+    # Tests free sampling path (no rejection) with DiscreteNonParametric
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell >= 0)
+    @variable(
+        ldr,
+        demand in LinearDecisionRules.Uncertainty(;
+            distribution = DiscreteNonParametric(
+                [80.0, 100.0, 120.0],
+                [0.25, 0.5, 0.25],
+            ),
+        )
+    )
+
+    @constraint(ldr, sell <= buy)
+    @constraint(ldr, sell <= demand)
+    @objective(ldr, Max, -10 * buy + 15 * sell)
+
+    set_attribute(ldr, LinearDecisionRules.SolvePrimal(), false)
+    set_attribute(ldr, LinearDecisionRules.SolveDual(), false)
+    set_attribute(ldr, LinearDecisionRules.SolveSampled(), true)
+    set_attribute(ldr, LinearDecisionRules.NumScenarios(), 50)
+
+    optimize!(ldr)
+    @test termination_status(ldr; sampled = true) == MOI.OPTIMAL
+    @test objective_value(ldr; sampled = true) > 0
+
+    return nothing
+end
+
+function test_sampled_status_functions()
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, x >= 0, LinearDecisionRules.FirstStage)
+    @variable(
+        ldr,
+        η in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(0.0, 1.0))
+    )
+    @constraint(ldr, x >= η)
+    @objective(ldr, Min, x)
+
+    # Sampled disabled: status should reflect not-called/no-solution
+    @test termination_status(ldr; sampled = true) == MOI.OPTIMIZE_NOT_CALLED
+    @test primal_status(ldr; sampled = true) == MOI.NO_SOLUTION
+    @test raw_status(ldr; sampled = true) == MOI.NO_SOLUTION
+    @test dual_status(ldr; sampled = true) == MOI.NO_SOLUTION
+
+    # Enable sampled and solve
+    set_attribute(ldr, LinearDecisionRules.SolveSampled(), true)
+    set_attribute(ldr, LinearDecisionRules.NumScenarios(), 20)
+    optimize!(ldr)
+
+    @test termination_status(ldr; sampled = true) == MOI.OPTIMAL
+    @test primal_status(ldr; sampled = true) == MOI.FEASIBLE_POINT
+    @test dual_status(ldr; sampled = true) == MOI.NO_SOLUTION
+
+    return nothing
+end
+
+function test_sampled_solution_summary()
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, x >= 0, LinearDecisionRules.FirstStage)
+    @variable(
+        ldr,
+        η in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(0.0, 1.0))
+    )
+    @constraint(ldr, x >= η)
+    @objective(ldr, Min, x)
+
+    # Without sampled: summary.sampled should be nothing
+    optimize!(ldr)
+    s = solution_summary(ldr)
+    @test s.sampled === nothing
+    io = IOBuffer()
+    show(io, s)
+    @test occursin("Sampled", String(take!(io)))
+
+    # With sampled enabled
+    set_attribute(ldr, LinearDecisionRules.SolveSampled(), true)
+    set_attribute(ldr, LinearDecisionRules.NumScenarios(), 20)
+    optimize!(ldr)
+    s2 = solution_summary(ldr)
+    @test s2.sampled !== nothing
+    io2 = IOBuffer()
+    show(io2, s2)
+    @test occursin("Sampled", String(take!(io2)))
+
+    return nothing
+end
+
+function test_sampled_disabled_errors()
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell >= 0)
+    @variable(
+        ldr,
+        demand in
+        LinearDecisionRules.Uncertainty(; distribution = Uniform(80.0, 120.0))
+    )
+
+    @constraint(ldr, sell <= buy)
+    @constraint(ldr, sell <= demand)
+    @objective(ldr, Max, -10 * buy + 15 * sell)
+
+    # Sampled not enabled -> errors on sampled queries
+    optimize!(ldr)
+    @test_throws ErrorException objective_value(ldr; sampled = true)
+    @test_throws ErrorException LinearDecisionRules.get_decision(
+        ldr,
+        buy;
+        sampled = true,
+    )
+    @test_throws ErrorException LinearDecisionRules.get_decision(
+        ldr,
+        sell,
+        demand;
+        sampled = true,
+    )
+
+    return nothing
+end
+
+function test_solve_sampled_vector_distribution()
+    # Tests _sample_scenarios with MvDiscreteNonParametric (no rejection)
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] >= 0)
+    @variable(
+        ldr,
+        demand[1:2] in LinearDecisionRules.Uncertainty(;
+            distribution = LinearDecisionRules.MvDiscreteNonParametric(
+                [[80.0, 80.0], [120.0, 120.0]],
+                [0.5, 0.5],
+            ),
+        )
+    )
+
+    @constraint(ldr, [i = 1:2], sell[i] <= buy[i])
+    @constraint(ldr, [i = 1:2], sell[i] <= demand[i])
+    @objective(ldr, Max, sum(-10 * buy[i] + 15 * sell[i] for i in 1:2))
+
+    set_attribute(ldr, LinearDecisionRules.SolvePrimal(), false)
+    set_attribute(ldr, LinearDecisionRules.SolveDual(), false)
+    set_attribute(ldr, LinearDecisionRules.SolveSampled(), true)
+    set_attribute(ldr, LinearDecisionRules.NumScenarios(), 50)
+
+    optimize!(ldr)
+    @test termination_status(ldr; sampled = true) == MOI.OPTIMAL
+    @test objective_value(ldr; sampled = true) > 0
 
     return nothing
 end
