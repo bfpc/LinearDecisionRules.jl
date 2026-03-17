@@ -71,7 +71,7 @@ println("Primal bound: ", objective_value(ldr))
 println("Dual bound:   ", objective_value(ldr; dual = true))
 println("Sampled obj:  ", objective_value(ldr; sampled = true))
 
-# The sampled objective typically falls between the primal and dual bounds.
+# The sampled objective falls above the primal bound.
 
 # ### Extracting the decision rule
 

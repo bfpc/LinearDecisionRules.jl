@@ -475,11 +475,9 @@ p4 = Plots.plot(
 
 # !!! note
 #     All three solution methods improve as breakpoints are added. The
-#     sampled objective typically falls between the primal and dual bounds.
+#     sampled objective falls above the primal bound.
 #     With enough breakpoints, (and, also, scenarios in the sampled problem)
 #     all three converge toward the true optimal.
-
-p4
 
 # ## Key API summary
 
