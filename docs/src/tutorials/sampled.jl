@@ -22,7 +22,10 @@
 # 3. Optimizes the **average objective** over all scenarios
 
 # This trades the conservatism of the robust formulation for a
-# data-driven approach that can handle complex distributions naturally.
+# data-driven approach that can handle complex distributions naturally,
+# at the expense of a possibly larger problem if many scenarios are needed
+# for high-dimensional uncertainty, and the SAA sensitivity to the exact
+# scenarios that are sampled from the distribution.
 
 # ## Setup
 
