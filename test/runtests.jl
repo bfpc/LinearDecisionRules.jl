@@ -14,6 +14,14 @@ using LinearAlgebra
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$(name)", "test_")
+            if Sys.WORD_SIZE == 32
+                # On 32-bit, only run sampled tests to debug OOM
+                if !startswith("$(name)", "test_solve_sampled")
+                    continue
+                end
+                GC.gc()
+                println("DEBUG [runtests] before $(name): free_memory=$(Sys.free_memory() / 1024^2) MB")
+            end
             @testset "$(name)" begin
                 getfield(@__MODULE__, name)()
             end
@@ -2467,9 +2475,16 @@ end
 function test_solve_sampled_quadratic_objective()
     # Tests the M̂ path in _prepare_data (needs_M̂ = true)
     # HiGHS supports QP objectives needed for the sampled sub-model
+    println("DEBUG [quadratic] WORD_SIZE=$(Sys.WORD_SIZE)")
+    println("DEBUG [quadratic] total_memory=$(Sys.total_memory() / 1024^2) MB")
+    println("DEBUG [quadratic] free_memory=$(Sys.free_memory() / 1024^2) MB")
+    GC.gc()
+    println("DEBUG [quadratic] free_memory after GC=$(Sys.free_memory() / 1024^2) MB")
+
     initial_volume = 0.5
     demand = 0.3
 
+    println("DEBUG [quadratic] creating model...")
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     @variable(m, vi == initial_volume)
@@ -2490,7 +2505,11 @@ function test_solve_sampled_quadratic_objective()
     set_attribute(m, LinearDecisionRules.SolveDual(), false)
     set_attribute(m, LinearDecisionRules.SolveSampled(), true)
     set_attribute(m, LinearDecisionRules.NumScenarios(), 50)
+    println("DEBUG [quadratic] free_memory before optimize=$(Sys.free_memory() / 1024^2) MB")
+    println("DEBUG [quadratic] calling optimize!...")
     optimize!(m)
+    println("DEBUG [quadratic] optimize! done")
+    println("DEBUG [quadratic] free_memory after optimize=$(Sys.free_memory() / 1024^2) MB")
 
     # Verify the M̂ path was taken (not the μ̂ path)
     @test haskey(m.ext, :_LDR_M_empirical)
@@ -2502,6 +2521,7 @@ function test_solve_sampled_quadratic_objective()
     gt_const = LinearDecisionRules.get_decision(m, gt; sampled = true)
     @test gh_const + gt_const ≈ demand atol = 1e-4
 
+    println("DEBUG [quadratic] test passed")
     return nothing
 end
 
