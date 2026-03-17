@@ -1103,7 +1103,7 @@ function test_confidence_mv_normal_bounds()
 end
 
 function test_confidence_mv_normal_rotated_box()
-    # The rotated (principal-axis) box gives a tighter outer approximation of the
+    # The rotated (principal-axis) box gives another outer approximation of the
     # ellipsoidal support than the axis-aligned box.  This test verifies that:
     #   1. No rejection-sampling warning is emitted.
     #   2. Both primal and dual are solved successfully.
