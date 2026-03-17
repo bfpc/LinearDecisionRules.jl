@@ -464,14 +464,30 @@ function _objective_constant(ABC, M)
 end
 
 function _prepare_data(model)
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] entered, free_memory=$(Sys.free_memory() / 1024^2) MB")
+        flush(stdout)
+    end
     stoch_model = if isempty(model.pwl_data)
         model.cache_model
     else
         model.pwl_model
     end
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] calling matrix_data...")
+        flush(stdout)
+    end
     data = matrix_data(stoch_model.model)
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] matrix_data done, free_memory=$(Sys.free_memory() / 1024^2) MB")
+        flush(stdout)
+    end
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:_LDR_var_to_column] = var_to_column
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] calling _model_to_matrix...")
+        flush(stdout)
+    end
     uncertainty_indices,
     variable_indices,
     column_to_canonical,
@@ -482,7 +498,15 @@ function _prepare_data(model)
         stoch_model.first_stage,
         stoch_model.uncertainty_valid_constraints,
     )
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] _model_to_matrix done")
+        flush(stdout)
+    end
     model.ext[:_LDR_column_to_canonical] = column_to_canonical
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] calling _canonical...")
+        flush(stdout)
+    end
     ABC = _canonical(
         data,
         uncertainty_indices,
@@ -490,6 +514,10 @@ function _prepare_data(model)
         first_stage_indices,
         uncertainty_valid_indices,
     )
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] _canonical done, free_memory=$(Sys.free_memory() / 1024^2) MB")
+        flush(stdout)
+    end
     if model.solve_primal || model.solve_dual
         M = _second_moment_matrix(
             data,
