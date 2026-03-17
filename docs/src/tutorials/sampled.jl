@@ -191,4 +191,4 @@ p
 
 # Now that you understand sampled decision rules, you can:
 #  * Combine them with [piecewise linear decision rules](@ref piecewise_linear_tutorial) for better approximations
-#  * Learn about [distributions](@ref) to model complex uncertainty
+#  * Learn about [distributions](@ref distributions_tutorial) to model complex uncertainty

@@ -230,7 +230,7 @@ function _second_moment_matrix(
         n = 0
         initial_time = time()
         rng = Random.Xoshiro(seed)
-        for i in 1:max_iterations
+        for _ in 1:max_iterations
             _attempts = _sample_in_set!(
                 rng,
                 candidate,
