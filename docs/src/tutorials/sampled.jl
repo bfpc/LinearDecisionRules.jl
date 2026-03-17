@@ -175,8 +175,6 @@ Plots.hline!(
 #     dual bounds are independent of ``N`` since they use the analytical
 #     second moment matrix.
 
-p
-
 # ## Key API summary
 
 # | Function | Description |
