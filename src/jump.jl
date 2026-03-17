@@ -44,6 +44,7 @@ mutable struct LDRModel <: JuMP.AbstractModel
     pwl_model::StochasticModel
     primal_model::JuMP.Model
     dual_model::JuMP.Model
+    sampled_model::JuMP.Model
 
     pwl_data::Dict{JuMP.VariableRef,Vector{Float64}}
     map_cache_to_pwl::Union{JuMP.ReferenceMap,Nothing}
@@ -53,6 +54,8 @@ mutable struct LDRModel <: JuMP.AbstractModel
     solver::Any
     solve_primal::Bool
     solve_dual::Bool
+    solve_sampled::Bool
+    num_scenarios::Union{Nothing,Int}
     silent::Bool
     rejection_sampling_time_limit::Float64
     rejection_sampling_seed::Int
@@ -70,12 +73,15 @@ mutable struct LDRModel <: JuMP.AbstractModel
             StochasticModel(),
             JuMP.Model(),
             JuMP.Model(),
+            JuMP.Model(),
             Dict{JuMP.VariableRef,Vector{Float64}}(),
             nothing,
             Dict{JuMP.VariableRef,Vector{JuMP.VariableRef}}(),
             nothing,
             true,
             true,
+            false,
+            nothing,
             false,
             10.0,
             1234,
@@ -128,6 +134,41 @@ set_attribute(
 ```
 """
 struct SolveDual end
+
+"""
+    SolveSampled
+
+Attribute to get/set whether to solve the sampled (SAA) LDR model.
+
+Example
+=======
+```julia
+set_attribute(
+    model,
+    LinearDecisionRules.SolveSampled(),
+    true,
+)
+```
+"""
+struct SolveSampled end
+
+"""
+    NumScenarios
+
+Attribute to get/set the number of scenarios for the sampled LDR model.
+Required when `SolveSampled` is enabled.
+
+Example
+=======
+```julia
+set_attribute(
+    model,
+    LinearDecisionRules.NumScenarios(),
+    500,
+)
+```
+"""
+struct NumScenarios end
 function JuMP.set_attribute(model::LDRModel, ::SolvePrimal, value::Bool)
     return model.solve_primal = value
 end
@@ -140,25 +181,34 @@ end
 function JuMP.get_attribute(model::LDRModel, ::SolveDual)
     return model.solve_dual
 end
+function JuMP.set_attribute(model::LDRModel, ::SolveSampled, value::Bool)
+    return model.solve_sampled = value
+end
+function JuMP.get_attribute(model::LDRModel, ::SolveSampled)
+    return model.solve_sampled
+end
+function JuMP.set_attribute(model::LDRModel, ::NumScenarios, value::Int)
+    return model.num_scenarios = value
+end
+function JuMP.get_attribute(model::LDRModel, ::NumScenarios)
+    return model.num_scenarios
+end
 
 """
-    RejectionSamplingTimeLimitPerGroup
+    RejectionSamplingTimeLimit
 
 Attribute to get/set the time limit (seconds) spent on rejection sampling
 per uncertainty group. Default: `10.0`.
 """
-struct RejectionSamplingTimeLimitPerGroup end
+struct RejectionSamplingTimeLimit end
 function JuMP.set_attribute(
     model::LDRModel,
-    ::RejectionSamplingTimeLimitPerGroup,
+    ::RejectionSamplingTimeLimit,
     value::Float64,
 )
     return model.rejection_sampling_time_limit = value
 end
-function JuMP.get_attribute(
-    model::LDRModel,
-    ::RejectionSamplingTimeLimitPerGroup,
-)
+function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingTimeLimit)
     return model.rejection_sampling_time_limit
 end
 
@@ -317,63 +367,69 @@ end
 
 _primal_disabled() = error("Primal solution mode is disabled.")
 _dual_disabled() = error("Dual solution mode is disabled.")
+_sampled_disabled() = error("Sampled solution mode is disabled.")
 
-function JuMP.termination_status(model::LDRModel; dual = false)
-    if dual
-        if !model.solve_dual
-            return MOI.OPTIMIZE_NOT_CALLED
-        else
-            return JuMP.termination_status(model.dual_model)
+function _resolve_model(model::LDRModel; dual = false, sampled = false)
+    if dual && sampled
+        error("Cannot specify both dual=true and sampled=true.")
+    end
+    if sampled
+        if !model.solve_sampled
+            return nothing, :sampled
         end
+        return model.sampled_model, :sampled
+    elseif dual
+        if !model.solve_dual
+            return nothing, :dual
+        end
+        return model.dual_model, :dual
     else
         if !model.solve_primal
-            return MOI.OPTIMIZE_NOT_CALLED
-        else
-            return JuMP.termination_status(model.primal_model)
+            return nothing, :primal
         end
+        return model.primal_model, :primal
     end
 end
 
-function JuMP.primal_status(model::LDRModel; dual = false)
-    if dual
-        if !model.solve_dual
-            return MOI.NO_SOLUTION
-        else
-            return JuMP.primal_status(model.dual_model)
-        end
-    else
-        if !model.solve_primal
-            return MOI.NO_SOLUTION
-        else
-            return JuMP.primal_status(model.primal_model)
-        end
+function JuMP.termination_status(model::LDRModel; dual = false, sampled = false)
+    inner, _ = _resolve_model(model; dual = dual, sampled = sampled)
+    if inner === nothing
+        return MOI.OPTIMIZE_NOT_CALLED
     end
+    return JuMP.termination_status(inner)
 end
 
-function JuMP.raw_status(model::LDRModel; dual = false)
-    if dual
-        if !model.solve_dual
-            return MOI.NO_SOLUTION
-        else
-            return JuMP.raw_status(model.dual_model)
-        end
-    else
-        if !model.solve_primal
-            return MOI.NO_SOLUTION
-        else
-            return JuMP.raw_status(model.primal_model)
-        end
+function JuMP.primal_status(model::LDRModel; dual = false, sampled = false)
+    inner, _ = _resolve_model(model; dual = dual, sampled = sampled)
+    if inner === nothing
+        return MOI.NO_SOLUTION
     end
+    return JuMP.primal_status(inner)
 end
 
-function JuMP.dual_status(model::LDRModel; dual = false)
-    # No dual solutions are available in LDRModel, so we return NO_SOLUTION regardless of the mode.
-    # Do not confuse dual solution with the dual LDR model.
+function JuMP.raw_status(model::LDRModel; dual = false, sampled = false)
+    inner, _ = _resolve_model(model; dual = dual, sampled = sampled)
+    if inner === nothing
+        return MOI.NO_SOLUTION
+    end
+    return JuMP.raw_status(inner)
+end
+
+function JuMP.dual_status(model::LDRModel; dual = false, sampled = false)
     return MOI.NO_SOLUTION
 end
 
-function JuMP.objective_value(model::LDRModel; dual = false)
-    if dual
+function JuMP.objective_value(model::LDRModel; dual = false, sampled = false)
+    if dual && sampled
+        error("Cannot specify both dual=true and sampled=true.")
+    end
+    if sampled
+        if !model.solve_sampled
+            _sampled_disabled()
+        else
+            return JuMP.objective_value(model.sampled_model)
+        end
+    elseif dual
         if !model.solve_dual
             _dual_disabled()
         else
@@ -401,6 +457,7 @@ end
 struct _LDR_SolutionSummary
     primal::Any
     dual::Any
+    sampled::Any
 end
 
 function Base.show(io::IO, summary::_LDR_SolutionSummary)
@@ -416,6 +473,13 @@ function Base.show(io::IO, summary::_LDR_SolutionSummary)
         show(io, summary.dual)
     else
         println(io, "* Dual solution mode is disabled.")
+    end
+    println(io)
+    println(io, "Sampled LDR model:")
+    if summary.sampled !== nothing
+        show(io, summary.sampled)
+    else
+        println(io, "* Sampled solution mode is disabled.")
     end
     return
 end
@@ -444,6 +508,15 @@ function JuMP.solution_summary(
         else
             nothing
         end,
+        if model.solve_sampled
+            JuMP.solution_summary(
+                model.sampled_model;
+                result = result,
+                verbose = verbose,
+            )
+        else
+            nothing
+        end,
     )
 end
 
@@ -457,19 +530,24 @@ function JuMP.optimize!(model::LDRModel)
     if model.solver === nothing
         error("solver not set")
     end
-    if !model.solve_primal && !model.solve_dual
-        error("Both primal and dual solution modes are disabled.")
-    else
-        if !isempty(model.pwl_data)
-            _create_pwl_model(model)
-        end
-        _prepare_data(model)
+    if !model.solve_primal && !model.solve_dual && !model.solve_sampled
+        error("All solution modes are disabled.")
     end
+    if model.solve_sampled && model.num_scenarios === nothing
+        error("NumScenarios must be set when SolveSampled is enabled.")
+    end
+    if !isempty(model.pwl_data)
+        _create_pwl_model(model)
+    end
+    _prepare_data(model)
     if model.solve_primal
         _solve_primal_ldr(model)
     end
     if model.solve_dual
         _solve_dual_ldr(model)
+    end
+    if model.solve_sampled
+        _solve_sampled_ldr(model)
     end
     return
 end

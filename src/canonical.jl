@@ -219,15 +219,10 @@ function _second_moment_matrix(
 
     # fill non analytical blocks with rejection sampling
     candidate = zeros(length(uncertainty_indices))
-    wu_m, wu_n = size(Wu)
-    wl_m, wl_n = size(Wl)
-    cache_wu_m = zeros(wu_m)
-    cache_wl_m = zeros(wl_m)
+    cache_wu_m = zeros(size(Wu, 1))
+    cache_wl_m = zeros(size(Wl, 1))
     for i in eachindex(all_groups)
-        group = all_groups[i]
-        wu_rows = all_wu_rows_of_group[i]
-        wl_rows = all_wl_rows_of_group[i]
-        if isempty(group)
+        if isempty(all_groups[i])
             continue
         end
         x = zeros(length(uncertainty_indices))
@@ -241,9 +236,9 @@ function _second_moment_matrix(
                 candidate,
                 cache_wu_m,
                 cache_wl_m,
-                group,
-                wu_rows,
-                wl_rows,
+                all_groups[i],
+                all_wu_rows_of_group[i],
+                all_wl_rows_of_group[i],
                 scalar_distributions,
                 vector_distributions,
                 scalar_idxs,
@@ -495,23 +490,60 @@ function _prepare_data(model)
         first_stage_indices,
         uncertainty_valid_indices,
     )
-    M = _second_moment_matrix(
-        data,
-        uncertainty_indices,
-        stoch_model.uncertainty_to_distribution,
-        stoch_model.scalar_distributions,
-        stoch_model.vector_distributions,
-        ABC;
-        time_per_estimation = model.rejection_sampling_time_limit,
-        seed = model.rejection_sampling_seed,
-        max_iterations = model.rejection_sampling_max_iterations,
-        warn_attempts = model.rejection_sampling_warn_attempts,
-    )
-    model.ext[:_LDR_r] = _objective_constant(ABC, M)
-    model.ext[:_LDR_M] = M
+    if model.solve_primal || model.solve_dual
+        M = _second_moment_matrix(
+            data,
+            uncertainty_indices,
+            stoch_model.uncertainty_to_distribution,
+            stoch_model.scalar_distributions,
+            stoch_model.vector_distributions,
+            ABC;
+            time_per_estimation = model.rejection_sampling_time_limit,
+            seed = model.rejection_sampling_seed,
+            max_iterations = model.rejection_sampling_max_iterations,
+            warn_attempts = model.rejection_sampling_warn_attempts,
+        )
+        model.ext[:_LDR_r] = _objective_constant(ABC, M)
+        model.ext[:_LDR_M] = M
+    end
     model.ext[:_LDR_sense] = data.sense
     model.ext[:_LDR_ABC] = ABC
     model.ext[:_LDR_first_stage_indices] = first_stage_indices
+
+    if model.solve_sampled
+        Ξ = _sample_scenarios(
+            data,
+            uncertainty_indices,
+            stoch_model.uncertainty_to_distribution,
+            stoch_model.scalar_distributions,
+            stoch_model.vector_distributions,
+            ABC;
+            num_scenarios = model.num_scenarios,
+            seed = model.rejection_sampling_seed,
+            warn_attempts = model.rejection_sampling_warn_attempts,
+        )
+        model.ext[:_LDR_scenarios] = Ξ
+        N = model.num_scenarios
+        # Check if objective is linear: P == 0 and no cross-terms in C
+        # In theory we could re-use the M̂ computed for the primal/dual,
+        # but we consider more coherent to compute it from the scenarios,
+        # and we need to compute the empirical mean in any case
+        needs_M̂ = !iszero(ABC.P) || !iszero(@view ABC.C[:, 2:end])
+        if needs_M̂
+            M̂ = (Ξ * Ξ') ./ N
+            model.ext[:_LDR_M_empirical] = M̂
+            model.ext[:_LDR_r_sampled] = _objective_constant(ABC, M̂)
+        else
+            # Only need empirical mean μ̂ for the objective
+            μ̂ = vec(sum(Ξ; dims = 2)) ./ N
+            model.ext[:_LDR_μ_empirical] = μ̂
+            # r = f + d' * μ̂[2:end] (Q == 0 since P == 0 implies no quadratic terms)
+            model.ext[:_LDR_r_sampled] =
+                ABC.f +
+                ABC.d' * μ̂[2:end] +
+                sum(ABC.Q .* (μ̂[2:end] * μ̂[2:end]'))
+        end
+    end
 
     return nothing
 end
@@ -663,4 +695,128 @@ function _sample_in_set!(
         end
     end
     return cont
+end
+
+function _sample_scenarios(
+    data::MatrixData,
+    uncertainty_indices,
+    uncertainty_to_distribution,
+    scalar_distributions,
+    vector_distributions,
+    ABC;
+    num_scenarios::Int,
+    seed::Int = 1234,
+    warn_attempts::Int = 1000,
+)
+    dim_uncertainty = 1 + length(uncertainty_indices)
+
+    # Build index mappings (same as _second_moment_matrix)
+    vector_idxs = [zeros(Int, length(d)) for d in vector_distributions]
+    scalar_idxs = zeros(Int, length(scalar_distributions))
+    for (lin_idx, var_idx) in enumerate(uncertainty_indices)
+        var = data.variables[var_idx]
+        dist_idx, inner_idx = uncertainty_to_distribution[var]
+        if inner_idx == 0
+            scalar_idxs[dist_idx] = lin_idx
+        else
+            vector_idxs[dist_idx][inner_idx] = lin_idx
+        end
+    end
+
+    Wu = ABC.Wu
+    hu = ABC.hu
+    Wl = ABC.Wl
+    hl = ABC.hl
+    lb = ABC.lb
+    ub = ABC.ub
+
+    all_groups, all_wu_rows_of_group, all_wl_rows_of_group = _compute_groups(
+        Wu,
+        Wl,
+        uncertainty_indices,
+        uncertainty_to_distribution,
+        data,
+    )
+
+    # Determine which distributions require rejection sampling
+    require_group_rejection = Set{Tuple{Int,Bool}}()
+    for group in all_groups
+        union!(require_group_rejection, group)
+    end
+
+    cache_wu_m = zeros(size(Wu, 1))
+    cache_wl_m = zeros(size(Wl, 1))
+
+    Ξ = zeros(dim_uncertainty, num_scenarios)
+    candidate = zeros(length(uncertainty_indices))
+    rng = Random.Xoshiro(seed)
+
+    for s in 1:num_scenarios
+        Ξ[1, s] = 1.0
+
+        # Sample rejection groups (each group is sampled independently,
+        # and values are copied to Ξ immediately since _sample_in_set!
+        # zeros the candidate buffer on each retry)
+        for i in eachindex(all_groups)
+            if isempty(all_groups[i])
+                continue
+            end
+            _sample_in_set!(
+                rng,
+                candidate,
+                cache_wu_m,
+                cache_wl_m,
+                all_groups[i],
+                all_wu_rows_of_group[i],
+                all_wl_rows_of_group[i],
+                scalar_distributions,
+                vector_distributions,
+                scalar_idxs,
+                vector_idxs,
+                lb,
+                ub,
+                Wu,
+                hu,
+                Wl,
+                hl,
+                warn_attempts,
+            )
+            # Copy this group's values to Ξ before next group zeros candidate
+            for (dist_idx, is_vector) in all_groups[i]
+                if is_vector
+                    for lin_idx in vector_idxs[dist_idx]
+                        Ξ[1+lin_idx, s] = candidate[lin_idx]
+                    end
+                else
+                    lin_idx = scalar_idxs[dist_idx]
+                    Ξ[1+lin_idx, s] = candidate[lin_idx]
+                end
+            end
+        end
+
+        # Sample distributions not involved in any rejection group
+        for (dist_idx, d) in enumerate(scalar_distributions)
+            if (dist_idx, false) in require_group_rejection
+                continue
+            end
+            i = scalar_idxs[dist_idx]
+            if i > 0
+                Ξ[1+i, s] = Random.rand(rng, d)
+            end
+        end
+        for (dist_idx, d) in enumerate(vector_distributions)
+            if (dist_idx, true) in require_group_rejection
+                continue
+            end
+            list = vector_idxs[dist_idx]
+            if !isempty(list)
+                sample = Random.rand(rng, d)
+                for (inner_idx, lin_idx) in enumerate(list)
+                    Ξ[1+lin_idx, s] = sample[inner_idx]
+                end
+            end
+        end
+    end
+
+    return Ξ
 end

@@ -54,6 +54,7 @@ const _PAGES = [
             "tutorials/getting_started/getting_started_with_LDR.md",
         ],
         "tutorials/piecewise_linear.md",
+        "tutorials/sampled.md",
         "tutorials/distributions.md",
         "tutorials/advanced_distributions.md",
         "tutorials/confidence_mv_normal.md",

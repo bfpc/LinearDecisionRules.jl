@@ -13,6 +13,7 @@ include("pwl.jl")
 include("canonical.jl")
 include("solve_primal.jl")
 include("solve_dual.jl")
+include("solve_sampled.jl")
 include("implement_rule.jl")
 include("recursion.jl")
 

@@ -1,5 +1,5 @@
 """
-    get_decision(m::LDRModel, x, η; dual = false, piece = nothing)
+    get_decision(m::LDRModel, x, η; dual = false, sampled = false, piece = nothing)
 
 Return the coefficient of uncertainty `η` in the linear decision rule for `x`.
 
@@ -9,6 +9,7 @@ Return the coefficient of uncertainty `η` in the linear decision rule for `x`.
 - `x`: the decision variable
 - `η`: the uncertainty variable
 - `dual = false`: if `true`, return the coefficient from the dual solution
+- `sampled = false`: if `true`, return the coefficient from the sampled (SAA) solution
 - `piece = nothing`: for piecewise linear rules, the piece index (1-indexed);
   required when breakpoints have been set on `η`
 
@@ -22,7 +23,17 @@ x1 = LinearDecisionRules.get_decision(ldr, sell, demand)
 c2 = LinearDecisionRules.get_decision(ldr, sell, demand; piece = 2)
 ```
 """
-function get_decision(model::LDRModel, x, η; dual = false, piece = nothing)
+function get_decision(
+    model::LDRModel,
+    x,
+    η;
+    dual = false,
+    sampled = false,
+    piece = nothing,
+)
+    if dual && sampled
+        error("Cannot specify both dual=true and sampled=true.")
+    end
     if !haskey(model.cache_model.uncertainty_to_distribution, η)
         throw(ArgumentError("η is not an uncertainty variable in the model"))
     end
@@ -63,20 +74,26 @@ function get_decision(model::LDRModel, x, η; dual = false, piece = nothing)
     column_to_canonical = model.ext[:_LDR_column_to_canonical] # type assert
     i = column_to_canonical[var_to_column[x]]
     j = column_to_canonical[var_to_column[η]]
-    if dual
+    if sampled
+        if !model.solve_sampled
+            error("SolveSampled() is set to false, no result available.")
+        end
+        return value(model.sampled_model[:X][i, j+1])
+    elseif dual
         if !model.solve_dual
             error("SolveDual() is set to false, no result available.")
         end
         return value(model.dual_model[:X][i, j+1])
+    else
+        if !model.solve_primal
+            error("SolvePrimal() is set to false, no result available.")
+        end
+        return value(model.primal_model[:X][i, j+1])
     end
-    if !model.solve_primal
-        error("SolvePrimal() is set to false, no result available.")
-    end
-    return value(model.primal_model[:X][i, j+1])
 end
 
 """
-    get_decision(m::LDRModel, x; dual = false)
+    get_decision(m::LDRModel, x; dual = false, sampled = false)
 
 Return the constant term in the linear decision rule for `x`.
 
@@ -85,6 +102,7 @@ Return the constant term in the linear decision rule for `x`.
 - `m`: the `LDRModel`
 - `x`: the decision variable
 - `dual = false`: if `true`, return the constant from the dual solution
+- `sampled = false`: if `true`, return the constant from the sampled (SAA) solution
 
 ## Example
 
@@ -93,7 +111,10 @@ x0 = LinearDecisionRules.get_decision(ldr, sell)
 # Decision rule: sell(demand) = x0 + x1 * demand
 ```
 """
-function get_decision(model::LDRModel, x; dual = false)
+function get_decision(model::LDRModel, x; dual = false, sampled = false)
+    if dual && sampled
+        error("Cannot specify both dual=true and sampled=true.")
+    end
     if haskey(model.cache_model.uncertainty_to_distribution, x)
         throw(
             ArgumentError(
@@ -110,14 +131,20 @@ function get_decision(model::LDRModel, x; dual = false)
     var_to_column = model.ext[:_LDR_var_to_column] # type assert
     column_to_canonical = model.ext[:_LDR_column_to_canonical] # type assert
     i = column_to_canonical[var_to_column[x]]
-    if dual
+    if sampled
+        if !model.solve_sampled
+            error("SolveSampled() is set to false, no result available.")
+        end
+        return value(model.sampled_model[:X][i, 1])
+    elseif dual
         if !model.solve_dual
             error("SolveDual() is set to false, no result available.")
         end
         return value(model.dual_model[:X][i, 1])
+    else
+        if !model.solve_primal
+            error("SolvePrimal() is set to false, no result available.")
+        end
+        return value(model.primal_model[:X][i, 1])
     end
-    if !model.solve_primal
-        error("SolvePrimal() is set to false, no result available.")
-    end
-    return value(model.primal_model[:X][i, 1])
 end
