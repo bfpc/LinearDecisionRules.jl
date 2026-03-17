@@ -2506,8 +2506,16 @@ function test_solve_sampled_quadratic_objective()
     set_attribute(m, LinearDecisionRules.SolveSampled(), true)
     set_attribute(m, LinearDecisionRules.NumScenarios(), 50)
     println("DEBUG [quadratic] free_memory before optimize=$(Sys.free_memory() / 1024^2) MB")
-    println("DEBUG [quadratic] calling optimize!...")
+    flush(stdout)
+    # Call optimize! — this calls _prepare_data then _solve_sampled_ldr
+    # _solve_sampled_ldr builds the JuMP model and calls optimize! on it
+    # The crash happens inside HiGHS during that inner optimize!
     optimize!(m)
+    println("DEBUG [quadratic] optimize! done")
+    sm = m.sampled_model
+    println("DEBUG [quadratic] num_variables=$(num_variables(sm))")
+    println("DEBUG [quadratic] num_constraints=$(num_constraints(sm; count_variable_in_set_constraints=true))")
+    flush(stdout)
     println("DEBUG [quadratic] optimize! done")
     println("DEBUG [quadratic] free_memory after optimize=$(Sys.free_memory() / 1024^2) MB")
 

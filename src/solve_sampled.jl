@@ -115,6 +115,23 @@ function _solve_sampled_ldr(model)
     else
         unset_silent(model.sampled_model)
     end
+
+    # DEBUG: Print model details before solve on 32-bit
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [solve_sampled] model built, about to optimize!")
+        println("DEBUG [solve_sampled] num_variables=$(JuMP.num_variables(model.sampled_model))")
+        println("DEBUG [solve_sampled] num_constraints=$(JuMP.num_constraints(model.sampled_model; count_variable_in_set_constraints=true))")
+        println("DEBUG [solve_sampled] objective_sense=$(JuMP.objective_sense(model.sampled_model))")
+        println("DEBUG [solve_sampled] objective_type=$(typeof(JuMP.objective_function(model.sampled_model)))")
+        println("DEBUG [solve_sampled] free_memory=$(Sys.free_memory() / 1024^2) MB")
+        lp_path = tempname() * ".lp"
+        JuMP.write_to_file(model.sampled_model, lp_path)
+        lp = read(lp_path, String)
+        println("DEBUG [solve_sampled] LP file: $(length(lp)) bytes, $(count('\n', lp)) lines")
+        println(lp)
+        flush(stdout)
+    end
+
     optimize!(model.sampled_model)
 
     return
