@@ -14,6 +14,12 @@ using LinearAlgebra
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$(name)", "test_")
+            if Sys.WORD_SIZE == 32
+                # On 32-bit, only run the MPS HiGHS QP debug test
+                if name != :test_highs_qp_mps_32bit
+                    continue
+                end
+            end
             @testset "$(name)" begin
                 getfield(@__MODULE__, name)()
             end
@@ -2467,9 +2473,16 @@ end
 function test_solve_sampled_quadratic_objective()
     # Tests the M̂ path in _prepare_data (needs_M̂ = true)
     # HiGHS supports QP objectives needed for the sampled sub-model
+    println("DEBUG [quadratic] WORD_SIZE=$(Sys.WORD_SIZE)")
+    println("DEBUG [quadratic] total_memory=$(Sys.total_memory() / 1024^2) MB")
+    println("DEBUG [quadratic] free_memory=$(Sys.free_memory() / 1024^2) MB")
+    GC.gc()
+    println("DEBUG [quadratic] free_memory after GC=$(Sys.free_memory() / 1024^2) MB")
+
     initial_volume = 0.5
     demand = 0.3
 
+    println("DEBUG [quadratic] creating model...")
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     @variable(m, vi == initial_volume)
@@ -2490,7 +2503,41 @@ function test_solve_sampled_quadratic_objective()
     set_attribute(m, LinearDecisionRules.SolveDual(), false)
     set_attribute(m, LinearDecisionRules.SolveSampled(), true)
     set_attribute(m, LinearDecisionRules.NumScenarios(), 50)
+    println("DEBUG [quadratic] free_memory before optimize=$(Sys.free_memory() / 1024^2) MB")
+    flush(stdout)
+
+    # On 32-bit, test if Ipopt can solve a standalone QP before running the full LDR solve
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [quadratic] testing standalone Ipopt QP...")
+        flush(stdout)
+        ipopt_m = Model(Ipopt.Optimizer)
+        set_silent(ipopt_m)
+        @variable(ipopt_m, y[1:2])
+        @constraint(ipopt_m, y[1] + y[2] <= 1)
+        @objective(ipopt_m, Min, y[1]^2 + y[2]^2)
+        optimize!(ipopt_m)
+        println("DEBUG [quadratic] Ipopt QP status=$(termination_status(ipopt_m))")
+
+        println("DEBUG [quadratic] testing standalone HiGHS QP...")
+        flush(stdout)
+        highs_m = Model(HiGHS.Optimizer)
+        set_silent(highs_m)
+        @variable(highs_m, z[1:2])
+        @constraint(highs_m, z[1] + z[2] <= 1)
+        @objective(highs_m, Min, z[1]^2 + z[2]^2)
+        optimize!(highs_m)
+        println("DEBUG [quadratic] HiGHS QP status=$(termination_status(highs_m))")
+        flush(stdout)
+    end
+
     optimize!(m)
+    println("DEBUG [quadratic] optimize! done")
+    sm = m.sampled_model
+    println("DEBUG [quadratic] num_variables=$(num_variables(sm))")
+    println("DEBUG [quadratic] num_constraints=$(num_constraints(sm; count_variable_in_set_constraints=true))")
+    flush(stdout)
+    println("DEBUG [quadratic] optimize! done")
+    println("DEBUG [quadratic] free_memory after optimize=$(Sys.free_memory() / 1024^2) MB")
 
     # Verify the M̂ path was taken (not the μ̂ path)
     @test haskey(m.ext, :_LDR_M_empirical)
@@ -2502,6 +2549,7 @@ function test_solve_sampled_quadratic_objective()
     gt_const = LinearDecisionRules.get_decision(m, gt; sampled = true)
     @test gh_const + gt_const ≈ demand atol = 1e-4
 
+    println("DEBUG [quadratic] test passed")
     return nothing
 end
 
@@ -2732,6 +2780,21 @@ function test_solve_sampled_vector_distribution()
     @test termination_status(ldr; sampled = true) == MOI.OPTIMAL
     @test objective_value(ldr; sampled = true) > 0
 
+    return nothing
+end
+
+function test_highs_qp_mps_32bit()
+    mps_path = joinpath(@__DIR__, "data", "sampled_quadratic_32bit.mps")
+    println("DEBUG [mps_test] loading MPS from $mps_path")
+    flush(stdout)
+    model = JuMP.read_from_file(mps_path)
+    println("DEBUG [mps_test] loaded, num_variables=$(num_variables(model))")
+    set_optimizer(model, HiGHS.Optimizer)
+    println("DEBUG [mps_test] calling optimize!...")
+    flush(stdout)
+    optimize!(model)
+    println("DEBUG [mps_test] status=$(termination_status(model))")
+    @test termination_status(model) == MOI.OPTIMAL
     return nothing
 end
 

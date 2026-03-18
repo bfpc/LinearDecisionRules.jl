@@ -464,14 +464,30 @@ function _objective_constant(ABC, M)
 end
 
 function _prepare_data(model)
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] entered, free_memory=$(Sys.free_memory() / 1024^2) MB")
+        flush(stdout)
+    end
     stoch_model = if isempty(model.pwl_data)
         model.cache_model
     else
         model.pwl_model
     end
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] calling matrix_data...")
+        flush(stdout)
+    end
     data = matrix_data(stoch_model.model)
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] matrix_data done, free_memory=$(Sys.free_memory() / 1024^2) MB")
+        flush(stdout)
+    end
     var_to_column = Dict(vi => i for (i, vi) in enumerate(data.variables))
     model.ext[:_LDR_var_to_column] = var_to_column
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] calling _model_to_matrix...")
+        flush(stdout)
+    end
     uncertainty_indices,
     variable_indices,
     column_to_canonical,
@@ -482,7 +498,15 @@ function _prepare_data(model)
         stoch_model.first_stage,
         stoch_model.uncertainty_valid_constraints,
     )
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] _model_to_matrix done")
+        flush(stdout)
+    end
     model.ext[:_LDR_column_to_canonical] = column_to_canonical
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] calling _canonical...")
+        flush(stdout)
+    end
     ABC = _canonical(
         data,
         uncertainty_indices,
@@ -490,6 +514,10 @@ function _prepare_data(model)
         first_stage_indices,
         uncertainty_valid_indices,
     )
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [_prepare_data] _canonical done, free_memory=$(Sys.free_memory() / 1024^2) MB")
+        flush(stdout)
+    end
     if model.solve_primal || model.solve_dual
         M = _second_moment_matrix(
             data,
@@ -511,6 +539,10 @@ function _prepare_data(model)
     model.ext[:_LDR_first_stage_indices] = first_stage_indices
 
     if model.solve_sampled
+        if Sys.WORD_SIZE == 32
+            println("DEBUG [_prepare_data] starting sampled path")
+            flush(stdout)
+        end
         Ξ = _sample_scenarios(
             data,
             uncertainty_indices,
@@ -524,15 +556,31 @@ function _prepare_data(model)
         )
         model.ext[:_LDR_scenarios] = Ξ
         N = model.num_scenarios
+        if Sys.WORD_SIZE == 32
+            println("DEBUG [_prepare_data] scenarios sampled, Ξ size=$(size(Ξ)), N=$N")
+            flush(stdout)
+        end
         # Check if objective is linear: P == 0 and no cross-terms in C
         # In theory we could re-use the M̂ computed for the primal/dual,
         # but we consider more coherent to compute it from the scenarios,
         # and we need to compute the empirical mean in any case
         needs_M̂ = !iszero(ABC.P) || !iszero(@view ABC.C[:, 2:end])
         if needs_M̂
+            if Sys.WORD_SIZE == 32
+                println("DEBUG [_prepare_data] needs_M̂=true, computing M̂...")
+                flush(stdout)
+            end
             M̂ = (Ξ * Ξ') ./ N
             model.ext[:_LDR_M_empirical] = M̂
+            if Sys.WORD_SIZE == 32
+                println("DEBUG [_prepare_data] M̂=$(M̂), computing r_sampled...")
+                flush(stdout)
+            end
             model.ext[:_LDR_r_sampled] = _objective_constant(ABC, M̂)
+            if Sys.WORD_SIZE == 32
+                println("DEBUG [_prepare_data] r_sampled=$(model.ext[:_LDR_r_sampled])")
+                flush(stdout)
+            end
         else
             # Only need empirical mean μ̂ for the objective
             μ̂ = vec(sum(Ξ; dims = 2)) ./ N
@@ -542,6 +590,10 @@ function _prepare_data(model)
                 ABC.f +
                 ABC.d' * μ̂[2:end] +
                 sum(ABC.Q .* (μ̂[2:end] * μ̂[2:end]'))
+        end
+        if Sys.WORD_SIZE == 32
+            println("DEBUG [_prepare_data] sampled path done")
+            flush(stdout)
         end
     end
 
