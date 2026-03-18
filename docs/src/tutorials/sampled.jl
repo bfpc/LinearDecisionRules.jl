@@ -95,7 +95,7 @@ println(
 
 # Let's solve the same problem with all three methods and compare:
 
-function solve_newsvendor_all(; n_scenarios = 500)
+function solve_newsvendor_all(; n_scenarios = 500, seed = 1234)
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     @variable(m, buy >= 0, LinearDecisionRules.FirstStage)
@@ -112,6 +112,7 @@ function solve_newsvendor_all(; n_scenarios = 500)
     @objective(m, Max, -buy_cost * buy + return_value * ret + sell_value * sell)
     set_attribute(m, LinearDecisionRules.SolveSampled(), true)
     set_attribute(m, LinearDecisionRules.NumScenarios(), n_scenarios)
+    set_attribute(m, LinearDecisionRules.RejectionSamplingSeed(), seed)
     optimize!(m)
     return (
         primal = objective_value(m),
