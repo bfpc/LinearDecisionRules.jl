@@ -399,6 +399,86 @@ end
 
 p3
 
+# ## Part 4: Comparing solution methods with breakpoints
+
+# The [sampled (SAA)](@ref sampled_tutorial) solution mode also works with
+# piecewise linear decision rules. Let's compare all three methods —
+# primal, dual, and sampled — as we vary the number of breakpoints.
+
+function solve_newsvendor_method(;
+    n_breakpoints = 0,
+    method = :primal_dual,
+    n_scenarios = 500,
+)
+    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(m)
+    @variable(m, buy >= 0, LinearDecisionRules.FirstStage)
+    @variable(m, sell >= 0)
+    @variable(m, ret >= 0)
+    @variable(
+        m,
+        d in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.Uniform(demand_min, demand_max),
+        )
+    )
+    @constraint(m, sell + ret <= buy)
+    @constraint(m, sell <= d)
+    @objective(m, Max, -buy_cost * buy + return_value * ret + sell_value * sell)
+    if n_breakpoints > 0
+        set_attribute(d, LinearDecisionRules.BreakPoints(), n_breakpoints)
+    end
+    if method == :primal_dual
+        optimize!(m)
+        return (
+            primal = objective_value(m),
+            dual = objective_value(m; dual = true),
+        )
+    else
+        set_attribute(m, LinearDecisionRules.SolvePrimal(), false)
+        set_attribute(m, LinearDecisionRules.SolveDual(), false)
+        set_attribute(m, LinearDecisionRules.SolveSampled(), true)
+        set_attribute(m, LinearDecisionRules.NumScenarios(), n_scenarios)
+        optimize!(m)
+        return (sampled = objective_value(m; sampled = true),)
+    end
+end
+
+bp_range = 0:10
+primal_vals = Float64[]
+dual_vals = Float64[]
+sampled_vals = Float64[]
+
+for n in bp_range
+    pd = solve_newsvendor_method(; n_breakpoints = n, method = :primal_dual)
+    push!(primal_vals, pd.primal)
+    push!(dual_vals, pd.dual)
+    s = solve_newsvendor_method(;
+        n_breakpoints = n,
+        method = :sampled,
+        n_scenarios = 500,
+    )
+    push!(sampled_vals, s.sampled)
+end
+
+p4 = Plots.plot(
+    collect(bp_range),
+    [primal_vals dual_vals sampled_vals];
+    label = ["Primal (lower bound)" "Dual (upper bound)" "Sampled (SAA, N=500)"],
+    xlabel = "Number of breakpoints",
+    ylabel = "Objective value",
+    title = "Primal vs Dual vs Sampled with PWL",
+    marker = :circle,
+    linewidth = 2,
+    color = [:steelblue :darkorange :green],
+    legend = :bottomright,
+)
+
+# !!! note
+#     All three solution methods improve as breakpoints are added. The
+#     sampled objective falls above the primal bound.
+#     With enough breakpoints, (and, also, scenarios in the sampled problem)
+#     all three converge toward the true optimal.
+
 # ## Key API summary
 
 # | Function | Description |
@@ -412,3 +492,4 @@ p3
 
 # Now that you understand piecewise linear decision rules, you can:
 #  * Learn about the [mathematical formulation of PWL](@ref pwl_extensions) in the manual
+#  * Explore [sampled decision rules](@ref sampled_tutorial) in more detail

@@ -75,7 +75,7 @@ function MvDiscreteNonParametric(
     )
 end
 
-Base.eltype(::Type{<:MvDiscreteNonParametric{T,P,Ts}}) where {T,P,Ts} = Ts
+Base.eltype(::Type{<:MvDiscreteNonParametric{T}}) where {T} = T
 
 Distributions.params(d::MvDiscreteNonParametric) = (d.support, d.p)
 
@@ -89,9 +89,9 @@ Distributions.length(d::MvDiscreteNonParametric) = length(_support(d)[1])
 
 function Distributions._rand!(
     rng::Random.AbstractRNG,
-    d::MvDiscreteNonParametric,
-    x::AbstractVector,
-)
+    d::MvDiscreteNonParametric{T},
+    x::AbstractVector{T},
+) where {T}
     _x = _support(d)
     p = _probs(d)
     n = length(p)
@@ -101,7 +101,7 @@ function Distributions._rand!(
     while cp <= draw && i < n
         @inbounds cp += p[i+=1]
     end
-    x .+= _x[i]
+    x .= _x[i]
     return x
 end
 
