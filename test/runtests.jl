@@ -1107,8 +1107,9 @@ function test_confidence_mv_normal_rotated_box()
     # ellipsoidal support than the axis-aligned box.  This test verifies that:
     #   1. No rejection-sampling warning is emitted.
     #   2. Both primal and dual are solved successfully.
-    #   3. For a correlated distribution the dual bound is at least as tight as
-    #      that obtained with an uncorrelated distribution of the same marginals.
+    #   3. For a correlated distribution in a problem with no cost uncertainty,
+    #      the LDR bounds are at least as tight as those obtained with an
+    #      uncorrelated distribution with the same marginals.
     μ = [100.0, 80.0]
     Σ_corr = [100.0 40.0; 40.0 64.0]   # off-diagonal → rotated box strictly tighter
     α = 0.95
@@ -1134,11 +1135,11 @@ function test_confidence_mv_normal_rotated_box()
           (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
     @test termination_status(ldr; dual = true) in
           (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
-    obj_corr = objective_value(ldr; dual = true)
-    @test isfinite(obj_corr)
+    obj_corr_primal = objective_value(ldr; dual = false)
+    obj_corr_dual = objective_value(ldr; dual = true)
 
     # --- (b) uncorrelated demands (Σ diagonal) ---
-    # With diagonal Σ the rotated box coincides with the axis-aligned box, so
+    # For diagonal Σ, the rotated box coincides with the axis-aligned box, so
     # Wu_implied adds no new information beyond what lb/ub already encode.
     Σ_diag = [100.0 0.0; 0.0 64.0]
     ldr2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
@@ -1156,11 +1157,19 @@ function test_confidence_mv_normal_rotated_box()
     @test_logs min_level = Logging.Warn optimize!(ldr2)
     @test termination_status(ldr2; dual = true) in
           (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
-    obj_diag = objective_value(ldr2; dual = true)
+    obj_diag_primal = objective_value(ldr2; dual = false)
+    obj_diag_dual = objective_value(ldr2; dual = true)
 
-    # The correlated problem has strictly smaller feasible set (tighter polytope),
-    # so its dual bound should be ≤ the uncorrelated one.
-    @test obj_corr <= obj_diag + 1e-6
+    # In this problem, the LDR objective function depends only on the means,
+    # because costs/prices are fixed.  The rotated uncertainty results in a
+    # tighter feasible set because its extra `_valid_constraints` are not
+    # aligned with the coordinate axes, as it is the case for the
+    # uncorrelated distribution.  Therefore, the correlated case results in
+    # tighter bounds (in this particular instance, they are equal):
+    @test isfinite(obj_diag_primal)
+    @test isfinite(obj_diag_dual)
+    @test obj_corr_primal <= obj_corr_dual + 1e-6
+    @test obj_corr_dual >= obj_diag_dual - 1e-6
 
     return nothing
 end
