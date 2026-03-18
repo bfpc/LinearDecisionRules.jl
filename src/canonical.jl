@@ -527,9 +527,10 @@ function _prepare_data(model)
         # In theory, we could re-use `M` computed for the primal/dual, but
         # we consider more coherent to compute it from the scenarios.
         N = model.num_scenarios
-        # Check if objective is linear: P == 0 and no cross-terms in C
-        # so we just need to compute the empirical mean
-        needs_M̂ = !iszero(ABC.P) || !iszero(@view ABC.C[:, 2:end])
+        # From the calculations at the end of _canonical(), we can compute
+        # just the empirical mean if P == 0, Q == 0 and no cross-terms in C
+        needs_M̂ =
+            !iszero(ABC.P) || !iszero(@view ABC.C[:, 2:end]) || !iszero(ABC.Q)
         if needs_M̂
             M̂ = (Ξ * Ξ') ./ N
             model.ext[:_LDR_M_empirical] = M̂
@@ -538,11 +539,9 @@ function _prepare_data(model)
             # Only need empirical mean μ̂ for the objective
             μ̂ = vec(sum(Ξ; dims = 2)) ./ N
             model.ext[:_LDR_μ_empirical] = μ̂
-            # From the calculations at the end of _canonical(), the constant
-            # term is E[η⊤ ABC.Q η] + ABC.d⊤ E[η] + ABC.f, and μ̂[2:end] = E[η]
-            # So r = ABC.f + ABC.d' * μ̂[2:end] + μ̂[2:end]' * ABC.Q * μ̂[2:end]
-            model.ext[:_LDR_r_sampled] =
-                ABC.f + ABC.d' * μ̂[2:end] + μ̂[2:end]' * ABC.Q * μ̂[2:end]
+            # The constant term is E[η⊤ ABC.Q η] + ABC.d⊤ E[η] + ABC.f,
+            # Q = 0 and μ̂[2:end] = E[η], so r = ABC.f + ABC.d' * μ̂[2:end]
+            model.ext[:_LDR_r_sampled] = ABC.f + ABC.d' * μ̂[2:end]
         end
     end
 
