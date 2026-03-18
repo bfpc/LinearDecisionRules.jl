@@ -1111,10 +1111,10 @@ function test_confidence_mv_normal_rotated_box()
     #      the LDR bounds are at least as tight as those obtained with an
     #      uncorrelated distribution with the same marginals.
     μ = [100.0, 80.0]
-    Σ_corr = [100.0 40.0; 40.0 64.0]   # off-diagonal → rotated box strictly tighter
     α = 0.95
 
     # --- (a) correlated demands ---
+    Σ_corr = [100.0 40.0; 40.0 64.0]
     ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(ldr)
     dist = LinearDecisionRules.ConfidenceMvNormal(μ, Σ_corr, α)
@@ -1154,7 +1154,12 @@ function test_confidence_mv_normal_rotated_box()
     @constraint(ldr2, [i = 1:2], sell2[i] <= buy2[i])
     @constraint(ldr2, [i = 1:2], sell2[i] <= demand2[i])
     @objective(ldr2, Max, sum(-10 * buy2[i] + 15 * sell2[i] for i in 1:2))
+
+    # Verify no rejection-sampling warning is emitted.
     @test_logs min_level = Logging.Warn optimize!(ldr2)
+
+    @test termination_status(ldr2; dual = false) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
     @test termination_status(ldr2; dual = true) in
           (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
     obj_diag_primal = objective_value(ldr2; dual = false)
