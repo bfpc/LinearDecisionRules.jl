@@ -184,17 +184,18 @@ Plots.hline!(
 # have significant variance.  Let's see this in practice:
 
 scenario_counts = [2, 5, 10, 25]
-sampled_objs = Dict{Int, Vector{Float64}}()
+sampled_objs = Dict{Int,Vector{Float64}}()
 N_repeats = 10
 
 for n in scenario_counts
     sampled_objs[n] = Float64[]
     for seed in 1:N_repeats
-        r = solve_newsvendor_all(; n_scenarios = n, seed = N_repeats*n +seed)
+        r = solve_newsvendor_all(; n_scenarios = n, seed = N_repeats * n + seed)
         push!(sampled_objs[n], r.sampled)
     end
 end
-flattened_objs = [sampled_objs[n][i] for i in 1:N_repeats for n in scenario_counts]
+flattened_objs =
+    [sampled_objs[n][i] for i in 1:N_repeats for n in scenario_counts]
 
 p = Plots.boxplot(
     collect(1:length(scenario_counts)),

@@ -542,9 +542,7 @@ function _prepare_data(model)
             # term is E[η⊤ ABC.Q η] + ABC.d⊤ E[η] + ABC.f, and μ̂[2:end] = E[η]
             # So r = ABC.f + ABC.d' * μ̂[2:end] + μ̂[2:end]' * ABC.Q * μ̂[2:end]
             model.ext[:_LDR_r_sampled] =
-                ABC.f +
-                ABC.d' * μ̂[2:end] +
-                μ̂[2:end]' * ABC.Q * μ̂[2:end]
+                ABC.f + ABC.d' * μ̂[2:end] + μ̂[2:end]' * ABC.Q * μ̂[2:end]
         end
     end
 
