@@ -71,11 +71,7 @@ set_attribute(ldr, LinearDecisionRules.SolveSampled(), true)
 set_attribute(ldr, LinearDecisionRules.NumScenarios(), 500)
 optimize!(ldr)
 
-println("Primal bound: ", objective_value(ldr))
-println("Dual bound:   ", objective_value(ldr; dual = true))
 println("Sampled obj:  ", objective_value(ldr; sampled = true))
-
-# The sampled objective falls above the primal bound.
 
 # ### Extracting the decision rule
 
@@ -129,6 +125,9 @@ println("\nComparison (N=500):")
 println("  Primal:  ", round(result.primal; digits = 2))
 println("  Dual:    ", round(result.dual; digits = 2))
 println("  Sampled: ", round(result.sampled; digits = 2))
+
+# As we have a large number of scenarios, the sampled objective falls between
+# the primal and dual bounds.
 
 # ## Part 3: Effect of scenario count
 
@@ -223,7 +222,7 @@ Plots.hline!(
     color = :darkorange,
 )
 
-# ## Key API summary
+# ## API summary
 
 # | Function | Description |
 # |----------|-------------|
@@ -237,4 +236,3 @@ Plots.hline!(
 
 # Now that you understand sampled decision rules, you can:
 #  * Combine them with [piecewise linear decision rules](@ref piecewise_linear_tutorial) for better approximations
-#  * Learn about [distributions](@ref distributions_tutorial) to model complex uncertainty
