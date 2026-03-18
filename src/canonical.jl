@@ -471,9 +471,9 @@ end
 """
     _valid_constraints(d)
 
-Return implied halfspace constraints `(W, h)` such that `W * ξ ≤ h` for every
-`ξ` in the support of distribution `d`, or `nothing` if no such constraints
-are available.
+Return extra constraint data `(W, h)` such that `W * ξ ≤ h` for every `ξ`
+in the support of distribution `d`, or `nothing` if no such constraints are
+available.
 
 The default method returns `nothing`.  Distributions may override this to
 provide tighter outer approximations used in the uncertainty polytope
