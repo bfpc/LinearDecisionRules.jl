@@ -129,3 +129,28 @@ function show(io::IO, d::ConfidenceMvNormal)
         [(:dim, length(d)), (:μ, μ), (:Σ, Σ), (:α, α)],
     )
 end
+
+"""
+    _valid_constraints(d::ConfidenceMvNormal)
+
+Return the principal-axis box as constraints `W * ξ ≤ h`.
+
+For the ellipsoid `{ξ : (ξ-μ)'Σ⁻¹(ξ-μ) ≤ ρ²}` with eigendecomposition
+`Σ = V·diag(λ)·V'`, every point in the ellipsoid satisfies
+
+    |V'(ξ - μ)[k]| ≤ ρ·√λₖ   for each k.
+
+This gives `2d` constraints encoded as `W = [V'; -V']` and
+`h = [V'μ + ρ·√λ; -V'μ + ρ·√λ]`.  These constraints are added to the
+basic uncertainty polytope given by axis-aligned bounds.
+"""
+function _valid_constraints(d::ConfidenceMvNormal)
+    # Σ = V · diag(vals) · V'  (vals ≥ 0 because cholesky() succeeded)
+    vals, V = LinearAlgebra.eigen(d.Σ)
+    half_widths = d.ρ .* sqrt.(vals)
+    Vtmu = V' * d.μ
+    # |V'(ξ-μ)[k]| ≤ ρ·√λₖ  ⟺  ±V'ξ ≤ ±V'μ + ρ·√λ  ⟺  W * ξ ≤ h
+    W = vcat(V', -V')                                    # (2d × d)
+    h = vcat(Vtmu .+ half_widths, .-Vtmu .+ half_widths) # (2d,)
+    return (W = W, h = h)
+end

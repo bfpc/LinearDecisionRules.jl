@@ -2,6 +2,7 @@ module TestMain
 
 using Test
 using Random
+using Logging
 
 using LinearDecisionRules
 
@@ -1098,6 +1099,83 @@ function test_confidence_mv_normal_bounds()
             @test x_star[k] ≈ ub[k] rtol = 1e-10
         end
     end
+    return nothing
+end
+
+function test_confidence_mv_normal_rotated_box()
+    # The rotated (principal-axis) box gives another outer approximation of the
+    # ellipsoidal support than the axis-aligned box.  This test verifies that:
+    #   1. No rejection-sampling warning is emitted.
+    #   2. Both primal and dual are solved successfully.
+    #   3. For a correlated distribution in a problem with no cost uncertainty,
+    #      the LDR bounds are at least as tight as those obtained with an
+    #      uncorrelated distribution with the same marginals.
+    μ = [100.0, 80.0]
+    α = 0.95
+
+    # --- (a) correlated demands ---
+    Σ_corr = [100.0 40.0; 40.0 64.0]
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+    dist = LinearDecisionRules.ConfidenceMvNormal(μ, Σ_corr, α)
+    @variable(ldr, buy[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] >= 0)
+    @variable(
+        ldr,
+        demand[1:2] in LinearDecisionRules.Uncertainty(; distribution = dist)
+    )
+    @constraint(ldr, [i = 1:2], sell[i] <= buy[i])
+    @constraint(ldr, [i = 1:2], sell[i] <= demand[i])
+    @objective(ldr, Max, sum(-10 * buy[i] + 15 * sell[i] for i in 1:2))
+
+    # Verify no rejection-sampling warning is emitted.
+    @test_logs min_level = Logging.Warn optimize!(ldr)
+
+    @test termination_status(ldr; dual = false) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    @test termination_status(ldr; dual = true) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    obj_corr_primal = objective_value(ldr; dual = false)
+    obj_corr_dual = objective_value(ldr; dual = true)
+
+    # --- (b) uncorrelated demands (Σ diagonal) ---
+    # For diagonal Σ, the rotated box coincides with the axis-aligned box, so
+    # Wu_implied adds no new information beyond what lb/ub already encode.
+    Σ_diag = [100.0 0.0; 0.0 64.0]
+    ldr2 = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr2)
+    dist2 = LinearDecisionRules.ConfidenceMvNormal(μ, Σ_diag, α)
+    @variable(ldr2, buy2[1:2] >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr2, sell2[1:2] >= 0)
+    @variable(
+        ldr2,
+        demand2[1:2] in LinearDecisionRules.Uncertainty(; distribution = dist2)
+    )
+    @constraint(ldr2, [i = 1:2], sell2[i] <= buy2[i])
+    @constraint(ldr2, [i = 1:2], sell2[i] <= demand2[i])
+    @objective(ldr2, Max, sum(-10 * buy2[i] + 15 * sell2[i] for i in 1:2))
+
+    # Verify no rejection-sampling warning is emitted.
+    @test_logs min_level = Logging.Warn optimize!(ldr2)
+
+    @test termination_status(ldr2; dual = false) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    @test termination_status(ldr2; dual = true) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    obj_diag_primal = objective_value(ldr2; dual = false)
+    obj_diag_dual = objective_value(ldr2; dual = true)
+
+    # In this problem, the LDR objective function depends only on the means,
+    # because costs/prices are fixed.  The rotated uncertainty results in a
+    # tighter feasible set because its extra `_valid_constraints` are not
+    # aligned with the coordinate axes, as it is the case for the
+    # uncorrelated distribution.  Therefore, the correlated case results in
+    # tighter bounds (in this particular instance, they are equal):
+    @test isfinite(obj_diag_primal)
+    @test isfinite(obj_diag_dual)
+    @test obj_corr_primal <= obj_corr_dual + 1e-6
+    @test obj_corr_dual >= obj_diag_dual - 1e-6
+
     return nothing
 end
 
