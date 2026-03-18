@@ -124,14 +124,30 @@ function _solve_sampled_ldr(model)
         println("DEBUG [solve_sampled] objective_sense=$(JuMP.objective_sense(model.sampled_model))")
         println("DEBUG [solve_sampled] objective_type=$(typeof(JuMP.objective_function(model.sampled_model)))")
         println("DEBUG [solve_sampled] free_memory=$(Sys.free_memory() / 1024^2) MB")
-        lp_path = tempname() * ".lp"
-        JuMP.write_to_file(model.sampled_model, lp_path)
-        lp = read(lp_path, String)
-        println("DEBUG [solve_sampled] LP file: $(length(lp)) bytes, $(count('\n', lp)) lines")
-        println(lp)
-        println("DEBUG [solve_sampled] JuMP model:")
-        println(model.sampled_model)
+        # Write MPS, read back into fresh model, solve that instead
+        mps_path = tempname() * ".mps"
+        println("DEBUG [solve_sampled] writing MPS to $mps_path")
+        JuMP.write_to_file(model.sampled_model, mps_path)
+        println("DEBUG [solve_sampled] MPS written, $(filesize(mps_path)) bytes")
         flush(stdout)
+        # Build fresh model from MPS
+        fresh = JuMP.read_from_file(mps_path)
+        println("DEBUG [solve_sampled] MPS read back, num_variables=$(JuMP.num_variables(fresh))")
+        set_optimizer(fresh, model.solver)
+        if model.silent
+            set_silent(fresh)
+        else
+            unset_silent(fresh)
+        end
+        println("DEBUG [solve_sampled] calling optimize! on fresh model from MPS")
+        flush(stdout)
+        optimize!(fresh)
+        println("DEBUG [solve_sampled] optimize! done, status=$(JuMP.termination_status(fresh))")
+        flush(stdout)
+        # Copy solution back — we can't easily map variables, so just check if it works
+        # For now, leave the sampled_model un-solved and store fresh as a workaround
+        model.sampled_model = fresh
+        return
     end
 
     optimize!(model.sampled_model)
