@@ -523,11 +523,12 @@ function _prepare_data(model)
             warn_attempts = model.rejection_sampling_warn_attempts,
         )
         model.ext[:_LDR_scenarios] = Ξ
+
+        # In theory, we could re-use `M` computed for the primal/dual, but
+        # we consider more coherent to compute it from the scenarios.
         N = model.num_scenarios
         # Check if objective is linear: P == 0 and no cross-terms in C
-        # In theory we could re-use the M̂ computed for the primal/dual,
-        # but we consider more coherent to compute it from the scenarios,
-        # and we need to compute the empirical mean in any case
+        # so we just need to compute the empirical mean
         needs_M̂ = !iszero(ABC.P) || !iszero(@view ABC.C[:, 2:end])
         if needs_M̂
             M̂ = (Ξ * Ξ') ./ N
@@ -537,11 +538,13 @@ function _prepare_data(model)
             # Only need empirical mean μ̂ for the objective
             μ̂ = vec(sum(Ξ; dims = 2)) ./ N
             model.ext[:_LDR_μ_empirical] = μ̂
-            # r = f + d' * μ̂[2:end] (Q == 0 since P == 0 implies no quadratic terms)
+            # From the calculations at the end of _canonical(), the constant
+            # term is E[η⊤ ABC.Q η] + ABC.d⊤ E[η] + ABC.f, and μ̂[2:end] = E[η]
+            # So r = ABC.f + ABC.d' * μ̂[2:end] + μ̂[2:end]' * ABC.Q * μ̂[2:end]
             model.ext[:_LDR_r_sampled] =
                 ABC.f +
                 ABC.d' * μ̂[2:end] +
-                sum(ABC.Q .* (μ̂[2:end] * μ̂[2:end]'))
+                μ̂[2:end]' * ABC.Q * μ̂[2:end]
         end
     end
 
