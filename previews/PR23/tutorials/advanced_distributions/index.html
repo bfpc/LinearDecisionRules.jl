@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Advanced distribution modeling · LinearDecisionRules.jl</title><meta name="title" content="Advanced distribution modeling · LinearDecisionRules.jl"/><meta property="og:title" content="Advanced distribution modeling · LinearDecisionRules.jl"/><meta property="twitter:title" content="Advanced distribution modeling · LinearDecisionRules.jl"/><meta name="description" content="Documentation for LinearDecisionRules.jl."/><meta property="og:description" content="Documentation for LinearDecisionRules.jl."/><meta property="twitter:description" content="Documentation for LinearDecisionRules.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LinearDecisionRules.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-2-1" type="checkbox"/><label class="tocitem" for="menuitem-2-1"><span class="docs-label">Getting started</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../getting_started/introduction/">Introduction</a></li><li><a class="tocitem" href="../getting_started/getting_started_with_LDR/">Getting started with LinearDecisionRules</a></li></ul></li><li><a class="tocitem" href="../piecewise_linear/">Piecewise linear decision rules</a></li><li><a class="tocitem" href="../distributions/">Working with distributions</a></li><li class="is-active"><a class="tocitem" href>Advanced distribution modeling</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#The-challenge:-constrained-uncertainty-regions"><span>The challenge: constrained uncertainty regions</span></a></li><li><a class="tocitem" href="#Part-1:-Simple-bounds-on-uncertainty"><span>Part 1: Simple bounds on uncertainty</span></a></li><li><a class="tocitem" href="#Part-2:-Linear-inequality-constraints-on-multivariate-uncertainty"><span>Part 2: Linear inequality constraints on multivariate uncertainty</span></a></li><li><a class="tocitem" href="#Part-3:-Multiple-linear-constraints"><span>Part 3: Multiple linear constraints</span></a></li><li><a class="tocitem" href="#Part-4:-Combining-discrete-scenarios-with-constraints"><span>Part 4: Combining discrete scenarios with constraints</span></a></li><li><a class="tocitem" href="#How-constrained-uncertainty-works"><span>How constrained uncertainty works</span></a></li><li><a class="tocitem" href="#Summary"><span>Summary</span></a></li><li><a class="tocitem" href="#What&#39;s-next?"><span>What&#39;s next?</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Manual</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../manual/math/">Mathematical formulations</a></li><li><a class="tocitem" href="../../manual/pwl/">Piecewise linear extensions</a></li><li><a class="tocitem" href="../../manual/ConfidenceNormal/">Confidence MvNormal</a></li></ul></li><li><a class="tocitem" href="../../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Advanced distribution modeling</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Advanced distribution modeling</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/bfpc/LinearDecisionRules.jl/blob/main/docs/src/tutorials/advanced_distributions.jl#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="advanced_distributions_tutorial"><a class="docs-heading-anchor" href="#advanced_distributions_tutorial">Advanced distribution modeling</a><a id="advanced_distributions_tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#advanced_distributions_tutorial" title="Permalink"></a></h1><p>This tutorial covers advanced techniques for modeling uncertainty, including:</p><ul><li>Constraining the support of distributions</li><li>Handling rejection sampling automatically</li><li>Modeling correlated uncertainties with linear constraints</li></ul><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using JuMP
+import LinearDecisionRules
+import HiGHS
+import Distributions</code></pre><h2 id="The-challenge:-constrained-uncertainty-regions"><a class="docs-heading-anchor" href="#The-challenge:-constrained-uncertainty-regions">The challenge: constrained uncertainty regions</a><a id="The-challenge:-constrained-uncertainty-regions-1"></a><a class="docs-heading-anchor-permalink" href="#The-challenge:-constrained-uncertainty-regions" title="Permalink"></a></h2><p>In many real-world problems, uncertainties are not independent. They may be subject to constraints such as:</p><ul><li><strong>Budget constraints</strong>: total demand across products is limited</li><li><strong>Logical constraints</strong>: if demand for A is high, demand for B is low</li></ul><p>LinearDecisionRules handles these cases through <strong>rejection sampling</strong>: constraints on uncertainty variables define the feasible region, and the package automatically adjusts the optimization accordingly.</p><h2 id="Part-1:-Simple-bounds-on-uncertainty"><a class="docs-heading-anchor" href="#Part-1:-Simple-bounds-on-uncertainty">Part 1: Simple bounds on uncertainty</a><a id="Part-1:-Simple-bounds-on-uncertainty-1"></a><a class="docs-heading-anchor-permalink" href="#Part-1:-Simple-bounds-on-uncertainty" title="Permalink"></a></h2><h3 id="Narrowing-the-support-with-constraints"><a class="docs-heading-anchor" href="#Narrowing-the-support-with-constraints">Narrowing the support with constraints</a><a id="Narrowing-the-support-with-constraints-1"></a><a class="docs-heading-anchor-permalink" href="#Narrowing-the-support-with-constraints" title="Permalink"></a></h3><p>Consider an inventory problem where we know demand will be in a narrower range than the underlying distribution suggests:</p><pre><code class="language-julia hljs">function solve_with_bounds(; lower_bound = nothing, upper_bound = nothing)
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    buy_cost, sell_price, salvage = 10, 15, 5
+
+    @variable(ldr, buy &gt;= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell &gt;= 0)
+    @variable(ldr, leftover &gt;= 0)
+    @variable(
+        ldr,
+        demand in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.Uniform(50.0, 150.0),
+        )
+    )
+
+    # Add constraints that narrow the uncertainty support
+    if lower_bound !== nothing
+        @constraint(ldr, demand &gt;= lower_bound)
+    end
+    if upper_bound !== nothing
+        @constraint(ldr, demand &lt;= upper_bound)
+    end
+
+    @constraint(ldr, sell + leftover &lt;= buy)
+    @constraint(ldr, sell &lt;= demand)
+
+    @objective(
+        ldr,
+        Max,
+        -buy_cost * buy + sell_price * sell + salvage * leftover
+    )
+
+    optimize!(ldr)
+
+    return (
+        buy = LinearDecisionRules.get_decision(ldr, buy),
+        primal = objective_value(ldr),
+        dual = objective_value(ldr; dual = true),
+    )
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">solve_with_bounds (generic function with 1 method)</code></pre><p>Without constraints (full Uniform(50, 150) support):</p><pre><code class="language-julia hljs">result_full = solve_with_bounds()
+println(&quot;Full support [50, 150]:&quot;)
+println(&quot;  Optimal buy: &quot;, round(result_full.buy; digits = 2))
+println(&quot;  Primal: &quot;, round(result_full.primal; digits = 2))
+println()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Full support [50, 150]:
+  Optimal buy: 50.0
+  Primal: 250.0</code></pre><p>With tighter bounds (rejection sampling kicks in):</p><pre><code class="language-julia hljs">result_narrow = solve_with_bounds(; lower_bound = 80.0, upper_bound = 120.0)
+println(&quot;Narrowed support [80, 120] via constraints:&quot;)
+println(&quot;  Optimal buy: &quot;, round(result_narrow.buy; digits = 2))
+println(&quot;  Primal: &quot;, round(result_narrow.primal; digits = 2))
+println()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Rejection sampling required
+└ @ LinearDecisionRules ~/work/LinearDecisionRules.jl/LinearDecisionRules.jl/src/canonical.jl:154
+Narrowed support [80, 120] via constraints:
+  Optimal buy: 80.0
+  Primal: 400.0</code></pre><div class="admonition is-info" id="Note-b7965ee0aa57d92d"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-b7965ee0aa57d92d" title="Permalink"></a></header><div class="admonition-body"><p>When you add constraints on uncertainty variables, LinearDecisionRules automatically uses rejection sampling to compute expectations over the constrained region.</p></div></div><h2 id="Part-2:-Linear-inequality-constraints-on-multivariate-uncertainty"><a class="docs-heading-anchor" href="#Part-2:-Linear-inequality-constraints-on-multivariate-uncertainty">Part 2: Linear inequality constraints on multivariate uncertainty</a><a id="Part-2:-Linear-inequality-constraints-on-multivariate-uncertainty-1"></a><a class="docs-heading-anchor-permalink" href="#Part-2:-Linear-inequality-constraints-on-multivariate-uncertainty" title="Permalink"></a></h2><p>The real power of constrained uncertainty comes with multivariate distributions where linear inequalities define complex feasible regions.</p><h3 id="Example:-Correlated-demands-with-a-total-budget"><a class="docs-heading-anchor" href="#Example:-Correlated-demands-with-a-total-budget">Example: Correlated demands with a total budget</a><a id="Example:-Correlated-demands-with-a-total-budget-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-Correlated-demands-with-a-total-budget" title="Permalink"></a></h3><p>Consider two products where total market demand is constrained:</p><pre><code class="language-julia hljs">function solve_budget_constrained(; total_demand_max = nothing)
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    buy_cost, sell_price, salvage = 10, 15, 5
+
+    @variable(ldr, buy[1:2] &gt;= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] &gt;= 0)
+    @variable(ldr, leftover[1:2] &gt;= 0)
+    @variable(
+        ldr,
+        demand[1:2] in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.product_distribution([
+                Distributions.Uniform(40.0, 80.0),
+                Distributions.Uniform(40.0, 80.0),
+            ]),
+        )
+    )
+
+    # Add a constraint that total demand is limited
+    if total_demand_max !== nothing
+        @constraint(ldr, demand[1] + demand[2] &lt;= total_demand_max)
+    end
+
+    for i in 1:2
+        @constraint(ldr, sell[i] + leftover[i] &lt;= buy[i])
+        @constraint(ldr, sell[i] &lt;= demand[i])
+    end
+
+    @objective(
+        ldr,
+        Max,
+        sum(
+            -buy_cost * buy[i] + sell_price * sell[i] + salvage * leftover[i]
+            for i in 1:2
+        )
+    )
+
+    optimize!(ldr)
+
+    return (
+        buy = [LinearDecisionRules.get_decision(ldr, buy[i]) for i in 1:2],
+        primal = objective_value(ldr),
+    )
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">solve_budget_constrained (generic function with 1 method)</code></pre><p>Without budget constraint:</p><pre><code class="language-julia hljs">result_no_budget = solve_budget_constrained()
+println(&quot;No budget constraint (demands independent):&quot;)
+println(&quot;  Optimal buy: &quot;, round.(result_no_budget.buy, digits = 2))
+println(&quot;  Primal: &quot;, round(result_no_budget.primal; digits = 2))
+println()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">No budget constraint (demands independent):
+  Optimal buy: [40.0, 40.0]
+  Primal: 400.0</code></pre><p>With budget constraint (creates negative correlation):</p><pre><code class="language-julia hljs">result_with_budget = solve_budget_constrained(; total_demand_max = 120.0)
+println(&quot;With budget constraint (demand[1] + demand[2] &lt;= 120):&quot;)
+println(&quot;  Optimal buy: &quot;, round.(result_with_budget.buy, digits = 2))
+println(&quot;  Primal: &quot;, round(result_with_budget.primal; digits = 2))
+println()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Rejection sampling required
+└ @ LinearDecisionRules ~/work/LinearDecisionRules.jl/LinearDecisionRules.jl/src/canonical.jl:154
+With budget constraint (demand[1] + demand[2] &lt;= 120):
+  Optimal buy: [40.0, 40.0]
+  Primal: 400.0</code></pre><div class="admonition is-success" id="Tip-571e37d491c2ffee"><header class="admonition-header">Tip<a class="admonition-anchor" href="#Tip-571e37d491c2ffee" title="Permalink"></a></header><div class="admonition-body"><p>The constraint <code>demand[1] + demand[2] &lt;= 120</code> creates a triangular feasible region within the original rectangle. This induces negative correlation: when one demand is high, the other tends to be lower.</p></div></div><h2 id="Part-3:-Multiple-linear-constraints"><a class="docs-heading-anchor" href="#Part-3:-Multiple-linear-constraints">Part 3: Multiple linear constraints</a><a id="Part-3:-Multiple-linear-constraints-1"></a><a class="docs-heading-anchor-permalink" href="#Part-3:-Multiple-linear-constraints" title="Permalink"></a></h2><p>You can add multiple constraints to define more complex uncertainty regions.</p><h3 id="Example:-Reservoir-inflows-with-balance-constraints"><a class="docs-heading-anchor" href="#Example:-Reservoir-inflows-with-balance-constraints">Example: Reservoir inflows with balance constraints</a><a id="Example:-Reservoir-inflows-with-balance-constraints-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-Reservoir-inflows-with-balance-constraints" title="Permalink"></a></h3><p>Consider a water system with three reservoirs where:</p><ul><li>Each has uncertain inflow from its own catchment</li><li>Total system inflow is bounded</li><li>Adjacent reservoirs have correlated inflows</li></ul><pre><code class="language-julia hljs">function solve_reservoir_system()
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    n_reservoirs = 3
+    capacity = [100.0, 80.0, 120.0]
+    release_benefit = [5.0, 4.0, 6.0]
+    spill_penalty = [1.0, 1.0, 1.0]
+
+    @variable(
+        ldr,
+        0 &lt;= storage[i = 1:n_reservoirs] &lt;= capacity[i],
+        LinearDecisionRules.FirstStage
+    )
+    @variable(ldr, release[1:n_reservoirs] &gt;= 0)
+    @variable(ldr, spill[1:n_reservoirs] &gt;= 0)
+    @variable(
+        ldr,
+        inflow[1:n_reservoirs] in LinearDecisionRules.Uncertainty(;
+            distribution = Distributions.product_distribution([
+                Distributions.Uniform(10.0, 50.0),
+                Distributions.Uniform(10.0, 40.0),
+                Distributions.Uniform(10.0, 60.0),
+            ]),
+        )
+    )
+
+    # Constraint 1: Total system inflow is bounded (weather system constraint)
+    @constraint(ldr, inflow[1] + inflow[2] + inflow[3] &lt;= 120.0)
+
+    # Constraint 2: Adjacent reservoirs have similar inflows (spatial correlation)
+    @constraint(ldr, inflow[1] - inflow[2] &lt;= 20.0)
+    @constraint(ldr, inflow[2] - inflow[1] &lt;= 20.0)
+    @constraint(ldr, inflow[2] - inflow[3] &lt;= 25.0)
+    @constraint(ldr, inflow[3] - inflow[2] &lt;= 25.0)
+
+    # Water balance constraints
+    for i in 1:n_reservoirs
+        @constraint(ldr, release[i] + spill[i] &lt;= storage[i] + inflow[i])
+    end
+
+    @objective(
+        ldr,
+        Max,
+        sum(
+            release_benefit[i] * release[i] - spill_penalty[i] * spill[i] for
+            i in 1:n_reservoirs
+        )
+    )
+
+    optimize!(ldr)
+
+    println(&quot;Reservoir system with constrained inflows:&quot;)
+    println(
+        &quot;  Initial storage: &quot;,
+        [
+            round(
+                LinearDecisionRules.get_decision(ldr, storage[i]);
+                digits = 2,
+            ) for i in 1:n_reservoirs
+        ],
+    )
+    println(&quot;  Primal bound: &quot;, round(objective_value(ldr); digits = 2))
+    println(
+        &quot;  Dual bound:   &quot;,
+        round(objective_value(ldr; dual = true); digits = 2),
+    )
+
+    return ldr
+end
+
+ldr_reservoir = solve_reservoir_system();</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Rejection sampling required
+└ @ LinearDecisionRules ~/work/LinearDecisionRules.jl/LinearDecisionRules.jl/src/canonical.jl:154
+Reservoir system with constrained inflows:
+  Initial storage: [100.0, 80.0, 120.0]
+  Primal bound: 1970.81
+  Dual bound:   1970.81</code></pre><h2 id="Part-4:-Combining-discrete-scenarios-with-constraints"><a class="docs-heading-anchor" href="#Part-4:-Combining-discrete-scenarios-with-constraints">Part 4: Combining discrete scenarios with constraints</a><a id="Part-4:-Combining-discrete-scenarios-with-constraints-1"></a><a class="docs-heading-anchor-permalink" href="#Part-4:-Combining-discrete-scenarios-with-constraints" title="Permalink"></a></h2><p>Constraints can also be applied to discrete distributions:</p><pre><code class="language-julia hljs">function solve_discrete_constrained()
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    # Define scenarios for two correlated demands
+    scenarios = [
+        [60.0, 60.0],   # Both low
+        [60.0, 80.0],   # Low-medium
+        [80.0, 60.0],   # Medium-low
+        [80.0, 80.0],   # Both medium
+        [100.0, 60.0],  # High-low
+        [60.0, 100.0],  # Low-high
+        [100.0, 100.0], # Both high (will be partially excluded)
+    ]
+    probs = fill(1.0 / 7, 7)
+
+    buy_cost, sell_price, salvage = 10, 15, 5
+
+    @variable(ldr, buy[1:2] &gt;= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] &gt;= 0)
+    @variable(ldr, leftover[1:2] &gt;= 0)
+    @variable(
+        ldr,
+        demand[1:2] in LinearDecisionRules.Uncertainty(;
+            distribution = LinearDecisionRules.MvDiscreteNonParametric(
+                scenarios,
+                probs,
+            ),
+        )
+    )
+
+    # Exclude the &quot;both high&quot; scenario via constraint
+    @constraint(ldr, demand[1] + demand[2] &lt;= 160.0)
+
+    for i in 1:2
+        @constraint(ldr, sell[i] + leftover[i] &lt;= buy[i])
+        @constraint(ldr, sell[i] &lt;= demand[i])
+    end
+
+    @objective(
+        ldr,
+        Max,
+        sum(
+            -buy_cost * buy[i] + sell_price * sell[i] + salvage * leftover[i]
+            for i in 1:2
+        )
+    )
+
+    optimize!(ldr)
+
+    println(
+        &quot;\nDiscrete distribution with constraint (excludes &#39;both high&#39; scenario):&quot;,
+    )
+    println(
+        &quot;  Optimal buy: &quot;,
+        [
+            round(LinearDecisionRules.get_decision(ldr, buy[i]); digits = 2) for
+            i in 1:2
+        ],
+    )
+    println(&quot;  Primal bound: &quot;, round(objective_value(ldr); digits = 2))
+
+    return ldr
+end
+
+solve_discrete_constrained();</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Rejection sampling required
+└ @ LinearDecisionRules ~/work/LinearDecisionRules.jl/LinearDecisionRules.jl/src/canonical.jl:154
+
+Discrete distribution with constraint (excludes &#39;both high&#39; scenario):
+  Optimal buy: [60.0, 60.0]
+  Primal bound: 600.0</code></pre><h2 id="How-constrained-uncertainty-works"><a class="docs-heading-anchor" href="#How-constrained-uncertainty-works">How constrained uncertainty works</a><a id="How-constrained-uncertainty-works-1"></a><a class="docs-heading-anchor-permalink" href="#How-constrained-uncertainty-works" title="Permalink"></a></h2><p>When you add constraints on uncertainty variables:</p><ol><li><p><strong>Detection</strong>: LinearDecisionRules identifies which uncertainty variables have additional constraints beyond their distribution bounds.</p></li><li><p><strong>Polytope construction</strong>: The constraints define a polytope within the original distribution support.</p></li><li><p><strong>Expectation computation</strong>: For primal bounds, expectations are computed over the constrained region using rejection sampling or analytical methods when available.</p></li><li><p><strong>Dual bounds</strong>: The robust optimization formulation naturally handles the constrained uncertainty set.</p></li></ol><div class="admonition is-warning" id="Warning-ac5246e9b2601969"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-ac5246e9b2601969" title="Permalink"></a></header><div class="admonition-body"><p>Rejection sampling can be computationally expensive for highly constrained regions. If the feasible region is a very small fraction of the original support, consider reparametrizing your uncertainty model.</p></div></div><h2 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h2><table><tr><th style="text-align: right">Feature</th><th style="text-align: right">Description</th></tr><tr><td style="text-align: right">Simple bounds</td><td style="text-align: right"><code>@constraint(model, ξ &gt;= a)</code> and <code>@constraint(model, ξ &lt;= b)</code></td></tr><tr><td style="text-align: right">Linear inequalities</td><td style="text-align: right"><code>@constraint(model, a₁ξ₁ + a₂ξ₂ &lt;= b)</code></td></tr><tr><td style="text-align: right">Multiple constraints</td><td style="text-align: right">Combine to define complex polytopes</td></tr><tr><td style="text-align: right">Automatic handling</td><td style="text-align: right">Package detects and handles rejection sampling</td></tr></table><h2 id="What&#39;s-next?"><a class="docs-heading-anchor" href="#What&#39;s-next?">What&#39;s next?</a><a id="What&#39;s-next?-1"></a><a class="docs-heading-anchor-permalink" href="#What&#39;s-next?" title="Permalink"></a></h2><ul><li>Explore <a href="../piecewise_linear/#piecewise_linear_tutorial">piecewise linear decision rules</a> for better approximations</li><li>See the <a href="../../manual/math/#math_formulation">mathematical formulation</a> for theory details</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../distributions/">« Working with distributions</a><a class="docs-footer-nextpage" href="../../manual/math/">Mathematical formulations »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 10 March 2026 17:22">Tuesday 10 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

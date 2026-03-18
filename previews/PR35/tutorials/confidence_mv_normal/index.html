@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Ellipsoidal uncertainty with ConfidenceMvNormal · LinearDecisionRules.jl</title><meta name="title" content="Ellipsoidal uncertainty with ConfidenceMvNormal · LinearDecisionRules.jl"/><meta property="og:title" content="Ellipsoidal uncertainty with ConfidenceMvNormal · LinearDecisionRules.jl"/><meta property="twitter:title" content="Ellipsoidal uncertainty with ConfidenceMvNormal · LinearDecisionRules.jl"/><meta name="description" content="Documentation for LinearDecisionRules.jl."/><meta property="og:description" content="Documentation for LinearDecisionRules.jl."/><meta property="twitter:description" content="Documentation for LinearDecisionRules.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LinearDecisionRules.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-2-1" type="checkbox"/><label class="tocitem" for="menuitem-2-1"><span class="docs-label">Getting started</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../getting_started/introduction/">Introduction</a></li><li><a class="tocitem" href="../getting_started/getting_started_with_LDR/">Getting started with LinearDecisionRules</a></li></ul></li><li><a class="tocitem" href="../piecewise_linear/">Piecewise linear decision rules</a></li><li><a class="tocitem" href="../sampled/">Sampled (SAA) decision rules</a></li><li><a class="tocitem" href="../distributions/">Working with distributions</a></li><li><a class="tocitem" href="../advanced_distributions/">Advanced distribution modeling</a></li><li class="is-active"><a class="tocitem" href>Ellipsoidal uncertainty with <code>ConfidenceMvNormal</code></a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#What-is-ConfidenceMvNormal?"><span>What is <code>ConfidenceMvNormal</code>?</span></a></li><li><a class="tocitem" href="#Inspecting-the-distribution"><span>Inspecting the distribution</span></a></li><li><a class="tocitem" href="#An-inventory-problem-with-ellipsoidal-demand"><span>An inventory problem with ellipsoidal demand</span></a></li><li><a class="tocitem" href="#Effect-of-the-confidence-level-\\alpha"><span>Effect of the confidence level <span>$\alpha$</span></span></a></li><li><a class="tocitem" href="#Bounds:-box-approximation-of-the-ellipsoid"><span>Bounds: box approximation of the ellipsoid</span></a></li><li><a class="tocitem" href="#What&#39;s-next?"><span>What&#39;s next?</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">Manual</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../manual/math/">Mathematical formulations</a></li><li><a class="tocitem" href="../../manual/pwl/">Piecewise linear extensions</a></li><li><a class="tocitem" href="../../manual/ConfidenceNormal/">Confidence MvNormal</a></li></ul></li><li><a class="tocitem" href="../../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Ellipsoidal uncertainty with <code>ConfidenceMvNormal</code></a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Ellipsoidal uncertainty with <code>ConfidenceMvNormal</code></a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/bfpc/LinearDecisionRules.jl/blob/main/docs/src/tutorials/confidence_mv_normal.jl#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="confidence_mvnormal_tutorial"><a class="docs-heading-anchor" href="#confidence_mvnormal_tutorial">Ellipsoidal uncertainty with <code>ConfidenceMvNormal</code></a><a id="confidence_mvnormal_tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#confidence_mvnormal_tutorial" title="Permalink"></a></h1><p>This tutorial introduces the <code>ConfidenceMvNormal</code> distribution, which models uncertainty as a multivariate normal truncated to an ellipsoid containing a chosen fraction of probability mass. It is especially useful when you want to control how <em>conservative</em> the uncertainty set is.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using JuMP
+import LinearDecisionRules
+import HiGHS
+import Distributions
+import Random
+
+import LinearAlgebra
+import Plots</code></pre><h2 id="What-is-ConfidenceMvNormal?"><a class="docs-heading-anchor" href="#What-is-ConfidenceMvNormal?">What is <code>ConfidenceMvNormal</code>?</a><a id="What-is-ConfidenceMvNormal?-1"></a><a class="docs-heading-anchor-permalink" href="#What-is-ConfidenceMvNormal?" title="Permalink"></a></h2><p>Suppose demand follows a multivariate normal distribution <span>$d \sim \mathcal{N}(\mu, \Sigma)$</span>. In practice we may not want to plan for the entire (unbounded) support. <code>ConfidenceMvNormal(μ, Σ, α)</code> restricts the uncertainty to an <strong>ellipsoid</strong> centred at <span>$\mu$</span> that contains fraction <span>$\alpha$</span> of the probability mass:</p><p class="math-container">\[E_{\alpha} = \{\, x :  (x - \mu)&#39; \Sigma^{-1} (x - \mu) \leq \rho^2(\alpha) \,\}\]</p><p>where <span>$\rho^2(\alpha) = \text{quantile}(\chi^2_d, \alpha)$</span>.</p><p>The distribution provides the LDR framework with:</p><ul><li><strong>Mean</strong> – equal to <span>$\mu$</span> (the ellipsoid is symmetric)</li><li><strong>Covariance</strong> – a scalar multiple of <span>$\Sigma$</span> (smaller than <span>$\Sigma$</span> because the tails are cut)</li><li><strong>Finite bounds</strong> – required by the framework, given by the axis-aligned box that is tangent to the ellipsoid</li></ul><h2 id="Inspecting-the-distribution"><a class="docs-heading-anchor" href="#Inspecting-the-distribution">Inspecting the distribution</a><a id="Inspecting-the-distribution-1"></a><a class="docs-heading-anchor-permalink" href="#Inspecting-the-distribution" title="Permalink"></a></h2><pre><code class="language-julia hljs">μ = [100.0, 80.0]
+Σ = [
+    100.0 40.0
+    40.0 64.0
+]
+
+dist_95 = LinearDecisionRules.ConfidenceMvNormal(μ, Σ, 0.95)
+
+println(&quot;α = 0.95&quot;)
+println(&quot;  Ellipsoid radius  ρ = &quot;, round(dist_95.ρ; digits = 4))
+println(&quot;  Mean              = &quot;, Distributions.mean(dist_95))
+println(
+    &quot;  Covariance        = &quot;,
+    round.(Distributions.cov(dist_95); digits = 2),
+)
+println(&quot;  Component bounds:&quot;)
+for i in 1:2
+    lo = round(Distributions.minimum(dist_95)[i]; digits = 2)
+    hi = round(Distributions.maximum(dist_95)[i]; digits = 2)
+    println(&quot;    demand[$i] ∈ [$lo, $hi]&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">α = 0.95
+  Ellipsoid radius  ρ = 2.4477
+  Mean              = [100.0, 80.0]
+  Covariance        = [84.23 33.69; 33.69 53.91]
+  Component bounds:
+    demand[1] ∈ [75.52, 124.48]
+    demand[2] ∈ [60.42, 99.58]</code></pre><p>As <span>$\alpha$</span> grows, the ellipsoid expands, so the covariance approaches <span>$\Sigma$</span> and the bounds widen:</p><pre><code class="language-julia hljs">for α in [0.50, 0.80, 0.95, 0.99]
+    d = LinearDecisionRules.ConfidenceMvNormal(μ, Σ, α)
+    s = round(Distributions.cov(d)[1, 1] / Σ[1, 1]; digits = 3)
+    println(&quot;α = $α  →  cov scaling = $s  (ρ = $(round(d.ρ; digits=2)))&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">α = 0.5  →  cov scaling = 0.307  (ρ = 1.18)
+α = 0.8  →  cov scaling = 0.598  (ρ = 1.79)
+α = 0.95  →  cov scaling = 0.842  (ρ = 2.45)
+α = 0.99  →  cov scaling = 0.953  (ρ = 3.03)</code></pre><h2 id="An-inventory-problem-with-ellipsoidal-demand"><a class="docs-heading-anchor" href="#An-inventory-problem-with-ellipsoidal-demand">An inventory problem with ellipsoidal demand</a><a id="An-inventory-problem-with-ellipsoidal-demand-1"></a><a class="docs-heading-anchor-permalink" href="#An-inventory-problem-with-ellipsoidal-demand" title="Permalink"></a></h2><p>Two products have correlated demand.  Before demand is revealed a retailer decides how many units to stock (<code>buy</code>); afterwards they sell as much as possible (<code>sell</code>).</p><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Value</th></tr><tr><td style="text-align: right">Buy cost</td><td style="text-align: right"><span>$</span>10</td></tr><tr><td style="text-align: right">Sell price</td><td style="text-align: right"><span>$</span>15</td></tr><tr><td style="text-align: right">Salvage value</td><td style="text-align: right"><span>$</span>5</td></tr></table><pre><code class="language-julia hljs">buy_cost = 10.0
+sell_price = 15.0
+salvage_val = 5.0
+
+function solve_inventory(α)
+    dist = LinearDecisionRules.ConfidenceMvNormal(μ, Σ, α)
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+    set_attribute(ldr, LinearDecisionRules.SolveDual(), true)
+
+    @variable(ldr, buy[1:2] &gt;= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell[1:2] &gt;= 0)
+    @variable(ldr, salvage[1:2] &gt;= 0)
+    @variable(
+        ldr,
+        demand[1:2] in LinearDecisionRules.Uncertainty(; distribution = dist),
+    )
+
+    for i in 1:2
+        @constraint(ldr, sell[i] + salvage[i] &lt;= buy[i])
+        @constraint(ldr, sell[i] &lt;= demand[i])
+    end
+
+    @objective(
+        ldr,
+        Max,
+        sum(
+            -buy_cost * buy[i] +
+            sell_price * sell[i] +
+            salvage_val * salvage[i] for i in 1:2
+        ),
+    )
+
+    optimize!(ldr)
+    return (
+        buy = [LinearDecisionRules.get_decision(ldr, buy[i]) for i in 1:2],
+        primal = objective_value(ldr),
+        dual = objective_value(ldr; dual = true),
+    )
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">solve_inventory (generic function with 1 method)</code></pre><h2 id="Effect-of-the-confidence-level-\\alpha"><a class="docs-heading-anchor" href="#Effect-of-the-confidence-level-\\alpha">Effect of the confidence level <span>$\alpha$</span></a><a id="Effect-of-the-confidence-level-\\alpha-1"></a><a class="docs-heading-anchor-permalink" href="#Effect-of-the-confidence-level-\\alpha" title="Permalink"></a></h2><p>A smaller <span>$\alpha$</span> means a tighter uncertainty set: the planner expects demand to stay close to the mean and buys less speculatively.</p><pre><code class="language-julia hljs">for α in [0.50, 0.80, 0.90, 0.95, 0.99]
+    r = solve_inventory(α)
+    println(
+        &quot;α = $α  buy = $(round.(r.buy; digits=1))  &quot; *
+        &quot;primal = $(round(r.primal; digits=2))  &quot; *
+        &quot;dual = $(round(r.dual; digits=2))&quot;,
+    )
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">α = 0.5  buy = [88.2, 70.6]  primal = 794.03  dual = 876.54
+α = 0.8  buy = [82.1, 65.6]  primal = 738.53  dual = 870.02
+α = 0.9  buy = [78.5, 62.8]  primal = 706.86  dual = 868.79
+α = 0.95  buy = [75.5, 60.4]  primal = 679.7  dual = 869.03
+α = 0.99  buy = [69.7, 55.7]  primal = 626.86  dual = 871.72</code></pre><div class="admonition is-info" id="Note-ae3098610f0b5cad"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-ae3098610f0b5cad" title="Permalink"></a></header><div class="admonition-body"><p>Higher <span>$\alpha$</span> → wider ellipsoid → demand can be further from the mean → optimal buy quantities change to accomodate more scenarios (more conservative solution).</p></div></div><h2 id="Bounds:-box-approximation-of-the-ellipsoid"><a class="docs-heading-anchor" href="#Bounds:-box-approximation-of-the-ellipsoid">Bounds: box approximation of the ellipsoid</a><a id="Bounds:-box-approximation-of-the-ellipsoid-1"></a><a class="docs-heading-anchor-permalink" href="#Bounds:-box-approximation-of-the-ellipsoid" title="Permalink"></a></h2><p>The LDR framework requires finite <code>minimum</code> and <code>maximum</code> for each uncertainty variable.  <code>ConfidenceMvNormal</code> provides the <strong>tightest axis-aligned box</strong> that contains the ellipsoid:</p><p class="math-container">\[\mu_k - \rho\sqrt{\Sigma_{kk}}
+\;\leq\; d_k \;\leq\;
+\mu_k + \rho\sqrt{\Sigma_{kk}}\]</p><p>These are outer (conservative) bounds on the actual ellipsoid. A future extension could use <em>rotated box</em> bounds aligned with the principal axes of <span>$\Sigma$</span>, which would be tighter for highly correlated distributions.</p><pre><code class="language-julia hljs">function draw_ellipse(d::LinearDecisionRules.ConfidenceMvNormal)
+    @assert length(d) == 2
+
+    L = d.L
+    U, sigma, _ = LinearAlgebra.svd(L)
+    μ = d.μ
+    ρ = d.ρ
+
+    # Confidence ellipsoid: image of the ball of radius ρ under the linear map L
+    θ = range(0, 2π; length = 100)
+    ellipse = [μ .+ ρ .* (L * [cos(t); sin(t)]) for t in θ]
+    p = Plots.plot(
+        first.(ellipse),
+        last.(ellipse);
+        label = &quot;Confidence Ellipse&quot;,
+        aspect_ratio = :equal,
+    )
+
+    # Axis-aligned bounding box
+    xmin, ymin = Distributions.minimum(d)
+    xmax, ymax = Distributions.maximum(d)
+    Plots.plot!(
+        p,
+        [xmin, xmax, xmax, xmin, xmin],
+        [ymin, ymin, ymax, ymax, ymin];
+        label = &quot;Coordinate-axis Box&quot;,
+        linestyle = :dash,
+    )
+
+    # Box aligned with principal axes
+    points = [[-ρ, -ρ], [-ρ, ρ], [ρ, ρ], [ρ, -ρ], [-ρ, -ρ]]
+    points = [μ .+ U * (sigma .* p) for p in points]
+    Plots.plot!(
+        p,
+        [first.(points)],
+        [last.(points)];
+        label = &quot;Principal-axis Box&quot;,
+        linestyle = :dashdot,
+    )
+
+    # Sample points from the distribution
+    rng = Random.MersenneTwister(42)
+    samples = [rand(rng, d) for _ in 1:1000]
+    Plots.scatter!(
+        p,
+        first.(samples),
+        last.(samples);
+        label = &quot;Samples&quot;,
+        alpha = 0.5,
+    )
+
+    # Compare the volume of bounding boxes
+    vol_bbox = prod(Distributions.maximum(d) .- Distributions.minimum(d))
+    vol_Lbox = 4 * prod(sigma) * ρ^2
+    println(&quot;Volume of coordinate-axis box: $vol_bbox&quot;)
+    println(&quot;Volume of  principal-axis box: $vol_Lbox&quot;)
+
+    return p
+end
+
+draw_ellipse(dist_95)</code></pre><img src="d1ca5965.svg" alt="Example block output"/><h2 id="What&#39;s-next?"><a class="docs-heading-anchor" href="#What&#39;s-next?">What&#39;s next?</a><a id="What&#39;s-next?-1"></a><a class="docs-heading-anchor-permalink" href="#What&#39;s-next?" title="Permalink"></a></h2><ul><li>See <a href="../../manual/ConfidenceNormal/#confidence_mvnormal"><code>ConfidenceMvNormal</code></a> for the mathematical details</li><li>Explore <a href="../piecewise_linear/#piecewise_linear_tutorial">piecewise linear decision rules</a> for tighter primal–dual gaps</li><li>Use <a href="../advanced_distributions/#advanced_distributions_tutorial">advanced constraint-based uncertainty</a> for polytope uncertainty sets</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../advanced_distributions/">« Advanced distribution modeling</a><a class="docs-footer-nextpage" href="../../manual/math/">Mathematical formulations »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 17 March 2026 21:51">Tuesday 17 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
