@@ -20,21 +20,9 @@ jobs:
         # Since LDR doesn't have binary dependencies, only test on a subset of
         # possible platforms.
         include:
-          - version: '1'  # The latest point-release (Linux)
-            os: ubuntu-latest
-            arch: x64
-          - version: '1'  # The latest point-release (Windows)
-            os: windows-latest
-            arch: x64
-          - version: 'lts'  # Latest LTS (64-bit Linux)
-            os: ubuntu-latest
-            arch: x64
-          - version: 'lts'  # Latest LTS (32-bit Linux)
+          - version: 'lts'  # Latest LTS (32-bit Linux) - DEBUG ONLY
             os: ubuntu-latest
             arch: x86
-          - version: 'nightly'
-            os: ubuntu-latest
-            arch: x64
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2

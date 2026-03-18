@@ -15,8 +15,8 @@ function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$(name)", "test_")
             if Sys.WORD_SIZE == 32
-                # On 32-bit, only run sampled tests to debug OOM
-                if !startswith("$(name)", "test_solve_sampled")
+                # On 32-bit, only run the quadratic test to debug OOM
+                if name != :test_solve_sampled_quadratic_objective
                     continue
                 end
                 GC.gc()
@@ -2506,10 +2506,9 @@ function test_solve_sampled_quadratic_objective()
     set_attribute(m, LinearDecisionRules.SolveSampled(), true)
     set_attribute(m, LinearDecisionRules.NumScenarios(), 50)
     println("DEBUG [quadratic] free_memory before optimize=$(Sys.free_memory() / 1024^2) MB")
+    println("DEBUG [quadratic] JuMP model before optimize!:")
+    println(m)
     flush(stdout)
-    # Call optimize! — this calls _prepare_data then _solve_sampled_ldr
-    # _solve_sampled_ldr builds the JuMP model and calls optimize! on it
-    # The crash happens inside HiGHS during that inner optimize!
     optimize!(m)
     println("DEBUG [quadratic] optimize! done")
     sm = m.sampled_model

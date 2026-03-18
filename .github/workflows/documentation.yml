@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags: '*'
-  pull_request:
+  # pull_request:  # Disabled for debug branch
 
 jobs:
   build:

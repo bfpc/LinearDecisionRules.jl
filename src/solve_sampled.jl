@@ -129,6 +129,8 @@ function _solve_sampled_ldr(model)
         lp = read(lp_path, String)
         println("DEBUG [solve_sampled] LP file: $(length(lp)) bytes, $(count('\n', lp)) lines")
         println(lp)
+        println("DEBUG [solve_sampled] JuMP model:")
+        println(model.sampled_model)
         flush(stdout)
     end
 
