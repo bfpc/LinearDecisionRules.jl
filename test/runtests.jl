@@ -2506,9 +2506,32 @@ function test_solve_sampled_quadratic_objective()
     set_attribute(m, LinearDecisionRules.SolveSampled(), true)
     set_attribute(m, LinearDecisionRules.NumScenarios(), 50)
     println("DEBUG [quadratic] free_memory before optimize=$(Sys.free_memory() / 1024^2) MB")
-    println("DEBUG [quadratic] JuMP model before optimize!:")
-    println(m)
     flush(stdout)
+
+    # On 32-bit, test if Ipopt can solve a standalone QP before running the full LDR solve
+    if Sys.WORD_SIZE == 32
+        println("DEBUG [quadratic] testing standalone Ipopt QP...")
+        flush(stdout)
+        ipopt_m = Model(Ipopt.Optimizer)
+        set_silent(ipopt_m)
+        @variable(ipopt_m, y[1:2])
+        @constraint(ipopt_m, y[1] + y[2] <= 1)
+        @objective(ipopt_m, Min, y[1]^2 + y[2]^2)
+        optimize!(ipopt_m)
+        println("DEBUG [quadratic] Ipopt QP status=$(termination_status(ipopt_m))")
+
+        println("DEBUG [quadratic] testing standalone HiGHS QP...")
+        flush(stdout)
+        highs_m = Model(HiGHS.Optimizer)
+        set_silent(highs_m)
+        @variable(highs_m, z[1:2])
+        @constraint(highs_m, z[1] + z[2] <= 1)
+        @objective(highs_m, Min, z[1]^2 + z[2]^2)
+        optimize!(highs_m)
+        println("DEBUG [quadratic] HiGHS QP status=$(termination_status(highs_m))")
+        flush(stdout)
+    end
+
     optimize!(m)
     println("DEBUG [quadratic] optimize! done")
     sm = m.sampled_model
