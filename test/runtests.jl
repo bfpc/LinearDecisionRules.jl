@@ -15,12 +15,10 @@ function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$(name)", "test_")
             if Sys.WORD_SIZE == 32
-                # On 32-bit, only run the quadratic test to debug OOM
-                if name != :test_solve_sampled_quadratic_objective
+                # On 32-bit, only run the MPS HiGHS QP debug test
+                if name != :test_highs_qp_mps_32bit
                     continue
                 end
-                GC.gc()
-                println("DEBUG [runtests] before $(name): free_memory=$(Sys.free_memory() / 1024^2) MB")
             end
             @testset "$(name)" begin
                 getfield(@__MODULE__, name)()
@@ -2782,6 +2780,22 @@ function test_solve_sampled_vector_distribution()
     @test termination_status(ldr; sampled = true) == MOI.OPTIMAL
     @test objective_value(ldr; sampled = true) > 0
 
+    return nothing
+end
+
+function test_highs_qp_mps_32bit()
+    mps_path = joinpath(@__DIR__, "data", "sampled_quadratic_32bit.mps")
+    println("DEBUG [mps_test] loading MPS from $mps_path")
+    flush(stdout)
+    model = JuMP.read_from_file(mps_path)
+    println("DEBUG [mps_test] loaded, num_variables=$(num_variables(model))")
+    set_optimizer(model, HiGHS.Optimizer)
+    set_silent(model)
+    println("DEBUG [mps_test] calling optimize!...")
+    flush(stdout)
+    optimize!(model)
+    println("DEBUG [mps_test] status=$(termination_status(model))")
+    @test termination_status(model) == MOI.OPTIMAL
     return nothing
 end
 
