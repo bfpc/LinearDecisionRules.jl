@@ -35,6 +35,7 @@ import LinearDecisionRules
 import HiGHS
 import Distributions
 import Plots
+import StatsPlots
 
 # ## The Newsvendor problem
 
@@ -177,6 +178,50 @@ Plots.hline!(
 #     With more scenarios, the sampled objective converges. The primal and
 #     dual bounds are independent of ``N`` since they use the analytical
 #     second moment matrix.
+
+# ## Part 4: SAA variance
+
+# For a small number of scenarios, the sampled objective (and decision) can
+# have significant variance.  Let's see this in practice:
+
+scenario_counts = [2, 5, 10, 25]
+sampled_objs = Dict{Int, Vector{Float64}}()
+N_repeats = 10
+
+for n in scenario_counts
+    sampled_objs[n] = Float64[]
+    for seed in 1:N_repeats
+        r = solve_newsvendor_all(; n_scenarios = n, seed = N_repeats*n +seed)
+        push!(sampled_objs[n], r.sampled)
+    end
+end
+flattened_objs = [sampled_objs[n][i] for i in 1:N_repeats for n in scenario_counts]
+
+p = Plots.boxplot(
+    collect(1:length(scenario_counts)),
+    flattened_objs;
+    label = "Sampled objective",
+    xlabel = "Number of scenarios (N)",
+    ylabel = "Objective value",
+    title = "SAA Variance (10 repeats)",
+    color = :green,
+    xticks = (1:length(scenario_counts), scenario_counts),
+    bar_width = 0.5,
+)
+Plots.hline!(
+    p,
+    [ref.primal];
+    label = "Primal bound",
+    linestyle = :dash,
+    color = :steelblue,
+)
+Plots.hline!(
+    p,
+    [ref.dual];
+    label = "Dual bound",
+    linestyle = :dash,
+    color = :darkorange,
+)
 
 # ## Key API summary
 
