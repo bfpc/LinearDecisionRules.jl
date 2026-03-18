@@ -2466,11 +2466,13 @@ end
 
 function test_solve_sampled_quadratic_objective()
     # Tests the M̂ path in _prepare_data (needs_M̂ = true)
-    # HiGHS supports QP objectives needed for the sampled sub-model
+    # HiGHS crashes with std::bad_alloc on 32-bit QP (upstream bug)
+    # Use Ipopt on 32-bit as workaround
+    solver = Sys.WORD_SIZE == 32 ? Ipopt.Optimizer : HiGHS.Optimizer
     initial_volume = 0.5
     demand = 0.3
 
-    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    m = LinearDecisionRules.LDRModel(solver)
     set_silent(m)
     @variable(m, vi == initial_volume)
     @variable(m, 0 <= vf <= 1)
@@ -2495,7 +2497,8 @@ function test_solve_sampled_quadratic_objective()
     # Verify the M̂ path was taken (not the μ̂ path)
     @test haskey(m.ext, :_LDR_M_empirical)
     @test !haskey(m.ext, :_LDR_μ_empirical)
-    @test termination_status(m; sampled = true) == MOI.OPTIMAL
+    @test termination_status(m; sampled = true) in
+          (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
 
     # Sampled decision rules should satisfy balance constraint
     gh_const = LinearDecisionRules.get_decision(m, gh; sampled = true)
