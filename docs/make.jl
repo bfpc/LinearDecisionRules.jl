@@ -60,7 +60,12 @@ const _PAGES = [
         "tutorials/confidence_mv_normal.md",
     ],
     "Manual" =>
-        ["manual/math.md", "manual/pwl.md", "manual/ConfidenceNormal.md"],
+        [
+            "manual/math.md",
+            "manual/pwl.md",
+            "manual/ConfidenceNormal.md",
+            "manual/information_flow.md",
+        ],
     "API Reference" => "api.md",
 ]
 
