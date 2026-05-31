@@ -10,7 +10,9 @@ function _solve_dual_ldr(model)
     M = model.ext[:_LDR_M]
     r = model.ext[:_LDR_r]::Float64
 
-    first_stage_indices = model.ext[:_LDR_first_stage_indices]
+    decision_stage_by_local_index = model.ext[:_LDR_decision_stage_by_local_index]
+    uncertainty_stage_by_local_index =
+        model.ext[:_LDR_uncertainty_stage_by_local_index]
 
     dim_x = size(ABC.Ae, 2)
     dim_ξ = size(ABC.Be, 2)
@@ -18,10 +20,9 @@ function _solve_dual_ldr(model)
     # LDRs
     @expression(model.dual_model, X[1:dim_x, 1:dim_ξ], AffExpr(0.0))
     for i in 1:dim_x
-        if i in first_stage_indices
-            X[i, 1] = @variable(model.dual_model, base_name = "X[$i,1]")
-        else
-            for j in 1:dim_ξ
+        var_stage = decision_stage_by_local_index[i]
+        for j in 1:dim_ξ
+            if j == 1 || uncertainty_stage_by_local_index[j-1] <= var_stage
                 X[i, j] = @variable(model.dual_model, base_name = "X[$i,$j]")
             end
         end

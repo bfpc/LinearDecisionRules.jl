@@ -12,6 +12,9 @@ function _create_pwl_model(model::LDRModel)
 
     pwl_model.model = raw_pwl_model
     empty!(pwl_model.first_stage)
+    empty!(pwl_model.stage_of_variable)
+    empty!(pwl_model.stage_of_uncertainty)
+    empty!(pwl_model.stage_of_constraint)
     empty!(pwl_model.vector_distributions)
     empty!(pwl_model.scalar_distributions)
     empty!(pwl_model.uncertainty_to_distribution)
@@ -21,6 +24,19 @@ function _create_pwl_model(model::LDRModel)
     for var_cache in cache_model.first_stage
         var_pwl = model.map_cache_to_pwl[var_cache]
         push!(pwl_model.first_stage, var_pwl)
+    end
+
+    for (var_cache, st) in cache_model.stage_of_variable
+        var_pwl = model.map_cache_to_pwl[var_cache]
+        pwl_model.stage_of_variable[var_pwl] = st
+    end
+    for (var_cache, st) in cache_model.stage_of_uncertainty
+        var_pwl = model.map_cache_to_pwl[var_cache]
+        pwl_model.stage_of_uncertainty[var_pwl] = st
+    end
+    for (con_cache, st) in cache_model.stage_of_constraint
+        con_pwl = model.map_cache_to_pwl[con_cache]
+        pwl_model.stage_of_constraint[con_pwl] = st
     end
 
     # TODO
@@ -85,6 +101,10 @@ function _create_pwl_model(model::LDRModel)
                     push!(new_vars, v)
                     pwl_model.uncertainty_to_distribution[v] =
                         (length(pwl_model.vector_distributions), i + 1)
+                    pwl_model.stage_of_variable[v] =
+                        pwl_model.stage_of_variable[uncertainty_pwl]
+                    pwl_model.stage_of_uncertainty[v] =
+                        pwl_model.stage_of_uncertainty[uncertainty_pwl]
                 end
                 _add_pwl_vars_to_constraints(
                     pwl_model.model,

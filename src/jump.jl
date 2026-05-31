@@ -3,6 +3,12 @@ Base.@kwdef mutable struct StochasticModel <: JuMP.AbstractModel
 
     # maps
     first_stage::Set{JuMP.VariableRef} = Set{JuMP.VariableRef}()
+    stage_of_variable::Dict{JuMP.VariableRef,Int} =
+        Dict{JuMP.VariableRef,Int}()
+    stage_of_uncertainty::Dict{JuMP.VariableRef,Int} =
+        Dict{JuMP.VariableRef,Int}()
+    stage_of_constraint::Dict{JuMP.ConstraintRef,Int} =
+        Dict{JuMP.ConstraintRef,Int}()
     uncertainty_to_distribution::Dict{JuMP.VariableRef,Tuple{Int,Int}} =
         Dict{JuMP.VariableRef,Tuple{Int,Int}}()
     scalar_distributions::Vector{Distributions.Distribution} =
@@ -264,6 +270,128 @@ end
 function JuMP.get_attribute(model::LDRModel, ::RejectionSamplingWarnAttempts)
     return model.rejection_sampling_warn_attempts
 end
+
+"""
+    Stage(n)
+
+Declare stage metadata for variables and constraints.
+
+- For variables: `@variable(m, x, Stage(2))`
+- For constraints: `set_attribute(con, Stage(2))`
+
+Stage indices must satisfy `n >= 1`.
+"""
+struct Stage
+    n::Union{Nothing,Int}
+end
+
+Stage() = Stage(nothing)
+function Stage(n::Integer)
+    if n < 1
+        error("Stage index must be at least 1, got $n")
+    end
+    return Stage(Int(n))
+end
+
+function _set_variable_stage!(model::LDRModel, var::JuMP.VariableRef, stage::Int)
+    model.cache_model.stage_of_variable[var] = stage
+    if stage == 1
+        push!(model.cache_model.first_stage, var)
+    else
+        delete!(model.cache_model.first_stage, var)
+    end
+    return nothing
+end
+
+function _set_uncertainty_stage!(
+    model::LDRModel,
+    var::JuMP.VariableRef,
+    stage::Int,
+)
+    model.cache_model.stage_of_uncertainty[var] = stage
+    return _set_variable_stage!(model, var, stage)
+end
+
+function _ensure_default_stage!(model::LDRModel, var::JuMP.VariableRef)
+    if !haskey(model.cache_model.stage_of_variable, var)
+        _set_variable_stage!(model, var, 2)
+    end
+    return nothing
+end
+
+function _warn_if_mixed_stage_api!(model::LDRModel)
+    if !get(model.ext, :_LDR_used_first_stage, false)
+        return nothing
+    end
+    if !get(model.ext, :_LDR_stage_api_used, false)
+        return nothing
+    end
+    if get(model.ext, :_LDR_warned_mixed_stage_deprecation, false)
+        return nothing
+    end
+    @warn "Mixing FirstStage with Stage(n) is deprecated; use Stage(1) instead of FirstStage in multistage models."
+    model.ext[:_LDR_warned_mixed_stage_deprecation] = true
+    return nothing
+end
+
+function _mark_first_stage_used!(model::LDRModel)
+    model.ext[:_LDR_used_first_stage] = true
+    _warn_if_mixed_stage_api!(model)
+    return nothing
+end
+
+function _mark_stage_api_used!(model::LDRModel)
+    model.ext[:_LDR_stage_api_used] = true
+    _warn_if_mixed_stage_api!(model)
+    return nothing
+end
+
+function JuMP.set_attribute(x::JuMP.VariableRef, stage::Stage)
+    if stage.n === nothing
+        error("Variable stage assignment requires Stage(n).")
+    end
+    model = x.model.ext[:_LDR_model]
+    if !JuMP.is_valid(model, x)
+        error("Variable does not belong to the model.")
+    end
+    if haskey(model.cache_model.uncertainty_to_distribution, x)
+        _set_uncertainty_stage!(model, x, stage.n)
+    else
+        _set_variable_stage!(model, x, stage.n)
+    end
+    _mark_stage_api_used!(model)
+    return nothing
+end
+
+function JuMP.get_attribute(x::JuMP.VariableRef, ::Stage)
+    model = x.model.ext[:_LDR_model]
+    if !JuMP.is_valid(model, x)
+        error("Variable does not belong to the model.")
+    end
+    return get(model.cache_model.stage_of_variable, x, 2)
+end
+
+function JuMP.set_attribute(con::JuMP.ConstraintRef, stage::Stage)
+    if stage.n === nothing
+        error("Constraint stage assignment requires Stage(n).")
+    end
+    model = con.model.ext[:_LDR_model]
+    if !JuMP.is_valid(model, con)
+        error("Constraint does not belong to the model.")
+    end
+    model.cache_model.stage_of_constraint[con] = stage.n
+    _mark_stage_api_used!(model)
+    return nothing
+end
+
+function JuMP.get_attribute(con::JuMP.ConstraintRef, ::Stage)
+    model = con.model.ext[:_LDR_model]
+    if !JuMP.is_valid(model, con)
+        error("Constraint does not belong to the model.")
+    end
+    return get(model.cache_model.stage_of_constraint, con, nothing)
+end
+
 
 """
     BreakPoints
@@ -554,19 +682,30 @@ end
 
 struct VectorUncertainty
     distribution::Distributions.Distribution
-    function VectorUncertainty(distribution::Distributions.Distribution)
+    stage::Int
+    function VectorUncertainty(
+        distribution::Distributions.Distribution,
+        stage::Int,
+    )
         if !(distribution isa Distributions.MultivariateDistribution)
             error(
                 "Only MultivariateDistribution distributions are supported, got a $(typeof(distribution)).",
             )
         end
-        return new(distribution)
+        if stage < 1
+            error("Stage index must be at least 1, got $stage")
+        end
+        return new(distribution, stage)
     end
 end
+
+VectorUncertainty(distribution::Distributions.Distribution) =
+    VectorUncertainty(distribution, 2)
 
 struct _VectorUncertainty <: JuMP.AbstractVariable
     info::Vector{JuMP.VariableInfo}
     distribution::Distributions.Distribution
+    stage::Int
 end
 
 function JuMP.build_variable(
@@ -579,7 +718,7 @@ function JuMP.build_variable(
     n1 = length(infos)
     n2 = length(set.distribution)
     @assert n1 == n2
-    return _VectorUncertainty(infos, set.distribution)
+    return _VectorUncertainty(infos, set.distribution, set.stage)
 end
 
 function JuMP.add_variable(
@@ -645,6 +784,7 @@ function JuMP.add_variable(
         )
         ret[i] = var
         model.cache_model.uncertainty_to_distribution[var] = (dist_index, i)
+        _set_uncertainty_stage!(model, var, uncertainty.stage)
     end
     vc = _valid_constraints(dist)
     if vc !== nothing
@@ -706,13 +846,21 @@ import Distributions
 ))
 ```
 """
-function Uncertainty(; distribution::Distributions.Distribution = nothing)
+function Uncertainty(
+    ;
+    distribution::Distributions.Distribution = nothing,
+    stage::Union{Nothing,Integer} = nothing,
+)
+    _stage = stage === nothing ? 2 : Int(stage)
+    if _stage < 1
+        error("Stage index must be at least 1, got $_stage")
+    end
     if distribution === nothing
         error("distribution is required.")
     elseif distribution isa Distributions.UnivariateDistribution
-        return ScalarUncertainty(distribution)
+        return ScalarUncertainty(distribution, _stage)
     elseif distribution isa Distributions.MultivariateDistribution
-        return VectorUncertainty(distribution)
+        return VectorUncertainty(distribution, _stage)
     end
     return error(
         """Unexpected distribution type: $(typeof(distribution)).
@@ -722,11 +870,16 @@ end
 
 struct ScalarUncertainty
     distribution::Distributions.UnivariateDistribution
+    stage::Int
 end
+
+ScalarUncertainty(distribution::Distributions.UnivariateDistribution) =
+    ScalarUncertainty(distribution, 2)
 
 struct _ScalarUncertainty <: JuMP.AbstractVariable
     info::JuMP.VariableInfo
     distribution::Distributions.UnivariateDistribution
+    stage::Int
 end
 
 function JuMP.build_variable(
@@ -735,7 +888,7 @@ function JuMP.build_variable(
     set::ScalarUncertainty;
     kwargs...,
 )
-    return _ScalarUncertainty(info.info, set.distribution)
+    return _ScalarUncertainty(info.info, set.distribution, set.stage)
 end
 
 function JuMP.add_variable(
@@ -804,7 +957,40 @@ function JuMP.add_variable(
     push!(model.cache_model.scalar_distributions, dist)
     dist_index = length(model.cache_model.scalar_distributions)
     model.cache_model.uncertainty_to_distribution[var] = (dist_index, 0)
+    _set_uncertainty_stage!(model, var, uncertainty.stage)
 
+    return var
+end
+
+struct _StageVariable <: JuMP.AbstractVariableRef
+    info::JuMP.VariableInfo
+    stage::Int
+end
+
+function JuMP.build_variable(
+    _err::Function,
+    info::JuMP.VariableInfo,
+    stage::Stage;
+    kwargs...,
+)
+    if stage.n === nothing
+        error("Variable declaration requires Stage(n) with n >= 1.")
+    end
+    return _StageVariable(info, stage.n)
+end
+
+function JuMP.add_variable(
+    model::LDRModel,
+    stage_var::_StageVariable,
+    name::String,
+)
+    var = JuMP.add_variable(
+        model.cache_model.model,
+        JuMP.ScalarVariable(stage_var.info),
+        name,
+    )
+    _set_variable_stage!(model, var, stage_var.stage)
+    _mark_stage_api_used!(model)
     return var
 end
 
@@ -843,7 +1029,8 @@ function JuMP.add_variable(
         JuMP.ScalarVariable(first_stage.info),
         name,
     )
-    push!(model.cache_model.first_stage, var)
+    _set_variable_stage!(model, var, 1)
+    _mark_first_stage_used!(model)
     return var
 end
 
@@ -854,7 +1041,9 @@ function JuMP.add_variable(
     v::JuMP.AbstractVariable,
     name::String = "",
 )
-    return JuMP.add_variable(model.cache_model.model, v, name)
+    var = JuMP.add_variable(model.cache_model.model, v, name)
+    _ensure_default_stage!(model, var)
+    return var
 end
 
 function JuMP.add_variable(
@@ -862,7 +1051,9 @@ function JuMP.add_variable(
     variable::JuMP.VariableConstrainedOnCreation,
     name::String,
 )
-    return JuMP.add_variable(model.cache_model.model, variable, name)
+    var = JuMP.add_variable(model.cache_model.model, variable, name)
+    _ensure_default_stage!(model, var)
+    return var
 end
 
 function JuMP.add_variable(
@@ -870,7 +1061,9 @@ function JuMP.add_variable(
     variable::JuMP.VariablesConstrainedOnCreation,
     names,
 )
-    return JuMP.add_variable(model.cache_model.model, variable, names)
+    vars = JuMP.add_variable(model.cache_model.model, variable, names)
+    _ensure_default_stage!.(Ref(model), vars)
+    return vars
 end
 
 function JuMP.delete(_::LDRModel, vref::JuMP.AbstractVariableRef)

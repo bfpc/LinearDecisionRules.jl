@@ -44,7 +44,9 @@ s.t. Ae X ξ = Be ξ
 function _model_to_matrix(
     data::MatrixData,
     uncertainty_variables,
-    first_stage_variables,
+    stage_of_variable,
+    stage_of_uncertainty,
+    stage_of_constraint,
     uncertainty_valid_constraints,
 )
     A = data.A
@@ -67,8 +69,73 @@ function _model_to_matrix(
         column_to_canonical[col] = i
     end
 
-    first_stage_indices =
-        Set(findall(x -> x in first_stage_variables, data.variables))
+    decision_stage_by_local_index = Int[]
+    sizehint!(decision_stage_by_local_index, length(variable_indices))
+    for col in variable_indices
+        push!(decision_stage_by_local_index, get(stage_of_variable, data.variables[col], 2))
+    end
+    uncertainty_stage_by_local_index = Int[]
+    sizehint!(uncertainty_stage_by_local_index, length(uncertainty_indices))
+    for col in uncertainty_indices
+        push!(
+            uncertainty_stage_by_local_index,
+            get(stage_of_uncertainty, data.variables[col], 2),
+        )
+    end
+
+    first_stage_indices = Set(findall(==(1), decision_stage_by_local_index))
+    stage_to_decision_indices = Dict{Int,Set{Int}}()
+    for (idx, st) in enumerate(decision_stage_by_local_index)
+        if !haskey(stage_to_decision_indices, st)
+            stage_to_decision_indices[st] = Set{Int}()
+        end
+        push!(stage_to_decision_indices[st], idx)
+    end
+    stage_to_uncertainty_indices = Dict{Int,Set{Int}}()
+    for (idx, st) in enumerate(uncertainty_stage_by_local_index)
+        if !haskey(stage_to_uncertainty_indices, st)
+            stage_to_uncertainty_indices[st] = Set{Int}()
+        end
+        push!(stage_to_uncertainty_indices[st], idx)
+    end
+
+    # Compute inferred row stages from participating variables.
+    row_stage = fill(1, m)
+    rows = SparseArrays.rowvals(A)
+    for col in 1:n
+        st = get(stage_of_variable, data.variables[col], 2)
+        for r in SparseArrays.nzrange(A, col)
+            row = rows[r]
+            row_stage[row] = max(row_stage[row], st)
+        end
+    end
+    # Apply explicit constraint stage metadata (affine constraints correspond to A rows).
+    for (row, con) in enumerate(data.affine_constraints)
+        explicit_stage = get(stage_of_constraint, con, nothing)
+        if explicit_stage === nothing
+            continue
+        end
+        if explicit_stage < row_stage[row]
+            error(
+                "Constraint $(name(con)) has Stage($explicit_stage), but includes terms from Stage($(row_stage[row])).",
+            )
+        end
+        row_stage[row] = explicit_stage
+    end
+
+    # Validate forward references in each row.
+    for col in 1:n
+        st = get(stage_of_variable, data.variables[col], 2)
+        for r in SparseArrays.nzrange(A, col)
+            row = rows[r]
+            if st > row_stage[row]
+                error(
+                    "Constraint row $row uses variable from Stage($st), above constraint Stage($(row_stage[row])).",
+                )
+            end
+        end
+    end
+
     uncertainty_valid_indices = Set(
         findall(
             x -> x in uncertainty_valid_constraints,
@@ -80,7 +147,12 @@ function _model_to_matrix(
     variable_indices,
     column_to_canonical,
     first_stage_indices,
-    uncertainty_valid_indices
+    uncertainty_valid_indices,
+    decision_stage_by_local_index,
+    uncertainty_stage_by_local_index,
+    stage_to_decision_indices,
+    stage_to_uncertainty_indices,
+    row_stage
 end
 
 function _second_moment_matrix(
@@ -283,13 +355,16 @@ function _canonical(
     uncertainty_valid_indices,
 )
     # look for rows of data.A (a sparse matrix) that are only of uncertainty
+    decision_col_to_local = Dict(col => i for (i, col) in enumerate(variable_indices))
     for var in data.binaries
-        if !(var in first_stage_indices)
+        local_idx = get(decision_col_to_local, var, nothing)
+        if local_idx === nothing || !(local_idx in first_stage_indices)
             error("Binary variable $var is not in the FirstStage")
         end
     end
     for var in data.integers
-        if !(var in first_stage_indices)
+        local_idx = get(decision_col_to_local, var, nothing)
+        if local_idx === nothing || !(local_idx in first_stage_indices)
             error("Integer variable $var is not in the FirstStage")
         end
     end
@@ -490,10 +565,17 @@ function _prepare_data(model)
     variable_indices,
     column_to_canonical,
     first_stage_indices,
-    uncertainty_valid_indices = _model_to_matrix(
+    uncertainty_valid_indices,
+    decision_stage_by_local_index,
+    uncertainty_stage_by_local_index,
+    stage_to_decision_indices,
+    stage_to_uncertainty_indices,
+    row_stage = _model_to_matrix(
         data,
         stoch_model.uncertainty_to_distribution,
-        stoch_model.first_stage,
+        stoch_model.stage_of_variable,
+        stoch_model.stage_of_uncertainty,
+        stoch_model.stage_of_constraint,
         stoch_model.uncertainty_valid_constraints,
     )
     model.ext[:_LDR_column_to_canonical] = column_to_canonical
@@ -523,6 +605,13 @@ function _prepare_data(model)
     model.ext[:_LDR_sense] = data.sense
     model.ext[:_LDR_ABC] = ABC
     model.ext[:_LDR_first_stage_indices] = first_stage_indices
+    model.ext[:_LDR_decision_stage_by_local_index] =
+        decision_stage_by_local_index
+    model.ext[:_LDR_uncertainty_stage_by_local_index] =
+        uncertainty_stage_by_local_index
+    model.ext[:_LDR_stage_to_decision_indices] = stage_to_decision_indices
+    model.ext[:_LDR_stage_to_uncertainty_indices] = stage_to_uncertainty_indices
+    model.ext[:_LDR_constraint_row_stage] = row_stage
 
     if model.solve_sampled
         Ξ = _sample_scenarios(
