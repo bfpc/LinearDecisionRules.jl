@@ -251,7 +251,9 @@ function test_double_newsvendor_with_rejection()
     @constraint(ldr, demand[2] >= 100)
     @constraint(ldr, demand[2] <= 110)
 
-    optimize!(ldr)
+    @test_logs (:warn, "Rejection sampling required") begin
+      optimize!(ldr)
+    end
 
     ldr_p_obj = objective_value(ldr)
 
@@ -384,7 +386,9 @@ function test_newsvendor_with_rejection_sampling()
     @constraint(ldr, demand <= 110)
     @constraint(ldr, demand >= 100)
 
-    optimize!(ldr)
+    @test_logs (:warn, "Rejection sampling required") begin
+      optimize!(ldr)
+    end
 
     ldr_p_obj2 = objective_value(ldr)
     @test ldr_p_obj < ldr_p_obj2
@@ -408,7 +412,9 @@ function test_newsvendor_with_rejection_sampling()
     @constraint(ldr, demand2 <= 110)
     @constraint(ldr, demand2 >= 100)
 
-    optimize!(ldr)
+    @test_logs (:warn, "Rejection sampling required") begin
+      optimize!(ldr)
+    end
 
     ldr_p_obj3 = objective_value(ldr)
     @test ldr_p_obj3 ≈ ldr_p_obj2 rtol = 1e-2
@@ -423,7 +429,11 @@ function test_newsvendor_with_rejection_sampling()
     @test M3[3, 3] ≈ M3[2, 2] rtol = 1e-2
 
     @constraint(ldr, sell <= demand2)
-    optimize!(ldr)
+
+    @test_logs (:warn, "Rejection sampling required") begin
+      optimize!(ldr)
+    end
+
     objective_value(ldr; dual = true)
 
     return
@@ -1345,7 +1355,9 @@ function test_uncertainty_constraint_warnings()
     )
     @constraint(m1, d == 0.5)
     @objective(m1, Min, x)
-    optimize!(m1)
+    @test_logs (:warn, "pure equality constraint on uncertainty variables is not valid") begin
+      optimize!(m1)
+    end
     @test termination_status(m1) == MOI.OPTIMAL
 
     # interval constraint on uncertainty is not valid and should warn
@@ -1358,7 +1370,9 @@ function test_uncertainty_constraint_warnings()
     )
     @constraint(m2, 0.2 <= d2 <= 0.8)
     @objective(m2, Min, x2)
-    optimize!(m2)
+    @test_logs (:warn, "pure interval constraint on uncertainty variables is not valid") begin
+      optimize!(m2)
+    end
     @test termination_status(m2) == MOI.OPTIMAL
     return nothing
 end
