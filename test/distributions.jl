@@ -708,7 +708,9 @@ function test_mixed_rejection_sampling()
     )
     @constraint(m, d1 <= 0.8)
     @objective(m, Min, x)
-    optimize!(m)
+    @test_logs (:warn, "Rejection sampling required") begin
+      optimize!(m)
+    end
     @test termination_status(m) == MOI.OPTIMAL
 
     # free vector distribution alongside constrained scalar
@@ -727,7 +729,9 @@ function test_mixed_rejection_sampling()
     )
     @constraint(m2, d3 <= 0.8)
     @objective(m2, Min, x2)
-    optimize!(m2)
+    @test_logs (:warn, "Rejection sampling required") begin
+      optimize!(m2)
+    end
     @test termination_status(m2) == MOI.OPTIMAL
     return nothing
 end
@@ -744,7 +748,9 @@ function test_rejection_sampling_warnings()
     @constraint(m1, d <= 0.5)
     @objective(m1, Min, x)
     set_attribute(m1, LinearDecisionRules.RejectionSamplingWarnAttempts(), 0)
-    optimize!(m1)
+    @test_logs (:warn, "Rejection sampling required") (:warn, "Rejection sampling: cannot find a valid sample after 1 attempts") match_mode=:any begin
+      optimize!(m1)
+    end
     @test termination_status(m1) == MOI.OPTIMAL
 
     # warn fires when _attempts reaches warn_attempts threshold
@@ -763,7 +769,9 @@ function test_rejection_sampling_warnings()
     @constraint(m2, d1 + d2 >= 0.01)
     @objective(m2, Min, x2)
     set_attribute(m2, LinearDecisionRules.RejectionSamplingWarnAttempts(), 1)
-    optimize!(m2)
+    @test_logs (:warn, "Rejection sampling required") (:warn, "Rejection sampling took too long") match_mode=:any begin
+      optimize!(m2)
+    end
     @test termination_status(m2) == MOI.OPTIMAL
 
     # time limit warn fires when RejectionSamplingTimeLimit is 0.0
@@ -777,7 +785,9 @@ function test_rejection_sampling_warnings()
     @constraint(m3, d3 <= 0.5)
     @objective(m3, Min, x3)
     set_attribute(m3, LinearDecisionRules.RejectionSamplingTimeLimit(), 0.0)
-    optimize!(m3)
+    @test_logs (:warn, "Rejection sampling required") (:warn, "Rejection sampling reached time limit, estimation may be inaccurate") begin
+      optimize!(m3)
+    end
     @test termination_status(m3) == MOI.OPTIMAL
     return nothing
 end
