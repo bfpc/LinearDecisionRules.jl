@@ -2,6 +2,8 @@ module TestStages
 
 include("common.jl")
 
+Stage = LinearDecisionRules.Stage
+
 function test_stage_uncertainty_forms()
     m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(m)
@@ -19,14 +21,14 @@ function test_stage_uncertainty_forms()
         m,
         d_attr in LinearDecisionRules.Uncertainty(; distribution = Uniform(0.0, 1.0))
     )
-    set_attribute(d_attr, LinearDecisionRules.Stage(1))
+    set_attribute(d_attr, Stage(1))
 
-    @test get_attribute(d_kw, LinearDecisionRules.Stage()) == 1
-    @test get_attribute(d_attr, LinearDecisionRules.Stage()) == 1
+    @test get_attribute(d_kw, Stage()) == 1
+    @test get_attribute(d_attr, Stage()) == 1
 
-    # @variable(m, x >= 0, LinearDecisionRules.Stage(1)) does not work
+    # @variable(m, x >= 0, Stage(1)) does not work
     @variable(m, x >= 0)
-    set_attribute(x, LinearDecisionRules.Stage(1))
+    set_attribute(x, Stage(1))
     @constraint(m, x >= d_kw + d_attr)
     @objective(m, Min, x)
     optimize!(m)
@@ -47,7 +49,7 @@ function test_stage_constraint_validation()
     @variable(m, x >= 0)
     # Maybe also add stage for x?
     @constraint(m, con_bad, x >= d2)
-    set_attribute(con_bad, LinearDecisionRules.Stage(1))
+    set_attribute(con_bad, Stage(1))
     @objective(m, Min, x)
     @test_throws ErrorException optimize!(m)
     return nothing
@@ -76,7 +78,7 @@ function test_first_stage_mixed_with_stage_warns()
         set_silent(m)
         @variable(m, x >= 0, LinearDecisionRules.FirstStage)
         @variable(m, y >= 0)
-        set_attribute(y, LinearDecisionRules.Stage(2))
+        set_attribute(y, Stage(2))
     end
     return nothing
 end
