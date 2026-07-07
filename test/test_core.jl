@@ -134,6 +134,54 @@ function test_newsvendor()
     return
 end
 
+function test_newsvendor_random_price()
+    buy_cost = 10
+    return_value = 8
+    sell_value = 15
+
+    demand_max = 120
+    demand_min = 80
+
+    ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(ldr)
+
+    @variable(ldr, buy >= 0, LinearDecisionRules.FirstStage)
+    @variable(ldr, sell >= 0)
+    @variable(ldr, ret >= 0)
+    @variable(ldr, demand in
+        LinearDecisionRules.Uncertainty(
+            distribution = Uniform(demand_min, demand_max)
+        )
+    )
+    @variable(ldr, sell_value2 in
+            LinearDecisionRules.Uncertainty(
+            distribution = Uniform(sell_value-2, sell_value+2)
+        )
+    )
+
+    @constraint(ldr, sell + ret <= buy)
+    @constraint(ldr, sell <= demand)
+
+    @objective(ldr, Max,
+        - buy_cost * buy
+        + return_value * ret
+        + sell_value2 * sell
+    )
+
+    optimize!(ldr)
+
+
+    ldr_p_obj = objective_value(ldr)
+    @test ldr_p_obj ≈ 460.0
+    @test LinearDecisionRules.get_decision(ldr, buy, demand) == 0
+
+    ldr_d_obj = objective_value(ldr, dual = true)
+    @test ldr_d_obj ≈ 486.6666666666665
+    @test LinearDecisionRules.get_decision(ldr, buy, demand, dual = true) == 0
+
+    return
+end
+
 function test_double_newsvendor()
     buy_cost = 10
     return_value = 8

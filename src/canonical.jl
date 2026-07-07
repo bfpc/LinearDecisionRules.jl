@@ -417,10 +417,10 @@ function _canonical(
     # [x η]⊤ Q [x η] + c⊤ [x η] + c_offset = x⊤ Q_11 x + 2 η⊤ Q_21 x + η⊤ Q_4 η + c_1⊤ x + c_2⊤ η + c_offset
     # We define ξ = [1; η], and pose the LDR  x = X ξ; taking the expectation over ξ, we get
     # E[ ξ⊤ X⊤ Q_11 X ξ + 2 η⊤ Q_21 X ξ + η⊤ Q_4 η + c_1⊤ X ξ + c_2⊤ η + c_offset ]
-    # = Tr(X⊤ Q_11 X E[ξ ξ⊤]) + Tr([c_1⊤; Q_21] X E[ξ⊤ ξ]) + E[η⊤ Q_4 η] + c_1⊤ X E[ξ] + c_2⊤ E[η] + c_offset
-    # = Tr(X⊤ Q_11 X M) + Tr([c_1⊤; Q_21] X M) + Tr([c_offset c_2⊤/2; c_2/2 Q_4] M)
+    # = Tr(X⊤ Q_11 X E[ξ ξ⊤]) + Tr([c_1⊤; 2 Q_21] X E[ξ⊤ ξ]) + E[η⊤ Q_4 η] + c_2⊤ E[η] + c_offset
+    # = Tr(X⊤ Q_11 X M) + Tr([c_1⊤; 2 Q_21] X M) + Tr([c_offset c_2⊤/2; c_2/2 Q_4] M)
     P = data.Q[variable_indices, variable_indices]
-    C = [data.c[variable_indices] data.Q[variable_indices, uncertainty_indices]]
+    C = [data.c[variable_indices] 2*data.Q[variable_indices, uncertainty_indices]]
     Q = data.Q[uncertainty_indices, uncertainty_indices]
     d = data.c[uncertainty_indices]
     f = data.c_offset
