@@ -49,6 +49,7 @@ struct MvDiscreteNonParametric{
         Distributions.@check_args(
             MvDiscreteNonParametric,
             (
+                (; xs, ps),
                 length(xs) == length(ps),
                 "length of support and probability vector must be equal",
             ),
