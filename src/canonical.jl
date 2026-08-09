@@ -221,6 +221,7 @@ function _second_moment_matrix(
     candidate = zeros(length(uncertainty_indices))
     cache_wu_m = zeros(size(Wu, 1))
     cache_wl_m = zeros(size(Wl, 1))
+    ns_per_estimation = Int64(round(time_per_estimation * 1e9))
     for i in eachindex(all_groups)
         if isempty(all_groups[i])
             continue
@@ -228,7 +229,7 @@ function _second_moment_matrix(
         x = zeros(length(uncertainty_indices))
         x2 = zeros(length(uncertainty_indices), length(uncertainty_indices))
         n = 0
-        initial_time = time()
+        initial_time = time_ns()
         rng = Random.Xoshiro(seed)
         for _ in 1:max_iterations
             _attempts = _sample_in_set!(
@@ -259,7 +260,7 @@ function _second_moment_matrix(
             LinearAlgebra.mul!(x2, candidate, candidate', 1.0, 1.0)
             n += 1
             # TODO: add convergence check
-            if time() - initial_time > time_per_estimation
+            if time_ns() - initial_time > ns_per_estimation
                 @warn "Rejection sampling reached time limit, estimation may be inaccurate"
                 break
             end
