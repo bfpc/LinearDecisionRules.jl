@@ -60,9 +60,10 @@ function _solve_dual_ldr(model)
     ]
     h = [1; -1; -hu; hl; -ABC.ub; ABC.lb]
 
-    # (W - h e1⊤)
+    # (W - h e1⊤); the way W and h are constructed above, the first two rows are zero
     W2 = deepcopy(W)
     W2[:, 1] .-= h
+    W2 = W2[3:end, :]
 
     # Constraints on slack matrices "S" are of the form
     # (W - h e1⊤) M Sᵗ ≥ 0
