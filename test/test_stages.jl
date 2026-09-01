@@ -26,10 +26,29 @@ function test_stage_uncertainty_forms()
     @test get_attribute(d_kw, Stage()) == 1
     @test get_attribute(d_attr, Stage()) == 1
 
-    # @variable(m, x >= 0, Stage(1)) does not work
-    @variable(m, x >= 0)
-    set_attribute(x, Stage(1))
+    @variable(m, x >= 0, Stage(1))
     @constraint(m, x >= d_kw + d_attr)
+    @objective(m, Min, x)
+    optimize!(m)
+    @test termination_status(m) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    return nothing
+end
+
+function test_stage_var_forms()
+    m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+    set_silent(m)
+
+    @variable(
+        m,
+        d in LinearDecisionRules.Uncertainty(;
+            distribution = Uniform(0.0, 1.0),
+            stage = 1,
+        )
+    )
+
+    @variable(m, x >= 0, Stage(1))
+    @variable(m, y >= 0); set_attribute(y, Stage(1))
+    @constraint(m, x + y >= d)
     @objective(m, Min, x)
     optimize!(m)
     @test termination_status(m) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
@@ -80,6 +99,12 @@ function test_first_stage_mixed_with_stage_warns()
         @variable(m, y >= 0)
         set_attribute(y, Stage(2))
     end
+    @test_logs (:warn, r"Mixing FirstStage with Stage\(n\) is deprecated") begin
+        m = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
+        set_silent(m)
+        @variable(m, x >= 0, LinearDecisionRules.FirstStage)
+        @variable(m, y >= 0, Stage(2))
+    end
     return nothing
 end
 
@@ -98,17 +123,17 @@ function test_3_stage_newsvendor()
     ldr = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
     set_silent(ldr)
 
-    @variable(ldr, buy >= 0); set_attribute(buy, Stage(1))
+    @variable(ldr, buy >= 0, Stage(1))
 
-    @variable(ldr, sell2 >= 0); set_attribute(sell2, Stage(2))
-    @variable(ldr, ret2 >= 0); set_attribute(ret2, Stage(2))
+    @variable(ldr, sell2 >= 0, Stage(2))
+    @variable(ldr, ret2 >= 0, Stage(2))
     @variable(ldr, demand2 in
         LinearDecisionRules.Uncertainty(
             distribution = demand_distr,
             stage = 2
             )
     )
-    @variable(ldr, buy2 >= 0); set_attribute(buy2, Stage(2))
+    @variable(ldr, buy2 >= 0, Stage(2))
     @variable(ldr, buy_cost2 in
         LinearDecisionRules.Uncertainty(
             distribution = cost_stage2_distr,
@@ -116,8 +141,8 @@ function test_3_stage_newsvendor()
             )
     )
 
-    @variable(ldr, sell3 >= 0); set_attribute(sell3, Stage(3))
-    @variable(ldr, ret3 >= 0); set_attribute(ret3, Stage(3))
+    @variable(ldr, sell3 >= 0, Stage(3))
+    @variable(ldr, ret3 >= 0, Stage(3))
     @variable(ldr, demand3 in
         LinearDecisionRules.Uncertainty(
             distribution = demand_distr,
