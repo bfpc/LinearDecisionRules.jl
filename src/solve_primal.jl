@@ -1,5 +1,6 @@
-# The LDR model "cancels out" ξ in the constraints, and uses the "trace trick"
-# to factor E[ξ ξ⊤] in the objective function.
+# The LDR model "cancels out" ξ in the equality constraints,
+# reformulates the inequality constraints in ξ via duality,
+# and uses the "trace trick" to factor E[ξ ξ⊤] in the objective function.
 #
 # min E[ ξ⊤ C⊤ X ξ + ξ⊤ X⊤ Q X ξ + r ]
 # s.t. Ae X ξ = Be ξ
