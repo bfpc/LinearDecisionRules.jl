@@ -319,6 +319,85 @@ function law_spanning_stages()
     return Problem("law_spanning_stages", "", model, info, NaN, NaN)
 end
 
+# A Min QP: `q` appears in the objective only (linear, square and products), and `z` in no
+# constraint.
+function objective_only_uncertainty()
+    model = Model()
+    @variable(model, x1)
+    @variable(model, x2)
+    @variable(model, z)
+    @variable(model, e[1:2])
+    @variable(model, q)
+    @constraint(model, x1 + x2 >= e[1])
+    @constraint(model, x2 <= 5 + e[2])
+    @objective(model, Min, x1^2 + x2^2 + z^2 - z * q + 3q^2 + 2q + q * e[1] + x2 * e[2])
+    law = MvDiscreteNonParametric([[1.0, 2.0], [2.0, 1.0], [3.0, 3.0]], [0.3, 0.3, 0.4])
+    info = ModelInfo(;
+        uncertainties = [
+            declare(law, e...; stages = [2, 2]),
+            declare(Distributions.Uniform(0, 1), q; stages = [2]),
+        ],
+        decision_stages = stages(x1 => 1, x2 => 2, z => 3),
+    )
+    return Problem("objective_only_uncertainty", "", model, info, NaN, NaN; atol = 1e-6)
+end
+
+# A valid row couples a bivariate and a univariate declaration.
+function valid_row_across_declarations()
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, sell[1:3] >= 0)
+    @variable(model, d[1:3])
+    @constraint(model, sum(sell) <= buy)
+    @constraint(model, sell .<= d)
+    valid = @constraint(model, d[1] + d[3] <= 210)
+    @objective(model, Max, -10buy + 15sum(sell))
+    info = ModelInfo(;
+        uncertainties = [
+            declare(CORRELATED, d[1], d[2]),
+            declare(Distributions.Uniform(80, 120), d[3]),
+        ],
+        decision_stages = stages(buy => 1),
+        valid_rows = Set{MOI.ConstraintIndex}([index(valid)]),
+    )
+    return Problem("valid_row_across_declarations", "", model, info, NaN, NaN)
+end
+
+# A stage-1 uncertainty, observed by the stage-1 decision, and bounds on decisions that observe
+# uncertainties.
+function stage_one_uncertainty()
+    model = Model()
+    @variable(model, 0 <= x <= 50)
+    @variable(model, 0 <= y <= 200)
+    @variable(model, a)
+    @variable(model, b)
+    @constraint(model, x + y >= a + b)
+    @objective(model, Min, 2x + 3y)
+    info = ModelInfo(;
+        uncertainties = [
+            declare(Distributions.Uniform(10, 30), a; stages = [1]),
+            declare(Distributions.Uniform(0, 40), b; stages = [2]),
+        ],
+        decision_stages = stages(x => 1, y => 2),
+    )
+    return Problem("stage_one_uncertainty", "", model, info, NaN, NaN)
+end
+
+"""
+    edge_cases() -> Vector{Problem}
+
+The edge models of the Phase 1 review, with no known value: the dense oracles are the reference.
+The dual of `law_spanning_stages` warns that its bound is not certified.
+"""
+function edge_cases()
+    return [
+        law_spanning_stages(),
+        objective_only_uncertainty(),
+        valid_row_across_declarations(),
+        stage_one_uncertainty(),
+    ]
+end
+
 """
     library() -> Vector{Problem}
 
