@@ -20,9 +20,22 @@ _has_rule(r::FormulationResult) = capabilities(r.formulation).rule_status != MOI
 
 _is_bound(r::FormulationResult) = capabilities(r.formulation).bound
 
+# A solver can report a feasible point of an unbounded problem, which is a point of a ray: it is
+# a solution only if the problem is solved, or stopped with a feasible point.
+const _NO_SOLUTION_STATUS = (
+    MOI.INFEASIBLE,
+    MOI.LOCALLY_INFEASIBLE,
+    MOI.DUAL_INFEASIBLE,
+    MOI.INFEASIBLE_OR_UNBOUNDED,
+)
+
+function _has_solution(r::FormulationResult)
+    return r.primal_status == MOI.FEASIBLE_POINT && !(r.termination_status in _NO_SOLUTION_STATUS)
+end
+
 # The results with a rule that is a solution, primal rules first: the results of `MOI`.
 function _rule_results(o::Optimizer)
-    usable = filter(r -> _has_rule(r) && r.primal_status == MOI.FEASIBLE_POINT, o.results)
+    usable = filter(r -> _has_rule(r) && _has_solution(r), o.results)
     return sort(usable; by = r -> !(r.formulation isa PrimalLDR), alg = Base.Sort.DEFAULT_STABLE)
 end
 
@@ -73,7 +86,7 @@ end
 
 # The bound of the first formulation that has one, with a value.
 function MOI.get(o::Optimizer, attr::MOI.ObjectiveBound)
-    k = findfirst(r -> _is_bound(r) && !isnan(r.objective_bound), o.results)
+    k = findfirst(r -> _is_bound(r) && _has_solution(r) && !isnan(r.objective_bound), o.results)
     if k === nothing
         throw(
             MOI.GetAttributeNotAllowed(
@@ -142,17 +155,18 @@ end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.PrimalStatus})
     r = _require_result(o, attr)
-    return r.primal_status == MOI.FEASIBLE_POINT ? capabilities(r.formulation).rule_status :
-           r.primal_status
+    return _has_solution(r) ? capabilities(r.formulation).rule_status : MOI.NO_SOLUTION
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.ObjectiveValue})
     r = _require_result(o, attr)
-    return _require_value(attr, _is_bound(r) ? r.objective_bound : r.objective_value)
+    value = _is_bound(r) ? r.objective_bound : r.objective_value
+    return _require_value(attr, _has_solution(r) ? value : NaN)
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.ObjectiveBound})
-    return _require_value(attr, _require_result(o, attr).objective_bound)
+    r = _require_result(o, attr)
+    return _require_value(attr, _has_solution(r) ? r.objective_bound : NaN)
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.RawStatusString})
@@ -166,7 +180,7 @@ end
 # Internal attributes, for `decision_rule` and `expected_value`.
 function MOI.get(o::Optimizer, attr::RuleCoefficients, vi::MOI.VariableIndex)
     r = _require_result(o, FormulationAttribute(attr.formulation, MOI.PrimalStatus()))
-    if any(isnan, r.X)
+    if !_has_solution(r)
         throw(MOI.GetAttributeNotAllowed(attr, "$(attr.formulation) has no solution."))
     end
     return _rule_coefficients(o, r, vi)
