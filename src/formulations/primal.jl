@@ -24,9 +24,33 @@ function _touched_blocks(row::_LinearRow, first_columns::Vector{Int}, block_of::
     return unique!(sort!(touched))
 end
 
-# With Ξ = Π_b {η_b : W_b η_b ≥ h_b} and the slack `s(ξ) = s₁ + Σ_b s_b ⋅ η_b`, LP duality gives
-#   min_{η_b ∈ Ξ_b} s_b ⋅ η_b = max {h_b ⋅ λ_b : W_b' λ_b = s_b, λ_b ≥ 0},
-# so `s(ξ) ≥ 0` on Ξ iff there are `λ_b ≥ 0` with `W_b' λ_b = s_b` and `s₁ + Σ_b h_b ⋅ λ_b ≥ 0`.
+# The multipliers of the rows of `block`, in the dual cone of each piece of its cone: the
+# nonnegative orthant and the second-order cone are self-dual. The linear piece is `λ[r,b]` and
+# the `p`-th piece, a second-order cone, `λ[r,b,p]`.
+function _multipliers!(model::JuMP.Model, block::SupportBlock, r::Int, b::Int)
+    named = JuMP.set_string_names_on_creation(model)
+    λ = JuMP.VariableRef[]
+    for (p, (cone, rows)) in enumerate(zip(block.cones, _cone_rows(block)))
+        isempty(rows) && continue
+        if cone isa MOI.Nonnegatives
+            name = named ? "λ[$r,$b]" : ""
+            append!(λ, JuMP.@variable(model, [1:length(rows)], lower_bound = 0.0, base_name = name))
+        else
+            name = named ? "λ[$r,$b,$p]" : ""
+            set = JuMP.SecondOrderCone()
+            append!(λ, JuMP.@variable(model, [1:length(rows)] in set, base_name = name))
+        end
+    end
+    return λ
+end
+
+# With Ξ = Π_b {η_b : W_b η_b - h_b ∈ K_b} and the slack `s(ξ) = s₁ + Σ_b s_b ⋅ η_b`, conic duality
+# gives
+#   min_{η_b ∈ Ξ_b} s_b ⋅ η_b = max {h_b ⋅ λ_b : W_b' λ_b = s_b, λ_b ∈ K_b*},
+# so `s(ξ) ≥ 0` on Ξ iff there are `λ_b ∈ K_b*` with `W_b' λ_b = s_b` and
+# `s₁ + Σ_b h_b ⋅ λ_b ≥ 0` (Kuhn, Wiesemann and Georghiou, 2011, Proposition 1, for a polyhedral
+# Ξ_b; with second-order cones, strong duality needs a point of Ξ_b strictly inside them, and the
+# "if" direction holds without it, so the rule stays feasible on Ξ).
 # A block where `s_b` is structurally zero needs no multiplier, since Ξ_b is nonempty.
 # The slack is an expression of X, as `SlackAsExpr` in the previous version: explicit slack
 # variables would add one variable and one equality per (row, column) and save nothing.
@@ -39,13 +63,11 @@ function _add_robust_counterpart!(
     touched::Vector{Int},
 )
     row, sign = ineq.row, ineq.sign
-    named = JuMP.set_string_names_on_creation(model)
     # The coupling `s₁ + Σ_b h_b ⋅ λ_b ≥ 0`, with `s₁ = sign * (b₁ - a ⋅ X₁)`.
     coupling = _add_row_column!(JuMP.AffExpr(sign * row.b[1]), X, row, 1, -sign)
     for b in touched
         block = blocks[b]
-        name = named ? "λ[$r,$b]" : ""
-        λ = JuMP.@variable(model, [1:length(block.h)], lower_bound = 0.0, base_name = name)
+        λ = _multipliers!(model, block, r, b)
         for (k, h) in enumerate(block.h)
             iszero(h) || JuMP.add_to_expression!(coupling, h, λ[k])
         end
@@ -67,7 +89,7 @@ function _build!(model::JuMP.Model, ::PrimalLDR, form::CanonicalForm, mom::Momen
     info = InformationStructure(form)
     X = _rule_variables!(model, form, info)
     _add_equalities!(model, form, info, X)
-    blocks = _polyhedral(support_blocks(form), PrimalLDR())
+    blocks = support_blocks(form)
     block_of = _block_of_columns(blocks, 1 + length(form.uncertainties))
     first_columns = [first(block.columns) for block in blocks]
     for (r, ineq) in enumerate(_inequalities(form, info))

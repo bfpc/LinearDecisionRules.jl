@@ -14,6 +14,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 Aqua = "0.8"
+Clarabel = "0.11"
 Distributions = "0.25"
 HiGHS = "1"
 JuMP = "1.25"
@@ -28,9 +29,10 @@ julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "HiGHS", "TOML", "Test"]
+test = ["Aqua", "Clarabel", "HiGHS", "TOML", "Test"]

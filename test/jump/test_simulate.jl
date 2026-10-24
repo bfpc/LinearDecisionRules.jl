@@ -10,6 +10,7 @@ module TestSimulate
 using JuMP
 using Test
 
+import Clarabel
 import Distributions
 import Distributions: DiscreteNonParametric, Uniform
 import HiGHS
@@ -26,6 +27,7 @@ import LinearDecisionRules:
     SampledLDR,
     Simulation,
     Stage,
+    Truncate,
     Uncertainty,
     ValidInequality,
     decision_rule,
@@ -369,6 +371,28 @@ function test_simulate_valid_inequality()
     @test occursin("valid inequality", msg) && occursin("z[1] + z[2] <= 1.5", msg)
     r = evaluate(model, z => [0.9, 0.9]; outside_support = :ignore)
     @test !r.in_support
+end
+
+# A disc that conditions the law: the draws are in it, the primal rule is feasible on them, and a
+# scenario of the box outside the disc is outside the support.
+function test_simulate_conic_truncation()
+    model = LDRModel(Clarabel.Optimizer)
+    set_silent(model)
+    set_attribute(model, Formulations(), [PrimalLDR()])
+    @variable(model, x)
+    law = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 1))
+    @variable(model, z[1:2] in Uncertainty(law))
+    @constraint(model, disc, [0.5; z .- 0.5] in SecondOrderCone(), Truncate())
+    @constraint(model, x >= 2z[1] - z[2])
+    @objective(model, Min, x)
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    s = simulate(model, 1000; rng = Random.Xoshiro(1))
+    @test s.num_outside_support == 0 && s.violation_fraction == 0
+    @test isempty(evaluate(model, z => [0.5, 0.9]).violations)
+    msg = error_message(() -> evaluate(model, z => [0.9, 0.9]))
+    @test occursin("constraint tagged `Truncate()` disc is violated", msg)
+    @test !evaluate(model, z => [0.9, 0.9]; outside_support = :ignore).in_support
 end
 
 # The sampled rule is feasible on its scenarios only: out of sample it has violations.

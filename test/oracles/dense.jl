@@ -9,8 +9,10 @@
 #
 #   opt  tr(X'PXM) + tr(C'XM) + r
 #   s.t. E X = F,  S = H - G X,  where G X ξ ≤ H ξ holds all inequalities and finite bounds,
-#        primal: Λ ≥ 0, Λ W = S, Λ h ≥ 0, with Ξ = {ξ : W ξ ≥ h} and rows ±e₁ for ξ₁ = 1;
-#        dual:   S M W'ᵀ ≥ 0, with W' = [e₁'; W - h e₁'] without the rows ±e₁.
+#        primal: Λ ∈ K*, Λ W = S, Λ h ≥ 0, with Ξ = {ξ : W ξ - h ∈ K} and rows ±e₁ for ξ₁ = 1;
+#        dual:   S M W'ᵀ ∈ K, with W' = [e₁'; W - h e₁'] without the rows ±e₁,
+# row by row of Λ and S, where K is the nonnegative orthant of the linear rows times one
+# second-order cone (self-dual) per conic row.
 #
 # The row e₁' of W' (that is, E[s(ξ)] ≥ 0) is the fix of the spike audit's bug 1: the previous
 # version had no inequality left in the dual when no uncertainty was bounded.
@@ -34,6 +36,8 @@ struct DenseData
     H::Matrix{Float64}
     W::Matrix{Float64}
     h::Vector{Float64}
+    # The rows of W in each second-order cone; the others are linear.
+    cones::Vector{UnitRange{Int}}
     M::Matrix{Float64}
     r::Float64
 end
@@ -61,9 +65,15 @@ function DenseData(form::CanonicalForm, mom::Moments)
     hη = [lb[isfinite.(lb)]; -ub[isfinite.(ub)]; form.h_valid]
     W = [1 zeros(1, m); -1 zeros(1, m); zeros(length(hη)) Wη]
     h = [1; -1; hη]
+    cones = UnitRange{Int}[]
+    for row in form.conic_rows
+        push!(cones, length(h) .+ (1:length(row.h)))
+        W = [W; zeros(length(row.h)) Matrix(row.W)]
+        h = [h; row.h]
+    end
     M = second_moment(mom)
     r = form.f + form.d' * M[2:end, 1] + sum(Matrix(form.Q) .* M[2:end, 2:end]; init = 0.0)
-    return DenseData(mask, Matrix(form.A_e), Matrix(form.B_e), G, H, W, h, M, r)
+    return DenseData(mask, Matrix(form.A_e), Matrix(form.B_e), G, H, W, h, cones, M, r)
 end
 
 function _skeleton(form::CanonicalForm, data::DenseData)
@@ -102,7 +112,12 @@ The dense primal LDR of the previous version, without an optimizer.
 function build_primal(form::CanonicalForm, mom::Moments)
     data = DenseData(form, mom)
     model, X, S = _skeleton(form, data)
-    @variable(model, Λ[1:size(S, 1), 1:length(data.h)] >= 0)
+    @variable(model, Λ[1:size(S, 1), 1:length(data.h)])
+    linear = setdiff(1:length(data.h), data.cones...)
+    set_lower_bound.(Λ[:, linear], 0.0)
+    for rows in data.cones, i in axes(Λ, 1)
+        @constraint(model, Λ[i, rows] in SecondOrderCone())
+    end
     @constraint(model, Λ * data.W .== S)
     @constraint(model, Λ * data.h .>= 0)
     return model, X
@@ -119,7 +134,14 @@ function build_dual(form::CanonicalForm, mom::Moments)
     m = size(data.W, 2) - 1
     W2 = data.W .- data.h * [1 zeros(1, m)]
     W′ = [1 zeros(1, m); W2[3:end, :]]
-    @constraint(model, S * (data.M * W′') .>= 0)
+    # Column 1 of `S M W'ᵀ` is the row e₁'; the rows of W are shifted by one after dropping ±e₁.
+    SMW = S * (data.M * W′')
+    cones = [rows .- 1 for rows in data.cones]
+    linear = setdiff(1:size(W′, 1), cones...)
+    @constraint(model, SMW[:, linear] .>= 0)
+    for rows in cones, i in axes(SMW, 1)
+        @constraint(model, SMW[i, rows] in SecondOrderCone())
+    end
     return model, X
 end
 

@@ -8,7 +8,9 @@ module TestPrimal
 using JuMP
 using Test
 
+import Clarabel
 import HiGHS
+import LinearDecisionRules
 import LinearDecisionRules: DualLDR, FormulationResult, PrimalLDR, moments, solve_formulation
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
@@ -36,6 +38,43 @@ function test_dense_oracle()
             @test isapprox(result.objective_value, oracle.objective_value; rtol = 1e-7)
         end
     end
+    return
+end
+
+# Second-order cone rows of Ξ: multipliers in the second-order cone. Clarabel solves to about 1e-8.
+function test_conic_dense_oracle()
+    for p in Problems.conic_library()
+        form = Problems.form(p)
+        mom = moments(form)
+        @testset "$(p.name)" begin
+            result = solve_formulation(form, PrimalLDR(), mom, Clarabel.Optimizer)
+            oracle = DenseOracle.solve(DenseOracle.build_primal, form, mom, Clarabel.Optimizer)
+            @test result.termination_status == MOI.OPTIMAL
+            @test isapprox(result.objective_value, oracle.objective_value; rtol = 1e-6)
+            isnan(p.primal) || @test isapprox(result.objective_value, p.primal; rtol = 1e-6)
+        end
+    end
+    return
+end
+
+# A disc that contains the box leaves Ξ, and the value, unchanged; a smaller one tightens Ξ, so
+# the primal improves. The multipliers of the cone are named `λ[r,b,2]`.
+function test_conic_support()
+    box = Problems.form(Problems.shared_stock(; valid = false))
+    lp = solve_formulation(box, PrimalLDR(), moments(box), HiGHS.Optimizer)
+    form = Problems.form(Problems.shared_stock_disc(30))
+    result = solve_formulation(form, PrimalLDR(), moments(form), Clarabel.Optimizer; names = true)
+    @test isapprox(result.objective_value, lp.objective_value; rtol = 1e-6)
+    @test variable_by_name(result.model, "λ[1,1,2][3]") !== nothing
+    # One per inequality that touches the block: the stock, sell .<= d and sell .>= 0.
+    @test num_constraints(result.model, Vector{VariableRef}, MOI.SecondOrderCone) == 5
+    tight = Problems.form(Problems.shared_stock_disc(20; truncate = true, cut = true))
+    mom = moments(tight)
+    disc = solve_formulation(tight, PrimalLDR(), mom, Clarabel.Optimizer)
+    # The same moments with Ξ the box: a worse primal.
+    loose = LinearDecisionRules._replace(tight; conic_rows = LinearDecisionRules.ConicRow[])
+    box_value = solve_formulation(loose, PrimalLDR(), mom, HiGHS.Optimizer).objective_value
+    @test disc.objective_value > box_value + 1
     return
 end
 

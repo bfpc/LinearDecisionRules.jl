@@ -21,7 +21,10 @@ The primal linear decision rule: every constraint holds for every outcome in the
 
 Its rule is a policy, so its objective value is attained (a lower bound of a maximization, an upper
 bound of a minimization). Each inequality is replaced by its robust counterpart over the
-[`SupportBlock`](@ref)s on which it depends (Kuhn, Wiesemann and Georghiou, 2011).
+[`SupportBlock`](@ref)s on which it depends (Kuhn, Wiesemann and Georghiou, 2011), with
+multipliers in the dual cone of each block: nonnegative for its linear rows, in a second-order
+cone for each of its second-order cone rows, so the inner problem is then a second-order cone
+program.
 """
 struct PrimalLDR <: AbstractFormulation end
 
@@ -172,8 +175,9 @@ empirical moments of its outcomes.
 
 With `names = true`, the variables of the inner problem are named, so that `write_to_file` is
 readable: `X[i,j]` for the rule of decision `i` on column `j` of ξ, and by inequality `r`,
-`λ[r,b]` (the multipliers of support block `b`) or `u[r]` and `S[r,j]` (the slack rule). Names
-slow the build down, so they are off by default.
+`λ[r,b]` (the multipliers of the linear rows of support block `b`) and `λ[r,b,p]` (those of its
+`p`-th piece, a second-order cone), or `u[r]` and `S[r,j]` (the slack rule). Names slow the build
+down, so they are off by default.
 
 ## Example
 

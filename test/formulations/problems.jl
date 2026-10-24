@@ -498,4 +498,62 @@ function library()
     ]
 end
 
+# The shared stock with the disc `‖d - (100, 100)‖ ≤ radius` as a second-order cone row. Tagged
+# `ValidInequality()` with a radius of 30, the disc contains the box [80, 120]², so Ξ and the values
+# are those of `shared_stock(; valid = false)`; tagged `Truncate()`, it conditions the law. With
+# `cut`, the valid row `d[1] + d[2] <= 215` joins the block of the disc.
+function shared_stock_disc(radius; truncate::Bool = false, cut::Bool = false)
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, sell[1:2] >= 0)
+    @variable(model, d[1:2])
+    @constraint(model, sum(sell) <= buy)
+    @constraint(model, sell .<= d)
+    @objective(model, Max, -10buy + 15sum(sell))
+    disc = index(@constraint(model, [radius; d .- 100] in SecondOrderCone()))
+    valid = Set{MOI.ConstraintIndex}(truncate ? [] : [disc])
+    if cut
+        push!(valid, index(@constraint(model, d[1] + d[2] <= 215)))
+    end
+    info = ModelInfo(;
+        uncertainties = [declare(Distributions.Uniform(80, 120), d[i]) for i in 1:2],
+        decision_stages = stages(buy => 1),
+        valid_rows = valid,
+        truncate_rows = Set{MOI.ConstraintIndex}(truncate ? [disc] : []),
+    )
+    name = "shared_stock_disc_$(radius)$(truncate ? "_truncate" : "")$(cut ? "_cut" : "")"
+    return Problem(name, "", model, info, NaN, NaN)
+end
+
+# The three-stage newsvendor with a valid disc of radius 30 around the means of the demands of
+# stages 2 and 3, which contains their box: one support block across stages, and the same values.
+function newsvendor_three_stages_disc()
+    p = newsvendor_three_stages()
+    demand2, demand3 = variable_by_name(p.model, "demand2"), variable_by_name(p.model, "demand3")
+    disc = @constraint(p.model, [30, demand2 - 100, demand3 - 100] in SecondOrderCone())
+    info = ModelInfo(;
+        uncertainties = p.info.uncertainties,
+        decision_stages = p.info.decision_stages,
+        valid_rows = Set{MOI.ConstraintIndex}([index(disc)]),
+    )
+    return Problem("newsvendor_three_stages_disc", "", p.model, info, 940, 1000)
+end
+
+"""
+    conic_library() -> Vector{Problem}
+
+The problems whose support has second-order cone rows, for a conic solver.
+"""
+function conic_library()
+    p = newsvendor_three_stages_disc()
+    name = "newsvendor_three_stages_disc_breakpoints"
+    return [
+        shared_stock_disc(30),
+        shared_stock_disc(20; truncate = true),
+        shared_stock_disc(20; truncate = true, cut = true),
+        p,
+        with_breakpoints(p, name, "", "demand2" => [90.0, 100.0, 110.0]),
+    ]
+end
+
 end # module Problems
