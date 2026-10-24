@@ -23,6 +23,7 @@ import LinearDecisionRules:
     PrimalLDR,
     SampledLDR,
     Stage,
+    Truncate,
     Uncertainty,
     ValidInequality,
     decision_rule,
@@ -420,6 +421,37 @@ function test_valid_inequality_improves_the_primal()
     with, without = build(true), build(false)
     @test objective_value(without) <= objective_value(with) + 1e-6
     @test objective_bound(with) < objective_bound(without)
+    return
+end
+
+# A tagged variable-in-set constraint is a valid row, as the same affine row is.
+function test_valid_inequality_on_a_variable()
+    function build(row)
+        model = newsvendor()
+        row(model, model[:demand])
+        optimize!(model)
+        return model
+    end
+    affine = build((m, d) -> @constraint(m, 1.0 * d <= 110, ValidInequality()))
+    for row in (
+        (m, d) -> @constraint(m, d in MOI.LessThan(110.0), ValidInequality()),
+        (m, d) -> @constraint(m, d in MOI.Interval(80.0, 110.0), ValidInequality()),
+    )
+        model = build(row)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test objective_value(model) ≈ objective_value(affine)
+        @test objective_bound(model) ≈ objective_bound(affine)
+    end
+    @test objective_value(affine) > 460 + 1
+    # Tagged `Truncate()`, it is not supported yet, as an affine row.
+    model = newsvendor()
+    @constraint(model, model[:demand] in MOI.LessThan(110.0), Truncate())
+    err = try
+        optimize!(model)
+    catch err
+        err
+    end
+    @test occursin("is tagged `Truncate()`", sprint(showerror, err))
     return
 end
 

@@ -407,7 +407,13 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo)
         elseif F == MOI.VariableIndex && (S <: _BoundSet || S == MOI.Integer || S == MOI.ZeroOne)
             for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
                 v = MOI.get(src, MOI.ConstraintFunction(), ci)
-                if haskey(parameter, v)
+                if S <: _BoundSet && (ci in info.valid_rows || ci in info.truncate_rows)
+                    # `@constraint(model, d <= 110, ValidInequality())` is a row, not a bound.
+                    f = convert(MOI.ScalarAffineFunction{Float64}, v)
+                    set = MOI.get(src, MOI.ConstraintSet(), ci)
+                    _read_row!(rows, valid, row, src, info, cols, uncertainties, ci, f, set)
+                    continue
+                elseif haskey(parameter, v)
                     error("The Parameter $(_variable_name(src, v)) has a constraint ($S).")
                 elseif !haskey(cols.decision, v)
                     error(
@@ -436,26 +442,9 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo)
         elseif F in (MOI.ScalarAffineFunction{Float64}, MOI.ScalarQuadraticFunction{Float64}) &&
                S <: _BoundSet
             for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
-                _read!(_reset!(row), cols, MOI.get(src, MOI.ConstraintFunction(), ci))
-                lo, hi = _bounds(MOI.get(src, MOI.ConstraintSet(), ci)) .- row.constant
-                _check_row(src, ci, row)
-                filter!(t -> !iszero(t.second), row.x)
-                filter!(t -> !iszero(t.second), row.ξ)
-                if ci in info.truncate_rows
-                    error(
-                        "The constraint $(_constraint_name(src, ci)) is tagged `Truncate()`: " *
-                        "conditioning the law is not supported yet (Phase 3).",
-                    )
-                elseif ci in info.valid_rows
-                    _push_valid_row!(valid, src, ci, row, lo, hi)
-                elseif isempty(row.x)
-                    _check_uncertainty_only_row(src, ci, row, uncertainties, lo, hi)
-                elseif lo == hi
-                    _push_row!(rows.e, row, lo, ci)
-                else
-                    isfinite(hi) && _push_row!(rows.u, row, hi, ci)
-                    isfinite(lo) && _push_row!(rows.l, row, lo, ci)
-                end
+                f = MOI.get(src, MOI.ConstraintFunction(), ci)
+                set = MOI.get(src, MOI.ConstraintSet(), ci)
+                _read_row!(rows, valid, row, src, info, cols, uncertainties, ci, f, set)
             end
         else
             error("Constraints of type $F-in-$S are not supported by LinearDecisionRules.")
@@ -515,6 +504,31 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo)
     )
     _check_observable_equalities(src, form)
     return form
+end
+
+# Read the constraint `ci`, `f`-in-`set`, into the rows of its kind, using `row` as a buffer.
+function _read_row!(rows, valid, row::_Row, src, info::ModelInfo, cols, uncertainties, ci, f, set)
+    _read!(_reset!(row), cols, f)
+    lo, hi = _bounds(set) .- row.constant
+    _check_row(src, ci, row)
+    filter!(t -> !iszero(t.second), row.x)
+    filter!(t -> !iszero(t.second), row.ξ)
+    if ci in info.truncate_rows
+        error(
+            "The constraint $(_constraint_name(src, ci)) is tagged `Truncate()`: " *
+            "conditioning the law is not supported yet (Phase 3).",
+        )
+    elseif ci in info.valid_rows
+        _push_valid_row!(valid, src, ci, row, lo, hi)
+    elseif isempty(row.x)
+        _check_uncertainty_only_row(src, ci, row, uncertainties, lo, hi)
+    elseif lo == hi
+        _push_row!(rows.e, row, lo, ci)
+    else
+        isfinite(hi) && _push_row!(rows.u, row, hi, ci)
+        isfinite(lo) && _push_row!(rows.l, row, lo, ci)
+    end
+    return
 end
 
 function _parameter_values(src::MOI.ModelLike)
