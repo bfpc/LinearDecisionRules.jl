@@ -42,6 +42,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     moments::Union{Nothing,Moments}
     parameters::Dict{MOI.VariableIndex,Float64}
     decision_rows::Dict{MOI.VariableIndex,Int}
+    # The column of each uncertainty in ξ before lifting (see `CanonicalForm`).
     uncertainty_columns::Dict{MOI.VariableIndex,Int}
     results::Vector{FormulationResult}
     solve_time::Float64
@@ -302,7 +303,8 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     dest.form, dest.moments, dest.results = form, mom, results
     dest.parameters = _parameter_values(src)
     dest.decision_rows = Dict(v => i for (i, v) in enumerate(form.decisions))
-    dest.uncertainty_columns = Dict(v => 1 + j for (j, v) in enumerate(form.uncertainties))
+    uncertainties = form.lifting === nothing ? form.uncertainties : form.lifting.uncertainties
+    dest.uncertainty_columns = Dict(v => 1 + j for (j, v) in enumerate(uncertainties))
     dest.solve_time = _seconds_since(start)
     return _identity_map(src), false
 end

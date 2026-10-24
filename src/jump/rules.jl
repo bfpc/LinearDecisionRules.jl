@@ -4,12 +4,36 @@
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 """
-    DecisionRule(constant::Float64, coefficients::Dict{JuMP.VariableRef,Float64})
+    LiftedTerm(lifting::AbstractLifting, coefficients::Vector{Float64})
 
-The affine decision rule `x(η) = constant + Σ coefficients[d] * d`, over the uncertainties `d` of
-the model. Build it with [`decision_rule`](@ref).
+The term `coefficients ⋅ lift(lifting, d)` of a [`DecisionRule`](@ref) in an uncertainty `d` with
+breakpoints. For an [`AxisPiecewise`](@ref) lifting, `coefficients[k]` is the slope of the rule in
+`d` on the `k`-th piece, `[b_{k-1}, b_k]`, between the breakpoints (and the bounds of the
+support). Call it with the value of `d`.
+"""
+struct LiftedTerm
+    lifting::AbstractLifting
+    coefficients::Vector{Float64}
+end
 
-Call it with a scenario, a `Dict` of the value of each uncertainty, or with pairs.
+(term::LiftedTerm)(η::Real) = LinearAlgebra.dot(term.coefficients, lift(term.lifting, η))
+
+"""
+    DecisionRule(
+        constant::Float64,
+        coefficients::Dict{JuMP.VariableRef,Float64},
+        lifted::Dict{JuMP.VariableRef,LiftedTerm} = Dict{JuMP.VariableRef,LiftedTerm}(),
+    )
+
+The decision rule `x(η) = constant + Σ coefficients[d] * d + Σ lifted[d](d)`, over the
+uncertainties `d` of the model. Build it with [`decision_rule`](@ref).
+
+An uncertainty with [`BreakPoints`](@ref) is in `lifted`, with the coefficients of the rule on
+its pieces (see [`LiftedTerm`](@ref)), so the rule is piecewise affine in it; the others are in
+`coefficients`.
+
+Call it with a scenario of the uncertainties of the model: a `Dict` of the value of each
+uncertainty, or pairs.
 
 ## Example
 
@@ -17,11 +41,17 @@ Call it with a scenario, a `Dict` of the value of each uncertainty, or with pair
 rule = decision_rule(sell)
 rule(Dict(d => 90.0))
 rule(d => 90.0)
+rule.lifted[d].coefficients  # the slope on each piece, if d has breakpoints
 ```
 """
 struct DecisionRule
     constant::Float64
     coefficients::Dict{JuMP.VariableRef,Float64}
+    lifted::Dict{JuMP.VariableRef,LiftedTerm}
+end
+
+function DecisionRule(constant::Float64, coefficients::Dict{JuMP.VariableRef,Float64})
+    return DecisionRule(constant, coefficients, Dict{JuMP.VariableRef,LiftedTerm}())
 end
 
 function (rule::DecisionRule)(scenario::AbstractDict)
@@ -29,15 +59,23 @@ function (rule::DecisionRule)(scenario::AbstractDict)
     for (d, coefficient) in rule.coefficients
         value += coefficient * scenario[d]
     end
+    for (d, term) in rule.lifted
+        value += term(scenario[d])
+    end
     return value
 end
 
 (rule::DecisionRule)(scenario::Pair...) = rule(Dict(scenario))
 
+_by_index(terms) = sort!(collect(terms); by = p -> JuMP.index(p[1]).value)
+
 function Base.show(io::IO, rule::DecisionRule)
     print(io, "DecisionRule: ", rule.constant)
-    for (d, coefficient) in sort!(collect(rule.coefficients); by = p -> JuMP.index(p[1]).value)
+    for (d, coefficient) in _by_index(rule.coefficients)
         print(io, coefficient < 0 ? " - " : " + ", abs(coefficient), " ", d)
+    end
+    for (d, term) in _by_index(rule.lifted)
+        print(io, " + ", term.coefficients, " ⋅ lift(", term.lifting, ", ", d, ")")
     end
     return
 end
@@ -48,6 +86,9 @@ end
 The decision rule of the variable `x` in the last solution of `formulation`, as a
 [`DecisionRule`](@ref) over the uncertainties of the model. The rule of an uncertainty is itself,
 and the rule of a parameter is its value.
+
+The rule is affine in each uncertainty, except in those with [`BreakPoints`](@ref), in which it
+is piecewise affine: the rule applies the lifting to the scenario.
 
 The rule of [`DualLDR`](@ref) is not a policy: only its objective value is a bound.
 
@@ -63,11 +104,27 @@ function decision_rule(x::JuMP.VariableRef; formulation::AbstractFormulation = P
     model = JuMP.owner_model(x)
     rule = MOI.get(model, RuleCoefficients(formulation), x)
     uncertainties = MOI.get(model, UncertaintyVariables())
+    if JuMP.index(x) in uncertainties
+        return DecisionRule(0.0, Dict(x => 1.0))
+    end
+    map = MOI.get(model, UncertaintyLifting())
+    # The column of ξ of each uncertainty that is not lifted.
+    column(j) = map === nothing ? 1 + j : map.kept[1+j]
     coefficients = Dict{JuMP.VariableRef,Float64}(
-        JuMP.VariableRef(model, v) => rule[1+j] for
-        (j, v) in enumerate(uncertainties) if !iszero(rule[1+j])
+        JuMP.VariableRef(model, v) => rule[column(j)] for
+        (j, v) in enumerate(uncertainties) if column(j) > 0 && !iszero(rule[column(j)])
     )
-    return DecisionRule(rule[1] + 0.0, coefficients)
+    lifted = Dict{JuMP.VariableRef,LiftedTerm}()
+    if map !== nothing
+        for block in map.blocks
+            c = rule[block.columns]
+            all(iszero, c) && continue
+            # `AxisPiecewise` lifts one uncertainty.
+            d = JuMP.VariableRef(model, uncertainties[only(block.inputs)-1])
+            lifted[d] = LiftedTerm(block.lifting, c .+ 0.0)
+        end
+    end
+    return DecisionRule(rule[1] + 0.0, coefficients, lifted)
 end
 
 _a_variable(::Real) = nothing

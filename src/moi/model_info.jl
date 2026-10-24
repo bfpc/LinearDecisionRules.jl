@@ -50,15 +50,24 @@ function _xi_roles(src::MOI.ModelLike)
     return valid, truncate
 end
 
+# The breakpoints of each variable: a number of breakpoints or a vector of breakpoints. `nothing`
+# (the value of a variable without breakpoints, or of cleared ones) means no lifting.
 function _breakpoints(src::MOI.ModelLike)
-    breakpoints = Dict{MOI.VariableIndex,Vector{Float64}}()
+    breakpoints = Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}}()
     if !(BreakPoints() in MOI.get(src, MOI.ListOfVariableAttributesSet()))
         return breakpoints
     end
     for v in MOI.get(src, MOI.ListOfVariableIndices())
         points = MOI.get(src, BreakPoints(), v)
-        if points !== nothing
-            breakpoints[v] = Float64.(points)
+        if points isa Integer
+            breakpoints[v] = Int(points)
+        elseif points isa AbstractVector{<:Real}
+            breakpoints[v] = Vector{Float64}(points)
+        elseif points !== nothing
+            error(
+                "The breakpoints of $(_variable_name(src, v)) must be an integer (their " *
+                "number) or a vector of numbers; got $(repr(points)).",
+            )
         end
     end
     return breakpoints

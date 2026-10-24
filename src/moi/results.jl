@@ -113,7 +113,8 @@ function MOI.get(o::Optimizer, ::MOI.RelativeGap)
     return iszero(value) ? (bound == value ? 0.0 : Inf) : abs(bound - value) / abs(value)
 end
 
-# The rule of `vi` on ξ = (1, η) in the result `r`.
+# The rule of `vi` on ξ = (1, η) in the result `r`. An uncertainty that is lifted is the sum of
+# its pieces: its rule is its row of the retraction.
 function _rule_coefficients(o::Optimizer, r::FormulationResult, vi::MOI.VariableIndex)
     k = size(r.X, 2)
     if haskey(o.decision_rows, vi)
@@ -121,7 +122,12 @@ function _rule_coefficients(o::Optimizer, r::FormulationResult, vi::MOI.Variable
     end
     rule = zeros(k)
     if haskey(o.uncertainty_columns, vi)
-        rule[o.uncertainty_columns[vi]] = 1.0
+        j = o.uncertainty_columns[vi]
+        if o.form.lifting === nothing
+            rule[j] = 1.0
+        else
+            rule .= retraction(o.form.lifting)[j, :]
+        end
     elseif haskey(o.parameters, vi)
         rule[1] = o.parameters[vi]
     else
@@ -202,6 +208,11 @@ function MOI.get(o::Optimizer, attr::RuleCoefficients, vi::MOI.VariableIndex)
     return _rule_coefficients(o, r, vi)
 end
 
-MOI.get(o::Optimizer, ::UncertaintyVariables) = copy(o.form.uncertainties)
+function MOI.get(o::Optimizer, ::UncertaintyVariables)
+    lifting = o.form.lifting
+    return copy(lifting === nothing ? o.form.uncertainties : lifting.uncertainties)
+end
+
+MOI.get(o::Optimizer, ::UncertaintyLifting) = o.form.lifting
 
 MOI.get(o::Optimizer, ::UncertaintyMoments) = o.moments

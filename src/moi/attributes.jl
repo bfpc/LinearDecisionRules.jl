@@ -56,13 +56,21 @@ struct ConstraintStage <: MOI.AbstractConstraintAttribute end
 """
     BreakPoints()
 
-A variable attribute: the breakpoints of the piecewise lifting of an uncertainty, as a
-`Vector{Float64}`. It is stored and read back, but the lifting is not supported yet.
+A variable attribute: the breakpoints of the [`AxisPiecewise`](@ref) lifting of an uncertainty,
+as a vector of interior breakpoints, or as an integer `n` for `n` equally spaced breakpoints inside
+the support. `nothing` (the default), an empty vector or `0` mean no lifting.
+
+The uncertainty must be declared alone, with a univariate law, and the breakpoints must lie
+strictly inside its support. At `optimize!`, the uncertainty is replaced by its pieces (see
+[`lift`](@ref)), so that the decision rules are piecewise affine in it: [`decision_rule`](@ref)
+gives the slope of a rule on each piece.
 
 ## Example
 
 ```julia
 set_attribute(d, BreakPoints(), [90.0, 100.0, 110.0])
+set_attribute(d, BreakPoints(), 3)        # the same, for d ~ Uniform(80, 120)
+set_attribute(d, BreakPoints(), nothing)  # no lifting
 ```
 """
 struct BreakPoints <: MOI.AbstractVariableAttribute end
@@ -119,23 +127,32 @@ end
 
 MOI.is_set_by_optimize(::FormulationAttribute) = true
 
-# The three attributes below are internal: the JuMP functions of `jump/results.jl` read them.
+# The four attributes below are internal: the JuMP functions of `jump/rules.jl` read them. The
+# columns ξ are those of the canonical form, so the lifted coordinates when there are breakpoints.
 
 # The rule of a variable on ξ = (1, η), as a `Vector{Float64}`.
 struct RuleCoefficients <: MOI.AbstractVariableAttribute
     formulation::AbstractFormulation
 end
 
-# The uncertainties of the last solve, in the columns of ξ after the constant.
+# The uncertainties of the model, before lifting: those of the columns of ξ after the constant
+# when nothing is lifted.
 struct UncertaintyVariables <: MOI.AbstractModelAttribute end
+
+# The `LiftingMap` of the last solve, or `nothing` if nothing was lifted.
+struct UncertaintyLifting <: MOI.AbstractModelAttribute end
 
 # The `Moments` of ξ of the last solve.
 struct UncertaintyMoments <: MOI.AbstractModelAttribute end
 
-MOI.is_set_by_optimize(::Union{RuleCoefficients,UncertaintyVariables,UncertaintyMoments}) = true
+function MOI.is_set_by_optimize(
+    ::Union{RuleCoefficients,UncertaintyVariables,UncertaintyLifting,UncertaintyMoments},
+)
+    return true
+end
 
-# The values of these attributes hold no indices, except `UncertaintyVariables`, which the
-# identity map of `optimize!` leaves as they are.
+# The values of these attributes hold no indices, except `UncertaintyVariables` and
+# `UncertaintyLifting`, which the identity map of `optimize!` leaves as they are.
 const _AttributesWithoutIndices = Union{
     XiRole,
     ConstraintStage,
@@ -145,6 +162,7 @@ const _AttributesWithoutIndices = Union{
     FormulationAttribute,
     RuleCoefficients,
     UncertaintyVariables,
+    UncertaintyLifting,
     UncertaintyMoments,
 }
 
