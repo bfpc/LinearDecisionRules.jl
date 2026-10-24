@@ -27,14 +27,18 @@ include("canonical/information.jl")
 include("canonical/support.jl")
 include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
+include("moi/sets.jl")
 
 export CanonicalForm,
     CovarianceBlock,
+    FirstStage,
     InformationStructure,
     ModelInfo,
     Moments,
     MvDiscreteNonParametric,
+    Stage,
     SupportBlock,
+    Uncertainty,
     UncertaintyBlock,
     UncertaintyDeclaration,
     canonicalize,
