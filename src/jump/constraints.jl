@@ -12,6 +12,13 @@ struct _TaggedConstraint{C<:JuMP.AbstractConstraint,T<:_ConstraintTag} <: JuMP.A
     tag::T
 end
 
+function _check_tagged_row(error_fn::Function, f, tag)
+    if tag isa AbstractXiRole && !(f isa JuMP.GenericAffExpr || f isa JuMP.GenericVariableRef)
+        error_fn("A row tagged `$(nameof(typeof(tag)))()` must be affine; got $(typeof(f)).")
+    end
+    return
+end
+
 function JuMP.build_constraint(
     error_fn::Function,
     f::JuMP.AbstractJuMPScalar,
@@ -19,10 +26,21 @@ function JuMP.build_constraint(
     tag::_ConstraintTag;
     kwargs...,
 )
-    if tag isa AbstractXiRole && !(f isa JuMP.GenericAffExpr || f isa JuMP.GenericVariableRef)
-        error_fn("A row tagged `$(nameof(typeof(tag)))()` must be affine; got $(typeof(f)).")
-    end
+    _check_tagged_row(error_fn, f, tag)
     return _TaggedConstraint(JuMP.build_constraint(error_fn, f, set; kwargs...), tag)
+end
+
+# The two-sided syntax `lower <= expr <= upper`.
+function JuMP.build_constraint(
+    error_fn::Function,
+    f::JuMP.AbstractJuMPScalar,
+    lower::Real,
+    upper::Real,
+    tag::_ConstraintTag;
+    kwargs...,
+)
+    _check_tagged_row(error_fn, f, tag)
+    return _TaggedConstraint(JuMP.build_constraint(error_fn, f, lower, upper; kwargs...), tag)
 end
 
 function JuMP.add_constraint(model::JuMP.GenericModel, c::_TaggedConstraint, name::String = "")

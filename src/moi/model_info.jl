@@ -1,0 +1,89 @@
+# Copyright (c) 2024: Joaquim Dias Garcia, Bernardo Freitas Paulo da Costa, and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE file or at https://opensource.org/licenses/MIT.
+
+# The stage of each variable, from its `VariableIndex`-in-`Stage` constraint. MOI keeps one such
+# constraint per variable: adding a second replaces the first.
+function _variable_stages(src::MOI.ModelLike)
+    stages = Dict{MOI.VariableIndex,Int}()
+    for ci in MOI.get(src, MOI.ListOfConstraintIndices{MOI.VariableIndex,Stage}())
+        stages[MOI.get(src, MOI.ConstraintFunction(), ci)] = MOI.get(src, MOI.ConstraintSet(), ci).t
+    end
+    return stages
+end
+
+function _uncertainty_declarations(src::MOI.ModelLike, stages::Dict{MOI.VariableIndex,Int})
+    declarations = UncertaintyDeclaration[]
+    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
+        if !(S <: _AnyUncertainty)
+            continue
+        end
+        for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
+            f = MOI.get(src, MOI.ConstraintFunction(), ci)
+            variables = f isa MOI.VariableIndex ? [f] : copy(f.variables)
+            set = MOI.get(src, MOI.ConstraintSet(), ci)
+            variable_stages = Union{Nothing,Int}[get(stages, v, nothing) for v in variables]
+            push!(declarations, UncertaintyDeclaration(set.distribution, variables, variable_stages))
+        end
+    end
+    return declarations
+end
+
+# The constraints tagged with a role, by role.
+function _xi_roles(src::MOI.ModelLike)
+    valid, truncate = Set{MOI.ConstraintIndex}(), Set{MOI.ConstraintIndex}()
+    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
+        if !(XiRole() in MOI.get(src, MOI.ListOfConstraintAttributesSet{F,S}()))
+            continue
+        end
+        for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
+            role = MOI.get(src, XiRole(), ci)
+            if role isa ValidInequality
+                push!(valid, ci)
+            elseif role isa Truncate
+                push!(truncate, ci)
+            end
+        end
+    end
+    return valid, truncate
+end
+
+function _breakpoints(src::MOI.ModelLike)
+    breakpoints = Dict{MOI.VariableIndex,Vector{Float64}}()
+    if !(BreakPoints() in MOI.get(src, MOI.ListOfVariableAttributesSet()))
+        return breakpoints
+    end
+    for v in MOI.get(src, MOI.ListOfVariableIndices())
+        points = MOI.get(src, BreakPoints(), v)
+        if points !== nothing
+            breakpoints[v] = Float64.(points)
+        end
+    end
+    return breakpoints
+end
+
+"""
+    _model_info(src::MOI.ModelLike) -> ModelInfo
+
+Read the linear-decision-rule metadata of `src`: the uncertainty declarations, the stages, the
+roles of the uncertainty-only rows and the breakpoints. The result is meant for
+[`canonicalize`](@ref).
+
+A stage on an uncertainty goes to its declaration, and a stage on any other variable to
+`decision_stages`. It only reads: the checks of the model itself are those of `canonicalize`.
+"""
+function _model_info(src::MOI.ModelLike)
+    stages = _variable_stages(src)
+    declarations = _uncertainty_declarations(src, stages)
+    in_uncertainty = Set(v for d in declarations for v in d.variables)
+    decision_stages = Dict(v => t for (v, t) in stages if !(v in in_uncertainty))
+    valid_rows, truncate_rows = _xi_roles(src)
+    return ModelInfo(;
+        uncertainties = declarations,
+        decision_stages,
+        valid_rows,
+        truncate_rows,
+        breakpoints = _breakpoints(src),
+    )
+end

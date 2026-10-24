@@ -35,6 +35,19 @@ function JuMP.build_variable(
     return JuMP.build_variable.(error_fn, vs, Ref(set))
 end
 
+# JuMP has its own sets, converted to MOI ones on creation, such as `Parameter`.
+function JuMP.build_variable(error_fn::Function, v::_StagedVariable, set::JuMP.AbstractScalarSet)
+    return _StagedVariable(JuMP.build_variable(error_fn, v.variable, set), v.stage)
+end
+
+function JuMP.build_variable(
+    error_fn::Function,
+    vs::AbstractArray{<:_StagedVariable},
+    set::JuMP.AbstractScalarSet,
+)
+    return JuMP.build_variable.(error_fn, vs, Ref(set))
+end
+
 function _build_staged_variables(error_fn::Function, vs::Vector{<:_StagedVariable}, set)
     variables = JuMP.build_variable(error_fn, [v.variable for v in vs], set)
     return _StagedVariables(variables, [v.stage for v in vs])
@@ -44,6 +57,14 @@ function JuMP.build_variable(
     error_fn::Function,
     vs::Vector{<:_StagedVariable},
     set::MOI.AbstractVectorSet,
+)
+    return _build_staged_variables(error_fn, vs, set)
+end
+
+function JuMP.build_variable(
+    error_fn::Function,
+    vs::Vector{<:_StagedVariable},
+    set::JuMP.AbstractVectorSet,
 )
     return _build_staged_variables(error_fn, vs, set)
 end
