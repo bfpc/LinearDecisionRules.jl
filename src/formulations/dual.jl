@@ -3,11 +3,13 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# The rows `W'ξ = W_b η_b - h_b ξ₁ ≥ 0` of one support block, seen through the moments:
+# The rows `W'ξ = W_b η_b - h_b ξ₁ ∈ K_b` of one support block, seen through the moments:
 # `E[s(ξ) W'ξ] = (S μ) (W'μ) + S Σ W'ᵀ` for the slack `s(ξ) = S ξ`.
 struct _DualCone
     V::_SparseMatrix         # Σ W'ᵀ: one column per row of the block, one row per column of ξ
-    Wμ::Vector{Float64}      # W'μ ≥ 0, since the mean is in Ξ
+    Wμ::Vector{Float64}      # W'μ ∈ K_b, since the mean is in Ξ
+    cones::Vector{_SupportCone}
+    rows::Vector{UnitRange{Int}} # the rows of each piece of the cone
 end
 
 function _covariance_matrix(mom::Moments)
@@ -27,14 +29,17 @@ function _dual_cones(blocks::Vector{SupportBlock}, mom::Moments)
     Σ = _covariance_matrix(mom)
     return map(blocks) do block
         V = SparseArrays.dropzeros!(Σ[:, block.columns] * SparseArrays.sparse(transpose(block.W)))
-        return _DualCone(V, block.W * mom.mean[block.columns] - block.h)
+        Wμ = block.W * mom.mean[block.columns] - block.h
+        return _DualCone(V, Wμ, block.cones, _cone_rows(block))
     end
 end
 
 # With the slack rule `s(ξ) = S ξ`, `u = S μ`, the relaxation of `s(ξ) ≥ 0` on Ξ is
-# `E[s(ξ) ξ₁] = u ≥ 0` and `E[s(ξ) W'ξ] = u (W'μ) + S Σ W'ᵀ ≥ 0` for every support block. S is
-# masked by the columns where the row is structurally nonzero, and Σ is block diagonal, so a cone
-# row with no masked column in its covariance block reduces to `u (W'μ)_k ≥ 0`, implied by `u ≥ 0`.
+# `E[s(ξ) ξ₁] = u ≥ 0` and `E[s(ξ) W'ξ] = u (W'μ) + S Σ W'ᵀ ∈ K` for every support block, since
+# `s(ξ) W'ξ ∈ K` on Ξ and K is a closed convex cone (Kuhn, Wiesemann and Georghiou, 2011,
+# Proposition 3, for the nonnegative orthant). S is masked by the columns where the row is
+# structurally nonzero, and Σ is block diagonal, so a piece of the cone with no masked column in
+# its covariance block reduces to `u (W'μ)_piece ∈ K_piece`, implied by `u ≥ 0` and `W'μ ∈ K`.
 function _add_dual_cone!(
     model::JuMP.Model,
     X,
@@ -63,15 +68,31 @@ function _add_dual_cone!(
     for b in unique!(sort!(touched))
         cone = cones[b]
         V = cone.V
-        for k in axes(V, 2)
+        # The masked part `(S Σ W'ᵀ)_k` of the row `k` of the block.
+        function masked(k)
             expr = JuMP.AffExpr(0.0)
             for p in SparseArrays.nzrange(V, k)
                 s = get(S, SparseArrays.rowvals(V)[p], nothing)
                 s === nothing || JuMP.add_to_expression!(expr, SparseArrays.nonzeros(V)[p], s)
             end
-            isempty(expr.terms) && continue
-            iszero(cone.Wμ[k]) || JuMP.add_to_expression!(expr, cone.Wμ[k], u)
-            JuMP.@constraint(model, expr >= 0)
+            return expr
+        end
+        for (piece, rows) in zip(cone.cones, cone.rows)
+            if piece isa MOI.Nonnegatives
+                for k in rows
+                    expr = masked(k)
+                    isempty(expr.terms) && continue
+                    iszero(cone.Wμ[k]) || JuMP.add_to_expression!(expr, cone.Wμ[k], u)
+                    JuMP.@constraint(model, expr >= 0)
+                end
+            else
+                exprs = [masked(k) for k in rows]
+                all(expr -> isempty(expr.terms), exprs) && continue
+                for (expr, k) in zip(exprs, rows)
+                    iszero(cone.Wμ[k]) || JuMP.add_to_expression!(expr, cone.Wμ[k], u)
+                end
+                JuMP.@constraint(model, exprs in JuMP.SecondOrderCone())
+            end
         end
     end
     return
@@ -111,7 +132,7 @@ function _build!(model::JuMP.Model, ::DualLDR, form::CanonicalForm, mom::Moments
     info = InformationStructure(form)
     X = _rule_variables!(model, form, info)
     _add_equalities!(model, form, info, X)
-    cones = _dual_cones(_polyhedral(support_blocks(form), DualLDR()), mom)
+    cones = _dual_cones(support_blocks(form), mom)
     # The cones whose rows involve each column of ξ.
     cones_of = [Int[] for _ in mom.mean]
     for (b, cone) in enumerate(cones), j in unique(SparseArrays.rowvals(cone.V))

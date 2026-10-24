@@ -34,9 +34,11 @@ struct PrimalLDR <: AbstractFormulation end
 The dual linear decision rule: a relaxation whose objective value bounds the optimal value of the
 stochastic program (an upper bound of a maximization, a lower bound of a minimization).
 
-Its rule is not a policy. Each inequality `s(ξ) ≥ 0` is relaxed to `E[s(ξ) (W'ξ)ᵀ] ≥ 0`, where
-`W'ξ ≥ 0` describes Ξ, including the row `ξ₁ ≥ 0` (Kuhn, Wiesemann and Georghiou, 2011). The bound
-is certified when the uncertainties of different stages are independent; building it warns when a
+Its rule is not a policy. Each inequality `s(ξ) ≥ 0` is relaxed to `E[s(ξ) W'ξ] ∈ K`, where
+`W'ξ ∈ K` describes Ξ, including the row `ξ₁ ≥ 0` (Kuhn, Wiesemann and Georghiou, 2011): `K` is
+the nonnegative orthant of the linear rows of the [`SupportBlock`](@ref)s times a second-order
+cone for each of their second-order cone rows, so the inner problem is then a second-order cone
+program. The bound is certified when the uncertainties of different stages are independent; building it warns when a
 law correlates uncertainties of different stages.
 """
 struct DualLDR <: AbstractFormulation end
@@ -252,14 +254,6 @@ function _time_limit_result(f::AbstractFormulation, form::CanonicalForm, mom::Mo
         fill(NaN, length(form.decisions), k),
         JuMP.Model(),
     )
-end
-
-# Conic support blocks are not supported by the formulations yet.
-function _polyhedral(blocks::Vector{SupportBlock}, f::AbstractFormulation)
-    if any(block -> length(block.cones) > 1, blocks)
-        error("$f does not support second-order cone rows in the support yet.")
-    end
-    return blocks
 end
 
 # `_build!(model, f, form, mom)` builds the inner problem of the formulation `f` in `model` and

@@ -9,7 +9,9 @@ using JuMP
 using Test
 
 import Distributions
+import Clarabel
 import HiGHS
+import LinearDecisionRules
 import LinearDecisionRules: DualLDR, PrimalLDR, moments, solve_formulation
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
@@ -23,6 +25,43 @@ function runtests()
             end
         end
     end
+    return
+end
+
+# Second-order cone rows of Ξ: cone rows of the dual in the second-order cone.
+function test_conic_dense_oracle()
+    for p in Problems.conic_library()
+        form = Problems.form(p)
+        mom = moments(form)
+        @testset "$(p.name)" begin
+            result = solve_formulation(form, DualLDR(), mom, Clarabel.Optimizer)
+            oracle = DenseOracle.solve(DenseOracle.build_dual, form, mom, Clarabel.Optimizer)
+            @test result.termination_status == MOI.OPTIMAL
+            @test isapprox(result.objective_value, oracle.objective_value; rtol = 1e-6)
+            isnan(p.dual) || @test isapprox(result.objective_value, p.dual; rtol = 1e-6)
+            primal = solve_formulation(form, PrimalLDR(), mom, Clarabel.Optimizer)
+            tol = 1e-6 * abs(result.objective_value)
+            @test primal.objective_value <= result.objective_value + tol
+        end
+    end
+    return
+end
+
+# A disc that contains the box leaves the bound unchanged; a smaller one tightens it.
+function test_conic_support()
+    box = Problems.form(Problems.shared_stock(; valid = false))
+    lp = solve_formulation(box, DualLDR(), moments(box), HiGHS.Optimizer)
+    form = Problems.form(Problems.shared_stock_disc(30))
+    result = solve_formulation(form, DualLDR(), moments(form), Clarabel.Optimizer)
+    @test isapprox(result.objective_value, lp.objective_value; rtol = 1e-6)
+    @test num_constraints(result.model, Vector{AffExpr}, MOI.SecondOrderCone) > 0
+    tight = Problems.form(Problems.shared_stock_disc(20; truncate = true, cut = true))
+    mom = moments(tight)
+    disc = solve_formulation(tight, DualLDR(), mom, Clarabel.Optimizer)
+    # The same moments with Ξ the box: a weaker bound.
+    loose = LinearDecisionRules._replace(tight; conic_rows = LinearDecisionRules.ConicRow[])
+    box_bound = solve_formulation(loose, DualLDR(), mom, HiGHS.Optimizer).objective_value
+    @test disc.objective_value < box_bound - 1
     return
 end
 
