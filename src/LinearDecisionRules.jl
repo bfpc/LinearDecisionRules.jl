@@ -31,6 +31,7 @@ include("moi/sets.jl")
 include("moi/attributes.jl")
 include("jump/variables.jl")
 include("jump/constraints.jl")
+include("jump/checks.jl")
 
 export BreakPoints,
     CanonicalForm,

@@ -35,13 +35,17 @@ function JuMP.build_variable(
     return JuMP.build_variable.(error_fn, vs, Ref(set))
 end
 
+function _build_staged_variables(error_fn::Function, vs::Vector{<:_StagedVariable}, set)
+    variables = JuMP.build_variable(error_fn, [v.variable for v in vs], set)
+    return _StagedVariables(variables, [v.stage for v in vs])
+end
+
 function JuMP.build_variable(
     error_fn::Function,
     vs::Vector{<:_StagedVariable},
     set::MOI.AbstractVectorSet,
 )
-    variables = JuMP.build_variable(error_fn, [v.variable for v in vs], set)
-    return _StagedVariables(variables, [v.stage for v in vs])
+    return _build_staged_variables(error_fn, vs, set)
 end
 
 function JuMP.add_variable(model::JuMP.GenericModel, v::_StagedVariable, name::String = "")
