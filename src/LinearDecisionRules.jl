@@ -24,6 +24,7 @@ import SparseArrays
 include("canonical/info.jl")
 include("canonical/form.jl")
 include("canonical/information.jl")
+include("canonical/support.jl")
 include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
 
@@ -33,12 +34,14 @@ export CanonicalForm,
     ModelInfo,
     Moments,
     MvDiscreteNonParametric,
+    SupportBlock,
     UncertaintyBlock,
     UncertaintyDeclaration,
     canonicalize,
     moments,
     observes,
     second_moment,
+    support_blocks,
     visible_columns
 
 end # module LinearDecisionRules
