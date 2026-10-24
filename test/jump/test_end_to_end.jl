@@ -222,6 +222,26 @@ function test_golden_values()
     return
 end
 
+# A vector uncertainty over a named range has the same model as over `1:n`.
+function test_uncertainty_in_named_range()
+    law = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
+    # `Base.OneTo(2)` gives a `Vector`, the others a `DenseAxisArray`.
+    objectives = map((Base.OneTo(2), 1:2, [:a, :b])) do R
+        model = ldr_model()
+        @variable(model, x[R] >= 0)
+        @variable(model, y >= 0, FirstStage)
+        @variable(model, d[R] in Uncertainty(law), Stage(2))
+        @constraint(model, [r in R], x[r] <= d[r] + y)
+        @constraint(model, sum(x) <= 2)
+        @objective(model, Max, sum(x) - 0.5y)
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        return objective_value(model)
+    end
+    @test objectives[1] ≈ objectives[2] ≈ objectives[3]
+    return
+end
+
 function test_newsvendor()
     model = newsvendor()
     optimize!(model)

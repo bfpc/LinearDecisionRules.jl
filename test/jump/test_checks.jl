@@ -66,6 +66,22 @@ function test_unbounded_univariate()
     return
 end
 
+# The checks also apply to arrays that are not a `Vector`, such as a named range.
+function test_named_range_checks()
+    model = Model()
+    normal = Distributions.MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0])
+    R = 1:2
+    msg = @error_message @variable(model, d[R] in Uncertainty(normal))
+    @test occursin("has an unbounded support", msg)
+    @test num_variables(model) == 0
+    law = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
+    msg = @error_message @variable(model, d[i in 1:3; i != 2] in Uncertainty(law))
+    @test occursin("needs an array of variables", msg)
+    @test occursin("cannot be declared over a condition", msg)
+    @test num_variables(model) == 0
+    return
+end
+
 function test_unbounded_multivariate()
     model = Model()
     normal = Distributions.MvNormal([0.0, 0.0], [1.0 0.0; 0.0 1.0])

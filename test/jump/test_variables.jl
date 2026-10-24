@@ -106,6 +106,34 @@ function test_uncertainty_with_stage()
     return
 end
 
+# A vector uncertainty over a named range is a `DenseAxisArray`, whose variables are those of the
+# law, in column-major order.
+function test_uncertainty_in_named_range()
+    model = Model()
+    law = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
+    R = 1:2
+    @variable(model, a[R] in Uncertainty(law))
+    @test a isa JuMP.Containers.DenseAxisArray
+    @test name.(a.data) == ["a[1]", "a[2]"]
+    @test stage.(a) == [nothing, nothing]
+    S = [:p, :q]
+    @variable(model, b[S] in Uncertainty(law), Stage(3))
+    @test b[:q] isa VariableRef && name(b[:q]) == "b[q]"
+    @test [stage(b[s]) for s in S] == [3, 3]
+    @variable(model, c[t = 2:3, 1:1] in Uncertainty(law), Stage(t))
+    @test [stage(c[2, 1]), stage(c[3, 1])] == [2, 3]
+    four = Distributions.product_distribution(fill(Uniform(0, 1), 4)...)
+    @variable(model, e[1:2, 1:2] in Uncertainty(four))
+    @test size(e) == (2, 2) && name(e[2, 1]) == "e[2,1]"
+    @variable(model, f[S, 1:2] in Uncertainty(four))
+    @test size(f) == (2, 2) && name(f[:q, 1]) == "f[q,1]"
+    # One declaration per call: `a`'s two variables are the components of one law.
+    src = backend(model)
+    M = typeof(Uncertainty(law))
+    @test length(MOI.get(src, MOI.ListOfConstraintIndices{MOI.VectorOfVariables,M}())) == 3
+    return
+end
+
 function test_stage_helpers()
     model = Model()
     @variable(model, x)

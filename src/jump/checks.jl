@@ -88,3 +88,48 @@ function JuMP.build_variable(
 )
     return _build_staged_variables(error_fn, vs, set)
 end
+
+# A vector uncertainty in an array that is not a `Vector`, for example `@variable(model, x[R] in
+# Uncertainty(law))` with a named range `R` (a `DenseAxisArray`): JuMP builds the variables of a
+# vector set from a `Vector` only. The components are those of the array in column-major order,
+# and the container keeps the axes of its names.
+struct _ArrayOfVariables{V<:JuMP.AbstractVariable} <: JuMP.AbstractVariable
+    variables::V
+end
+
+function JuMP.build_variable(
+    error_fn::Function,
+    vs::AbstractArray{<:JuMP.AbstractVariable},
+    set::MultivariateUncertainty,
+)
+    return _ArrayOfVariables(JuMP.build_variable(error_fn, _components(vs), set))
+end
+
+function JuMP.build_variable(
+    error_fn::Function,
+    ::JuMP.Containers.SparseAxisArray,
+    ::MultivariateUncertainty,
+)
+    return error_fn(
+        "A vector uncertainty needs an array of variables, such as `x[1:n]` or `x[R]` with a " *
+        "range `R`: it cannot be declared over a condition (`x[i in R; cond]`).",
+    )
+end
+
+_components(a::JuMP.Containers.DenseAxisArray) = vec(a.data)
+
+_components(a::AbstractArray) = vec(a)
+
+function _like(names::JuMP.Containers.DenseAxisArray, xs)
+    return JuMP.Containers.DenseAxisArray(reshape(xs, size(names)), axes(names)...)
+end
+
+_like(names::AbstractArray, xs) = reshape(xs, size(names))
+
+function JuMP.add_variable(
+    model::JuMP.GenericModel,
+    v::_ArrayOfVariables,
+    names::AbstractArray{<:String},
+)
+    return _like(names, JuMP.add_variable(model, v.variables, _components(names)))
+end
