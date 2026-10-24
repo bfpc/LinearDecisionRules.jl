@@ -41,6 +41,21 @@ function inflow_law(data, t)
     return LDR.MvDiscreteNonParametric(atoms, fill(1 / n, n))
 end
 
+# The marginal law of the inflow of reservoir i at stage t >= 2, a univariate discrete law on the
+# distinct values of the 82 scenarios (the law of one coordinate of `inflow_law`).
+function marginal_law(data, t, i)
+    values = data.inflow_scenarios[i][inflow_month(t)]
+    support = sort!(unique(values))
+    return Distributions.DiscreteNonParametric(support, [count(==(v), values) / length(values) for v in support])
+end
+
+# `k` breakpoints at the equiprobable quantiles of `law`, those strictly inside its support (the
+# only ones that `BreakPoints` accepts; fewer than `k` when the law has few distinct values).
+function breakpoint_positions(law, k)
+    points = unique([Distributions.quantile(law, j / (k + 1)) for j in 1:k])
+    return filter(b -> minimum(law) < b < maximum(law), points)
+end
+
 # The decisions of one stage. They are anonymous containers, so that a model can hold many
 # stages (one per node in a tree).
 function stage_variables(m, data, t; name = "")
@@ -96,8 +111,26 @@ function stage_cost(data, v)
     return deficit + thermal
 end
 
-# The monolithic multistage model. `formulations` is the list given to `LDR.Formulations`.
-function ldr_model(data, T; formulations = [LDR.PrimalLDR()])
+# The four inflows of stage t >= 2 as independent univariate uncertainties, each with `k`
+# breakpoints (`BreakPoints` apply to univariate declarations only, so the joint law of
+# `inflow_law` cannot be lifted); `k = 0` leaves them unlifted.
+function independent_inflows!(m, data, t, k)
+    inflow = map(REES) do i
+        law = marginal_law(data, t, i)
+        x = @variable(m, set = LDR.Uncertainty(law), base_name = "inflow$(t)_$i")
+        LDR.set_stage(x, t)
+        points = breakpoint_positions(law, k)
+        isempty(points) || set_attribute(x, LDR.BreakPoints(), points)
+        return x
+    end
+    return inflow
+end
+
+# The monolithic multistage model. `formulations` is the list given to `LDR.Formulations`. The
+# inflows of stage t are in `m[Symbol("inflow$t")]`. With `breakpoints = k`, the law of each stage
+# is the product of the four marginals (independent reservoirs) and each inflow has `k`
+# breakpoints; with `nothing`, it is the joint law.
+function ldr_model(data, T; formulations = [LDR.PrimalLDR()], breakpoints = nothing)
     m = LDR.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     set_attribute(m, LDR.Formulations(), formulations)
@@ -110,8 +143,12 @@ function ldr_model(data, T; formulations = [LDR.PrimalLDR()])
         end
         if t == 1
             inflow = data.inflow_initial
-        else
+        elseif breakpoints === nothing
             inflow = @variable(m, [1:4] in LDR.Uncertainty(inflow_law(data, t)), LDR.Stage(t), base_name = "inflow$t")
+            m[Symbol("inflow$t")] = inflow
+        else
+            inflow = independent_inflows!(m, data, t, breakpoints)
+            m[Symbol("inflow$t")] = inflow
         end
         stage_constraints(m, data, t, v, stored_in, inflow)
         add_to_expression!(cost, stage_cost(data, v))

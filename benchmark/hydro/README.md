@@ -20,10 +20,12 @@ its decisions are taken after the inflows of month t are known, stage 1 has the 
 julia --project=benchmark/hydro -e 'using Pkg; Pkg.develop(path = "."); Pkg.instantiate()'
 julia --project=benchmark/hydro benchmark/hydro/run.jl                  # T = 4, 8, 12
 julia --project=benchmark/hydro benchmark/hydro/run.jl 4 tree=3 only=ldr_primal,tree
+julia --project=benchmark/hydro benchmark/hydro/run.jl 4 bp=0,1,2   # k breakpoints per inflow
 ```
 
 `run.jl` appends one row per T and variant to `../results/hydro.csv`, with the columns of
-`timing.jl` plus `branches`, `reps` and the inner solver's `status`. A variant is run once for
+`timing.jl` plus `branches`, `reps`, the inner solver's `status`, and `breakpoints`, `oos_mean`,
+`oos_stderr` and `oos_violated` (the last three only for primal LDR variants: see below). A variant is run once for
 warm-up, then three times with the best kept (smallest `build_s + optimize_s`), unless its first
 run takes more than 10 s, in which case that run is the result (`reps = 1`).
 
@@ -109,6 +111,32 @@ run and are indicative only.
 inner solver's time.) The values agree to 12 digits, so this is the same instance and the same
 reformulated problem; the 0.4 primal has 55% of the variables and 57% of the nonzeros, and the dual
 has 13 times fewer nonzeros than the dense one.
+
+### Breakpoints
+
+`run.jl 4 bp=0,1,2` and `run.jl 8 bp=0,1` add the variants `ldr_primal_bp<k>` and `ldr_dual_bp<k>`: `k`
+breakpoints on each inflow, at the equiprobable quantiles of its law. `BreakPoints` apply to
+univariate declarations only and the law of a month is multivariate (82 joint scenarios), so these
+variants declare the four inflows of a stage as independent marginals; `k = 0` is the same law with
+no breakpoints, and its primal value is that of the joint law (the cost is linear, so only the means
+enter). Every primal run is also simulated on 2000 scenarios of the true joint law (one of the 82
+vectors per stage, independent across stages): `oos_mean` is the sample mean of the cost, and no
+constraint is violated in any of them.
+
+| T | k | Primal value | Out-of-sample mean | Dual bound | Primal variables | Primal solve | Dual solve |
+|--:|--:|--:|--:|--:|--:|--:|--:|
+| 4 | 0 | 3.7600 | 3.7587 ± 0.0124 | 0.9803 | 18,160 | 0.60 s | 1.3 s |
+| 4 | 1 | 1.8888 | 1.8875 ± 0.0150 | 0.9891 | 42,736 | 2.2 s | 6.0 s |
+| 4 | 2 | 1.5962 | 1.5991 ± 0.0135 | 0.9912 | 67,312 | 5.4 s | 33 s |
+| 8 | 0 | 94.875 | 95.584 ± 0.572 | 1.9606 | 83,168 | 13.3 s | 64 s |
+| 8 | 1 | 37.296 | 37.717 ± 0.548 | 1.9703 | 197,856 | 124 s | 66 s |
+
+One breakpoint per inflow halves the primal value at T = 4 (3.76 to 1.89; two give 1.60) and cuts it by
+61% at T = 8, while the dual bound moves by 1% or less, so the bound goes from 26% to 52% (62% with two)
+of the value at T = 4 and from 2.1% to 5.3% at T = 8. The primal LP has 2.4 times the variables with
+one breakpoint and its solve takes 3.7 times as long at T = 4 and 9.3 times at T = 8 (124 s, under the
+3-minute limit of these runs). The out-of-sample means are within 1.3 standard errors of the primal
+values.
 
 ## Observations
 
