@@ -218,7 +218,7 @@ simulate(model, 10_000; rng = Xoshiro(1))
 
 # ## Part 4: comparing the formulations
 
-# The [`SampledLDR`](@ref) formulation (see the sampled tutorial) also
+# The [`SampledLDR`](@ref) formulation (see [Sampled decision rules](@ref sampled_tutorial)) also
 # works with breakpoints. Let us compare the three formulations for nested breakpoints. The value
 # of the sampled rule, solved on 500 scenarios, is an estimate and not a bound; we also evaluate
 # its rule on 10 000 new scenarios with [`simulate`](@ref), which is the honest value of that rule.
