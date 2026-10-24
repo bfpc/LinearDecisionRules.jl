@@ -338,6 +338,8 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     _check_bounded_support(src, info)
     form = canonicalize(src, info; conic_support = _conic_support(factory, info))
     mom = _moments(form, dest.rejection_sampling, dest.moments_cache)
+    _check_convex_objective(form)
+    _warn_singular_moments(form, mom)
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
         remaining = nothing

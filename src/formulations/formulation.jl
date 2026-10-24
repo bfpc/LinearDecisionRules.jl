@@ -127,9 +127,9 @@ The result of [`solve_formulation`](@ref).
    model, so that the value of [`PrimalLDR`](@ref) is attained and the bound of [`DualLDR`](@ref)
    is a bound. It is `false` when they use moments estimated by rejection sampling (laws
    conditioned by constraints tagged [`Truncate`](@ref)), for a bound when uncertainties of
-   different stages are correlated (stagewise independence fails), and for a rule that is feasible
-   on drawn outcomes only ([`SampledLDR`](@ref)). Except for the latter, `raw_status` then ends
-   with `[not certified: <reason>]`.
+   different stages are correlated (stagewise independence fails) or the second-moment matrix is
+   singular, and for a rule that is feasible on drawn outcomes only ([`SampledLDR`](@ref)). Except
+   for the latter, `raw_status` then ends with `[not certified: <reason>]`.
  * `solve_time::Float64`: wall-clock seconds of the inner `optimize!` (zero if it was not built).
  * `X::Matrix{Float64}`: the decision rules, `decisions × (1 + uncertainties)`, with zeros in the
    columns that a decision does not observe; all `NaN` unless `primal_status == FEASIBLE_POINT`.
@@ -223,12 +223,19 @@ end
 function _certification(f::AbstractFormulation, form::CanonicalForm, mom::Moments)
     if capabilities(f).rule_status == MOI.UNKNOWN_RESULT_STATUS
         return false, ""
-    elseif _is_estimated(mom)
-        return false, "moments of conditioned laws estimated by rejection sampling"
-    elseif capabilities(f).bound && !isempty(_correlated_stage_laws(form, mom))
-        return false, "uncertainties of different stages are correlated"
     end
-    return true, ""
+    reasons = String[]
+    if _is_estimated(mom)
+        push!(reasons, "moments of conditioned laws estimated by rejection sampling")
+    end
+    if capabilities(f).bound
+        # The dual bound needs `M ≻ 0` (the proof inverts it) and stagewise independence.
+        isempty(_singular_blocks(mom)) || push!(reasons, "the second-moment matrix is singular")
+        if !isempty(_correlated_stage_laws(form, mom))
+            push!(reasons, "uncertainties of different stages are correlated")
+        end
+    end
+    return isempty(reasons), join(reasons, "; ")
 end
 
 function _raw_status(raw::String, reason::String)
