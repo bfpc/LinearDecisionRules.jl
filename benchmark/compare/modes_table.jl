@@ -27,8 +27,15 @@ function main(args)
         r["mode"] == mode && r["status"] == "OPTIMAL" && !haskey(refs, stemof(r)) &&
             (refs[stemof(r)] = parse(Float64, r["objective"]))
     end
+    # no HiGHS optimum for this file (time limit everywhere): the other package's, same instance and
+    # formulation family (the packages agree on the objective, see README)
+    family(r) = "$(r["problem"])_T$(r["T"])_" * (startswith(r["formulation"], "primal") ? "primal" : "dual")
+    famref = Dict{String,Float64}()
     for r in rows
-        ref = get(refs, stemof(r), NaN)
+        haskey(refs, stemof(r)) && !haskey(famref, family(r)) && (famref[family(r)] = refs[stemof(r)])
+    end
+    for r in rows
+        ref = get(refs, stemof(r), get(famref, family(r), NaN))
         obj = r["objective"] == "" ? NaN : parse(Float64, r["objective"])
         r["ref_objective"] = isnan(ref) ? "" : string(ref)
         r["rel_err"] = isnan(ref) || isnan(obj) ? "" : string(abs(obj - ref) / max(abs(ref), 1e-12))
