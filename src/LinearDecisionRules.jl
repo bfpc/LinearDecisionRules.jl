@@ -27,6 +27,7 @@ include("canonical/information.jl")
 include("canonical/support.jl")
 include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
+include("formulations/formulation.jl")
 include("moi/sets.jl")
 include("moi/attributes.jl")
 include("moi/model_info.jl")
@@ -36,10 +37,14 @@ include("jump/constraints.jl")
 include("jump/checks.jl")
 include("jump/model.jl")
 
-export BreakPoints,
+export AbstractFormulation,
+    BreakPoints,
     CanonicalForm,
     CovarianceBlock,
+    DualLDR,
     FirstStage,
+    FormulationCapabilities,
+    FormulationResult,
     Formulations,
     InformationStructure,
     InnerOptimizer,
@@ -47,6 +52,8 @@ export BreakPoints,
     ModelInfo,
     Moments,
     MvDiscreteNonParametric,
+    PrimalLDR,
+    SampledLDR,
     Stage,
     SupportBlock,
     Truncate,
@@ -55,10 +62,12 @@ export BreakPoints,
     UncertaintyDeclaration,
     ValidInequality,
     canonicalize,
+    capabilities,
     moments,
     observes,
     second_moment,
     set_stage,
+    solve_formulation,
     stage,
     support_blocks,
     unset_stage,
