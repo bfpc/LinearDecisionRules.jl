@@ -84,7 +84,13 @@ struct InnerOptimizer <: MOI.AbstractOptimizerAttribute end
 """
     Formulations()
 
-An optimizer attribute: the vector of formulations that `optimize!` solves.
+An optimizer attribute: the vector of formulations that `optimize!` solves, at most one of each
+type.
+
+The results do not depend on the order: result 1 is always the rule of [`PrimalLDR`](@ref) and
+result 2 the rule of [`SampledLDR`](@ref), with status `NO_SOLUTION` when their formulation was not
+solved or has no solution. `result_count` is 2 with `SampledLDR`, else 1 with `PrimalLDR`, else 0.
+The bound of [`DualLDR`](@ref) is `objective_bound`.
 
 ## Example
 

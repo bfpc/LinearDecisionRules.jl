@@ -185,11 +185,11 @@ function test_infeasible_model()
     optimize!(model)
     # Only the dual proves it.
     @test termination_status(model) == MOI.INFEASIBLE
-    @test result_count(model) == 0
+    @test result_count(model) == 1
     @test primal_status(model) == MOI.NO_SOLUTION
     @test termination_status(model, DualLDR()) == MOI.INFEASIBLE
-    @test_throws MOI.ResultIndexBoundsError objective_value(model)
-    @test_throws MOI.ResultIndexBoundsError value(model[:buy])
+    @test_throws MOI.GetAttributeNotAllowed objective_value(model)
+    @test_throws MOI.GetAttributeNotAllowed value(model[:buy])
     @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
     @test_throws MOI.GetAttributeNotAllowed objective_value(model, PrimalLDR())
     @test_throws MOI.GetAttributeNotAllowed objective_value(model, DualLDR())
@@ -201,8 +201,63 @@ function test_infeasible_primal_alone_is_locally_infeasible()
         model = infeasible_model(; formulations)
         optimize!(model)
         @test termination_status(model) == MOI.LOCALLY_INFEASIBLE
-        @test result_count(model) == 0
+        @test result_count(model) == (any(f -> f isa SampledLDR, formulations) ? 2 : 1)
+        @test primal_status(model; result = 1) == MOI.NO_SOLUTION
+        @test primal_status(model; result = 2) == MOI.NO_SOLUTION
+        @test !has_values(model)
     end
+    return
+end
+
+# Result 1 is the primal rule even when it has no solution, so that the gap and `has_values` are
+# about the primal rule, never about the sampled one.
+function test_result_slots_are_fixed()
+    model = LDRModel(HiGHS.Optimizer)
+    set_silent(model)
+    set_attribute(model, Formulations(), [SampledLDR(5), DualLDR(), PrimalLDR()])
+    @variable(model, buy >= 0, FirstStage)
+    @variable(model, sell >= 0)
+    @variable(model, d in Uncertainty(Uniform(80, 120)))
+    # Robustly infeasible (buy ≥ 119), but feasible on the 5 outcomes, all below 118.
+    @constraint(model, buy >= d - 1)
+    @constraint(model, buy <= 118)
+    @constraint(model, sell <= d)
+    @objective(model, Max, -10buy + 15sell)
+    optimize!(model)
+    @test termination_status(model, PrimalLDR()) == MOI.INFEASIBLE
+    @test termination_status(model, SampledLDR(5)) == MOI.OPTIMAL
+    @test termination_status(model) == MOI.LOCALLY_INFEASIBLE
+    @test result_count(model) == 2
+    @test primal_status(model) == MOI.NO_SOLUTION
+    @test primal_status(model; result = 2) == MOI.UNKNOWN_RESULT_STATUS
+    @test !has_values(model)
+    @test has_values(model; result = 2)
+    err = error_of(() -> objective_value(model))
+    @test err isa MOI.GetAttributeNotAllowed
+    @test occursin("Result 1 is the rule of PrimalLDR, which has no", sprint(showerror, err))
+    @test_throws MOI.GetAttributeNotAllowed value(buy)
+    @test_throws MOI.GetAttributeNotAllowed relative_gap(model)
+    @test objective_value(model; result = 2) == objective_value(model, SampledLDR(5))
+    @test isfinite(objective_bound(model))
+    # Without the primal, result 1 is still the empty primal slot.
+    set_attribute(model, Formulations(), [DualLDR(), SampledLDR(5)])
+    optimize!(model)
+    @test result_count(model) == 2
+    @test primal_status(model) == MOI.NO_SOLUTION
+    err = error_of(() -> value(buy))
+    @test occursin("PrimalLDR, which was not solved", sprint(showerror, err))
+    @test isfinite(value(buy; result = 2))
+    return
+end
+
+function test_duplicate_formulations()
+    model = newsvendor()
+    for formulations in ([PrimalLDR(), PrimalLDR()], [SampledLDR(5), DualLDR(), SampledLDR(9)])
+        err = error_of(() -> set_attribute(model, Formulations(), formulations))
+        @test err isa ArgumentError
+        @test occursin("two formulations of type", err.msg)
+    end
+    @test get_attribute(model, Formulations()) == [PrimalLDR(), DualLDR()]
     return
 end
 
@@ -210,11 +265,11 @@ function test_unbounded_model()
     model = unbounded_model()
     optimize!(model)
     @test termination_status(model) in (MOI.DUAL_INFEASIBLE, MOI.INFEASIBLE_OR_UNBOUNDED)
-    @test result_count(model) == 0
+    @test result_count(model) == 1
     @test primal_status(model) == MOI.NO_SOLUTION
     # The ray of the inner problem is not a result.
-    @test_throws MOI.ResultIndexBoundsError objective_value(model)
-    @test_throws MOI.ResultIndexBoundsError value(model[:buy])
+    @test_throws MOI.GetAttributeNotAllowed objective_value(model)
+    @test_throws MOI.GetAttributeNotAllowed value(model[:buy])
     @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
     @test_throws MOI.GetAttributeNotAllowed objective_value(model, DualLDR())
     return

@@ -6,7 +6,8 @@
 # Results follow the design of DESIGN.md:
 #
 #  * result 1 is the rule of `PrimalLDR` (feasible for every outcome in Ξ), result 2 the rule of
-#    `SampledLDR` (feasible on the drawn outcomes only, `UNKNOWN_RESULT_STATUS`);
+#    `SampledLDR` (feasible on the drawn outcomes only, `UNKNOWN_RESULT_STATUS`); a result whose
+#    formulation was not solved or has no solution is `NO_SOLUTION`, and keeps its index;
 #  * the rule of `DualLDR` is not a policy, so it has no result: its value is `ObjectiveBound`,
 #    and `RelativeGap` is the gap between the primal and the dual;
 #  * `VariablePrimal` is the expected value `E[x(ξ)]` of a decision, `E[d]` of an uncertainty.
@@ -22,20 +23,44 @@ _is_bound(r::FormulationResult) = capabilities(r.formulation).bound
 
 _has_solution(r::FormulationResult) = r.primal_status == MOI.FEASIBLE_POINT
 
-# The results with a rule that is a solution, primal rules first: the results of `MOI`.
-function _rule_results(o::Optimizer)
-    usable = filter(r -> _has_rule(r) && _has_solution(r), o.results)
-    return sort(usable; by = r -> !(r.formulation isa PrimalLDR), alg = Base.Sort.DEFAULT_STABLE)
+# The formulation of each result slot. A slot keeps its index whether or not its formulation was
+# solved or has a solution, so that result 1 is always the primal rule.
+const _RESULT_SLOTS = (PrimalLDR, SampledLDR)
+
+function _slot_result(o::Optimizer, k::Int)
+    k in eachindex(_RESULT_SLOTS) || return nothing
+    i = findfirst(r -> r.formulation isa _RESULT_SLOTS[k], o.results)
+    return i === nothing ? nothing : o.results[i]
 end
 
-MOI.get(o::Optimizer, ::MOI.ResultCount) = length(_rule_results(o))
+# Up to the last slot whose formulation was solved: 2 with `SampledLDR`, even without `PrimalLDR`.
+function MOI.get(o::Optimizer, ::MOI.ResultCount)
+    k = findlast(T -> any(r -> r.formulation isa T, o.results), _RESULT_SLOTS)
+    return k === nothing ? 0 : k
+end
 
 function MOI.get(o::Optimizer, attr::MOI.PrimalStatus)
-    results = _rule_results(o)
-    if !(1 <= attr.result_index <= length(results))
+    r = _slot_result(o, attr.result_index)
+    if r === nothing || !_has_solution(r)
         return MOI.NO_SOLUTION
     end
-    return capabilities(results[attr.result_index].formulation).rule_status
+    return capabilities(r.formulation).rule_status
+end
+
+# The result of the slot of `attr`, which must have a solution.
+function _solution_of_slot(o::Optimizer, attr::Union{MOI.ObjectiveValue,MOI.VariablePrimal})
+    MOI.check_result_index_bounds(o, attr)
+    k = attr.result_index
+    r = _slot_result(o, k)
+    what = "Result $k is the rule of $(nameof(_RESULT_SLOTS[k]))"
+    if r === nothing
+        msg = "$what, which was not solved: add it to `Formulations()` and solve again."
+        throw(MOI.GetAttributeNotAllowed(attr, msg))
+    elseif !_has_solution(r)
+        msg = "$what, which has no solution (termination status $(r.termination_status))."
+        throw(MOI.GetAttributeNotAllowed(attr, msg))
+    end
+    return r
 end
 
 MOI.get(::Optimizer, ::MOI.DualStatus) = MOI.NO_SOLUTION
@@ -69,8 +94,7 @@ end
 MOI.get(o::Optimizer, ::MOI.SolveTimeSec) = o.solve_time
 
 function MOI.get(o::Optimizer, attr::MOI.ObjectiveValue)
-    MOI.check_result_index_bounds(o, attr)
-    return _rule_results(o)[attr.result_index].objective_value
+    return _solution_of_slot(o, attr).objective_value
 end
 
 # The bound of the first formulation that has one, with a value.
@@ -111,8 +135,7 @@ function _rule_coefficients(o::Optimizer, r::FormulationResult, vi::MOI.Variable
 end
 
 function MOI.get(o::Optimizer, attr::MOI.VariablePrimal, vi::MOI.VariableIndex)
-    MOI.check_result_index_bounds(o, attr)
-    result = _rule_results(o)[attr.result_index]
+    result = _solution_of_slot(o, attr)
     return LinearAlgebra.dot(_rule_coefficients(o, result, vi), o.moments.mean)
 end
 

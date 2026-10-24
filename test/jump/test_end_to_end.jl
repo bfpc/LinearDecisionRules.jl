@@ -419,9 +419,9 @@ function test_infeasible_and_unbounded_models()
     @objective(model, Max, buy)
     optimize!(model)
     @test termination_status(model) == MOI.INFEASIBLE
-    @test result_count(model) == 0
-    @test_throws MOI.ResultIndexBoundsError value(buy)
-    @test_throws MOI.ResultIndexBoundsError objective_value(model)
+    @test result_count(model) == 1
+    @test_throws MOI.GetAttributeNotAllowed value(buy)
+    @test_throws MOI.GetAttributeNotAllowed objective_value(model)
     text = sprint(show, solution_summary(model))
     @test occursin("INFEASIBLE", text)
     model = ldr_model()
@@ -430,8 +430,8 @@ function test_infeasible_and_unbounded_models()
     @objective(model, Max, buy)
     optimize!(model)
     @test termination_status(model) in (MOI.DUAL_INFEASIBLE, MOI.INFEASIBLE_OR_UNBOUNDED)
-    @test result_count(model) == 0
-    @test_throws MOI.ResultIndexBoundsError value(buy)
+    @test result_count(model) == 1
+    @test_throws MOI.GetAttributeNotAllowed value(buy)
     return
 end
 

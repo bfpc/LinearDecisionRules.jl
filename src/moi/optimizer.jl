@@ -213,6 +213,12 @@ function MOI.set(o::Optimizer, ::Formulations, formulations)
     if isempty(formulations) || !all(f -> f isa AbstractFormulation, formulations)
         throw(ArgumentError("`Formulations()` needs a vector of at least one formulation."))
     end
+    # Each type has its result slot or its bound, so a second one would be ambiguous.
+    types = map(typeof, formulations)
+    if !allunique(types)
+        twice = first(T for T in types if count(==(T), types) > 1)
+        throw(ArgumentError("`Formulations()` has two formulations of type $(nameof(twice))."))
+    end
     o.formulations = collect(AbstractFormulation, formulations)
     return
 end
