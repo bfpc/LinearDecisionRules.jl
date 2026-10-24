@@ -1,0 +1,94 @@
+# Copyright (c) 2024: Joaquim Dias Garcia, Bernardo Freitas Paulo da Costa, and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE file or at https://opensource.org/licenses/MIT.
+
+module TestPrimal
+
+using JuMP
+using Test
+
+import HiGHS
+import LinearDecisionRules: FormulationResult, PrimalLDR, moments, solve_formulation
+
+include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
+include(joinpath(@__DIR__, "problems.jl"))
+
+function runtests()
+    for name in names(@__MODULE__; all = true)
+        if startswith("$name", "test_")
+            @testset "$name" begin
+                getfield(@__MODULE__, name)()
+            end
+        end
+    end
+    return
+end
+
+function test_dense_oracle()
+    for p in Problems.library()
+        form = Problems.form(p)
+        mom = moments(form)
+        @testset "$(p.name)" begin
+            result = solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
+            oracle = DenseOracle.solve(DenseOracle.build_primal, form, mom, HiGHS.Optimizer)
+            @test result.termination_status == MOI.OPTIMAL
+            @test isapprox(result.objective_value, oracle.objective_value; rtol = 1e-7)
+        end
+    end
+    return
+end
+
+function test_result()
+    p = Problems.newsvendor()
+    form = Problems.form(p)
+    result = solve_formulation(form, PrimalLDR(), moments(form), HiGHS.Optimizer)
+    @test result isa FormulationResult
+    @test result.formulation == PrimalLDR()
+    @test result.primal_status == MOI.FEASIBLE_POINT
+    @test result.raw_status isa String
+    @test result.objective_value ≈ 460
+    @test result.objective_bound ≈ 460
+    @test result.solve_time >= 0
+    # buy = 120, sell = demand, ret = 120 - demand.
+    @test result.X ≈ [120 0; 0 1; 120 -1]
+    @test result.model isa Model
+    @test objective_sense(result.model) == MOI.MAX_SENSE
+    @test occursin("PrimalLDR(): OPTIMAL, FEASIBLE_POINT", sprint(show, result))
+    return
+end
+
+function test_solver_settings()
+    p = Problems.newsvendor()
+    form = Problems.form(p)
+    result = solve_formulation(
+        form,
+        PrimalLDR(),
+        moments(form),
+        HiGHS.Optimizer;
+        time_limit = 10.0,
+        raw_attributes = Dict("presolve" => "off"),
+    )
+    @test get_attribute(result.model, MOI.Silent())
+    @test time_limit_sec(result.model) == 10
+    @test get_attribute(result.model, "presolve") == "off"
+    @test result.objective_value ≈ 460
+    return
+end
+
+# Slacks are expressions: no slack variables, and multipliers only for the touched blocks.
+function test_size()
+    p = Problems.newsvendor()
+    form = Problems.form(p)
+    model = solve_formulation(form, PrimalLDR(), moments(form), HiGHS.Optimizer).model
+    # X: buy (1), sell (2), ret (2); λ: 2 for each of the 2 rows and the 2 lower bounds.
+    @test num_variables(model) == 5 + 8
+    # Per row: one equality for the column of demand, and the coupling inequality.
+    @test num_constraints(model, AffExpr, MOI.EqualTo{Float64}) == 4
+    @test num_constraints(model, AffExpr, MOI.GreaterThan{Float64}) == 4
+    return
+end
+
+end # module TestPrimal
+
+TestPrimal.runtests()
