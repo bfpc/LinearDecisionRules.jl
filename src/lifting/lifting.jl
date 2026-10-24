@@ -135,8 +135,9 @@ end
 
 # The rows `W η̃ ≥ h` of the convex hull of the lifted support, beyond its box. With `Δ` as in the
 # docstring of `AxisPiecewise`, row `k` is `(η̃ₖ - [k = 1] η_min) / Δₖ ≥ η̃ₖ₊₁ / Δₖ₊₁`, scaled by
-# `Δₖ Δₖ₊₁` as in the previous versions, whose dual bounds are reproduced: the dual LDR depends on
-# the rows that describe the support, not only on the support.
+# `Δₖ Δₖ₊₁` as in the previous versions. The scaling is immaterial: with the row `e₁` kept, the dual
+# LDR depends only on the support Ξ, not on the rows that describe it (Farkas; Proposition 5.4 of
+# `docs/math`).
 function _hull_rows(l::AxisPiecewise, lower::Vector{Float64}, upper::Vector{Float64})
     v = _vertices(l, lower, upper)
     Δ = diff(v)
