@@ -41,7 +41,7 @@ end
         decision_stages = Dict{MOI.VariableIndex,Int}(),
         valid_rows = Set{MOI.ConstraintIndex}(),
         truncate_rows = Set{MOI.ConstraintIndex}(),
-        breakpoints = Dict{MOI.VariableIndex,Vector{Float64}}(),
+        breakpoints = Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}}(),
     )
 
 The linear-decision-rule metadata of an MOI model, read by [`canonicalize`](@ref).
@@ -58,13 +58,16 @@ decision.
    describe the support Ξ without changing the law.
  * `truncate_rows::Set{MOI.ConstraintIndex}`: uncertainty-only rows tagged `Truncate()`; they
    condition the law (not supported yet).
- * `breakpoints::Dict{MOI.VariableIndex,Vector{Float64}}`: breakpoints of the piecewise lifting
-   of each uncertainty (not supported yet).
+ * `breakpoints::Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}}`: the breakpoints of the
+   [`AxisPiecewise`](@ref) lifting of an uncertainty declared alone (with a univariate law): the
+   interior breakpoints, or their number `n`, for `n` equally spaced breakpoints inside the
+   support. An empty vector or `0` means no lifting.
 """
 Base.@kwdef struct ModelInfo
     uncertainties::Vector{UncertaintyDeclaration} = UncertaintyDeclaration[]
     decision_stages::Dict{MOI.VariableIndex,Int} = Dict{MOI.VariableIndex,Int}()
     valid_rows::Set{MOI.ConstraintIndex} = Set{MOI.ConstraintIndex}()
     truncate_rows::Set{MOI.ConstraintIndex} = Set{MOI.ConstraintIndex}()
-    breakpoints::Dict{MOI.VariableIndex,Vector{Float64}} = Dict{MOI.VariableIndex,Vector{Float64}}()
+    breakpoints::Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}} =
+        Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}}()
 end

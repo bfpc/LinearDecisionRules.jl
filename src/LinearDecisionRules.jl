@@ -30,6 +30,7 @@ include("canonical/support.jl")
 include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
 include("probability/distributions/lifted_distribution.jl")
+include("lifting/lifted_form.jl")
 include("formulations/formulation.jl")
 include("formulations/primal.jl")
 include("formulations/dual.jl")
@@ -63,6 +64,8 @@ export AbstractFormulation,
     InnerOptimizer,
     LDRModel,
     LiftedDistribution,
+    LiftingBlock,
+    LiftingMap,
     ModelInfo,
     Moments,
     MvDiscreteNonParametric,

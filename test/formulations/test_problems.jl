@@ -45,13 +45,20 @@ function _index(names, legacy::String)
     return error("No decision or uncertainty is named $legacy.")
 end
 
-# The legacy rule on ξ = (1, η) of each decision listed in `legacy_values.toml`.
+# The legacy rule on ξ = (1, η) of each decision listed in `legacy_values.toml`. The coefficient
+# of a lifted uncertainty is the vector of its coefficients on its pieces.
 function legacy_rules(form, rules)
     return map(collect(rules)) do (name, rule)
         x = zeros(1 + length(form.uncertainties))
         x[1] = rule["constant"]
         for (u, coefficient) in rule["coefficients"]
-            x[1+_index(form.uncertainty_names, u)] = coefficient
+            if coefficient isa Vector
+                for (k, c) in enumerate(coefficient)
+                    x[1+_index(form.uncertainty_names, "$u[piece $k]")] = c
+                end
+            else
+                x[1+_index(form.uncertainty_names, u)] = coefficient
+            end
         end
         return _index(form.decision_names, name) => x
     end

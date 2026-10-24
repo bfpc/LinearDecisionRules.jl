@@ -384,6 +384,76 @@ function stage_one_uncertainty()
 end
 
 """
+    with_breakpoints(p::Problem, name, legacy, breakpoints::Pair...; primal = NaN, dual = NaN)
+
+The problem `p` with the `uncertainty => breakpoints` pairs (uncertainties by name).
+"""
+function with_breakpoints(p::Problem, name, legacy, breakpoints::Pair...; primal = NaN, dual = NaN)
+    points = Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}}(
+        index(variable_by_name(p.model, u)) => b for (u, b) in breakpoints
+    )
+    info = ModelInfo(;
+        uncertainties = p.info.uncertainties,
+        decision_stages = p.info.decision_stages,
+        valid_rows = p.info.valid_rows,
+        breakpoints = points,
+    )
+    return Problem(name, legacy, p.model, info, primal, dual, p.atol)
+end
+
+# The nested breakpoints of the previous version's `test_newsvendor_piecewise`, with the values of
+# `legacy_values.toml`: the primal increases and the dual decreases.
+const NEWSVENDOR_BREAKPOINTS = [
+    ([100.0], 465, 1430 / 3),
+    ([90.0, 100.0, 110.0], 471.25, 2845 / 6),
+    (collect(85.0:5.0:115.0), 471.25, 22655 / 48),
+    (collect(82.5:2.5:117.5), 471.328125, 45265 / 96),
+]
+
+function newsvendor_breakpoints(k::Int)
+    points, primal, dual = NEWSVENDOR_BREAKPOINTS[k]
+    name = "newsvendor_breakpoints_$k"
+    return with_breakpoints(newsvendor(), name, name, "demand" => points; primal, dual)
+end
+
+# A single breakpoint at the critical quantile 760/7 of the optimal `buy`: the primal LDR is
+# optimal, 3300/7.
+function newsvendor_breakpoint_critical()
+    name = "newsvendor_breakpoint_critical"
+    p = newsvendor()
+    critical = "demand" => [760 / 7]
+    return with_breakpoints(p, name, name, critical; primal = 3300 / 7, dual = 10100 / 21)
+end
+
+# Breakpoints on the stage-2 demand of the three-stage newsvendor.
+function newsvendor_three_stages_breakpoints()
+    p = newsvendor_three_stages()
+    name = "newsvendor_three_stages_breakpoints"
+    return with_breakpoints(p, name, "", "demand2" => [90.0, 100.0, 110.0])
+end
+
+# Breakpoints on an uncertainty of the objective, so that the lifting applies to `C` too, and a
+# number of equally spaced breakpoints.
+function newsvendor_random_price_breakpoints()
+    p = newsvendor_random_price()
+    name = "newsvendor_random_price_breakpoints"
+    return with_breakpoints(p, name, "", "price" => [14.0, 16.0], "demand" => 3)
+end
+
+# Breakpoints on an uncertainty of a quadratic objective (`q`) and of a valid row (`d[3]`).
+function lifted_edge_cases()
+    return [
+        with_breakpoints(objective_only_uncertainty(), "objective_only_breakpoints", "", "q" => 2),
+        with_breakpoints(
+            valid_row_across_declarations(),
+            "valid_row_breakpoints",
+            "",
+            "d[3]" => [95.0, 105.0],
+        ),
+    ]
+end
+
+"""
     edge_cases() -> Vector{Problem}
 
 The edge models of the Phase 1 review, with no known value: the dense oracles are the reference.
@@ -395,6 +465,7 @@ function edge_cases()
         objective_only_uncertainty(),
         valid_row_across_declarations(),
         stage_one_uncertainty(),
+        lifted_edge_cases()...,
     ]
 end
 
@@ -420,6 +491,10 @@ function library()
         unbounded_support(),
         newsvendor_mv_discrete(),
         newsvendor_discrete_demand(),
+        (newsvendor_breakpoints(k) for k in eachindex(NEWSVENDOR_BREAKPOINTS))...,
+        newsvendor_breakpoint_critical(),
+        newsvendor_three_stages_breakpoints(),
+        newsvendor_random_price_breakpoints(),
     ]
 end
 

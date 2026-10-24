@@ -259,10 +259,10 @@ function test_breakpoints()
     set_attribute(model[:d], BreakPoints(), [90, 100])
     info = _model_info(model)
     @test info.breakpoints == Dict(index(model[:d]) => [90.0, 100.0])
-    @test occursin(
-        "not supported yet",
-        error_message(() -> canonicalize(backend(model), info)),
-    )
+    # `canonicalize` lifts the demand into its three pieces.
+    form = canonicalize(backend(model), info)
+    @test form.uncertainty_names == ["d[piece 1]", "d[piece 2]", "d[piece 3]"]
+    @test only(form.lifting.blocks).lifting == LinearDecisionRules.AxisPiecewise([90, 100])
     return
 end
 

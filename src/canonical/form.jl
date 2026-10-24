@@ -82,10 +82,12 @@ Rows (`B_*` have `1 + m` columns; `*_constraints[r]` is the constraint that row 
  * `A_u`, `B_u`, `u_constraints`
  * `A_l`, `B_l`, `l_constraints`
 
-Rows tagged `ValidInequality()`, as `W_valid η ≥ h_valid` (`W_valid` has `m` columns, over η):
+Rows of Ξ beyond the boxes of the laws, as `W_valid η ≥ h_valid` (`W_valid` has `m` columns, over
+η): the rows tagged `ValidInequality()`, then, in a lifted form, the convex-hull rows of each
+lifting, whose constraint is `nothing`:
 
  * `W_valid::SparseMatrixCSC{Float64,Int}`, `h_valid::Vector{Float64}`,
-   `valid_constraints::Vector{MOI.ConstraintIndex}`
+   `valid_constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}`
 
 Objective (`FEASIBILITY_SENSE` when the model has none; then every term is zero):
 
@@ -95,6 +97,13 @@ Objective (`FEASIBILITY_SENSE` when the model has none; then every term is zero)
    columns the products of decisions and uncertainties.
  * `Q::SparseMatrixCSC{Float64,Int}`: `m × m`, symmetric.
  * `d::Vector{Float64}`, `f::Float64`.
+
+Lifting (see [`lift`](@ref)`(form, liftings)`):
+
+ * `lifting::Union{Nothing,LiftingMap}`: `nothing`, or, in a lifted form, the [`LiftingMap`](@ref)
+   from the original uncertainties to the columns of ξ. The columns of a lifted form are the
+   lifted coordinates: `uncertainties[j]` is the original uncertainty of column `1 + j`, and its
+   name is followed by `[piece k]`.
 """
 struct CanonicalForm
     decisions::Vector{MOI.VariableIndex}
@@ -120,13 +129,14 @@ struct CanonicalForm
     l_constraints::Vector{MOI.ConstraintIndex}
     W_valid::_SparseMatrix
     h_valid::Vector{Float64}
-    valid_constraints::Vector{MOI.ConstraintIndex}
+    valid_constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}
     sense::MOI.OptimizationSense
     P::_SparseMatrix
     C::_SparseMatrix
     Q::_SparseMatrix
     d::Vector{Float64}
     f::Float64
+    lifting::Union{Nothing,LiftingMap}
 end
 
 function Base.show(io::IO, form::CanonicalForm)
@@ -517,9 +527,6 @@ form = canonicalize(backend(model), info)
 ```
 """
 function canonicalize(src::MOI.ModelLike, info::ModelInfo)
-    if !isempty(info.breakpoints)
-        error("Breakpoints (piecewise liftings) are not supported yet.")
-    end
     variables = MOI.get(src, MOI.ListOfVariableIndices())
     parameter = _parameter_values(src)
     entries = _check_declarations(src, info, variables, parameter)
@@ -529,7 +536,56 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo)
     sense, objective = _read_objective(src, layout)
     form = _canonical_form(src, layout, constraints, sense, objective)
     _check_observable_equalities(src, form)
-    return form
+    liftings = _breakpoint_liftings(src, form, info.breakpoints)
+    return isempty(liftings) ? form : lift(form, liftings)
+end
+
+# The `AxisPiecewise` lifting of each uncertainty with breakpoints: a vector of breakpoints, or a
+# number `n` of equally spaced breakpoints inside the support. No breakpoint means no lifting.
+function _breakpoint_liftings(src, form::CanonicalForm, breakpoints)
+    liftings = Dict{MOI.VariableIndex,AbstractLifting}()
+    columns = Dict(v => 1 + j for (j, v) in enumerate(form.uncertainties))
+    for (v, points) in breakpoints
+        if !haskey(columns, v)
+            error(
+                "The variable $(_variable_name(src, v)) has breakpoints, but it is not an " *
+                "uncertainty.",
+            )
+        elseif points isa Integer
+            if points < 0
+                error(
+                    "The uncertainty $(_variable_name(src, v)) has $points breakpoints; the " *
+                    "number of breakpoints must be nonnegative.",
+                )
+            end
+            points == 0 && continue
+            law = only(l for l in form.laws if columns[v] in l.columns)
+            lo, hi = _support_box(law.distribution)
+            k = findfirst(==(columns[v]), law.columns)
+            if !(isfinite(lo[k]) && isfinite(hi[k]))
+                error(
+                    "The uncertainty $(_variable_name(src, v)) has $points breakpoints, but its " *
+                    "support is unbounded.",
+                )
+            end
+            points = collect(range(lo[k], hi[k]; length = points + 2)[2:end-1])
+        end
+        isempty(points) && continue
+        liftings[v] = _named_lifting_error(_variable_name(src, v)) do
+            return AxisPiecewise(points)
+        end
+    end
+    return liftings
+end
+
+# Name the uncertainty in the `ArgumentError` of a lifting.
+function _named_lifting_error(f::Function, name::String)
+    try
+        return f()
+    catch err
+        err isa ArgumentError || rethrow()
+        error("The lifting of the uncertainty $name is invalid: $(err.msg)")
+    end
 end
 
 function _parameter_values(src::MOI.ModelLike)
@@ -885,13 +941,14 @@ function _canonical_form(src, layout::_Layout, c::_Constraints, sense, objective
         c.l.constraints,
         _sparse(c.valid.W, length(c.valid.h), m),
         c.valid.h,
-        c.valid.constraints,
+        Vector{Union{Nothing,MOI.ConstraintIndex}}(c.valid.constraints),
         sense,
         _sparse(objective.P, n, n),
         _sparse(objective.C, n, 1 + m),
         _sparse(objective.Q, m, m),
         objective.d,
         objective.f,
+        nothing,
     )
 end
 

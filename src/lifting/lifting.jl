@@ -156,3 +156,86 @@ function Base.show(io::IO, l::AxisPiecewise)
     print(io, "AxisPiecewise(", l.breakpoints, ")")
     return
 end
+
+"""
+    LiftingBlock(lifting::AbstractLifting, inputs::Vector{Int}, columns::Vector{Int})
+
+One lifting of a [`LiftingMap`](@ref): the columns `columns` of the lifted `ξ̃` are
+`lift(lifting, ξ[inputs])`.
+
+## Fields
+
+ * `lifting::AbstractLifting`
+ * `inputs::Vector{Int}`: the columns of the original `ξ` that it lifts.
+ * `columns::Vector{Int}`: the columns of `ξ̃` of the lifted coordinates, in the order of
+   `lift(lifting, ξ[inputs])`.
+"""
+struct LiftingBlock
+    lifting::AbstractLifting
+    inputs::Vector{Int}
+    columns::Vector{Int}
+end
+
+"""
+    LiftingMap
+
+The map between the columns `ξ = (1, η)` of a [`CanonicalForm`](@ref) and the columns
+`ξ̃ = (1, η̃)` of its lifted form, built by [`lift`](@ref)`(form, liftings)` and kept in the
+field `lifting` of the lifted form.
+
+Apply the lifting `L` to an outcome of the original uncertainties with `lift(map, ξ)`, and the
+retraction with `retraction(map) * ξ̃`. A decision rule `x(ξ̃) = X̃ ξ̃` of the lifted form is the
+rule `x(ξ) = X̃ lift(map, ξ)` on the original uncertainties.
+
+## Fields
+
+ * `uncertainties::Vector{MOI.VariableIndex}`: the original uncertainties, in the columns
+   `2:1+m` of `ξ`.
+ * `uncertainty_names::Vector{String}`
+ * `uncertainty_stages::Vector{Int}`
+ * `kept::Vector{Int}`: the column of `ξ̃` of each column of `ξ` that is not lifted (the constant
+   column 1 is column 1), and 0 for a lifted column.
+ * `blocks::Vector{LiftingBlock}`: the liftings, each with its columns in `ξ` and in `ξ̃`.
+ * `R::SparseMatrixCSC{Float64,Int}`: the retraction, `(1 + m) × (1 + m̃)`, with `ξ = R ξ̃`,
+   assembled from the identity on the kept columns and the [`retraction`](@ref) of each block.
+"""
+struct LiftingMap
+    uncertainties::Vector{MOI.VariableIndex}
+    uncertainty_names::Vector{String}
+    uncertainty_stages::Vector{Int}
+    kept::Vector{Int}
+    blocks::Vector{LiftingBlock}
+    R::SparseArrays.SparseMatrixCSC{Float64,Int}
+end
+
+retraction(map::LiftingMap) = map.R
+
+"""
+    lift(map::LiftingMap, ξ::AbstractVector{<:Real}) -> Vector{Float64}
+    lift(map::LiftingMap, ξ::AbstractMatrix{<:Real}) -> Matrix{Float64}
+
+Return the lifted outcome `ξ̃ = L(ξ)` of the outcome `ξ = (1, η)` of the original uncertainties,
+in the columns of the lifted form; with a matrix, each column is an outcome.
+"""
+function lift(map::LiftingMap, ξ::AbstractVector{<:Real})
+    m, m̃ = size(map.R)
+    if length(ξ) != m
+        throw(DimensionMismatch("The outcome has $(length(ξ)) entries; expected $m, ξ = (1, η)."))
+    end
+    ξ̃ = zeros(m̃)
+    for (j, k) in enumerate(map.kept)
+        k > 0 && (ξ̃[k] = ξ[j])
+    end
+    for block in map.blocks
+        ξ̃[block.columns] = lift(block.lifting, view(ξ, block.inputs))
+    end
+    return ξ̃
+end
+
+function lift(map::LiftingMap, ξ::AbstractMatrix{<:Real})
+    ξ̃ = zeros(size(map.R, 2), size(ξ, 2))
+    for (s, outcome) in enumerate(eachcol(ξ))
+        ξ̃[:, s] = lift(map, outcome)
+    end
+    return ξ̃
+end

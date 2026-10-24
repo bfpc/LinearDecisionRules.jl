@@ -534,7 +534,9 @@ function test_error_declarations()
         ModelInfo(;
             decision_stages = Dict(MOI.VariableIndex(99) => 1),
         ) => "The variable with index 99 has a stage, but it is not in the model",
-        ModelInfo(; breakpoints = Dict(d => [100.0])) => "not supported yet",
+        ModelInfo(;
+            breakpoints = Dict(d => [100.0]),
+        ) => "The variable d has breakpoints, but it is not an uncertainty",
         ModelInfo(;
             uncertainties = [UncertaintyDeclaration(Distributions.Wishart(3, [1.0 0; 0 1]), [d])],
         ) => "univariate or multivariate",
