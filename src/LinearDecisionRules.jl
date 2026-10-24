@@ -46,6 +46,7 @@ include("jump/checks.jl")
 include("jump/model.jl")
 include("jump/results.jl")
 include("jump/rules.jl")
+include("jump/simulate.jl")
 
 export AbstractFormulation,
     AbstractLifting,
@@ -55,6 +56,7 @@ export AbstractFormulation,
     CovarianceBlock,
     DecisionRule,
     DualLDR,
+    Evaluation,
     FirstStage,
     FormulationAttribute,
     FormulationCapabilities,
@@ -82,6 +84,7 @@ export AbstractFormulation,
     canonicalize,
     capabilities,
     decision_rule,
+    evaluate,
     expected_value,
     lift,
     moments,

@@ -127,7 +127,7 @@ end
 
 MOI.is_set_by_optimize(::FormulationAttribute) = true
 
-# The four attributes below are internal: the JuMP functions of `jump/rules.jl` read them. The
+# The attributes below are internal: the JuMP functions of `jump/rules.jl` read them. The
 # columns ξ are those of the canonical form, so the lifted coordinates when there are breakpoints.
 
 # The rule of a variable on ξ = (1, η), as a `Vector{Float64}`.
@@ -145,8 +145,19 @@ struct UncertaintyLifting <: MOI.AbstractModelAttribute end
 # The `Moments` of ξ of the last solve.
 struct UncertaintyMoments <: MOI.AbstractModelAttribute end
 
+# What `evaluate` and `simulate` read: the form and the rule of `formulation` of the last solve.
+struct SimulationData <: MOI.AbstractModelAttribute
+    formulation::AbstractFormulation
+end
+
 function MOI.is_set_by_optimize(
-    ::Union{RuleCoefficients,UncertaintyVariables,UncertaintyLifting,UncertaintyMoments},
+    ::Union{
+        RuleCoefficients,
+        UncertaintyVariables,
+        UncertaintyLifting,
+        UncertaintyMoments,
+        SimulationData,
+    },
 )
     return true
 end
@@ -164,6 +175,7 @@ const _AttributesWithoutIndices = Union{
     UncertaintyVariables,
     UncertaintyLifting,
     UncertaintyMoments,
+    SimulationData,
 }
 
 MOI.Utilities.map_indices(::Any, ::_AttributesWithoutIndices, x) = x
