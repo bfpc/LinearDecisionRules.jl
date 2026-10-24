@@ -21,8 +21,24 @@ import MathOptInterface as MOI
 import Random
 import SparseArrays
 
+include("canonical/info.jl")
+include("canonical/form.jl")
+include("canonical/information.jl")
+include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
 
-export MvDiscreteNonParametric
+export CanonicalForm,
+    CovarianceBlock,
+    InformationStructure,
+    ModelInfo,
+    Moments,
+    MvDiscreteNonParametric,
+    UncertaintyBlock,
+    UncertaintyDeclaration,
+    canonicalize,
+    moments,
+    observes,
+    second_moment,
+    visible_columns
 
 end # module LinearDecisionRules
