@@ -136,7 +136,8 @@ $\supp\law \subseteq \Xis$, and the second-moment matrix $\Mom = \E[\xi\xi^\T]$ 
 
 Positive definiteness of $\Mom$ is equivalent to that of the covariance of $\eta$ (by a Schur complement on the constant column),
 that is, to $\eta$ not lying almost surely in a hyperplane.
-It implies that the support, hence $\Xis$, spans $\R^k$, which is the condition of \citet{KWG2011} (their Proposition~2 shows the converse direction).
+It implies that the support, hence $\Xis$, spans $\R^k$, which is the condition of \citet[Section~2]{KWG2011};
+when $\Xis$ is the support the two conditions are equivalent \citep[Proposition~2]{KWG2011}.
 The package rejects equality rows tagged \code{ValidInequality()} but does not check $\Mom \succ 0$;
 a law with fewer atoms than its dimension plus one, for instance, violates it.
 

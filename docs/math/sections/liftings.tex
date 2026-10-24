@@ -20,15 +20,16 @@ B \leftarrow B\Retr, \qquad C \leftarrow C\Retr, \qquad W \leftarrow W\Retr_\eta
 with $P$ and $f$ unchanged, where $\Retr_\eta$ is the block of $\Retr$ that maps the lifted uncertainties to $\eta$.
 (In the package $\Retr = \blockdiag(1, \Retr_\eta)$, see below.)
 This lifted problem is equivalent to \eqref{eq:P}: feasible policies correspond one to one, with the same objective \citep[Propositions~3.4 and~6.3]{GWK2015}.
-Its primal and dual approximations are the primal and dual approximations of \eqref{eq:P} restricted to the rules $\lX\Lift(\xi)$,
+Its primal approximation restricts the policies of \eqref{eq:P} to the rules $\lX\Lift(\xi)$,
+and its dual approximation restricts the dual multipliers to linear combinations of the components of $\Lift$ \citep[Proposition~3.6]{GWK2015};
 so they bound $\val\eqref{eq:P}$ from both sides, at least as tightly as the linear rules do \citep[Theorem~3.8]{GWK2015}.
 
 To build them, the approximations need a description of the convex hull of the lifted support $\Lift(\Xis)$, which is not convex,
 or a polyhedron $\lXi \supseteq \conv\Lift(\Xis)$ \citep[conditions (S4) and its relaxation]{GWK2015}.
 With an outer approximation, the primal approximation remains a feasible policy and the dual approximation a valid bound,
 possibly looser \citep[Corollary~2.2]{GWK2015}.
-The package's \cref{ass:support} for the lifted problem is satisfied by $\lXi$ and the lifted law;
-$\lM \succ 0$ is the axiom (A4) of linear independence.
+For the lifted problem, \cref{ass:support} asks that $\lXi$ contain the support of the lifted law, which holds when $\lXi \supseteq \Lift(\Xis)$,
+and that $\lM = \E[\lxi\lxi^\T] \succ 0$, which is the axiom (A4) of linear independence.
 
 \begin{proposition}[Lifted approximations]
 \label{prop:lifted}

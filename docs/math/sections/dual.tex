@@ -17,7 +17,8 @@ so that $\Wp\xi = (\xi_1,\ W\eta - h\xi_1)$ and
 \[
 \xi \in \Xis \implies \Wp\xi \ge 0.
 \]
-The rows of $\Wp$ other than $\eone^\T$ are those of $W - h\eone^\T$ in \citet{KWG2011}.
+In \citet[(2.1b)]{KWG2011}, $W = (\eone, -\eone, \hat W^\T)^\T$ and $h = (1, -1, 0, \dots, 0)$, so that $W - h\eone^\T$ consists of two zero rows and the rows $\hat W$;
+the rows of $\Wp$ other than $\eone^\T$ play the role of $\hat W$, with the constants of $h$ moved to the column of $\xi_1$.
 The dual approximation solved by the package is
 \begin{equation}
 \label{eq:DLDR}
@@ -57,7 +58,7 @@ An integer decision is a constant, and its projection is the same constant, so i
 The complete argument is in \cref{app:dual}.
 \end{proof}
 
-This is the bound of \citet[Theorem~3]{KWG2011}, under their condition $\E_t[\xi] = M_tP_t\xi$,
+This is the lower bound of \citet[Section~4]{KWG2011}, whose tractable form is their Theorem~3, under their condition $\E_t[\xi] = M_tP_t\xi$,
 with a quadratic objective and integer first-stage decisions added.
 They also show that \eqref{eq:DLDR} is exact for their relaxed problem when the original one is strictly feasible \citep[Proposition~4]{KWG2011};
 the bound itself does not need strict feasibility.

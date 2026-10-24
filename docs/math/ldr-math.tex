@@ -18,22 +18,19 @@
 \usepackage{url}
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!50!black]{hyperref}
 \usepackage[capitalise,noabbrev]{cleveref}
-\crefname{assumption}{Assumption}{Assumptions}
+\usepackage{thmtools}
 
 \input{macros}
 
-% Statements
-\theoremstyle{plain}
-\newtheorem{theorem}{Theorem}[section]
-\newtheorem{proposition}[theorem]{Proposition}
-\newtheorem{lemma}[theorem]{Lemma}
-\newtheorem{corollary}[theorem]{Corollary}
-\theoremstyle{definition}
-\newtheorem{definition}[theorem]{Definition}
-\newtheorem{assumption}[theorem]{Assumption}
-\theoremstyle{remark}
-\newtheorem{remark}[theorem]{Remark}
-\newtheorem{example}[theorem]{Example}
+% Statements (declared with thmtools, so that cleveref names the environments that share a counter)
+\declaretheorem[name=Theorem,numberwithin=section]{theorem}
+\declaretheorem[name=Proposition,sibling=theorem]{proposition}
+\declaretheorem[name=Lemma,sibling=theorem]{lemma}
+\declaretheorem[name=Corollary,sibling=theorem]{corollary}
+\declaretheorem[name=Definition,sibling=theorem,style=definition]{definition}
+\declaretheorem[name=Assumption,sibling=theorem,style=definition]{assumption}
+\declaretheorem[name=Remark,sibling=theorem,style=remark]{remark}
+\declaretheorem[name=Example,sibling=theorem,style=remark]{example}
 
 \numberwithin{equation}{section}
 

@@ -49,6 +49,7 @@ the objective values agree (to 12 digits on the hydrothermal problem).
 \caption[Inventory problem]{Inventory problem, $T = 128$: size of the inner problem (constraints without variable bounds) and HiGHS time.
 The legacy rows are the previous version, with explicit slacks (default) or slacks as expressions (\code{SlackAsExpr});
 the hand-written model uses the closed form of the box counterparts.
+Times are HiGHS's run time on the exported models, except for the hand-written model, whose time is the solver time through JuMP (\file{benchmark/results/timings.csv}).
 Sources: \file{benchmark/README.md}, \file{benchmark/results/compare.csv}.}
 \label{tab:inventory}
 \begin{tabular}{lrrrr}
@@ -145,7 +146,7 @@ $T$ & $k$ & Primal value & Out of sample & Dual bound & Primal var. & Primal (s)
 \end{table}
 
 The gap between the bounds stays large on this problem (the bound is 52\% of the value at $T = 4$ with one breakpoint, 5.3\% at $T = 8$):
-the primal rules improve with breakpoints, while the dual bound coincides with the value of the average-scenario problem at $T = 4$ and $8$.
+the primal rules improve with breakpoints, while the dual bound, which without breakpoints coincides with the value of the average-scenario problem at $T = 4$ and $8$, hardly moves.
 Where to place few breakpoints, rather than how many to add, is the open question \citep[end of Section~4.1]{GWK2015}.
 
 \subsection{Building the inner problems}
