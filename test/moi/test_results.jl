@@ -283,8 +283,30 @@ function test_unbounded_model()
     # The ray of the inner problem is not a result.
     @test_throws MOI.GetAttributeNotAllowed objective_value(model)
     @test_throws MOI.GetAttributeNotAllowed value(model[:buy])
-    @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
-    @test_throws MOI.GetAttributeNotAllowed objective_value(model, DualLDR())
+    # An unbounded dual LDR has no bound but the trivial one.
+    if termination_status(model, DualLDR()) == MOI.DUAL_INFEASIBLE
+        @test objective_bound(model) == Inf
+        @test objective_value(model, DualLDR()) == Inf
+    else
+        @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
+    end
+    return
+end
+
+# An inner MIP stopped before an incumbent still proves a bound (here, the trivial one).
+function test_bound_without_incumbent()
+    model = newsvendor(; formulations = [PrimalLDR(), DualLDR()])
+    set_integer(model[:buy])
+    for (name, value) in ("mip_max_nodes" => 0, "mip_heuristic_effort" => 0.0, "presolve" => "off")
+        set_attribute(model, name, value)
+    end
+    optimize!(model)
+    @test termination_status(model, DualLDR()) == MOI.SOLUTION_LIMIT
+    @test primal_status(model, DualLDR()) == MOI.NO_SOLUTION
+    @test objective_bound(model, DualLDR()) == Inf
+    @test objective_value(model, DualLDR()) == Inf
+    @test objective_bound(model) == Inf
+    @test_throws MOI.GetAttributeNotAllowed objective_value(model)
     return
 end
 

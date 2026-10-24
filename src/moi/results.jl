@@ -99,14 +99,10 @@ end
 
 # The bound of the first formulation that has one, with a value.
 function MOI.get(o::Optimizer, attr::MOI.ObjectiveBound)
-    k = findfirst(r -> _is_bound(r) && _has_solution(r) && !isnan(r.objective_bound), o.results)
+    k = findfirst(r -> _is_bound(r) && !isnan(r.objective_bound), o.results)
     if k === nothing
-        throw(
-            MOI.GetAttributeNotAllowed(
-                attr,
-                "There is no bound: solve `DualLDR()`, which must have a solution.",
-            ),
-        )
+        msg = "There is no bound: solve `DualLDR()`, whose inner solver must prove one."
+        throw(MOI.GetAttributeNotAllowed(attr, msg))
     end
     return o.results[k].objective_bound
 end
@@ -153,9 +149,9 @@ function _require_result(o::Optimizer, attr::FormulationAttribute)
 end
 
 # A value that is `NaN` is unknown: it is an error, not a result.
-function _require_value(attr::FormulationAttribute, value::Float64)
+function _require_value(attr::FormulationAttribute, value::Float64, what::String)
     if isnan(value)
-        throw(MOI.GetAttributeNotAllowed(attr, "$(attr.formulation) has no solution."))
+        throw(MOI.GetAttributeNotAllowed(attr, "$(attr.formulation) has no $what."))
     end
     return value
 end
@@ -174,15 +170,18 @@ function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.PrimalStatus})
     return capabilities(r.formulation).rule_status
 end
 
+# The value of a bound needs no primal point: an inner MIP can prove a bound without an incumbent.
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.ObjectiveValue})
     r = _require_result(o, attr)
-    value = _is_bound(r) ? r.objective_bound : r.objective_value
-    return _require_value(attr, _has_solution(r) ? value : NaN)
+    if _is_bound(r)
+        return _require_value(attr, r.objective_bound, "bound")
+    end
+    return _require_value(attr, _has_solution(r) ? r.objective_value : NaN, "solution")
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.ObjectiveBound})
     r = _require_result(o, attr)
-    return _require_value(attr, _has_solution(r) ? r.objective_bound : NaN)
+    return _require_value(attr, r.objective_bound, "bound")
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.RawStatusString})

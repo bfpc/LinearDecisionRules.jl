@@ -45,9 +45,11 @@ end
     JuMP.objective_value(model::JuMP.Model, formulation::AbstractFormulation)
 
 The objective value of `formulation`. For [`DualLDR`](@ref), it is the bound on the optimal value,
-which is the inner solver's `MOI.ObjectiveBound` when there are integer decisions.
+which is the inner solver's `MOI.ObjectiveBound` when there are integer decisions; it needs no
+primal point, and it is `Inf` for a maximization (`-Inf` for a minimization) whose dual LDR is
+unbounded.
 
-It is an error if the inner problem has no solution.
+It is an error if the inner problem has no solution (no bound, for `DualLDR`).
 """
 function JuMP.objective_value(model::JuMP.GenericModel, f::AbstractFormulation)
     return _formulation_attribute(model, f, MOI.ObjectiveValue())
@@ -56,7 +58,8 @@ end
 """
     JuMP.objective_bound(model::JuMP.Model, formulation::AbstractFormulation)
 
-The inner solver's bound on the objective value of `formulation`.
+The inner solver's bound on the objective value of `formulation`, even without a primal point (see
+[`FormulationResult`](@ref)).
 """
 function JuMP.objective_bound(model::JuMP.GenericModel, f::AbstractFormulation)
     return _formulation_attribute(model, f, MOI.ObjectiveBound())

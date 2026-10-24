@@ -154,6 +154,10 @@ function test_unbounded()
         @test result.primal_status != MOI.FEASIBLE_POINT
         @test isnan(result.objective_value)
         @test all(isnan, result.X)
+        # No dual bound exists: the bound of a maximization is `Inf`.
+        if result.termination_status == MOI.DUAL_INFEASIBLE
+            @test result.objective_bound == Inf
+        end
     end
     return
 end

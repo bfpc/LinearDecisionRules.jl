@@ -115,8 +115,9 @@ The result of [`solve_formulation`](@ref).
    unless `primal_status == FEASIBLE_POINT`.
  * `objective_bound::Float64`: the inner solver's bound on `objective_value`, in the sense of the
    model: `MOI.ObjectiveBound` when the inner problem has integer variables, else the optimal value
-   (or the dual objective value when the inner problem is not solved to optimality); `NaN` if
-   unknown. For [`DualLDR`](@ref) with integer decisions, this is the bound to report.
+   (or the dual objective value when the inner problem is not solved to optimality); `Inf` for a
+   maximization (`-Inf` for a minimization) whose inner problem is unbounded; `NaN` if unknown. It
+   needs no primal point. For [`DualLDR`](@ref) with integer decisions, this is the bound to report.
  * `solve_time::Float64`: wall-clock seconds of the inner `optimize!` (zero if it was not built).
  * `X::Matrix{Float64}`: the decision rules, `decisions × (1 + uncertainties)`, with zeros in the
    columns that a decision does not observe; all `NaN` unless `primal_status == FEASIBLE_POINT`.
@@ -381,12 +382,19 @@ function _has_integers(model::JuMP.Model)
            JuMP.num_constraints(model, JuMP.VariableRef, MOI.ZeroOne) > 0
 end
 
+# The bound that the inner solver proves, which needs no primal point: a MIP bound, the dual
+# objective of an LP stopped early, or no bound at all for an unbounded inner problem.
 function _objective_bound(form::CanonicalForm, model::JuMP.Model, objective_value::Float64)
+    status = JuMP.termination_status(model)
     if form.sense == MOI.FEASIBILITY_SENSE
         return objective_value
+    elseif status == MOI.DUAL_INFEASIBLE
+        return form.sense == MOI.MAX_SENSE ? Inf : -Inf
+    elseif status in _NO_SOLUTION_STATUS
+        return NaN
     elseif _has_integers(model)
         return JuMP.objective_bound(model)
-    elseif JuMP.termination_status(model) in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
+    elseif status in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
         return objective_value
     elseif JuMP.dual_status(model) == MOI.FEASIBLE_POINT
         return JuMP.dual_objective_value(model)
