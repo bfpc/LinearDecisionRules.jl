@@ -213,6 +213,8 @@ function MOI.get(o::Optimizer, ::UncertaintyVariables)
     return copy(lifting === nothing ? o.form.uncertainties : lifting.uncertainties)
 end
 
+MOI.get(o::Optimizer, ::DecisionVariables) = copy(o.form.decisions)
+
 MOI.get(o::Optimizer, ::UncertaintyLifting) = o.form.lifting
 
 MOI.get(o::Optimizer, ::UncertaintyMoments) = o.moments

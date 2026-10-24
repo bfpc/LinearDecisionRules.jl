@@ -139,6 +139,9 @@ end
 # when nothing is lifted.
 struct UncertaintyVariables <: MOI.AbstractModelAttribute end
 
+# The decisions of the model, in the rows of `FormulationResult.X`.
+struct DecisionVariables <: MOI.AbstractModelAttribute end
+
 # The `LiftingMap` of the last solve, or `nothing` if nothing was lifted.
 struct UncertaintyLifting <: MOI.AbstractModelAttribute end
 
@@ -154,6 +157,7 @@ function MOI.is_set_by_optimize(
     ::Union{
         RuleCoefficients,
         UncertaintyVariables,
+        DecisionVariables,
         UncertaintyLifting,
         UncertaintyMoments,
         SimulationData,
@@ -173,6 +177,7 @@ const _AttributesWithoutIndices = Union{
     FormulationAttribute,
     RuleCoefficients,
     UncertaintyVariables,
+    DecisionVariables,
     UncertaintyLifting,
     UncertaintyMoments,
     SimulationData,

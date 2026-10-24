@@ -196,3 +196,147 @@ function expected_value(
 end
 
 expected_value(x::Real; formulation::AbstractFormulation = PrimalLDR()) = Float64(x)
+
+"""
+    rule_coefficient(x, η; formulation::AbstractFormulation = PrimalLDR())
+    rule_coefficient(x; formulation::AbstractFormulation = PrimalLDR())
+
+The coefficient of the uncertainty `η` in the decision rule of the decision `x`, in the last
+solution of `formulation`; without `η` (or with `η = nothing`), the constant of the rule. It is
+`0.0` if `x` does not observe `η`, and `x` must be a decision, not an uncertainty or a parameter.
+
+For an uncertainty with [`BreakPoints`](@ref), the rule is not a single coefficient: it returns
+the `Vector{Float64}` of the coefficients on its pieces, one per piece, in order (the same as
+`decision_rule(x).lifted[η].coefficients`, but also when they are all zero). The representation for
+more complex liftings, with several uncertainties in one block, is left open.
+
+See also [`decision_rule`](@ref) for the whole rule and [`rule_matrix`](@ref) for all decisions.
+
+## Example
+
+```julia
+optimize!(model)
+rule_coefficient(sell, d)
+rule_coefficient(buy)
+```
+"""
+function rule_coefficient(
+    x::JuMP.VariableRef,
+    η::Union{Nothing,JuMP.VariableRef} = nothing;
+    formulation::AbstractFormulation = PrimalLDR(),
+)
+    model = JuMP.owner_model(x)
+    # Reading the rule first reports an unsolved model or formulation.
+    rule = MOI.get(model, RuleCoefficients(formulation), x)
+    if !(JuMP.index(x) in MOI.get(model, DecisionVariables()))
+        throw(ArgumentError("$x is not a decision: its rule is not a decision rule."))
+    end
+    if η === nothing
+        return rule[1] + 0.0
+    end
+    if JuMP.owner_model(η) !== model || !(JuMP.index(η) in MOI.get(model, UncertaintyVariables()))
+        throw(ArgumentError("$η is not an uncertainty of the model."))
+    end
+    j = findfirst(==(JuMP.index(η)), MOI.get(model, UncertaintyVariables()))
+    map = MOI.get(model, UncertaintyLifting())
+    if map === nothing || map.kept[1+j] > 0
+        return rule[map === nothing ? 1 + j : map.kept[1+j]] + 0.0
+    end
+    block = only(b for b in map.blocks if (1 + j) in b.inputs)
+    return rule[block.columns] .+ 0.0
+end
+
+"""
+    RuleMatrix
+
+The matrix `X` of the decision rules of a formulation, `x = X ξ`, with its labels; build it with
+[`rule_matrix`](@ref).
+
+## Fields
+
+ * `matrix::Matrix{Float64}`: one row per decision and one column per coordinate of `ξ`, with zero
+   where a decision does not observe the column.
+ * `decisions::Vector{JuMP.VariableRef}`: the decision of each row.
+ * `columns::Vector{Any}`: the label of each column: `:constant`; the uncertainty `η`
+   (a `JuMP.VariableRef`) if it is not lifted; `(η, k)` for the `k`-th piece of a lifted `η`.
+ * `formulation::AbstractFormulation`
+"""
+struct RuleMatrix
+    matrix::Matrix{Float64}
+    decisions::Vector{JuMP.VariableRef}
+    columns::Vector{Any}
+    formulation::AbstractFormulation
+end
+
+Base.size(R::RuleMatrix) = size(R.matrix)
+
+Base.getindex(R::RuleMatrix, args...) = getindex(R.matrix, args...)
+
+function Base.show(io::IO, R::RuleMatrix)
+    rows = [JuMP.name(x) for x in R.decisions]
+    label(c::Tuple) = "$(JuMP.name(c[1]))[$(c[2])]"
+    label(c::Symbol) = string(c)
+    label(c) = JuMP.name(c)
+    cols = [label(c) for c in R.columns]
+    println(io, "RuleMatrix of ", R.formulation, ": ", join(size(R.matrix), " × "))
+    cells = [string(round(v; sigdigits = 6)) for v in R.matrix]
+    widths = [maximum(length, [cols[j]; cells[:, j]]) for j in eachindex(cols)]
+    pad = maximum(length, rows; init = 0)
+    print(io, " "^pad)
+    for (j, c) in enumerate(cols)
+        print(io, "  ", lpad(c, widths[j]))
+    end
+    for (i, r) in enumerate(rows)
+        print(io, "\n", rpad(r, pad))
+        for j in eachindex(cols)
+            print(io, "  ", lpad(cells[i, j], widths[j]))
+        end
+    end
+    return
+end
+
+"""
+    rule_matrix(model::JuMP.Model; formulation::AbstractFormulation = PrimalLDR()) -> RuleMatrix
+
+The matrix `X` of the decision rules of `formulation` in the last solution, with the decisions
+as rows and the coordinates of `ξ = (1, η)` as columns, labelled in a [`RuleMatrix`](@ref).
+
+The matrix is in lifted coordinates: an uncertainty with [`BreakPoints`](@ref) has one column per
+piece, labelled `(η, k)`, not one, and the rule on the original uncertainties is `x(ξ) = X
+lift(map, ξ)` for the [`LiftingMap`](@ref) `map` of the model, with `lift(map, ξ)` the lifted
+outcome. The [`retraction`](@ref) goes the other way, `ξ = R ξ̃`, and gives the original
+uncertainty as the sum of its pieces. [`decision_rule`](@ref) does this mapping for one decision.
+
+## Example
+
+```julia
+optimize!(model)
+R = rule_matrix(model)
+R.matrix, R.decisions, R.columns
+```
+"""
+function rule_matrix(model::JuMP.GenericModel; formulation::AbstractFormulation = PrimalLDR())
+    decisions = [JuMP.VariableRef(model, v) for v in MOI.get(model, DecisionVariables())]
+    rows = [MOI.get(model, RuleCoefficients(formulation), x) for x in decisions]
+    matrix = zeros(length(decisions), isempty(rows) ? 0 : length(rows[1]))
+    for (i, r) in enumerate(rows)
+        matrix[i, :] = r
+    end
+    uncertainties = [JuMP.VariableRef(model, v) for v in MOI.get(model, UncertaintyVariables())]
+    map = MOI.get(model, UncertaintyLifting())
+    columns = Vector{Any}(undef, size(matrix, 2))
+    columns[1] = :constant
+    for (j, d) in enumerate(uncertainties)
+        if map === nothing
+            columns[1+j] = d
+        elseif map.kept[1+j] > 0
+            columns[map.kept[1+j]] = d
+        end
+    end
+    if map !== nothing
+        for block in map.blocks, (k, c) in enumerate(block.columns)
+            columns[c] = (uncertainties[only(block.inputs)-1], k)
+        end
+    end
+    return RuleMatrix(matrix, decisions, columns, formulation)
+end
