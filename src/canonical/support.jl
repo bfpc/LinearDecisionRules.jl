@@ -16,9 +16,10 @@ range over `{η_b : W η_b - h ∈ cone}`.
  * `h::Vector{Float64}`
  * `cone::MOI.Nonnegatives`: the cone of `W η_b - h`; for now always the nonnegative orthant.
  * `roles::Vector{Symbol}`: the role of each row, `:box` (a bound from the distribution), `:valid`
-   (a constraint tagged `ValidInequality()`) or `:hull` (a convex-hull row of a lifting).
- * `constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}`: the constraint each `:valid` row
-   comes from; `nothing` for the other rows.
+   (a constraint tagged `ValidInequality()`), `:truncate` (a constraint tagged `Truncate()`, which
+   also conditions the law) or `:hull` (a convex-hull row of a lifting).
+ * `constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}`: the constraint each `:valid` or
+   `:truncate` row comes from; `nothing` for the other rows.
 
 A block without rows is unbounded: `η_b ∈ ℝ^k`.
 """
@@ -72,10 +73,11 @@ end
 Return the support Ξ of the uncertainties of `form` as a product of [`SupportBlock`](@ref)s.
 
 The rows of Ξ are the finite bounds of the distributions (`minimum` and `maximum`), the rows
-tagged `ValidInequality()` and the convex-hull rows of the liftings. The blocks are the connected
-components of the coordinates coupled by some row, so every uncertainty column is in exactly one
-block; blocks are sorted by their first column. Every block contains the mean of its coordinates
-(checked by [`canonicalize`](@ref) when the mean is finite), so it is nonempty.
+tagged `ValidInequality()` or `Truncate()` and the convex-hull rows of the liftings. The blocks are
+the connected components of the coordinates coupled by some row, so every uncertainty column is in
+exactly one block; blocks are sorted by their first column. Every block contains the mean of its
+coordinates (checked by [`canonicalize`](@ref) when the mean is finite; the estimated mean of a
+conditioned law is that of draws in the conditioning set), so it is nonempty.
 """
 function support_blocks(form::CanonicalForm)
     m = length(form.uncertainties)
@@ -130,7 +132,8 @@ function support_blocks(form::CanonicalForm)
         isempty(range) && continue
         b = block[rv[first(range)]]
         ci = form.valid_constraints[r]
-        row = add_row!(b, ci === nothing ? :hull : :valid, form.h_valid[r], ci)
+        role = ci === nothing ? :hull : form.conditioning[r] ? :truncate : :valid
+        row = add_row!(b, role, form.h_valid[r], ci)
         for k in range
             _push!(triplets[b], row, local_index[rv[k]], nz[k])
         end

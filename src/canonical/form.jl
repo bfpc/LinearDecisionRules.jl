@@ -72,7 +72,8 @@ Uncertainties (`uncertainties[j]` is column `1 + j` of ξ; columns are sorted by
  * `uncertainties::Vector{MOI.VariableIndex}`
  * `uncertainty_names::Vector{String}`
  * `uncertainty_stages::Vector{Int}`: nondecreasing.
- * `laws::Vector{UncertaintyBlock}`: one per declaration; separate laws are independent.
+ * `laws::Vector{UncertaintyBlock}`: one per declaration, except that the declarations coupled by
+   rows tagged `Truncate()` share one; separate laws are independent.
  * `num_stages::Int`: the number of stages `T ≥ 2`.
 
 Rows (`B_*` have `1 + m` columns; `*_constraints[r]` is the constraint that row `r` comes from):
@@ -83,11 +84,15 @@ Rows (`B_*` have `1 + m` columns; `*_constraints[r]` is the constraint that row 
  * `A_l`, `B_l`, `l_constraints`
 
 Rows of Ξ beyond the boxes of the laws, as `W_valid η ≥ h_valid` (`W_valid` has `m` columns, over
-η): the rows tagged `ValidInequality()`, then, in a lifted form, the convex-hull rows of each
-lifting, whose constraint is `nothing`:
+η): the rows tagged `ValidInequality()` or `Truncate()`, then, in a lifted form, the convex-hull
+rows of each lifting, whose constraint is `nothing`:
 
  * `W_valid::SparseMatrixCSC{Float64,Int}`, `h_valid::Vector{Float64}`,
    `valid_constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}`
+ * `conditioning::BitVector`: whether each row is tagged `Truncate()`. Such a row bounds Ξ and
+   conditions the law of its uncertainties: their laws are merged into one
+   [`ConditionedDistribution`](@ref) in `laws`. The rows tagged `Truncate()` that only bound a
+   univariate law are not rows: that law is truncated exactly instead (see [`canonicalize`](@ref)).
 
 Objective (`FEASIBILITY_SENSE` when the model has none; then every term is zero):
 
@@ -130,6 +135,7 @@ struct CanonicalForm
     W_valid::_SparseMatrix
     h_valid::Vector{Float64}
     valid_constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}
+    conditioning::BitVector
     sense::MOI.OptimizationSense
     P::_SparseMatrix
     C::_SparseMatrix
@@ -137,6 +143,12 @@ struct CanonicalForm
     d::Vector{Float64}
     f::Float64
     lifting::Union{Nothing,LiftingMap}
+end
+
+# `form` with some fields replaced, such as `_replace(form; laws = laws)`.
+function _replace(form::CanonicalForm; kwargs...)
+    fields = map(name -> get(kwargs, name, getfield(form, name)), fieldnames(CanonicalForm))
+    return CanonicalForm(fields...)
 end
 
 function Base.show(io::IO, form::CanonicalForm)
@@ -445,14 +457,15 @@ function _push_row!(block::_RowBlock, row::_Row, rhs::Float64, ci::MOI.Constrain
     return
 end
 
-# The rows `W η ≥ h` tagged `ValidInequality()`.
+# The rows `W η ≥ h` tagged `ValidInequality()` or `Truncate()` (then `conditioning`).
 struct _ValidRows
     W::_Triplets
     h::Vector{Float64}
     constraints::Vector{MOI.ConstraintIndex}
+    conditioning::BitVector
 end
 
-_ValidRows() = _ValidRows(_Triplets(), Float64[], MOI.ConstraintIndex[])
+_ValidRows() = _ValidRows(_Triplets(), Float64[], MOI.ConstraintIndex[], falses(0))
 
 # The decisions and the uncertainties of the model, in the order of the canonical form.
 struct _Layout
@@ -503,11 +516,22 @@ Read the model `src` and its metadata `info` into a [`CanonicalForm`](@ref).
 The number of stages is `T = max(2, largest declared stage)`; unmarked variables are in stage `T`,
 and a single warning lists them when `T > 2`.
 
+The rows tagged `Truncate()` condition the law on the set `C` where they hold, and bound Ξ:
+
+ * a univariate law whose rows involve it alone, such as `100 ≤ d ≤ 110`, is truncated exactly:
+   `Distributions.truncated(d, lo, hi)` for a continuous law, or the atoms in `[lo, hi]`, as a
+   `DiscreteNonParametric`, for a discrete law with a finite support. Its rows are then dropped,
+   since the box of the truncated law replaces them;
+ * otherwise, the declarations coupled by rows tagged `Truncate()` (connected components, by
+   union–find) share one [`ConditionedDistribution`](@ref), in the place of the first, whose
+   moments are estimated by rejection sampling (see [`moments`](@ref)).
+
 Errors name the variables and constraints involved, for: unsupported constraint types, uncertainty-
-only rows not tagged `ValidInequality()`, rows tagged `Truncate()`, bounds or integrality on an
-uncertainty, integer decisions after stage 1, products of uncertainties and decisions in
-constraints (random recourse), quadratic constraints, and equality rows with an uncertainty that
-none of their decisions observe.
+only rows not tagged `ValidInequality()` or `Truncate()`, tagged equalities (Ξ must be
+full-dimensional), a truncation of probability zero, bounds or integrality on an uncertainty,
+integer decisions after stage 1, products of uncertainties and decisions in constraints (random
+recourse), quadratic constraints, and equality rows with an uncertainty that none of their
+decisions observe.
 
 ## Example
 
@@ -532,9 +556,9 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo)
     entries = _check_declarations(src, info, variables, parameter)
     layout = _layout(src, info, variables, parameter, entries)
     constraints = _read_constraints(src, info, layout)
-    _check_valid_rows_at_mean(src, layout.laws, constraints.valid, length(layout.uncertainties))
     sense, objective = _read_objective(src, layout)
-    form = _canonical_form(src, layout, constraints, sense, objective)
+    form = _condition(src, _canonical_form(src, layout, constraints, sense, objective))
+    _check_valid_rows_at_mean(src, form)
     _check_observable_equalities(src, form)
     liftings = _breakpoint_liftings(src, form, info.breakpoints)
     return isempty(liftings) ? form : lift(form, liftings)
@@ -791,13 +815,8 @@ function _read_row!(c::_Constraints, src, info::ModelInfo, layout::_Layout, ci, 
     _check_row(src, ci, row)
     filter!(t -> !iszero(t.second), row.x)
     filter!(t -> !iszero(t.second), row.ξ)
-    if ci in info.truncate_rows
-        error(
-            "The constraint $(_constraint_name(src, ci)) is tagged `Truncate()`: " *
-            "conditioning the law is not supported yet (Phase 3).",
-        )
-    elseif ci in info.valid_rows
-        _push_valid_row!(c.valid, src, ci, row, lo, hi)
+    if ci in info.truncate_rows || ci in info.valid_rows
+        _push_valid_row!(c.valid, src, ci, row, lo, hi, ci in info.truncate_rows)
     elseif isempty(row.x)
         _check_uncertainty_only_row(src, ci, row, layout.uncertainties, lo, hi)
     elseif lo == hi
@@ -828,15 +847,18 @@ function _check_row(src::MOI.ModelLike, ci::MOI.ConstraintIndex, row::_Row)
     return
 end
 
-function _push_valid_row!(valid::_ValidRows, src, ci, row::_Row, lo::Float64, hi::Float64)
+function _push_valid_row!(valid::_ValidRows, src, ci, row::_Row, lo, hi, conditioning::Bool)
     name = _constraint_name(src, ci)
+    tag = conditioning ? "`Truncate()`" : "`ValidInequality()`"
     if !isempty(row.x)
-        error("The constraint $name is tagged `ValidInequality()`, but it has decisions.")
+        error("The constraint $name is tagged $tag, but it has decisions.")
     elseif lo == hi
         error(
-            "The constraint $name is tagged `ValidInequality()`, but it is an equality: the " *
-            "support of the uncertainty must be full-dimensional.",
+            "The constraint $name is tagged $tag, but it is an equality: the support of the " *
+            "uncertainty must be full-dimensional.",
         )
+    elseif conditioning && isempty(row.ξ)
+        error("The constraint $name is tagged $tag, but it has no uncertainty.")
     end
     # `lo ≤ w ⋅ η ≤ hi` gives `w ⋅ η ≥ lo` and `-w ⋅ η ≥ -hi`.
     for (sign, rhs) in ((1.0, lo), (-1.0, -hi))
@@ -847,6 +869,7 @@ function _push_valid_row!(valid::_ValidRows, src, ci, row::_Row, lo::Float64, hi
         end
         push!(valid.h, rhs)
         push!(valid.constraints, ci)
+        push!(valid.conditioning, conditioning)
     end
     return
 end
@@ -870,27 +893,28 @@ function _check_uncertainty_only_row(src, ci, row::_Row, uncertainties, lo, hi)
 end
 
 # A valid inequality holds on the support, so it holds at the mean: a cheap check of validity,
-# which also shows that every support block contains a point (the mean).
-function _check_valid_rows_at_mean(src, laws::Vector{UncertaintyBlock}, valid::_ValidRows, m::Int)
-    isempty(valid.h) && return
-    # The mean of a conditioned law is not known before it is estimated: its rows are not checked.
-    μ = fill(NaN, m)
-    for law in laws
+# which also shows that every support block contains a point (the mean). The mean is that of the
+# conditioned law, which is not known before it is estimated for a `ConditionedDistribution`: the
+# rows of such a law are not checked, nor the rows tagged `Truncate()`.
+function _check_valid_rows_at_mean(src, form::CanonicalForm)
+    μ = fill(NaN, length(form.uncertainties))
+    for law in form.laws
         law.distribution isa ConditionedDistribution && continue
         μ[law.columns.-1] .= _law_mean(law.distribution)
     end
-    W = _sparse(valid.W, length(valid.h), m)
-    Wt = SparseArrays.sparse(transpose(W))
-    for r in eachindex(valid.h)
-        value, scale = 0.0, abs(valid.h[r])
+    Wt = SparseArrays.sparse(transpose(form.W_valid))
+    for r in eachindex(form.h_valid)
+        form.conditioning[r] && continue
+        h = form.h_valid[r]
+        value, scale = 0.0, abs(h)
         for k in SparseArrays.nzrange(Wt, r)
             term = SparseArrays.nonzeros(Wt)[k] * μ[SparseArrays.rowvals(Wt)[k]]
             value += term
             scale = max(scale, abs(term))
         end
-        if isfinite(value) && value < valid.h[r] - 1e-9 * max(1.0, scale)
+        if isfinite(value) && value < h - 1e-9 * max(1.0, scale)
             error(
-                "The constraint $(_constraint_name(src, valid.constraints[r])) is tagged " *
+                "The constraint $(_constraint_name(src, form.valid_constraints[r])) is tagged " *
                 "`ValidInequality()`, but the mean of the uncertainty violates it, so it does " *
                 "not hold on the support of the distribution. Use `Truncate()` to condition " *
                 "the law.",
@@ -944,6 +968,7 @@ function _canonical_form(src, layout::_Layout, c::_Constraints, sense, objective
         _sparse(c.valid.W, length(c.valid.h), m),
         c.valid.h,
         Vector{Union{Nothing,MOI.ConstraintIndex}}(c.valid.constraints),
+        c.valid.conditioning,
         sense,
         _sparse(objective.P, n, n),
         _sparse(objective.C, n, 1 + m),

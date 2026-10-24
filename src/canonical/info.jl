@@ -57,7 +57,7 @@ decision.
  * `valid_rows::Set{MOI.ConstraintIndex}`: uncertainty-only rows tagged `ValidInequality()`; they
    describe the support Ξ without changing the law.
  * `truncate_rows::Set{MOI.ConstraintIndex}`: uncertainty-only rows tagged `Truncate()`; they
-   condition the law (not supported yet).
+   condition the law on the set where they hold, and bound Ξ (see [`canonicalize`](@ref)).
  * `breakpoints::Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}}`: the breakpoints of the
    [`AxisPiecewise`](@ref) lifting of an uncertainty declared alone (with a univariate law): the
    interior breakpoints, or their number `n`, for `n` equally spaced breakpoints inside the

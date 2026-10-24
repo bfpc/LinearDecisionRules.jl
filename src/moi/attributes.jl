@@ -31,8 +31,25 @@ struct ValidInequality <: AbstractXiRole end
 """
     Truncate()
 
-The tag of a constraint over the uncertainties only that conditions their law on the constraint
-(rejection sampling). Not supported yet.
+The tag of a constraint over the uncertainties only that conditions their law on the constraint:
+the uncertainties follow their declared laws conditioned on the set `C` where the constraints
+tagged `Truncate()` hold, and `C` bounds the support Ξ.
+
+A univariate law conditioned by constraints on it alone, such as `100 <= d <= 110`, is truncated
+exactly (`Distributions.truncated`). Otherwise, the declarations coupled by such constraints share
+one law, a [`ConditionedDistribution`](@ref), whose moments are estimated by rejection sampling
+(see [`moments`](@ref)); the values that use them, such as the bound of [`DualLDR`](@ref), are then
+estimates. [`SampledLDR`](@ref) and [`simulate`](@ref) draw from the conditioned law. The
+constraint must not be an equality, since Ξ must be full-dimensional.
+
+## Example
+
+```julia
+@variable(model, d in Uncertainty(Uniform(80, 120)))
+@constraint(model, 100 <= d <= 110, Truncate())   # d ~ Uniform(100, 110)
+@variable(model, e[1:2] in Uncertainty(product_distribution([Uniform(40, 80), Uniform(40, 80)])))
+@constraint(model, e[1] + e[2] <= 120, Truncate())  # uniform on a triangle
+```
 """
 struct Truncate <: AbstractXiRole end
 

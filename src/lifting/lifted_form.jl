@@ -117,6 +117,7 @@ function lift(form::CanonicalForm, liftings::AbstractDict{MOI.VariableIndex,<:Ab
         vcat(form.W_valid * Rη, W_hull),
         vcat(form.h_valid, h_hull),
         vcat(form.valid_constraints, fill(nothing, length(h_hull))),
+        vcat(form.conditioning, falses(length(h_hull))),
         form.sense,
         form.P,
         form.C * R,
@@ -138,7 +139,14 @@ function _liftings_by_column(form::CanonicalForm, liftings)
         j = column[v]
         name = form.uncertainty_names[j-1]
         law = form.laws[findfirst(law -> j in law.columns, form.laws)]
-        if !(law.distribution isa Distributions.UnivariateDistribution)
+        if law.distribution isa ConditionedDistribution
+            error(
+                "The uncertainty $name has a lifting, but its law is conditioned by the " *
+                "constraints $(_constraint_names(law.distribution)) and estimated by rejection " *
+                "sampling: liftings of such laws are not supported. A univariate law conditioned " *
+                "on an interval by constraints on it alone is truncated exactly, and can be lifted.",
+            )
+        elseif !(law.distribution isa Distributions.UnivariateDistribution)
             names = join((form.uncertainty_names[c-1] for c in law.columns), ", ")
             error(
                 "The uncertainty $name has a lifting, but it is a component of the law of " *

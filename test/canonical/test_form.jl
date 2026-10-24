@@ -380,16 +380,29 @@ function test_unnamed_constraints_are_printed()
 end
 
 function test_error_truncate()
-    model, info = newsvendor()
-    cap = @constraint(model, cap, model[:d] <= 115)
-    info = ModelInfo(;
-        uncertainties = info.uncertainties,
-        decision_stages = info.decision_stages,
-        truncate_rows = Set{MOI.ConstraintIndex}([index(cap)]),
+    cases = (
+        (m, d) -> @constraint(m, cap, d == 100),
+        (m, d) -> @constraint(m, cap, d <= m[:buy]),
+        (m, d) -> @constraint(m, cap, 100 <= d <= 90),
+        (m, d) -> @constraint(m, cap, d >= 130),
     )
-    msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("cap is tagged `Truncate()`", msg) &&
-          occursin("not supported yet (Phase 3)", msg)
+    texts = (
+        "cap is tagged `Truncate()`, but it is an equality",
+        "cap is tagged `Truncate()`, but it has decisions",
+        "The constraints cap tagged `Truncate()` condition the law of the uncertainty d on " *
+        "[100.0, 90.0], whose probability is zero.",
+        "on [130.0, 120.0], whose probability is zero",
+    )
+    for (add, text) in zip(cases, texts)
+        model, info = newsvendor()
+        cap = add(model, model[:d])
+        info = ModelInfo(;
+            uncertainties = info.uncertainties,
+            decision_stages = info.decision_stages,
+            truncate_rows = Set{MOI.ConstraintIndex}([index(cap)]),
+        )
+        @test occursin(text, error_message(() -> canonicalize(backend(model), info)))
+    end
     return
 end
 

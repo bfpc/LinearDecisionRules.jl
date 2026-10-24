@@ -249,8 +249,10 @@ function test_truncate()
     info = _model_info(model)
     @test info.truncate_rows == Set{MOI.ConstraintIndex}([index(cap)])
     @test isempty(info.valid_rows)
-    msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("cap is tagged `Truncate()`", msg)
+    # A bound on a univariate law truncates it exactly.
+    form = canonicalize(backend(model), info)
+    @test only(form.laws).distribution == Distributions.Uniform(80, 115)
+    @test isempty(form.h_valid)
     return
 end
 

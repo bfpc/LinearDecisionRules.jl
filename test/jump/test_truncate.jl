@@ -1,0 +1,259 @@
+# Copyright (c) 2024: Joaquim Dias Garcia, Bernardo Freitas Paulo da Costa, and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE file or at https://opensource.org/licenses/MIT.
+
+# Laws conditioned by constraints tagged `Truncate()`, end to end: the examples of
+# `test_newsvendor_with_rejection_sampling` (test_core.jl) and of the tutorial
+# `advanced_distributions.jl` of the previous version.
+
+module TestTruncate
+
+using JuMP
+using Test
+
+import Distributions
+import Distributions: Uniform
+import HiGHS
+import LinearDecisionRules as LDR
+import LinearDecisionRules:
+    ConditionedDistribution,
+    DualLDR,
+    FirstStage,
+    Formulations,
+    LDRModel,
+    MvDiscreteNonParametric,
+    PrimalLDR,
+    SampledLDR,
+    Truncate,
+    Uncertainty,
+    simulate
+import Random
+
+function runtests()
+    for name in names(@__MODULE__; all = true)
+        if startswith("$name", "test_")
+            @testset "$name" begin
+                getfield(@__MODULE__, name)()
+            end
+        end
+    end
+    return
+end
+
+function ldr_model()
+    model = LDRModel(HiGHS.Optimizer)
+    set_silent(model)
+    set_time_limit_sec(model, 60.0)
+    return model
+end
+
+# The newsvendor of the previous version; `demand` returns the demand from the model.
+function newsvendor(demand::Function)
+    model = ldr_model()
+    @variable(model, buy >= 0, FirstStage)
+    @variable(model, sell >= 0)
+    @variable(model, ret >= 0)
+    d = demand(model)
+    @constraint(model, sell + ret <= buy)
+    @constraint(model, sell <= d)
+    @objective(model, Max, -10buy + 8ret + 15sell)
+    return model
+end
+
+moments_of(model) = MOI.get(model, LDR.UncertaintyMoments())
+
+form_of(model) = JuMP.unsafe_backend(model).form
+
+# Uniform(80, 120) given 100 ≤ d ≤ 110: exactly Uniform(100, 110), whose mean is 105.
+function exact_newsvendor()
+    return newsvendor() do model
+        @variable(model, demand in Uncertainty(Uniform(80, 120)))
+        @constraint(model, demand >= 100, Truncate())
+        @constraint(model, demand <= 110, Truncate())
+        return demand
+    end
+end
+
+# The same law as a one-component product law, which is truncated by rejection sampling.
+function rejection_newsvendor()
+    return newsvendor() do model
+        law = Distributions.product_distribution([Uniform(80, 120)])
+        @variable(model, demand[1:1] in Uncertainty(law))
+        @constraint(model, demand[1] >= 100, Truncate())
+        @constraint(model, demand[1] <= 110, Truncate())
+        return demand[1]
+    end
+end
+
+function plain_newsvendor(a, b)
+    return newsvendor() do model
+        @variable(model, demand in Uncertainty(Uniform(a, b)))
+        return demand
+    end
+end
+
+# The old moment check (mean 100, then about 105), by both paths.
+function test_newsvendor_mean()
+    untruncated = plain_newsvendor(80, 120)
+    optimize!(untruncated)
+    @test moments_of(untruncated).mean == [1, 100]
+    exact = exact_newsvendor()
+    optimize!(exact)
+    @test moments_of(exact).mean == [1, 105]
+    @test only(form_of(exact).laws).distribution == Uniform(100, 110)
+    reference = plain_newsvendor(100, 110)
+    optimize!(reference)
+    @test objective_value(exact) ≈ objective_value(reference)
+    @test objective_bound(exact) ≈ objective_bound(reference)
+    # Truncating the demand to a narrower support improves both values.
+    @test objective_value(untruncated) < objective_value(exact)
+    @test objective_bound(untruncated) < objective_bound(exact)
+    rejection = rejection_newsvendor()
+    optimize!(rejection)
+    @test only(form_of(rejection).laws).distribution isa ConditionedDistribution
+    # The standard error of the mean is 10 / √12 / √10⁴ ≈ 0.029.
+    @test isapprox(moments_of(rejection).mean[2], 105; atol = 0.1)
+    @test isapprox(only(moments_of(rejection).blocks).covariance[1], 100 / 12; rtol = 0.05)
+    # Both paths agree within the Monte Carlo error.
+    @test objective_value(rejection) ≈ objective_value(exact) rtol = 1e-2
+    @test objective_bound(rejection) ≈ objective_bound(exact) rtol = 1e-2
+    @test value(rejection[:demand][1]) ≈ moments_of(rejection).mean[2]
+    return
+end
+
+# Two independent demands, each truncated alone: two independent laws.
+function test_separate_truncations_are_independent()
+    model = rejection_newsvendor()
+    law = Distributions.product_distribution([Uniform(80, 120)])
+    @variable(model, other[1:1] in Uncertainty(law))
+    @constraint(model, 100 <= other[1] <= 110, Truncate())
+    @constraint(model, model[:sell] <= other[1])
+    optimize!(model)
+    mom = moments_of(model)
+    @test [block.columns for block in mom.blocks] == [[2], [3]]
+    @test all(block.num_samples == 10_000 for block in mom.blocks)
+    # Each law has its own draws.
+    @test mom.mean[2] != mom.mean[3]
+    @test isapprox(mom.mean[3], 105; atol = 0.1)
+    M = LDR.second_moment(mom)
+    @test M[2, 3] == mom.mean[2] * mom.mean[3]
+    return
+end
+
+# Part 2 of the tutorial: two demands in [40, 80] with a total of at most 120.
+function budget(; total = 120.0)
+    model = ldr_model()
+    @variable(model, buy[1:2] >= 0, FirstStage)
+    @variable(model, sell[1:2] >= 0)
+    @variable(model, leftover[1:2] >= 0)
+    law = Distributions.product_distribution([Uniform(40, 80), Uniform(40, 80)])
+    @variable(model, demand[1:2] in Uncertainty(law))
+    @constraint(model, budget, demand[1] + demand[2] <= total, Truncate())
+    @constraint(model, [i in 1:2], sell[i] + leftover[i] <= buy[i])
+    @constraint(model, [i in 1:2], sell[i] <= demand[i])
+    @objective(model, Max, sum(-10buy[i] + 15sell[i] + 5leftover[i] for i in 1:2))
+    return model
+end
+
+function test_budget()
+    model = budget()
+    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(500)])
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test termination_status(model, SampledLDR(500)) == MOI.OPTIMAL
+    mom = moments_of(model)
+    # The uniform law on the triangle: mean 40 + 40 / 3, covariance -40² / 36 < 0.
+    @test isapprox(mom.mean[2:3], fill(40 + 40 / 3, 2); atol = 0.5)
+    Σ = only(mom.blocks).covariance
+    @test isapprox(Σ, [40^2/18 -40^2/36; -40^2/36 40^2/18]; rtol = 0.1)
+    @test objective_value(model) <= objective_bound(model) + 1e-6
+    # The independent demands have a larger mean, so more to sell.
+    free = budget(; total = 160.0)
+    optimize!(free)
+    @test objective_value(model) < objective_value(free)
+    @test value.(model[:demand]) ≈ mom.mean[2:3]
+    return
+end
+
+# The scenarios of `SampledLDR` and of `simulate` are drawn from the conditioned law.
+function test_scenarios_in_conditioning_set()
+    model = budget()
+    set_attribute(model, Formulations(), [PrimalLDR(), SampledLDR(500; seed = 3)])
+    optimize!(model)
+    outcomes = LDR._sample_outcomes(form_of(model), SampledLDR(500; seed = 3))
+    @test all(outcomes[2, :] + outcomes[3, :] .<= 120)
+    @test outcomes == LDR._sample_outcomes(form_of(model), SampledLDR(500; seed = 3))
+    @test outcomes != LDR._sample_outcomes(form_of(model), SampledLDR(500; seed = 4))
+    sim = MOI.get(model, LDR.SimulationData(PrimalLDR()))
+    ξ = LDR._draw_chunk(Random.Xoshiro(1), sim, 2000)
+    @test all(ξ[2, :] + ξ[3, :] .<= 120)
+    @test all(40 .<= ξ[2:3, :] .<= 80)
+    # The primal rule is feasible on Ξ, which contains the conditioning set.
+    s = simulate(model, 2000; rng = Random.Xoshiro(1))
+    @test s.violation_fraction == 0
+    @test isapprox(s.objective_mean, objective_value(model); atol = 4 * s.objective_stderr + 1)
+    # A scenario outside the conditioning set is outside Ξ.
+    d = model[:demand]
+    msg = try
+        simulate(model, [Dict(d[1] => 70.0, d[2] => 70.0)])
+    catch err
+        sprint(showerror, err)
+    end
+    @test occursin("the constraint tagged `Truncate()` budget is violated by 20", msg)
+    return
+end
+
+# Part 3 of the tutorial: three reservoirs, with five constraints on their inflows.
+function test_reservoir()
+    model = ldr_model()
+    capacity = [100.0, 80.0, 120.0]
+    benefit = [5.0, 4.0, 6.0]
+    @variable(model, 0 <= storage[i in 1:3] <= capacity[i], FirstStage)
+    @variable(model, release[1:3] >= 0)
+    @variable(model, spill[1:3] >= 0)
+    law = Distributions.product_distribution([Uniform(10, 50), Uniform(10, 40), Uniform(10, 60)])
+    @variable(model, inflow[1:3] in Uncertainty(law))
+    rows = [
+        @constraint(model, inflow[1] + inflow[2] + inflow[3] <= 120, Truncate()),
+        @constraint(model, inflow[1] - inflow[2] <= 20, Truncate()),
+        @constraint(model, inflow[2] - inflow[1] <= 20, Truncate()),
+        @constraint(model, inflow[2] - inflow[3] <= 25, Truncate()),
+        @constraint(model, inflow[3] - inflow[2] <= 25, Truncate()),
+    ]
+    @constraint(model, [i in 1:3], release[i] + spill[i] <= storage[i] + inflow[i])
+    @objective(model, Max, sum(benefit[i] * release[i] - spill[i] for i in 1:3))
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test objective_value(model) <= objective_bound(model) + 1e-6
+    d = only(form_of(model).laws).distribution
+    @test d isa ConditionedDistribution && length(d.h) == 5
+    # The estimated mean is in the conditioning set.
+    μ = moments_of(model).mean[2:4]
+    @test all(d.W * μ .>= d.h)
+    @test value.(inflow) ≈ μ
+    return
+end
+
+# Part 4 of the tutorial: seven scenarios, the one with a total above 160 excluded.
+function test_discrete_scenarios()
+    scenarios = [[60.0, 60], [60, 80], [80, 60], [80, 80], [100, 60], [60, 100], [100, 100]]
+    model = ldr_model()
+    @variable(model, buy[1:2] >= 0, FirstStage)
+    @variable(model, sell[1:2] >= 0)
+    law = MvDiscreteNonParametric(scenarios, fill(1 / 7, 7))
+    @variable(model, demand[1:2] in Uncertainty(law))
+    @constraint(model, demand[1] + demand[2] <= 160, Truncate())
+    @constraint(model, [i in 1:2], sell[i] <= buy[i])
+    @constraint(model, [i in 1:2], sell[i] <= demand[i])
+    @objective(model, Max, sum(-10buy[i] + 15sell[i] for i in 1:2))
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    # The six remaining scenarios are equally likely; the standard error is about 0.14.
+    @test isapprox(moments_of(model).mean[2:3], sum(scenarios[1:6]) / 6; atol = 0.6)
+    return
+end
+
+end # module TestTruncate
+
+TestTruncate.runtests()

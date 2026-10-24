@@ -481,15 +481,22 @@ function test_valid_inequality_on_a_variable()
         @test objective_bound(model) ≈ objective_bound(affine)
     end
     @test objective_value(affine) > 460 + 1
-    # Tagged `Truncate()`, it is not supported yet, as an affine row.
-    model = newsvendor()
-    @constraint(model, model[:demand] in MOI.LessThan(110.0), Truncate())
-    err = try
-        optimize!(model)
-    catch err
-        err
-    end
-    @test occursin("is tagged `Truncate()`", sprint(showerror, err))
+    # Tagged `Truncate()`, it truncates the law, as an affine row does: d ~ Uniform(80, 110).
+    truncated = newsvendor()
+    @constraint(truncated, truncated[:demand] in MOI.LessThan(110.0), Truncate())
+    optimize!(truncated)
+    narrow = ldr_model()
+    @variable(narrow, buy >= 0, FirstStage)
+    @variable(narrow, sell >= 0)
+    @variable(narrow, ret >= 0)
+    @variable(narrow, demand in Uncertainty(Uniform(80, 110)))
+    @constraint(narrow, sell + ret <= buy)
+    @constraint(narrow, sell <= demand)
+    @objective(narrow, Max, -10buy + 8ret + 15sell)
+    optimize!(narrow)
+    @test objective_value(truncated) ≈ objective_value(narrow)
+    @test objective_bound(truncated) ≈ objective_bound(narrow)
+    @test value(truncated[:demand]) ≈ 95
     return
 end
 

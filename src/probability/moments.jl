@@ -56,6 +56,26 @@ _law_mean(d::Distributions.MultivariateDistribution) = Vector{Float64}(Distribut
 _law_covariance(d::Distributions.UnivariateDistribution) = fill(Float64(Distributions.var(d)), 1, 1)
 _law_covariance(d::Distributions.MultivariateDistribution) = Matrix{Float64}(Distributions.cov(d))
 
+const _ContinuousTruncated = Distributions.Truncated{<:Distributions.ContinuousUnivariateDistribution}
+
+_law_mean(d::_ContinuousTruncated) = [_truncated_moments(d)[1]]
+
+_law_covariance(d::_ContinuousTruncated) = fill(_truncated_moments(d)[2], 1, 1)
+
+# Distributions has the moments of few truncated laws, such as the normal one; the others are by
+# quadrature of the density of the truncated law.
+function _truncated_moments(d::_ContinuousTruncated)
+    try
+        return Float64(Distributions.mean(d)), Float64(Distributions.var(d))
+    catch err
+        err isa MethodError || rethrow()
+    end
+    lo, hi = minimum(d), maximum(d)
+    mean, _ = QuadGK.quadgk(x -> x * Distributions.pdf(d, x), lo, hi; rtol = 1e-12)
+    var, _ = QuadGK.quadgk(x -> (x - mean)^2 * Distributions.pdf(d, x), lo, hi; rtol = 1e-12)
+    return mean, var
+end
+
 # The settings of the rejection sampling that estimates the moments of conditioned laws.
 struct _RejectionSampling
     seed::Int

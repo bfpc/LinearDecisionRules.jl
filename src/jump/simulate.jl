@@ -274,7 +274,8 @@ function _support_reasons(
         for (k, r) in enumerate(valid)
             if slack[k, s] < -tolerance * (1 + abs(form.h_valid[r]))
                 name = _constraint_name(JuMP.backend(model), form.valid_constraints[r])
-                reasons[s] = "the valid inequality $name is violated by $(-slack[k, s])"
+                what = form.conditioning[r] ? "constraint tagged `Truncate()`" : "valid inequality"
+                reasons[s] = "the $what $name is violated by $(-slack[k, s])"
                 break
             end
         end
