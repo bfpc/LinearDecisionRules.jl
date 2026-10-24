@@ -175,11 +175,85 @@ _dimension(::Distributions.UnivariateDistribution) = 1
 _dimension(d::Distributions.MultivariateDistribution) = length(d)
 _dimension(::Distributions.Distribution) = 0
 
+# Coordinate lists of a sparse matrix.
+struct _Triplets
+    I::Vector{Int}
+    J::Vector{Int}
+    V::Vector{Float64}
+end
+
+_Triplets() = _Triplets(Int[], Int[], Float64[])
+
+function _push!(t::_Triplets, i::Int, j::Int, v::Float64)
+    if !iszero(v)
+        push!(t.I, i)
+        push!(t.J, j)
+        push!(t.V, v)
+    end
+    return
+end
+
+_sparse(t::_Triplets, m::Int, n::Int) = SparseArrays.sparse(t.I, t.J, t.V, m, n)
+
 # The role of every variable of the model, as `canonicalize` sees it.
 struct _Columns
     decision::Dict{MOI.VariableIndex,Int}    # row of the decision rule
     uncertainty::Dict{MOI.VariableIndex,Int} # column of ξ, ≥ 2
     parameter::Dict{MOI.VariableIndex,Float64}
+end
+
+# A function is read into an accumulator, a `_Row` or the `_Objective`, term by term, by the role
+# of each variable: `_add_decision!`, `_add_uncertainty!` (by column of ξ), `_add_constant!`, and
+# `_add_bilinear!` for a product of two variables that are not parameters.
+
+function _add_term!(acc, cols::_Columns, coef::Float64, v::MOI.VariableIndex)
+    if haskey(cols.decision, v)
+        _add_decision!(acc, cols.decision[v], coef)
+    elseif haskey(cols.uncertainty, v)
+        _add_uncertainty!(acc, cols.uncertainty[v], coef)
+    else
+        _add_constant!(acc, coef * cols.parameter[v])
+    end
+    return
+end
+
+# `coef * a * b`, with parameters replaced by their values.
+function _add_product!(
+    acc,
+    cols::_Columns,
+    coef::Float64,
+    a::MOI.VariableIndex,
+    b::MOI.VariableIndex,
+)
+    if haskey(cols.parameter, a)
+        _add_term!(acc, cols, coef * cols.parameter[a], b)
+    elseif haskey(cols.parameter, b)
+        _add_term!(acc, cols, coef * cols.parameter[b], a)
+    else
+        _add_bilinear!(acc, cols, coef, a, b)
+    end
+    return
+end
+
+function _read!(acc, cols::_Columns, f::MOI.ScalarAffineFunction{Float64})
+    for t in f.terms
+        _add_term!(acc, cols, t.coefficient, t.variable)
+    end
+    _add_constant!(acc, f.constant)
+    return acc
+end
+
+function _read!(acc, cols::_Columns, f::MOI.ScalarQuadraticFunction{Float64})
+    for t in f.affine_terms
+        _add_term!(acc, cols, t.coefficient, t.variable)
+    end
+    for t in f.quadratic_terms
+        # MOI stores `c x²` as the term `(2c, x, x)`; `coef` is the coefficient of `a * b`.
+        a, b = t.variable_1, t.variable_2
+        _add_product!(acc, cols, a == b ? t.coefficient / 2 : t.coefficient, a, b)
+    end
+    _add_constant!(acc, f.constant)
+    return acc
 end
 
 # One constraint, read as `x-terms + ξ-terms + constant`.
@@ -202,32 +276,24 @@ function _reset!(row::_Row)
     return row
 end
 
-function _add_term!(row::_Row, cols::_Columns, coef::Float64, v::MOI.VariableIndex)
-    if haskey(cols.decision, v)
-        i = cols.decision[v]
-        row.x[i] = get(row.x, i, 0.0) + coef
-    elseif haskey(cols.uncertainty, v)
-        j = cols.uncertainty[v]
-        row.ξ[j] = get(row.ξ, j, 0.0) + coef
-    else
-        row.constant += coef * cols.parameter[v]
-    end
+function _add_decision!(row::_Row, i::Int, coef::Float64)
+    row.x[i] = get(row.x, i, 0.0) + coef
     return
 end
 
-# `coef * a * b`, with parameters replaced by their values.
-function _add_product!(
-    row::_Row,
-    cols::_Columns,
-    coef::Float64,
-    a::MOI.VariableIndex,
-    b::MOI.VariableIndex,
-)
-    if haskey(cols.parameter, a)
-        _add_term!(row, cols, coef * cols.parameter[a], b)
-    elseif haskey(cols.parameter, b)
-        _add_term!(row, cols, coef * cols.parameter[b], a)
-    elseif haskey(cols.decision, a) && haskey(cols.uncertainty, b)
+function _add_uncertainty!(row::_Row, j::Int, coef::Float64)
+    row.ξ[j] = get(row.ξ, j, 0.0) + coef
+    return
+end
+
+function _add_constant!(row::_Row, coef::Float64)
+    row.constant += coef
+    return
+end
+
+# A product in a row is random recourse or a quadratic constraint; `_check_row` reports both.
+function _add_bilinear!(row::_Row, cols::_Columns, ::Float64, a, b)
+    if haskey(cols.decision, a) && haskey(cols.uncertainty, b)
         row.recourse = (a, b)
     elseif haskey(cols.uncertainty, a) && haskey(cols.decision, b)
         row.recourse = (b, a)
@@ -237,46 +303,48 @@ function _add_product!(
     return
 end
 
-function _read!(row::_Row, cols::_Columns, f::MOI.ScalarAffineFunction{Float64})
-    for t in f.terms
-        _add_term!(row, cols, t.coefficient, t.variable)
-    end
-    row.constant += f.constant
-    return row
+# The objective `x'Px + x'Cξ + η'Qη + d'η + f`, with `P` and `Q` symmetric.
+mutable struct _Objective
+    P::_Triplets
+    C::_Triplets
+    Q::_Triplets
+    d::Vector{Float64}
+    f::Float64
 end
 
-function _read!(row::_Row, cols::_Columns, f::MOI.ScalarQuadraticFunction{Float64})
-    for t in f.affine_terms
-        _add_term!(row, cols, t.coefficient, t.variable)
-    end
-    for t in f.quadratic_terms
-        # MOI stores `c x²` as the term `(2c, x, x)`.
-        a, b = t.variable_1, t.variable_2
-        _add_product!(row, cols, a == b ? t.coefficient / 2 : t.coefficient, a, b)
-    end
-    row.constant += f.constant
-    return row
-end
+_Objective(m::Int) = _Objective(_Triplets(), _Triplets(), _Triplets(), zeros(m), 0.0)
 
-# Coordinate lists of a sparse matrix.
-struct _Triplets
-    I::Vector{Int}
-    J::Vector{Int}
-    V::Vector{Float64}
-end
-
-_Triplets() = _Triplets(Int[], Int[], Float64[])
-
-function _push!(t::_Triplets, i::Int, j::Int, v::Float64)
-    if !iszero(v)
-        push!(t.I, i)
-        push!(t.J, j)
-        push!(t.V, v)
-    end
+function _add_decision!(obj::_Objective, i::Int, coef::Float64)
+    _push!(obj.C, i, 1, coef)
     return
 end
 
-_sparse(t::_Triplets, m::Int, n::Int) = SparseArrays.sparse(t.I, t.J, t.V, m, n)
+function _add_uncertainty!(obj::_Objective, j::Int, coef::Float64)
+    obj.d[j-1] += coef
+    return
+end
+
+function _add_constant!(obj::_Objective, coef::Float64)
+    obj.f += coef
+    return
+end
+
+function _add_bilinear!(obj::_Objective, cols::_Columns, coef::Float64, a, b)
+    if haskey(cols.decision, a) && haskey(cols.decision, b)
+        i, k = cols.decision[a], cols.decision[b]
+        _push!(obj.P, i, k, coef / 2)
+        _push!(obj.P, k, i, coef / 2)
+    elseif haskey(cols.uncertainty, a) && haskey(cols.uncertainty, b)
+        i, k = cols.uncertainty[a] - 1, cols.uncertainty[b] - 1
+        _push!(obj.Q, i, k, coef / 2)
+        _push!(obj.Q, k, i, coef / 2)
+    elseif haskey(cols.decision, a)
+        _push!(obj.C, cols.decision[a], cols.uncertainty[b], coef)
+    else
+        _push!(obj.C, cols.decision[b], cols.uncertainty[a], coef)
+    end
+    return
+end
 
 # The rows `A x (=, ≤, ≥) B ξ` of one kind.
 struct _RowBlock
@@ -299,6 +367,53 @@ function _push_row!(block::_RowBlock, row::_Row, rhs::Float64, ci::MOI.Constrain
     end
     push!(block.constraints, ci)
     return
+end
+
+# The rows `W η ≥ h` tagged `ValidInequality()`.
+struct _ValidRows
+    W::_Triplets
+    h::Vector{Float64}
+    constraints::Vector{MOI.ConstraintIndex}
+end
+
+_ValidRows() = _ValidRows(_Triplets(), Float64[], MOI.ConstraintIndex[])
+
+# The decisions and the uncertainties of the model, in the order of the canonical form.
+struct _Layout
+    decisions::Vector{MOI.VariableIndex}
+    decision_stages::Vector{Int}
+    uncertainties::Vector{MOI.VariableIndex}
+    uncertainty_stages::Vector{Int}
+    laws::Vector{UncertaintyBlock}
+    num_stages::Int
+    columns::_Columns
+end
+
+# What the constraints give, read by `_read_constraints`.
+struct _Constraints
+    e::_RowBlock
+    u::_RowBlock
+    l::_RowBlock
+    valid::_ValidRows
+    lower::Vector{Float64}
+    upper::Vector{Float64}
+    integer::BitVector
+    binary::BitVector
+    buffer::_Row
+end
+
+function _Constraints(n::Int)
+    return _Constraints(
+        _RowBlock(),
+        _RowBlock(),
+        _RowBlock(),
+        _ValidRows(),
+        fill(-Inf, n),
+        fill(Inf, n),
+        falses(n),
+        falses(n),
+        _Row(),
+    )
 end
 
 """
@@ -340,216 +455,15 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo)
         error("Breakpoints (piecewise liftings) are not supported yet.")
     end
     variables = MOI.get(src, MOI.ListOfVariableIndices())
-    in_model = Set(variables)
     parameter = _parameter_values(src)
-    # Uncertainty columns: declaration order, then stably sorted by stage.
-    entries = Tuple{Int,MOI.VariableIndex,Union{Nothing,Int}}[]
-    seen = Set{MOI.VariableIndex}()
-    for (q, decl) in enumerate(info.uncertainties)
-        dim = _dimension(decl.distribution)
-        who = join((_variable_name(src, v) for v in decl.variables), ", ")
-        if dim == 0
-            error(
-                "The distribution of the uncertainty $who must be univariate or multivariate; " *
-                "got $(typeof(decl.distribution)).",
-            )
-        elseif !(length(decl.variables) == length(decl.stages) == dim)
-            error(
-                "The distribution of the uncertainty $who has dimension $dim, but " *
-                "$(length(decl.variables)) variables and $(length(decl.stages)) stages were given.",
-            )
-        end
-        for (k, v) in enumerate(decl.variables)
-            if !(v in in_model)
-                error("The uncertainty $v is not a variable of the model.")
-            elseif haskey(parameter, v)
-                error("The variable $(_variable_name(src, v)) is a Parameter and an uncertainty.")
-            elseif v in seen
-                error("The variable $(_variable_name(src, v)) is declared as an uncertainty twice.")
-            end
-            s = decl.stages[k]
-            if s !== nothing && s < 1
-                error("The uncertainty $(_variable_name(src, v)) has Stage($s); stages start at 1.")
-            end
-            push!(seen, v)
-            push!(entries, (q, v, s))
-        end
-    end
-    for (v, s) in info.decision_stages
-        if !(v in in_model)
-            error("The decision $v, which has a stage, is not a variable of the model.")
-        elseif v in seen
-            error("The uncertainty $(_variable_name(src, v)) has a decision stage.")
-        elseif s < 1
-            error("The decision $(_variable_name(src, v)) has Stage($s); stages start at 1.")
-        end
-    end
-    T = 2
-    for (v, s) in info.decision_stages
-        haskey(parameter, v) || (T = max(T, s))
-    end
-    for (_, _, s) in entries
-        s === nothing || (T = max(T, s))
-    end
-    ustage_raw = [something(s, T) for (_, _, s) in entries]
-    order = sortperm(ustage_raw; alg = Base.Sort.DEFAULT_STABLE)
-    uncertainties = [entries[k][2] for k in order]
-    uncertainty_stages = ustage_raw[order]
-    ucol = Dict(v => 1 + j for (j, v) in enumerate(uncertainties))
-    laws = UncertaintyBlock[]
-    for decl in info.uncertainties
-        cols = [ucol[v] for v in decl.variables]
-        push!(laws, UncertaintyBlock(decl.distribution, cols, uncertainty_stages[cols.-1]))
-    end
-    decisions = [v for v in variables if !(v in seen) && !haskey(parameter, v)]
-    decision_stages = [get(info.decision_stages, v, T) for v in decisions]
-    cols = _Columns(Dict(v => i for (i, v) in enumerate(decisions)), ucol, parameter)
-    if T > 2
-        _warn_unmarked(src, T, info, decisions, entries)
-    end
-    n, m = length(decisions), length(uncertainties)
-    # Constraints
-    lower, upper = fill(-Inf, n), fill(Inf, n)
-    integer, binary = falses(n), falses(n)
-    rows = (e = _RowBlock(), u = _RowBlock(), l = _RowBlock())
-    valid = (W = _Triplets(), h = Float64[], constraints = MOI.ConstraintIndex[])
-    row = _Row()
-    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
-        if _is_metadata_constraint(F, S) || (F == MOI.VariableIndex && S == MOI.Parameter{Float64})
-            continue
-        elseif F == MOI.VariableIndex && (S <: _BoundSet || S == MOI.Integer || S == MOI.ZeroOne)
-            for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
-                v = MOI.get(src, MOI.ConstraintFunction(), ci)
-                if S <: _BoundSet && (ci in info.valid_rows || ci in info.truncate_rows)
-                    # `@constraint(model, d <= 110, ValidInequality())` is a row, not a bound.
-                    f = convert(MOI.ScalarAffineFunction{Float64}, v)
-                    set = MOI.get(src, MOI.ConstraintSet(), ci)
-                    _read_row!(rows, valid, row, src, info, cols, uncertainties, ci, f, set)
-                    continue
-                elseif haskey(parameter, v)
-                    error("The Parameter $(_variable_name(src, v)) has a constraint ($S).")
-                elseif !haskey(cols.decision, v)
-                    error(
-                        "The uncertainty $(_variable_name(src, v)) has a bound or integrality " *
-                        "constraint ($S). The support of an uncertainty comes from its " *
-                        "distribution; use a constraint tagged `ValidInequality()` to describe it.",
-                    )
-                end
-                i = cols.decision[v]
-                if S <: _BoundSet
-                    lo, hi = _bounds(MOI.get(src, MOI.ConstraintSet(), ci))
-                    lower[i], upper[i] = max(lower[i], lo), min(upper[i], hi)
-                else
-                    integer[i] = true
-                    binary[i] |= S == MOI.ZeroOne
-                    if decision_stages[i] > 1
-                        unmarked = haskey(info.decision_stages, v) ? "" : " (it is unmarked)"
-                        error(
-                            "The integer decision $(_variable_name(src, v)) is in " *
-                            "Stage($(decision_stages[i]))$unmarked; integer decisions are " *
-                            "supported only in Stage(1).",
-                        )
-                    end
-                end
-            end
-        elseif F <: _ScalarFunction && S <: _BoundSet
-            for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                set = MOI.get(src, MOI.ConstraintSet(), ci)
-                _read_row!(rows, valid, row, src, info, cols, uncertainties, ci, f, set)
-            end
-        elseif F <: _VectorFunction && S <: _VectorSet
-            # Each output is one scalar row of the same constraint.
-            set = _scalar_set(S)
-            for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
-                f = MOI.get(src, MOI.ConstraintFunction(), ci)
-                for fi in MOI.Utilities.scalarize(convert(MOI.VectorAffineFunction{Float64}, f))
-                    _read_row!(rows, valid, row, src, info, cols, uncertainties, ci, fi, set)
-                end
-            end
-        else
-            error("Constraints of type $F-in-$S are not supported by LinearDecisionRules.")
-        end
-    end
-    _check_valid_rows_at_mean(src, laws, valid, m)
-    # Objective
-    sense = MOI.get(src, MOI.ObjectiveSense())
-    P, C, Q = _Triplets(), _Triplets(), _Triplets()
-    d, f = zeros(m), 0.0
-    if sense != MOI.FEASIBILITY_SENSE
-        Fo = MOI.get(src, MOI.ObjectiveFunctionType())
-        if !(
-            Fo in (
-                MOI.VariableIndex,
-                MOI.ScalarAffineFunction{Float64},
-                MOI.ScalarQuadraticFunction{Float64},
-            )
-        )
-            error("Objective functions of type $Fo are not supported by LinearDecisionRules.")
-        end
-        obj =
-            convert(MOI.ScalarQuadraticFunction{Float64}, MOI.get(src, MOI.ObjectiveFunction{Fo}()))
-        f = _read_objective!(P, C, Q, d, cols, obj)
-    end
-    form = CanonicalForm(
-        decisions,
-        String[_variable_name(src, v) for v in decisions],
-        decision_stages,
-        integer,
-        binary,
-        lower,
-        upper,
-        uncertainties,
-        String[_variable_name(src, v) for v in uncertainties],
-        uncertainty_stages,
-        laws,
-        T,
-        _sparse(rows.e.A, length(rows.e.constraints), n),
-        _sparse(rows.e.B, length(rows.e.constraints), 1 + m),
-        rows.e.constraints,
-        _sparse(rows.u.A, length(rows.u.constraints), n),
-        _sparse(rows.u.B, length(rows.u.constraints), 1 + m),
-        rows.u.constraints,
-        _sparse(rows.l.A, length(rows.l.constraints), n),
-        _sparse(rows.l.B, length(rows.l.constraints), 1 + m),
-        rows.l.constraints,
-        _sparse(valid.W, length(valid.h), m),
-        valid.h,
-        valid.constraints,
-        sense,
-        _sparse(P, n, n),
-        _sparse(C, n, 1 + m),
-        _sparse(Q, m, m),
-        d,
-        f,
-    )
+    entries = _check_declarations(src, info, variables, parameter)
+    layout = _layout(src, info, variables, parameter, entries)
+    constraints = _read_constraints(src, info, layout)
+    _check_valid_rows_at_mean(src, layout.laws, constraints.valid, length(layout.uncertainties))
+    sense, objective = _read_objective(src, layout)
+    form = _canonical_form(src, layout, constraints, sense, objective)
     _check_observable_equalities(src, form)
     return form
-end
-
-# Read the constraint `ci`, `f`-in-`set`, into the rows of its kind, using `row` as a buffer.
-function _read_row!(rows, valid, row::_Row, src, info::ModelInfo, cols, uncertainties, ci, f, set)
-    _read!(_reset!(row), cols, f)
-    lo, hi = _bounds(set) .- row.constant
-    _check_row(src, ci, row)
-    filter!(t -> !iszero(t.second), row.x)
-    filter!(t -> !iszero(t.second), row.ξ)
-    if ci in info.truncate_rows
-        error(
-            "The constraint $(_constraint_name(src, ci)) is tagged `Truncate()`: " *
-            "conditioning the law is not supported yet (Phase 3).",
-        )
-    elseif ci in info.valid_rows
-        _push_valid_row!(valid, src, ci, row, lo, hi)
-    elseif isempty(row.x)
-        _check_uncertainty_only_row(src, ci, row, uncertainties, lo, hi)
-    elseif lo == hi
-        _push_row!(rows.e, row, lo, ci)
-    else
-        isfinite(hi) && _push_row!(rows.u, row, hi, ci)
-        isfinite(lo) && _push_row!(rows.l, row, lo, ci)
-    end
-    return
 end
 
 function _parameter_values(src::MOI.ModelLike)
@@ -564,9 +478,83 @@ function _parameter_values(src::MOI.ModelLike)
     return values
 end
 
+# Check the declarations of `info` against the model, and return the components of the
+# uncertainty declarations, in order, with their declared stage.
+function _check_declarations(src, info::ModelInfo, variables, parameter)
+    in_model = Set(variables)
+    entries = Tuple{MOI.VariableIndex,Union{Nothing,Int}}[]
+    seen = Set{MOI.VariableIndex}()
+    for decl in info.uncertainties
+        dim = _dimension(decl.distribution)
+        who = join((_variable_name(src, v) for v in decl.variables), ", ")
+        if dim == 0
+            error(
+                "The distribution of the uncertainty $who must be univariate or multivariate; " *
+                "got $(typeof(decl.distribution)).",
+            )
+        elseif !(length(decl.variables) == length(decl.stages) == dim)
+            error(
+                "The distribution of the uncertainty $who has dimension $dim, but " *
+                "$(length(decl.variables)) variables and $(length(decl.stages)) stages were given.",
+            )
+        end
+        for (v, s) in zip(decl.variables, decl.stages)
+            if !(v in in_model)
+                error("The uncertainty $v is not a variable of the model.")
+            elseif haskey(parameter, v)
+                error("The variable $(_variable_name(src, v)) is a Parameter and an uncertainty.")
+            elseif v in seen
+                error("The variable $(_variable_name(src, v)) is declared as an uncertainty twice.")
+            elseif s !== nothing && s < 1
+                error("The uncertainty $(_variable_name(src, v)) has Stage($s); stages start at 1.")
+            end
+            push!(seen, v)
+            push!(entries, (v, s))
+        end
+    end
+    for (v, s) in info.decision_stages
+        if !(v in in_model)
+            error("The decision $v, which has a stage, is not a variable of the model.")
+        elseif v in seen
+            error("The uncertainty $(_variable_name(src, v)) has a decision stage.")
+        elseif s < 1
+            error("The decision $(_variable_name(src, v)) has Stage($s); stages start at 1.")
+        end
+    end
+    return entries
+end
+
+# The columns of ξ are the uncertainties in declaration order, stably sorted by stage; the
+# decisions are the other variables, in the order of the model.
+function _layout(src, info::ModelInfo, variables, parameter, entries)
+    T = 2
+    for (v, s) in info.decision_stages
+        haskey(parameter, v) || (T = max(T, s))
+    end
+    for (_, s) in entries
+        s === nothing || (T = max(T, s))
+    end
+    stage_of_entry = [something(s, T) for (_, s) in entries]
+    order = sortperm(stage_of_entry; alg = Base.Sort.DEFAULT_STABLE)
+    uncertainties = [entries[k][1] for k in order]
+    uncertainty_stages = stage_of_entry[order]
+    ucol = Dict(v => 1 + j for (j, v) in enumerate(uncertainties))
+    laws = map(info.uncertainties) do decl
+        cols = [ucol[v] for v in decl.variables]
+        return UncertaintyBlock(decl.distribution, cols, uncertainty_stages[cols.-1])
+    end
+    decisions = [v for v in variables if !haskey(ucol, v) && !haskey(parameter, v)]
+    decision_stages = [get(info.decision_stages, v, T) for v in decisions]
+    if T > 2
+        _warn_unmarked(src, T, info, decisions, entries)
+    end
+    cols = _Columns(Dict(v => i for (i, v) in enumerate(decisions)), ucol, parameter)
+    return _Layout(decisions, decision_stages, uncertainties, uncertainty_stages, laws, T, cols)
+end
+
 function _warn_unmarked(src, T, info, decisions, entries)
     unmarked = MOI.VariableIndex[v for v in decisions if !haskey(info.decision_stages, v)]
-    append!(unmarked, v for (_, v, s) in entries if s === nothing)
+    append!(unmarked, v for (v, s) in entries if s === nothing)
     isempty(unmarked) && return
     sort!(unmarked; by = v -> v.value)
     shown = join((_variable_name(src, v) for v in first(unmarked, 10)), ", ")
@@ -575,6 +563,127 @@ function _warn_unmarked(src, T, info, decisions, entries)
         "The model has $T stages; the variables without a stage are in the last one, " *
         "Stage($T): $shown$more.",
     )
+    return
+end
+
+function _read_constraints(src::MOI.ModelLike, info::ModelInfo, layout::_Layout)
+    c = _Constraints(length(layout.decisions))
+    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
+        if _is_metadata_constraint(F, S) || (F == MOI.VariableIndex && S == MOI.Parameter{Float64})
+            continue
+        end
+        # A function barrier: each method reads the constraints of one concrete type.
+        _read_constraints!(c, src, info, layout, F, S)
+    end
+    return c
+end
+
+function _read_constraints!(c, src, info, layout, ::Type{F}, ::Type{S}) where {F,S}
+    return error("Constraints of type $F-in-$S are not supported by LinearDecisionRules.")
+end
+
+function _read_constraints!(
+    c::_Constraints,
+    src::MOI.ModelLike,
+    info::ModelInfo,
+    layout::_Layout,
+    ::Type{F},
+    ::Type{S},
+) where {F<:_ScalarFunction,S<:_BoundSet}
+    for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
+        f = MOI.get(src, MOI.ConstraintFunction(), ci)
+        _read_row!(c, src, info, layout, ci, f, MOI.get(src, MOI.ConstraintSet(), ci))
+    end
+    return
+end
+
+# Each output of a vector row is one scalar row of the same constraint.
+function _read_constraints!(
+    c::_Constraints,
+    src::MOI.ModelLike,
+    info::ModelInfo,
+    layout::_Layout,
+    ::Type{F},
+    ::Type{S},
+) where {F<:_VectorFunction,S<:_VectorSet}
+    set = _scalar_set(S)
+    for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
+        f = MOI.get(src, MOI.ConstraintFunction(), ci)
+        for fi in MOI.Utilities.scalarize(convert(MOI.VectorAffineFunction{Float64}, f))
+            _read_row!(c, src, info, layout, ci, fi, set)
+        end
+    end
+    return
+end
+
+# Bounds and integrality of the decisions.
+function _read_constraints!(
+    c::_Constraints,
+    src::MOI.ModelLike,
+    info::ModelInfo,
+    layout::_Layout,
+    ::Type{MOI.VariableIndex},
+    ::Type{S},
+) where {S<:Union{_BoundSet,MOI.Integer,MOI.ZeroOne}}
+    cols = layout.columns
+    for ci in MOI.get(src, MOI.ListOfConstraintIndices{MOI.VariableIndex,S}())
+        v = MOI.get(src, MOI.ConstraintFunction(), ci)
+        if S <: _BoundSet && (ci in info.valid_rows || ci in info.truncate_rows)
+            # `@constraint(model, d in MOI.LessThan(110.0), ValidInequality())` is a row.
+            f = convert(MOI.ScalarAffineFunction{Float64}, v)
+            _read_row!(c, src, info, layout, ci, f, MOI.get(src, MOI.ConstraintSet(), ci))
+            continue
+        elseif haskey(cols.parameter, v)
+            error("The Parameter $(_variable_name(src, v)) has a constraint ($S).")
+        elseif !haskey(cols.decision, v)
+            error(
+                "The uncertainty $(_variable_name(src, v)) has a bound or integrality " *
+                "constraint ($S). The support of an uncertainty comes from its " *
+                "distribution; use a constraint tagged `ValidInequality()` to describe it.",
+            )
+        end
+        i = cols.decision[v]
+        if S <: _BoundSet
+            lo, hi = _bounds(MOI.get(src, MOI.ConstraintSet(), ci))
+            c.lower[i], c.upper[i] = max(c.lower[i], lo), min(c.upper[i], hi)
+            continue
+        end
+        c.integer[i] = true
+        c.binary[i] |= S == MOI.ZeroOne
+        t = layout.decision_stages[i]
+        if t > 1
+            unmarked = haskey(info.decision_stages, v) ? "" : " (it is unmarked)"
+            error(
+                "The integer decision $(_variable_name(src, v)) is in Stage($t)$unmarked; " *
+                "integer decisions are supported only in Stage(1).",
+            )
+        end
+    end
+    return
+end
+
+# Read the constraint `ci`, `f`-in-`set`, into the rows of its kind.
+function _read_row!(c::_Constraints, src, info::ModelInfo, layout::_Layout, ci, f, set)
+    row = _read!(_reset!(c.buffer), layout.columns, f)
+    lo, hi = _bounds(set) .- row.constant
+    _check_row(src, ci, row)
+    filter!(t -> !iszero(t.second), row.x)
+    filter!(t -> !iszero(t.second), row.ξ)
+    if ci in info.truncate_rows
+        error(
+            "The constraint $(_constraint_name(src, ci)) is tagged `Truncate()`: " *
+            "conditioning the law is not supported yet (Phase 3).",
+        )
+    elseif ci in info.valid_rows
+        _push_valid_row!(c.valid, src, ci, row, lo, hi)
+    elseif isempty(row.x)
+        _check_uncertainty_only_row(src, ci, row, layout.uncertainties, lo, hi)
+    elseif lo == hi
+        _push_row!(c.e, row, lo, ci)
+    else
+        isfinite(hi) && _push_row!(c.u, row, hi, ci)
+        isfinite(lo) && _push_row!(c.l, row, lo, ci)
+    end
     return
 end
 
@@ -597,7 +706,7 @@ function _check_row(src::MOI.ModelLike, ci::MOI.ConstraintIndex, row::_Row)
     return
 end
 
-function _push_valid_row!(valid, src, ci, row::_Row, lo::Float64, hi::Float64)
+function _push_valid_row!(valid::_ValidRows, src, ci, row::_Row, lo::Float64, hi::Float64)
     name = _constraint_name(src, ci)
     if !isempty(row.x)
         error("The constraint $name is tagged `ValidInequality()`, but it has decisions.")
@@ -640,7 +749,7 @@ end
 
 # A valid inequality holds on the support, so it holds at the mean: a cheap check of validity,
 # which also shows that every support block contains a point (the mean).
-function _check_valid_rows_at_mean(src, laws::Vector{UncertaintyBlock}, valid, m::Int)
+function _check_valid_rows_at_mean(src, laws::Vector{UncertaintyBlock}, valid::_ValidRows, m::Int)
     isempty(valid.h) && return
     μ = fill(NaN, m)
     for law in laws
@@ -659,55 +768,65 @@ function _check_valid_rows_at_mean(src, laws::Vector{UncertaintyBlock}, valid, m
             error(
                 "The constraint $(_constraint_name(src, valid.constraints[r])) is tagged " *
                 "`ValidInequality()`, but the mean of the uncertainty violates it, so it does " *
-                "not hold on the support of the distribution. Use `Truncate()` to condition the law.",
+                "not hold on the support of the distribution. Use `Truncate()` to condition " *
+                "the law.",
             )
         end
     end
     return
 end
 
-# Fill the objective `x'Px + x'Cξ + η'Qη + d'η + f` and return `f`.
-function _read_objective!(P, C, Q, d, cols::_Columns, obj::MOI.ScalarQuadraticFunction{Float64})
-    f = obj.constant
-    kind(v) = haskey(cols.decision, v) ? :x : haskey(cols.uncertainty, v) ? :η : :p
-    function linear!(c, v)
-        k = kind(v)
-        if k == :x
-            _push!(C, cols.decision[v], 1, c)
-        elseif k == :η
-            d[cols.uncertainty[v]-1] += c
-        else
-            f += c * cols.parameter[v]
-        end
-        return
+function _read_objective(src::MOI.ModelLike, layout::_Layout)
+    objective = _Objective(length(layout.uncertainties))
+    sense = MOI.get(src, MOI.ObjectiveSense())
+    if sense == MOI.FEASIBILITY_SENSE
+        return sense, objective
     end
-    for t in obj.affine_terms
-        linear!(t.coefficient, t.variable)
+    F = MOI.get(src, MOI.ObjectiveFunctionType())
+    if !(F <: Union{MOI.VariableIndex,_ScalarFunction})
+        error("Objective functions of type $F are not supported by LinearDecisionRules.")
     end
-    for t in obj.quadratic_terms
-        a, b = t.variable_1, t.variable_2
-        # MOI stores `c x²` as the term `(2c, x, x)`; `c` is then the coefficient of `a * b`.
-        c = a == b ? t.coefficient / 2 : t.coefficient
-        ka, kb = kind(a), kind(b)
-        if ka == :p
-            linear!(c * cols.parameter[a], b)
-        elseif kb == :p
-            linear!(c * cols.parameter[b], a)
-        elseif ka == :x && kb == :x
-            i, k = cols.decision[a], cols.decision[b]
-            _push!(P, i, k, c / 2)
-            _push!(P, k, i, c / 2)
-        elseif ka == :η && kb == :η
-            i, k = cols.uncertainty[a] - 1, cols.uncertainty[b] - 1
-            _push!(Q, i, k, c / 2)
-            _push!(Q, k, i, c / 2)
-        elseif ka == :x
-            _push!(C, cols.decision[a], cols.uncertainty[b], c)
-        else
-            _push!(C, cols.decision[b], cols.uncertainty[a], c)
-        end
-    end
-    return f
+    f = convert(MOI.ScalarQuadraticFunction{Float64}, MOI.get(src, MOI.ObjectiveFunction{F}()))
+    _read!(objective, layout.columns, f)
+    return sense, objective
+end
+
+function _canonical_form(src, layout::_Layout, c::_Constraints, sense, objective::_Objective)
+    n, m = length(layout.decisions), length(layout.uncertainties)
+    A(block) = _sparse(block.A, length(block.constraints), n)
+    B(block) = _sparse(block.B, length(block.constraints), 1 + m)
+    return CanonicalForm(
+        layout.decisions,
+        String[_variable_name(src, v) for v in layout.decisions],
+        layout.decision_stages,
+        c.integer,
+        c.binary,
+        c.lower,
+        c.upper,
+        layout.uncertainties,
+        String[_variable_name(src, v) for v in layout.uncertainties],
+        layout.uncertainty_stages,
+        layout.laws,
+        layout.num_stages,
+        A(c.e),
+        B(c.e),
+        c.e.constraints,
+        A(c.u),
+        B(c.u),
+        c.u.constraints,
+        A(c.l),
+        B(c.l),
+        c.l.constraints,
+        _sparse(c.valid.W, length(c.valid.h), m),
+        c.valid.h,
+        c.valid.constraints,
+        sense,
+        _sparse(objective.P, n, n),
+        _sparse(objective.C, n, 1 + m),
+        _sparse(objective.Q, m, m),
+        objective.d,
+        objective.f,
+    )
 end
 
 # An equality row holds for every ξ only if, for each uncertainty in it, some decision of the row
