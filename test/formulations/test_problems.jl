@@ -36,26 +36,52 @@ function solve(p::Problems.Problem, f)
     return form, result
 end
 
-# `x1` in the legacy file is `x[1]` here.
+# `x1` in the legacy file is `x[1]` here, and `buy` of a one-product model can be `buy[1]`.
 function _index(names, legacy::String)
-    i = findfirst(==(legacy), names)
-    if i === nothing
-        m = match(r"^([a-z_]+)(\d+)$", legacy)
-        i = findfirst(==("$(m[1])[$(m[2])]"), names)
+    for name in (legacy, replace(legacy, r"^([a-z_]+)(\d+)$" => s"\1[\2]"), "$legacy[1]")
+        i = findfirst(==(name), names)
+        i === nothing || return i
     end
-    return i
+    return error("No decision or uncertainty is named $legacy.")
 end
 
-# The legacy rules of the variables listed in `legacy_values.toml`.
-function check_rules(form, result, rules)
-    for (name, rule) in rules
-        i = _index(form.decision_names, name)
-        @test result.X[i, 1] ≈ rule["constant"] atol = 1e-6
+# The legacy rule on ξ = (1, η) of each decision listed in `legacy_values.toml`.
+function legacy_rules(form, rules)
+    return map(collect(rules)) do (name, rule)
+        x = zeros(1 + length(form.uncertainties))
+        x[1] = rule["constant"]
         for (u, coefficient) in rule["coefficients"]
-            j = 1 + _index(form.uncertainty_names, u)
-            @test result.X[i, j] ≈ coefficient atol = 1e-6
+            x[1+_index(form.uncertainty_names, u)] = coefficient
+        end
+        return _index(form.decision_names, name) => x
+    end
+end
+
+# The rules of `solved` are the legacy ones. When they differ, the inner problem is degenerate
+# (or solved to a tolerance) if the legacy rules are optimal too: fixing them keeps the value. This
+# is the case of the dual of `inventory_T8` and the primal of `newsvendor_mv_discrete` (degenerate)
+# and of the primal of `hydro_toy_fixed_volume` (a QP solved to a tolerance).
+function check_rules(p, form, f, solved, rules)
+    legacy = legacy_rules(form, rules)
+    if all(isapprox(solved.X[i, :], x; atol = 1e-6) for (i, x) in legacy)
+        @test true
+        return
+    end
+    options = (raw_attributes = SETTINGS, names = true)
+    model = solve_formulation(form, f, moments(form), HiGHS.Optimizer; options...).model
+    optimum = objective_value(model)
+    for (i, x) in legacy, j in eachindex(x)
+        v = variable_by_name(model, "X[$i,$j]")
+        if v === nothing
+            # A column that decision `i` does not observe.
+            @test abs(x[j]) <= 1e-6
+        else
+            fix(v, x[j]; force = true)
         end
     end
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test Problems.matches(objective_value(model), optimum, p)
     return
 end
 
@@ -74,13 +100,13 @@ function test_known_values()
                 legacy = LEGACY[p.legacy]
                 @test Problems.matches(primal.objective_value, legacy["primal"], p)
                 @test Problems.matches(dual.objective_bound, legacy["dual"], p)
+                check_rules(p, form, PrimalLDR(), primal, legacy["rules"]["primal"])
+                check_rules(p, form, DualLDR(), dual, legacy["rules"]["dual"])
             end
-            if p.legacy in ("newsvendor", "newsvendor_integer", "inventory_T4", "inventory_T8")
-                check_rules(form, primal, LEGACY[p.legacy]["rules"]["primal"])
-            end
+            # See test_invariants.jl for the value of the sampled rule.
             _, sampled = solve(p, SampledLDR(100))
             @test sampled.termination_status == MOI.OPTIMAL
-            @test isfinite(sampled.objective_value)
+            @test sampled.primal_status == MOI.FEASIBLE_POINT
         end
     end
     return
