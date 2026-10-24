@@ -278,12 +278,16 @@ function test_constraint_stage_is_ignored()
     return
 end
 
-# MOI keeps one constraint per variable and set type, so there is no way to give two stages.
-function test_a_second_stage_constraint_replaces_the_first()
+# A variable has one `Stage` constraint, whose index is that of the variable.
+function test_set_stage_replaces_the_stage()
     model = newsvendor_with_tags()
-    @constraint(model, model[:sell] in Stage(2))
-    @constraint(model, model[:sell] in Stage(3))
-    @test _model_info(model).decision_stages[index(model[:sell])] == 3
+    sell = model[:sell]
+    LinearDecisionRules.set_stage(sell, 2)
+    LinearDecisionRules.set_stage(sell, 3)
+    @test _model_info(model).decision_stages[index(sell)] == 3
+    @test num_constraints(model, VariableRef, Stage) == 2
+    ci = MOI.ConstraintIndex{MOI.VariableIndex,Stage}(index(sell).value)
+    @test MOI.get(backend(model), MOI.ConstraintSet(), ci) == Stage(3)
     return
 end
 

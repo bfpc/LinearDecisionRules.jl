@@ -91,16 +91,15 @@ function JuMP.add_variable(model::JuMP.GenericModel, v::_StagedVariables, names)
     return xs
 end
 
-# The stage of a variable is its `VariableIndex`-in-`Stage` constraint, if any.
+# The stage of a variable is its `VariableIndex`-in-`Stage` constraint, if any. In MOI, the index
+# of a `VariableIndex` constraint is the index of its variable.
 function _stage_constraint(x::JuMP.GenericVariableRef)
     model = JuMP.owner_model(x)
-    src = JuMP.backend(model)
-    for ci in MOI.get(src, MOI.ListOfConstraintIndices{MOI.VariableIndex,Stage}())
-        if MOI.get(src, MOI.ConstraintFunction(), ci) == JuMP.index(x)
-            return JuMP.constraint_ref_with_index(model, ci)
-        end
+    ci = MOI.ConstraintIndex{MOI.VariableIndex,Stage}(JuMP.index(x).value)
+    if !MOI.is_valid(JuMP.backend(model), ci)
+        return nothing
     end
-    return nothing
+    return JuMP.constraint_ref_with_index(model, ci)
 end
 
 """
@@ -108,9 +107,6 @@ end
     stage(c::JuMP.ConstraintRef) -> Union{Int,Nothing}
 
 The declared stage of a variable or a constraint, or `nothing` if it has none (it is unmarked).
-
-For a variable, it looks through the `Stage` constraints of the model, so its cost is linear in
-their number.
 
 See also [`Stage`](@ref), [`set_stage`](@ref), [`unset_stage`](@ref).
 """

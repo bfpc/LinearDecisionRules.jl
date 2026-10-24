@@ -3,8 +3,8 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# The stage of each variable, from its `VariableIndex`-in-`Stage` constraint. MOI keeps one such
-# constraint per variable: adding a second replaces the first.
+# The stage of each variable, from its `VariableIndex`-in-`Stage` constraint. Such a constraint has
+# the index of its variable, so a variable has at most one.
 function _variable_stages(src::MOI.ModelLike)
     stages = Dict{MOI.VariableIndex,Int}()
     for ci in MOI.get(src, MOI.ListOfConstraintIndices{MOI.VariableIndex,Stage}())
