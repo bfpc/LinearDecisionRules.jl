@@ -1,0 +1,7 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+LinearDecisionRules = "ee4db4e3-7eec-47e5-9935-9699b02754f6"
+
+[compat]
+Documenter = "1"
