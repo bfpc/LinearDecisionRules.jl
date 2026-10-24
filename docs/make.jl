@@ -16,7 +16,13 @@ Documenter.makedocs(;
     pages = [
         "Home" => "index.md",
         "Getting started" => "getting_started.md",
-        "API" => "api.md",
+        "API" => [
+            "Modelling" => "modelling.md",
+            "Results and rules" => "results.md",
+            "Simulation" => "simulation.md",
+            "Distributions and liftings" => "distributions.md",
+            "Internals" => "internals.md",
+        ],
     ],
     checkdocs = :exports,
 )
