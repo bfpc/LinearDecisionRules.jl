@@ -27,6 +27,7 @@ include("canonical/info.jl")
 include("canonical/form.jl")
 include("canonical/information.jl")
 include("canonical/support.jl")
+include("probability/distributions/conditioned_distribution.jl")
 include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
 include("probability/distributions/lifted_distribution.jl")
@@ -53,6 +54,7 @@ export AbstractFormulation,
     AxisPiecewise,
     BreakPoints,
     CanonicalForm,
+    ConditionedDistribution,
     CovarianceBlock,
     DecisionRule,
     DualLDR,

@@ -873,8 +873,10 @@ end
 # which also shows that every support block contains a point (the mean).
 function _check_valid_rows_at_mean(src, laws::Vector{UncertaintyBlock}, valid::_ValidRows, m::Int)
     isempty(valid.h) && return
+    # The mean of a conditioned law is not known before it is estimated: its rows are not checked.
     μ = fill(NaN, m)
     for law in laws
+        law.distribution isa ConditionedDistribution && continue
         μ[law.columns.-1] .= _law_mean(law.distribution)
     end
     W = _sparse(valid.W, length(valid.h), m)
