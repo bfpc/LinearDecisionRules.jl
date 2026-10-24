@@ -121,6 +121,20 @@ function test_unbounded_and_multivariate()
     return
 end
 
+# A law that does not define `minimum` and `maximum` (the front end rejects it) has no box rows:
+# Ξ stays a superset of its support.
+function test_law_without_bounds()
+    model = Model()
+    @variable(model, x)
+    @variable(model, w[1:3])
+    @constraint(model, x >= sum(w))
+    info = ModelInfo(; uncertainties = [declare(Distributions.Dirichlet([1.0, 1.0, 1.0]), w...)])
+    blocks = support_blocks(canonicalize(backend(model), info))
+    @test [block.columns for block in blocks] == [[2], [3], [4]]
+    @test all(block -> isempty(block.h), blocks)
+    return
+end
+
 end # module TestSupport
 
 TestSupport.runtests()

@@ -31,13 +31,31 @@ struct SupportBlock
     constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}
 end
 
-_support_box(d::Distributions.UnivariateDistribution) = [minimum(d)], [maximum(d)]
+# The bounds `(lower, upper)` of the support of a law, or `nothing` if the law does not define
+# them. `applicable(minimum, d)` cannot tell: every multivariate law falls back on
+# `Base.minimum(itr)`, which throws a `MethodError` for laws without bounds, such as `Dirichlet`.
+function _support_bounds(d::Distributions.UnivariateDistribution)
+    return Float64[minimum(d)], Float64[maximum(d)]
+end
 
-function _support_box(d::Distributions.MultivariateDistribution)
-    n = length(d)
-    lo = applicable(minimum, d) ? minimum(d) : fill(-Inf, n)
-    hi = applicable(maximum, d) ? maximum(d) : fill(Inf, n)
-    return lo, hi
+function _support_bounds(d::Distributions.MultivariateDistribution)
+    try
+        return Vector{Float64}(minimum(d)), Vector{Float64}(maximum(d))
+    catch err
+        err isa MethodError || rethrow()
+        return nothing
+    end
+end
+
+# The box of the support of a law; a bound that the law does not define is infinite, which keeps
+# Ξ a superset of the support.
+function _support_box(d::Distributions.Distribution)
+    bounds = _support_bounds(d)
+    if bounds === nothing
+        n = _dimension(d)
+        return fill(-Inf, n), fill(Inf, n)
+    end
+    return bounds
 end
 
 function _find_root!(parent::Vector{Int}, a::Int)

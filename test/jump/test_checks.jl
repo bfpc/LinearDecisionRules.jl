@@ -86,6 +86,22 @@ function test_unbounded_multivariate()
     return
 end
 
+# `Base.minimum(itr)` applies to every law, and throws a `MethodError` for these.
+function test_multivariate_without_bounds()
+    model = Model()
+    for (law, name) in (
+        (Distributions.Dirichlet([1.0, 1.0, 1.0]), "Dirichlet"),
+        (Distributions.MvLogNormal([0.0, 0.0, 0.0], [1.0 0 0; 0 1 0; 0 0 1]), "MvLogNormal"),
+    )
+        msg = @error_message @variable(model, w[1:3] in Uncertainty(law))
+        @test occursin("`@variable(model, w[1:3] in Uncertainty(law))`", msg)
+        @test occursin("The distribution of type $name does not define `minimum`", msg)
+        @test occursin("must be bounded", msg)
+    end
+    @test num_variables(model) == 0
+    return
+end
+
 function test_bounds_on_an_uncertainty()
     model = Model()
     set = Uncertainty(Distributions.Uniform(80, 120))

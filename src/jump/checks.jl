@@ -49,8 +49,8 @@ function _check_uncertainty_declaration(error_fn::Function, v::JuMP.AbstractVari
     message = _unbounded_support_message(set.distribution)
     if message !== nothing
         error_fn(
-            message * " The support of an uncertainty must be bounded: use a bounded " *
-            "distribution, for example a truncated one.",
+            "$message The support of an uncertainty must be bounded: use a distribution with " *
+            "finite `minimum` and `maximum`, for example a truncated one.",
         )
     end
     return

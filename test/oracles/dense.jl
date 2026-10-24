@@ -19,18 +19,12 @@ module DenseOracle
 
 using JuMP
 
-import Distributions
 import LinearAlgebra
+import LinearDecisionRules
 import LinearDecisionRules: CanonicalForm, InformationStructure, Moments, second_moment
 
-_box(d::Distributions.UnivariateDistribution) = [minimum(d)], [maximum(d)]
-
-function _box(d::Distributions.MultivariateDistribution)
-    n = length(d)
-    lo = applicable(minimum, d) ? minimum(d) : fill(-Inf, n)
-    hi = applicable(maximum, d) ? maximum(d) : fill(Inf, n)
-    return lo, hi
-end
+# The box of a law is the definition of Ξ, not part of the formulations, so it is shared.
+const _box = LinearDecisionRules._support_box
 
 struct DenseData
     mask::BitMatrix

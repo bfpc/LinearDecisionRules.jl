@@ -114,23 +114,20 @@ An alias of `Stage(1)`, the here-and-now decisions: `@variable(model, x >= 0, Fi
 """
 const FirstStage = Stage(1)
 
-# The support of an uncertainty must be bounded, since the support Ξ comes from it.
-function _unbounded_support_message(distribution::Distributions.UnivariateDistribution)
-    if isfinite(minimum(distribution)) && isfinite(maximum(distribution))
-        return nothing
-    end
-    return "The distribution $distribution has an unbounded support."
-end
+_law_name(d::Distributions.UnivariateDistribution) = string(d)
 
-# Not every multivariate distribution has `minimum` and `maximum`; `support_blocks` assumes
-# an infinite bound when it has not.
-function _unbounded_support_message(distribution::Distributions.MultivariateDistribution)
-    lower = applicable(minimum, distribution) ? minimum(distribution) : [-Inf]
-    upper = applicable(maximum, distribution) ? maximum(distribution) : [Inf]
-    if all(isfinite, lower) && all(isfinite, upper)
+_law_name(d::Distributions.MultivariateDistribution) = "of type $(nameof(typeof(d)))"
+
+# The support of an uncertainty must be bounded, since the support Ξ comes from it.
+function _unbounded_support_message(distribution::Distributions.Distribution)
+    bounds = _support_bounds(distribution)
+    if bounds === nothing
+        return "The distribution $(_law_name(distribution)) does not define `minimum` and " *
+               "`maximum`, so the bounds of its support are unknown."
+    elseif all(isfinite, bounds[1]) && all(isfinite, bounds[2])
         return nothing
     end
-    return "The distribution of type $(nameof(typeof(distribution))) has an unbounded support."
+    return "The distribution $(_law_name(distribution)) has an unbounded support."
 end
 
 _is_metadata_constraint(::Type{MOI.VariableIndex}, ::Type{<:UnivariateUncertainty}) = true
