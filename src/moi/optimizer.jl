@@ -31,16 +31,45 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     time_limit::Union{Nothing,Float64}
     raw_attributes::Dict{String,Any}
     name::String
+    # The state of the last `optimize!`, read by the results.
+    form::Union{Nothing,CanonicalForm}
+    moments::Union{Nothing,Moments}
+    parameters::Dict{MOI.VariableIndex,Float64}
+    results::Vector{FormulationResult}
+    solve_time::Float64
 
     function Optimizer(inner_factory = nothing)
-        return new(inner_factory, [PrimalLDR(), DualLDR()], false, nothing, Dict{String,Any}(), "")
+        formulations = AbstractFormulation[PrimalLDR(), DualLDR()]
+        parameters = Dict{MOI.VariableIndex,Float64}()
+        raw_attributes = Dict{String,Any}()
+        results = FormulationResult[]
+        return new(
+            inner_factory,
+            formulations,
+            false,
+            nothing,
+            raw_attributes,
+            "",
+            nothing,
+            nothing,
+            parameters,
+            results,
+            NaN,
+        )
     end
 end
 
 # The optimizer attributes survive `empty!`, as JuMP calls it to reset the optimizer.
-MOI.is_empty(::Optimizer) = true
+MOI.is_empty(o::Optimizer) = o.form === nothing
 
-MOI.empty!(::Optimizer) = nothing
+function MOI.empty!(o::Optimizer)
+    o.form = nothing
+    o.moments = nothing
+    empty!(o.parameters)
+    empty!(o.results)
+    o.solve_time = NaN
+    return
+end
 
 MOI.get(::Optimizer, ::MOI.SolverName) = "LinearDecisionRules"
 
@@ -181,8 +210,7 @@ function MOI.set(o::Optimizer, ::Formulations, formulations)
     return
 end
 
-# A new inner optimizer with the settings of `o`.
-function _instantiate_inner(o::Optimizer)
+function _inner_factory(o::Optimizer)
     if o.inner_factory === nothing
         error(
             "The LinearDecisionRules.Optimizer has no inner optimizer to solve the " *
@@ -190,23 +218,68 @@ function _instantiate_inner(o::Optimizer)
             "`set_attribute(model, InnerOptimizer(), HiGHS.Optimizer)`.",
         )
     end
-    inner = MOI.instantiate(o.inner_factory)
-    if o.silent
-        MOI.set(inner, MOI.Silent(), true)
-    end
-    if o.time_limit !== nothing
-        MOI.set(inner, MOI.TimeLimitSec(), o.time_limit)
-    end
-    for (name, value) in o.raw_attributes
-        MOI.set(inner, MOI.RawOptimizerAttribute(name), value)
-    end
-    return inner
+    return o.inner_factory
 end
 
 function MOI.copy_to(::Optimizer, ::MOI.ModelLike)
-    return error("LinearDecisionRules.Optimizer: `copy_to` is not implemented yet (part 2).")
+    return error("LinearDecisionRules.Optimizer reads the model in place: use `optimize!`.")
 end
 
-function MOI.optimize!(::Optimizer, ::MOI.ModelLike)
-    return error("LinearDecisionRules.Optimizer: `optimize!` is not implemented yet (part 2).")
+# Indices are the same in `src`, which is JuMP's cache, and in the optimizer.
+function _identity_map(src::MOI.ModelLike)
+    index_map = MOI.Utilities.IndexMap()
+    for v in MOI.get(src, MOI.ListOfVariableIndices())
+        index_map[v] = v
+    end
+    for (F, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
+        for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
+            index_map[ci] = ci
+        end
+    end
+    return index_map
+end
+
+# Uncertainties added with `MOI.add_constrained_variable` bypass the checks of `@variable`.
+function _check_bounded_support(src::MOI.ModelLike, info::ModelInfo)
+    for declaration in info.uncertainties
+        message = _unbounded_support_message(declaration.distribution)
+        if message !== nothing
+            names = join((_variable_name(src, v) for v in declaration.variables), ", ")
+            error("The uncertainty $names is not bounded. $message")
+        end
+    end
+    return
+end
+
+"""
+    MOI.optimize!(dest::Optimizer, src::MOI.ModelLike) -> (MOI.Utilities.IndexMap, Bool)
+
+Read the model `src` in place, and solve each of the [`Formulations`](@ref) of `dest` for it.
+
+The results are kept in `dest`. The index map is the identity, and `false` means that `dest` does
+not hold a copy of the model, so that the next call reads `src` again.
+"""
+function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
+    MOI.empty!(dest)
+    start = time_ns()
+    factory = _inner_factory(dest)
+    info = _model_info(src)
+    _check_bounded_support(src, info)
+    form = canonicalize(src, info)
+    mom = moments(form)
+    results = map(dest.formulations) do f
+        return solve_formulation(
+            form,
+            f,
+            mom,
+            factory;
+            silent = dest.silent,
+            time_limit = dest.time_limit,
+            raw_attributes = dest.raw_attributes,
+        )
+    end
+    dest.form, dest.moments, dest.results = form, mom, results
+    dest.parameters = _parameter_values(src)
+    dest.solve_time = (time_ns() - start) / 1e9
+    return _identity_map(src), false
 end

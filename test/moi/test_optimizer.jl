@@ -47,7 +47,8 @@ function error_of(f)
     return nothing
 end
 
-function newsvendor(model = LDRModel(HiGHS.Optimizer))
+function newsvendor(model = LDRModel(HiGHS.Optimizer); silent = true)
+    silent && set_silent(model)
     @variable(model, buy >= 0, FirstStage)
     @variable(model, sell >= 0)
     @variable(model, ret >= 0)
@@ -138,7 +139,7 @@ function test_unsupported_variable_sets_are_left_to_canonicalize()
 end
 
 function test_silent_and_time_limit()
-    model = newsvendor()
+    model = newsvendor(; silent = false)
     @test !get_attribute(model, MOI.Silent())
     set_silent(model)
     @test get_attribute(model, MOI.Silent())
@@ -166,37 +167,38 @@ function test_raw_attributes()
     return
 end
 
-function test_settings_reach_the_inner_optimizer()
+function test_settings_reach_the_inner_models()
     model = newsvendor()
     set_silent(model)
     set_time_limit_sec(model, 12.5)
     set_attribute(model, "presolve", "off")
-    set_attribute(model, "mip_rel_gap", 0.1)
-    inner = LinearDecisionRules._instantiate_inner(unsafe_backend(model))
-    @test inner isa HiGHS.Optimizer
-    @test MOI.get(inner, MOI.Silent())
-    @test MOI.get(inner, MOI.TimeLimitSec()) == 12.5
-    @test MOI.get(inner, MOI.RawOptimizerAttribute("presolve")) == "off"
-    @test MOI.get(inner, MOI.RawOptimizerAttribute("mip_rel_gap")) == 0.1
-    # Without settings, the inner optimizer keeps its defaults.
-    other = LinearDecisionRules._instantiate_inner(unsafe_backend(newsvendor()))
-    @test !MOI.get(other, MOI.Silent())
-    @test MOI.get(other, MOI.TimeLimitSec()) === nothing
+    optimize!(model)
+    for result in unsafe_backend(model).results
+        @test get_attribute(result.model, MOI.Silent())
+        @test time_limit_sec(result.model) == 12.5
+        @test get_attribute(result.model, "presolve") == "off"
+    end
+    # Without settings, the inner models keep their defaults.
+    quiet = optimizer_with_attributes(HiGHS.Optimizer, MOI.Silent() => true)
+    other = newsvendor(LDRModel(quiet); silent = false)
+    optimize!(other)
+    for result in unsafe_backend(other).results
+        @test time_limit_sec(result.model) === nothing
+    end
     # The factory may carry its own attributes.
-    factory = optimizer_with_attributes(HiGHS.Optimizer, "presolve" => "off")
-    model = LDRModel(factory)
-    inner = LinearDecisionRules._instantiate_inner(unsafe_backend(model))
-    @test MOI.get(inner, MOI.RawOptimizerAttribute("presolve")) == "off"
+    model = newsvendor(LDRModel(optimizer_with_attributes(HiGHS.Optimizer, "presolve" => "off")))
+    optimize!(model)
+    @test get_attribute(unsafe_backend(model).results[1].model, "presolve") == "off"
     return
 end
 
 function test_no_inner_optimizer()
-    model = LDRModel()
-    err = error_of(() -> LinearDecisionRules._instantiate_inner(unsafe_backend(model)))
-    msg = sprint(showerror, err)
+    model = newsvendor(LDRModel())
+    msg = sprint(showerror, error_of(() -> optimize!(model)))
     @test occursin("no inner optimizer", msg) && occursin("LDRModel(HiGHS.Optimizer)", msg)
     set_attribute(model, InnerOptimizer(), HiGHS.Optimizer)
-    @test LinearDecisionRules._instantiate_inner(unsafe_backend(model)) isa HiGHS.Optimizer
+    optimize!(model)
+    @test length(unsafe_backend(model).results) == 2
     return
 end
 
@@ -224,11 +226,35 @@ function test_attributes_survive_changes_to_the_model()
     return
 end
 
-function test_optimize_is_not_implemented_yet()
+function test_optimize_keeps_the_results()
     model = newsvendor()
-    err = error_of(() -> optimize!(model))
-    @test err isa ErrorException
-    @test occursin("not implemented yet", err.msg)
+    optimizer = unsafe_backend(model)
+    @test MOI.is_empty(optimizer)
+    optimize!(model)
+    @test !MOI.is_empty(optimizer)
+    primal, dual = optimizer.results
+    @test primal.formulation == PrimalLDR() && dual.formulation == DualLDR()
+    @test primal.objective_value ≈ 460
+    @test dual.objective_bound ≈ 1460 / 3
+    @test optimizer.form isa LinearDecisionRules.CanonicalForm
+    @test optimizer.solve_time > 0
+    # Only the chosen formulations are solved.
+    set_attribute(model, Formulations(), [DualLDR()])
+    optimize!(model)
+    @test [r.formulation for r in optimizer.results] == [DualLDR()]
+    # The optimizer is not a copy of the model.
+    @test error_of(() -> MOI.copy_to(optimizer, backend(model))) isa ErrorException
+    return
+end
+
+# Uncertainties added through MOI bypass the checks of `@variable`.
+function test_unbounded_support_added_through_moi()
+    model = LDRModel(HiGHS.Optimizer)
+    x, _ = MOI.add_constrained_variable(backend(model), Uncertainty(Distributions.Normal(0, 1)))
+    MOI.set(backend(model), MOI.VariableName(), x, "eta")
+    msg = sprint(showerror, error_of(() -> optimize!(model)))
+    @test occursin("The uncertainty eta is not bounded", msg)
+    @test occursin("unbounded support", msg)
     return
 end
 

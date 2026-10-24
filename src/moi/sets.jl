@@ -114,6 +114,25 @@ An alias of `Stage(1)`, the here-and-now decisions: `@variable(model, x >= 0, Fi
 """
 const FirstStage = Stage(1)
 
+# The support of an uncertainty must be bounded, since the support Ξ comes from it.
+function _unbounded_support_message(distribution::Distributions.UnivariateDistribution)
+    if isfinite(minimum(distribution)) && isfinite(maximum(distribution))
+        return nothing
+    end
+    return "The distribution $distribution has an unbounded support."
+end
+
+# Not every multivariate distribution has `minimum` and `maximum`; `support_blocks` assumes
+# an infinite bound when it has not.
+function _unbounded_support_message(distribution::Distributions.MultivariateDistribution)
+    lower = applicable(minimum, distribution) ? minimum(distribution) : [-Inf]
+    upper = applicable(maximum, distribution) ? maximum(distribution) : [Inf]
+    if all(isfinite, lower) && all(isfinite, upper)
+        return nothing
+    end
+    return "The distribution of type $(nameof(typeof(distribution))) has an unbounded support."
+end
+
 _is_metadata_constraint(::Type{MOI.VariableIndex}, ::Type{<:UnivariateUncertainty}) = true
 
 _is_metadata_constraint(::Type{MOI.VectorOfVariables}, ::Type{<:MultivariateUncertainty}) = true

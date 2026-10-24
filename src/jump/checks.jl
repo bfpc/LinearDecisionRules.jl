@@ -56,24 +56,6 @@ function _check_uncertainty_declaration(error_fn::Function, v::JuMP.AbstractVari
     return
 end
 
-function _unbounded_support_message(distribution::Distributions.UnivariateDistribution)
-    if isfinite(minimum(distribution)) && isfinite(maximum(distribution))
-        return nothing
-    end
-    return "The distribution $distribution has an unbounded support."
-end
-
-# Not every multivariate distribution has `minimum` and `maximum`; `support_blocks` assumes
-# an infinite bound when it has not.
-function _unbounded_support_message(distribution::Distributions.MultivariateDistribution)
-    lower = applicable(minimum, distribution) ? minimum(distribution) : [-Inf]
-    upper = applicable(maximum, distribution) ? maximum(distribution) : [Inf]
-    if all(isfinite, lower) && all(isfinite, upper)
-        return nothing
-    end
-    return "The distribution of type $(nameof(typeof(distribution))) has an unbounded support."
-end
-
 function JuMP.build_variable(error_fn::Function, v::JuMP.ScalarVariable, set::UnivariateUncertainty)
     _check_uncertainty_declaration(error_fn, v, set)
     return JuMP.VariableConstrainedOnCreation(v, set)
