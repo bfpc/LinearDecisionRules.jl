@@ -8,8 +8,9 @@ module TestSize
 using JuMP
 using Test
 
+import Clarabel
 import LinearDecisionRules
-import LinearDecisionRules: DualLDR, PrimalLDR, moments
+import LinearDecisionRules: DualLDR, PrimalLDR, moments, solve_formulation
 
 const LDR = LinearDecisionRules
 
@@ -24,6 +25,36 @@ function runtests()
             end
         end
     end
+    return
+end
+
+# Inventory with a quadratic cost `0.01 Σ I_t² + 0.001 (Σ I_t)²`: the term `(Σ I_t)²` couples all
+# the stocks, whose rules see up to T + 1 columns. The means of the decisions are variables, so
+# that `(Xμ)ᵀP(Xμ)` has one term per nonzero of `P` and not one per pair of columns: for T = 16,
+# 952 quadratic terms instead of 11 628, for 168 more nonzeros in the rows.
+function quadratic_inventory(T::Int)
+    p = Problems.inventory(T)
+    I = [variable_by_name(p.model, "I[$t]") for t in 1:T]
+    q = 0.01 * sum(I[t]^2 for t in 1:T) + 0.001 * sum(I)^2
+    set_objective_function(p.model, objective_function(p.model) + q)
+    return p
+end
+
+function test_quadratic_objective()
+    T = 16
+    form = Problems.form(quadratic_inventory(T))
+    mom = moments(form)
+    for f in (PrimalLDR(), DualLDR())
+        model = Model()
+        LDR._build!(model, f, form, mom)
+        @test length(objective_function(model).terms) == 952
+    end
+    primal = solve_formulation(form, PrimalLDR(), mom, Clarabel.Optimizer)
+    oracle = DenseOracle.solve(DenseOracle.build_primal, form, mom, Clarabel.Optimizer)
+    @test isapprox(primal.objective_value, oracle.objective_value; rtol = 1e-6)
+    dual = solve_formulation(form, DualLDR(), mom, Clarabel.Optimizer)
+    oracle = DenseOracle.solve(DenseOracle.build_dual, form, mom, Clarabel.Optimizer)
+    @test isapprox(dual.objective_value, oracle.objective_value; rtol = 1e-6)
     return
 end
 

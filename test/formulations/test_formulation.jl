@@ -141,6 +141,12 @@ function test_objective()
         LinearAlgebra.tr(Q * M[2:end, 2:end]) +
         form.d' * M[2:end, 1] +
         form.f
+    # The means of the decisions are variables, each fixed by an equality row.
+    for c in all_constraints(model, AffExpr, MOI.EqualTo{Float64})
+        terms = constraint_object(c).func.terms
+        (m,) = [v for v in keys(terms) if !haskey(point, v)]
+        point[m] = -sum(a * point[v] for (v, a) in terms if v != m) / terms[m]
+    end
     @test value(v -> point[v], objective_function(model)) ≈ expected
     return
 end

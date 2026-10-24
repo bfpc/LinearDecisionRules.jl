@@ -104,7 +104,8 @@ function test_equalities_once()
     for N in (4, 5, 50)
         result = solve(p, SampledLDR(N))
         @test result.termination_status == MOI.OPTIMAL
-        @test num_constraints(result.model, AffExpr, MOI.EqualTo{Float64}) == 8
+        # 8 rows of coefficient matching, and the means of `gt` and `vf` in the quadratic objective.
+        @test num_constraints(result.model, AffExpr, MOI.EqualTo{Float64}) == 8 + 2
         # gt + gh == 0.3 for every outcome.
         @test result.X[3, 1] + result.X[4, 1] ≈ 0.3
         @test result.X[3, 2:end] ≈ -result.X[4, 2:end] atol = 1e-9

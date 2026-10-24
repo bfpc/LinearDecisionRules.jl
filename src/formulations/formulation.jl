@@ -480,24 +480,30 @@ function _set_objective!(model::JuMP.Model, form::CanonicalForm, mom::Moments, X
             end
         end
     end
-    _add_quadratic_terms!(obj, form, mom, X)
+    _add_quadratic_terms!(obj, model, form, mom, X)
     JuMP.set_objective(model, form.sense, isempty(obj.terms) ? obj.aff : obj)
     return
 end
 
 # `E[x'Px] = Σ_ik P_ik (E[x_i] E[x_k] + Σ_b X_ib' Σ_b X_kb)`, term by term: the columns of a block
-# are visited in increasing order, so that those beyond what a decision observes are skipped.
-function _add_quadratic_terms!(obj::JuMP.QuadExpr, form::CanonicalForm, mom::Moments, X)
+# are visited in increasing order, so that those beyond what a decision observes are skipped. The
+# mean `E[x_i] = X_i ⋅ μ` of a decision is a variable `m_i` with one equality, so that the first
+# term has one entry per nonzero of `P` instead of one per pair of columns.
+function _add_quadratic_terms!(
+    obj::JuMP.QuadExpr,
+    model::JuMP.Model,
+    form::CanonicalForm,
+    mom::Moments,
+    X,
+)
     μ = mom.mean
     order = [sortperm(block.columns) for block in mom.blocks]
     first_column = [minimum(block.columns; init = typemax(Int)) for block in mom.blocks]
     I, K, V = SparseArrays.findnz(form.P)
+    means = _decision_means!(model, X, μ, unique(vcat(I, K)))
     for (i, k, p) in zip(I, K, V)
         Xi, Xk = X[i], X[k]
-        for j in eachindex(Xi), l in eachindex(Xk)
-            c = p * μ[j] * μ[l]
-            iszero(c) || JuMP.add_to_expression!(obj, c, Xi[j], Xk[l])
-        end
+        JuMP.add_to_expression!(obj, p * means[i], means[k])
         for (b, block) in enumerate(mom.blocks)
             first_column[b] <= min(length(Xi), length(Xk)) || continue
             for a in order[b]
@@ -513,6 +519,26 @@ function _add_quadratic_terms!(obj::JuMP.QuadExpr, form::CanonicalForm, mom::Mom
         end
     end
     return
+end
+
+# `E[x_i]` for the decisions `rows`: the expression `X_i ⋅ μ`, or a variable equal to it when it
+# has more than one term.
+function _decision_means!(model::JuMP.Model, X, μ::Vector{Float64}, rows)
+    means = Dict{Int,JuMP.AffExpr}()
+    for i in rows
+        expr = JuMP.AffExpr(0.0)
+        for j in eachindex(X[i])
+            iszero(μ[j]) || JuMP.add_to_expression!(expr, μ[j], X[i][j])
+        end
+        if length(expr.terms) > 1
+            m = JuMP.@variable(model)
+            JuMP.@constraint(model, m == expr)
+            means[i] = JuMP.AffExpr(0.0, m => 1.0)
+        else
+            means[i] = expr
+        end
+    end
+    return means
 end
 
 function _has_integers(model::JuMP.Model)
