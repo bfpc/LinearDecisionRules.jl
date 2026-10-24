@@ -1,4 +1,95 @@
 \section{Linear decision rules}
 \label{sec:rules}
 
-To be written.
+\subsection{The restricted problem}
+
+A linear decision rule is $x(\xi) = X\xi$ for a matrix $X \in \R^{n\times k}$.
+It respects the information structure if row $i$ of $X$ vanishes beyond the observed prefix:
+\[
+\Rules \defeq \{\, X \in \R^{n\times k} : X_{ij} = 0 \text{ for } j > \nvis_i \,\}.
+\]
+Nonanticipativity is thus a sparsity pattern, and the package only creates the variables $X_{ij}$, $j \le \nvis_i$ (\code{\_rule\_variables!}, \file{src/formulations/formulation.jl}):
+$\sum_i \nvis_i$ variables, instead of $nk$.
+For an integer decision, $X_{i1}$ is an integer variable.
+Restricting \eqref{eq:P} to these rules, and asking the constraints to hold on $\Xis$, gives the semi-infinite problem
+\begin{equation}
+\label{eq:PLDR}
+\tag{P-LDR}
+\begin{aligned}
+\opt_{X \in \Rules} \quad & \E\bigl[ \xi^\T X^\T P X \xi + \xi^\T X^\T C \xi \bigr] + \E\bigl[\eta^\T Q\eta + d^\T\eta + f\bigr] \\
+\text{s.t.} \quad & (A_e X - B_e)\xi = 0, \quad (B_u - A_u X)\xi \ge 0, \quad (A_l X - B_l)\xi \ge 0, \quad \ell \le X\xi \le u \qquad \forall \xi \in \Xis.
+\end{aligned}
+\end{equation}
+Its equalities and its objective need no approximation;
+we treat them here, and the inequalities in the next three sections.
+
+\subsection{Equalities: coefficient matching}
+
+\begin{proposition}[Coefficient matching]
+\label{prop:matching}
+Suppose that $\Xis$ has a nonempty interior in the hyperplane $\{\xi_1 = 1\}$.
+Then $(A_e X - B_e)\xi = 0$ for all $\xi \in \Xis$ if and only if $A_e X = B_e$.
+For a row $r$ of $A_e$ and $X \in \Rules$, this amounts to the $\abs{\Jr_r}$ scalar equalities $(a_r^\T X)_j = b_{rj}$, $j \in \Jr_r$.
+\end{proposition}
+
+\begin{proof}
+A linear function that vanishes on a set vanishes on its linear span, which is $\R^k$ when $\Xis$ has a nonempty relative interior in $\{\xi_1 = 1\}$.
+For $j \notin \Jr_r$ both sides of $(a_r^\T X)_j = b_{rj}$ are zero by definition of $\Jr_r$.
+\end{proof}
+
+This is how \citet[Section~2.2]{KWG2011} eliminate the equalities $AX + S = B$.
+The package adds them once per structural column (\code{\_add\_equalities!}), in all three formulations.
+If a row has $b_{rj} \neq 0$ for some $j > \nvis_r$,
+no rule of its decisions can match the coefficient of the unobserved column $j$, and the model is rejected when it is read:
+this is the case of a balance equation that involves an uncertainty that none of its decisions observes, typically a modelling error in the stages.
+
+\subsection{The objective through the structured moments}
+
+With $x = X\xi$, the expected objective is a quadratic function of $X$ that depends on the law only through $\mub$ and $\Cv$.
+
+\begin{proposition}[Objective]
+\label{prop:objective}
+For $X \in \Rules$, and with $X_\ell$, $C_\ell$ the columns of $X$ and $C$ in the covariance block $\ell$,
+\begin{align}
+\E[x^\T P x] &= (X\mub)^\T P (X\mub) + \sum_\ell \inner{X_\ell^\T P X_\ell}{\Cvb{\ell}}, \label{eq:obj-quadratic}\\
+\E[x^\T C \xi] &= (C\mub)^\T (X\mub) + \sum_\ell \inner{C_\ell \Cvb{\ell}}{X_\ell}, \label{eq:obj-linear}\\
+\E[\eta^\T Q\eta + d^\T\eta + f] &= f + d^\T\mu + \mu^\T Q \mu + \sum_\ell \inner{Q_{\ell\ell}}{\Cvb{\ell}}, \label{eq:obj-constant}
+\end{align}
+where $\inner{A}{B} = \tr(A^\T B)$ and $Q_{\ell\ell}$ is the diagonal block of $Q$ on the coordinates of block $\ell$.
+\end{proposition}
+
+\begin{proof}
+$\E[x^\T P x] = \tr(X^\T P X \Mom)$ and $\E[x^\T C\xi] = \tr(C^\T X \Mom) = \inner{C}{X\Mom}$;
+substitute \eqref{eq:structured-moments}, use that $\Cv$ is block diagonal and that $\Cvb{\ell}$ is symmetric.
+The third line is the same computation with $\eta$.
+\end{proof}
+
+The package never forms $\Mom$ nor a product of dense matrices:
+$C\mub$ is one sparse product, $C_\ell\Cvb{\ell}$ involves only the rows of $C$ with a nonzero in block $\ell$,
+and the products $X_\ell$ are restricted to the columns that each decision observes,
+visited in increasing order so that the loop over a block stops at the first unobserved column (\code{\_set\_objective!}).
+In particular, a linear objective ($P = 0$) is a linear function of $X$ with at most $\sum_i \nvis_i$ terms.
+When the objective is quadratic,
+the problem \eqref{eq:PLDR} is convex if $P \succeq 0$ for a minimization ($P \preceq 0$ for a maximization),
+and this is also what the dual bound of \cref{sec:dual} needs;
+the package passes the quadratic objective to the inner solver without checking it.
+
+\subsection{Inequalities and bounds}
+
+All inequalities of \eqref{eq:PLDR} have the same form.
+For a row $r$ of $(A_u, B_u)$ let $\sigma_r = 1$, for a row of $(A_l, B_l)$ let $\sigma_r = -1$, and write
+\begin{equation}
+\label{eq:slack-rule}
+s_r(\xi) \defeq \sigma_r \bigl(b_r^\T - a_r^\T X\bigr)\xi \eqqcolon S_r \xi \ge 0 \qquad \forall \xi \in \Xis.
+\end{equation}
+The row vector $S_r$ is the slack rule of \citet{KWG2011}; by \eqref{eq:structural-columns}, $S_{rj} = 0$ for $j \notin \Jr_r$, whatever $X \in \Rules$.
+The bounds of the decisions are inequalities of the same form, with $a_r = e_i$ and $b_r = \ell_i e_1$ or $u_i e_1$,
+except for the decisions that observe only the constant ($\nvis_i = 1$):
+their rule is a number $X_{i1}$, and their bounds are simple bounds on it.
+We denote by $\Rows$ the set of all these inequalities (\code{\_inequalities}).
+
+A deterministic inequality ($\Jr_r = \{1\}$) is the plain linear inequality $S_{r1} \ge 0$ in all formulations.
+The others are semi-infinite, and the three formulations differ in how they treat them:
+the primal approximation enforces them on all of $\Xis$ (\cref{sec:primal}),
+the dual approximation relaxes them to hold in expectation against the functions that describe $\Xis$ (\cref{sec:dual}),
+and the sampled formulation enforces them on finitely many outcomes (\cref{sec:sampled}).

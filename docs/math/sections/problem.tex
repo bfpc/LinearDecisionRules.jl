@@ -1,4 +1,159 @@
 \section{The problem and its notation}
 \label{sec:problem}
 
-To be written.
+This section fixes the class of problems that the package reads,
+in the canonical form built by \code{canonicalize} (\file{src/canonical/form.jl}).
+
+\subsection{Uncertainty, stages and laws}
+
+The uncertain parameters are a random vector $\eta \in \R^m$.
+As in \citet{KWG2011}, we prepend a constant and work with
+\[
+\xi = (\xi_1, \xi_2, \dots, \xi_k) = (1, \eta) \in \R^k, \qquad k = 1 + m,
+\]
+so that affine functions of $\eta$ are linear functions of $\xi$.
+The uncertainties are revealed in stages $1, \dots, T$, with $T \ge 2$:
+column $j$ of $\xi$ has a stage $\stage_j$, the constant column being in stage $\stage_1 = 1$.
+The columns are sorted by stage, stably with respect to the order of declaration,
+so that $\stage_1 \le \stage_2 \le \dots \le \stage_k$.
+The history of the observations up to stage $t$ is then a prefix of $\xi$,
+\[
+\xi_{1:\nvis(t)}, \qquad \nvis(t) \defeq \max\{\, j : \stage_j \le t \,\},
+\]
+where $\xi_{1:v}$ denotes the first $v$ components of $\xi$.
+This is the role of the truncation operators $P_t$ of \citet[Section~4]{KWG2011}, $P_t\xi = \xi_{1:\nvis(t)}$;
+sorting makes them prefixes, which the implementation uses everywhere.
+
+The law of $\eta$ is given by \emph{declarations}:
+each \code{@variable(model, \dots{} in Uncertainty(dist))} declares a group of columns with a joint law (univariate or multivariate),
+and distinct declarations are independent.
+The components of one multivariate declaration may be in different stages;
+then the law itself correlates stages, and we will see in \cref{sec:dual} that this matters for the dual bound.
+We write $\law$ for the law of $\eta$, and also of $\xi$.
+
+\subsection{Decisions and the problem}
+
+The decisions are a vector $x \in \R^n$; decision $i$ has a stage $\dstage_i$.
+A decision without a stage tag is in the last stage $T = \max(2, \text{largest declared stage})$.
+Some decisions may be integer or binary; they must be in stage 1.
+The problem read by the package is
+\begin{equation}
+\label{eq:P}
+\tag{P}
+\begin{aligned}
+\opt \quad & \E\bigl[ x(\xi)^\T P x(\xi) + x(\xi)^\T C \xi + \eta^\T Q \eta + d^\T \eta + f \bigr] \\
+\text{s.t.} \quad & A_e x(\xi) = B_e \xi, \quad A_u x(\xi) \le B_u \xi, \quad A_l x(\xi) \ge B_l \xi, \quad \ell \le x(\xi) \le u, \quad \law\text{-a.s.}, \\
+& x_i(\xi) \text{ depends only on } \xi_{1:\nvis_i}, \quad x_i(\xi) \in \mathbb{Z} \text{ for the integer decisions},
+\end{aligned}
+\end{equation}
+where $\opt$ is $\min$ or $\max$, and the numbers $\nvis_i$ of observed columns are defined in \cref{sec:information}.
+The data are the sparse matrices
+$P \in \R^{n \times n}$ (symmetric),
+$C \in \R^{n \times k}$, whose first column holds the linear costs and the others the products of decisions and uncertainties,
+$Q \in \R^{m \times m}$ (symmetric),
+$d \in \R^m$, $f \in \R$,
+$A_e, A_u, A_l$ with $n$ columns, and $B_e, B_u, B_l$ with $k$ columns,
+and the bounds $\ell, u \in (\R \cup \{\pm\infty\})^n$.
+A constraint \code{lo <= a'x + b'eta <= hi} gives one row in $(A_u, B_u)$ and one in $(A_l, B_l)$,
+and an equality one row in $(A_e, B_e)$;
+the constant of the right-hand side is the first column of $B$.
+Parameters of JuMP are replaced by their values.
+
+The data of \eqref{eq:P} are those of \citet[(MSP)]{KWG2011} with three extensions:
+the objective may be quadratic in the decisions ($P$) and in the uncertainties ($Q$, which only adds a constant to the expected value),
+some first-stage decisions may be integer,
+and equalities and two-sided rows are kept as such.
+Like the papers, the package requires \emph{fixed recourse}:
+uncertainties may multiply decisions in the objective (the columns $2, \dots, k$ of $C$),
+but not in the constraints, where a product of a decision and an uncertainty is an error (\cref{sec:outlook}).
+The constraints of \eqref{eq:P} hold pointwise;
+the expected-value constraints of \citet[(MSP)]{KWG2011} have no counterpart yet.
+A row may involve decisions of several stages;
+it is satisfied when all of them are taken, and no stage is attached to it.
+
+\subsection{The information structure}
+\label{sec:information}
+
+Decision $i$ observes column $j$ of $\xi$ if $\stage_j \le \dstage_i$, except that integer decisions observe only the constant:
+\[
+\nvis_i \defeq
+\begin{cases}
+1 & \text{if decision } i \text{ is integer,}\\
+\nvis(\dstage_i) = \max\{\, j : \stage_j \le \dstage_i \,\} & \text{otherwise.}
+\end{cases}
+\]
+Since the columns are sorted by stage, the observed columns of every decision form the prefix $1{:}\nvis_i$ (\code{InformationStructure}, \file{src/canonical/information.jl}).
+Integer decisions are therefore here-and-now constants, even when some uncertainties are in stage 1.
+
+For a row $r$ of the constraints, with coefficients $a_r$ on the decisions and $b_r$ on $\xi$, we call
+\begin{equation}
+\label{eq:structural-columns}
+\nvis_r \defeq \max\{\, \nvis_i : a_{ri} \neq 0 \,\}
+\quad\text{and}\quad
+\Jr_r \defeq \{1, \dots, \nvis_r\} \cup \{\, j > \nvis_r : b_{rj} \neq 0 \,\}
+\end{equation}
+the number of columns that its decisions observe and the set of its \emph{structural columns}:
+whatever the rules, the function $a_r^\T x(\xi) - b_r^\T \xi$ only involves the columns in $\Jr_r$.
+A row is \emph{deterministic} if $\Jr_r = \{1\}$.
+
+\subsection{The support}
+\label{sec:support}
+
+The rules will be asked to satisfy the constraints on a set $\Xis$ that contains the support of $\law$.
+In the package,
+\[
+\Xis = \{\, \xi \in \R^k : \xi_1 = 1,\ W \eta \ge h \,\},
+\]
+where the rows of $W\eta \ge h$ come from four sources (\cref{sec:laws}):
+the finite bounds of the laws (\code{minimum} and \code{maximum} of each distribution),
+constraints over uncertainties only tagged \code{ValidInequality()} (they hold almost surely and only tighten $\Xis$),
+constraints tagged \code{Truncate()} (they condition the law, and the conditioned law is supported in them),
+and the convex-hull rows of the liftings (\cref{sec:liftings}).
+\citet{KWG2011} assume that $\Xis$ is the support itself, a compact polyhedron;
+the package only needs $\supp\law \subseteq \Xis$, and $\Xis$ may be unbounded in some directions,
+which costs nothing in the primal approximation and one inequality per row in the dual (\cref{rem:e1-row}).
+
+The rows of $W$ couple some coordinates of $\eta$ and not others.
+Let the \emph{support blocks} be the connected components of the graph on the coordinates of $\eta$ in which two coordinates are adjacent when some row involves both (\code{support\_blocks}, \file{src/canonical/support.jl}, by union--find).
+Then
+\begin{equation}
+\label{eq:product-support}
+\Xis = \{1\} \times \prod_{b} \Xib{b},
+\qquad
+\Xib{b} = \{\, \eta_b \in \R^{k_b} : W_b \eta_b \ge h_b \,\},
+\end{equation}
+where $\eta_b$ is the subvector of the $k_b$ coordinates of block $b$, and $(W_b, h_b)$ the $q_b$ rows of block $b$ restricted to its columns.
+A block without rows is all of $\R^{k_b}$.
+Every block contains the mean of its coordinates when the mean is finite:
+for the rows of the laws this holds by construction, and the valid rows are checked at the mean when the model is read.
+Throughout, we assume the following.
+
+\begin{assumption}
+\label{ass:support}
+$\supp\law \subseteq \Xis$, and the second-moment matrix $\Mom = \E[\xi\xi^\T]$ is finite and positive definite.
+\end{assumption}
+
+Positive definiteness of $\Mom$ is equivalent to that of the covariance of $\eta$ (by a Schur complement on the constant column),
+that is, to $\eta$ not lying almost surely in a hyperplane.
+It implies that the support, hence $\Xis$, spans $\R^k$, which is the condition of \citet{KWG2011} (their Proposition~2 shows the converse direction).
+The package rejects equality rows tagged \code{ValidInequality()} but does not check $\Mom \succ 0$;
+a law with fewer atoms than its dimension plus one, for instance, violates it.
+
+\subsection{The moments}
+\label{sec:moments}
+
+Let $\mub = \E[\xi] = (1, \mu)$ and $\Cv = \Cov(\xi)$, whose first row and column vanish.
+Since declarations are independent,
+\begin{equation}
+\label{eq:structured-moments}
+\Mom = \E[\xi\xi^\T] = \mub\mub^\T + \Cv,
+\qquad
+\Cv = \blockdiag_\ell(\Cvb{\ell}),
+\end{equation}
+with one \emph{covariance block} $\Cvb{\ell}$ per law (\code{Moments}, \file{src/probability/moments.jl}).
+The package stores $\mub$ and the blocks, never the dense matrix $\Mom$.
+
+The covariance blocks and the support blocks are two different partitions of the coordinates.
+A multivariate law whose support is a box has one covariance block but one support block per coordinate;
+a valid inequality that couples two independent declarations makes one support block out of two covariance blocks.
+Both partitions are used, and the formulations below never assume that they coincide.

@@ -1,4 +1,99 @@
 \section{Introduction}
 \label{sec:introduction}
 
-To be written \citep{KWG2011,GWK2015}.
+A multistage stochastic program chooses decisions over time while uncertain data are revealed,
+each decision being allowed to depend on what has been observed so far.
+Its solution is a policy, a family of functions of the observed history,
+and computing an optimal one is hard in general:
+the space of functions is infinite-dimensional,
+and its discretization by scenario trees grows exponentially with the number of stages.
+
+Decision rules trade optimality for tractability.
+Instead of all functions of the history, one looks for policies in a finite-dimensional family,
+the simplest being the affine functions of the observed uncertainties \citep{GarstkaWets1974}.
+In robust optimization, \citet{BenTal2004} showed that affinely adjustable policies lead to tractable counterparts;
+\citet{KWG2011} brought the idea to stochastic programs with expected costs
+and, crucially, gave it a dual counterpart.
+The \emph{primal} linear decision rule restricts the policies, so its optimal value is attained by a feasible policy
+and bounds the optimal value from the side of the objective (an upper bound of a minimization).
+The \emph{dual} linear decision rule restricts the multipliers of the constraints,
+which amounts to relaxing the constraints to hold in expectation against a finite family of test functions;
+its value bounds the optimal value from the other side.
+Both are deterministic conic problems, linear programs when the support is a polyhedron,
+and the gap between them measures how much was lost by restricting to linear rules.
+\citet{GWK2015} extended the construction through \emph{liftings}:
+the uncertainty is mapped nonlinearly into a higher-dimensional space,
+where linear rules correspond to nonlinear (for instance piecewise affine) rules of the original uncertainty,
+and both bounds are obtained by the same machinery on the lifted problem.
+
+\pkg{} automates these constructions for models written in JuMP \citep{JuMP2023}.
+The user writes a plain JuMP model, declares the uncertain parameters with their laws
+(\code{@variable(model, d in Uncertainty(Uniform(80, 120)))}),
+tags decisions and uncertainties with their stage (\code{Stage(t)}),
+and may describe the support with additional inequalities,
+condition the laws on a set,
+and ask for breakpoints of piecewise affine rules.
+The package reads the model into a canonical form,
+computes the moments and the structure of the support,
+builds one deterministic problem per requested formulation,
+solves it with the solver chosen by the user,
+and reports the value of the primal policy, the dual bound, the rules themselves,
+and simulations of the policy on outcomes drawn from the laws or given by the user.
+
+\begin{example}[The newsvendor]
+\label{ex:newsvendor}
+A newsvendor buys $b \ge 0$ newspapers at price 10 before the demand $d \sim \mathcal{U}(80, 120)$ is revealed,
+then sells $s \le d$ at 15 and returns $r$ at 8, with $s + r \le b$; she maximizes her expected profit.
+An optimal policy buys $b^\star = 760/7$ and sells $s^\star = \min(b^\star, d)$,
+for an expected profit $\Vstar = 3300/7 \approx 471.43$.
+The primal linear rule ($b = 120$, $s = d$, $r = 120 - d$) earns $\Vp = 460$,
+and the dual bound is $\Vd = 1460/3 \approx 486.67$.
+Piecewise affine rules in $d$ (\cref{sec:liftings}) close the gap:
+with the breakpoints $\{100\}$, $\{90, 100, 110\}$, and seven and fifteen equally spaced breakpoints,
+the primal values are $465$, $471.25$, $471.25$ and $471.33$,
+and the dual bounds $476.67$, $474.17$, $471.98$ and $471.51$.
+One breakpoint at the critical quantile $760/7$ makes the primal rule optimal.
+These values are part of the test suite of the package.
+\end{example}
+
+The reformulations of \citet{KWG2011} are compact in matrix notation:
+with $x(\xi) = X\xi$, the primal approximation has a matrix of multipliers $\Lambda \ge 0$ with $\Lambda W = S$ and $\Lambda h \ge 0$,
+and the dual approximation the constraint $(W - h\eone^\T) \Mom S^\T \ge 0$,
+where $S$ is the matrix of the slack rules, $W\xi \ge h$ describes the support and $\Mom$ is the second-moment matrix of $\xi$.
+Implemented literally, these matrices are dense, and their sizes grow with the product of the number of constraints and the dimension of the uncertainty.
+The previous versions of the package did so, and building the reformulated problem often took longer than solving it;
+in multistage problems, the dense dual reached hundreds of millions of nonzeros
+(300 million on a 12-stage hydrothermal problem with 3 breakpoints per inflow, 2.6 billion with 24 stages).
+
+The guiding idea of version 0.4 is to keep, throughout, the structure that the model already has:
+\begin{itemize}[nosep]
+\item the information structure: once the uncertainties are sorted by stage, every decision observes a prefix of them;
+\item the support: it is a product of blocks, the connected components of the uncertainties coupled by its inequalities;
+\item the moments: $\Mom = \mub\mub^\T + \Cv$ is a rank-one term plus a block-diagonal covariance, one block per independent law;
+\item the liftings: their retractions are sparse, and act block by block.
+\end{itemize}
+Each of these turns a product of dense matrices into a sum over blocks,
+so that the part of the reformulation that comes from one constraint grows with what that constraint can see,
+not with the whole uncertainty.
+On the same hydrothermal problem, the structured dual has 13 to 40 times fewer nonzeros than the dense one, with identical values.
+
+The rest of these notes is organized as follows.
+\Cref{sec:problem} states the problem class and its notation,
+and \cref{sec:rules} the restriction to linear rules and the parts of it that need no approximation.
+\Cref{sec:primal,sec:dual} describe the primal and dual approximations and their structured forms,
+and \cref{sec:sampled} the sampled formulation.
+\Cref{sec:liftings} treats liftings and piecewise affine rules,
+\cref{sec:laws} the uncertainty sets and the laws, including conditioning and the confidence-ellipsoid normal law,
+and \cref{sec:computation} the sizes of the reformulations and what was measured.
+\Cref{sec:outlook} lists further developments for very large problems.
+Lengthy calculations are in the appendices.
+
+\paragraph{Notation and departures from the papers.}
+We follow the notation of \citet{KWG2011} and \citet{GWK2015} where it fits:
+$\xi$ with $\xi_1 = 1$, rules $x(\xi) = X\xi$, $\Mom = \E[\xi\xi^\T]$, multipliers $\Lambda$, slack rules $S$, liftings $\Lift$ with retraction $\Retr$.
+We depart from it where the package does, and say so where it matters;
+the main differences are that the package
+allows a quadratic objective and integer first-stage decisions,
+treats the set $\Xis$ as a superset of the support of the law described by inequalities (possibly unbounded) rather than as the support itself,
+writes the lifted vector $\lxi$ where \citet{GWK2015} write $\xi'$,
+and indexes the information structure by prefixes of the columns of $\xi$ rather than by the truncation operators $P_t$ of the papers.
