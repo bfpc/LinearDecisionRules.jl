@@ -29,6 +29,10 @@ names the constraint (random recourse, or a quadratic constraint).
  * `MOI.Silent` and `MOI.RawOptimizerAttribute` are kept and forwarded to the inner optimizers.
  * `MOI.TimeLimitSec` limits the whole `optimize!`: each formulation, built and solved in turn,
    gets the time that remains, and a formulation reached after the limit has status `TIME_LIMIT`.
+ * [`RejectionSamplingSeed`](@ref)`()`, [`RejectionSamplingTimeLimit`](@ref)`()` and
+   [`RejectionSamplingMaxSamples`](@ref)`()`: the rejection sampling of the laws conditioned by
+   constraints tagged [`Truncate`](@ref), `1234`, `10.0` seconds and `10_000` draws by default.
+   Its estimates are kept from one `optimize!` to the next while their inputs do not change.
 """
 mutable struct Optimizer <: MOI.AbstractOptimizer
     inner_factory::Any
@@ -37,6 +41,9 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     time_limit::Union{Nothing,Float64}
     raw_attributes::Dict{String,Any}
     name::String
+    rejection_sampling::_RejectionSampling
+    # The estimates of the moments of the conditioned laws, kept across `empty!`.
+    moments_cache::_MomentsCache
     # The state of the last `optimize!`, read by the results.
     form::Union{Nothing,CanonicalForm}
     moments::Union{Nothing,Moments}
@@ -55,6 +62,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             nothing,                          # time_limit
             Dict{String,Any}(),               # raw_attributes
             "",                               # name
+            _RejectionSampling(1234, 10.0, 10_000),
+            _MomentsCache(),
             nothing,                          # form
             nothing,                          # moments
             Dict{MOI.VariableIndex,Float64}(), # parameters
@@ -159,6 +168,9 @@ function MOI.supports(
         MOI.RawOptimizerAttribute,
         InnerOptimizer,
         Formulations,
+        RejectionSamplingSeed,
+        RejectionSamplingTimeLimit,
+        RejectionSamplingMaxSamples,
     },
 )
     return true
@@ -226,6 +238,30 @@ function MOI.set(o::Optimizer, ::Formulations, formulations)
     return
 end
 
+MOI.get(o::Optimizer, ::RejectionSamplingSeed) = o.rejection_sampling.seed
+
+function MOI.set(o::Optimizer, ::RejectionSamplingSeed, seed::Integer)
+    s = o.rejection_sampling
+    o.rejection_sampling = _RejectionSampling(seed, s.time_limit, s.max_samples)
+    return
+end
+
+MOI.get(o::Optimizer, ::RejectionSamplingTimeLimit) = o.rejection_sampling.time_limit
+
+function MOI.set(o::Optimizer, ::RejectionSamplingTimeLimit, limit::Real)
+    s = o.rejection_sampling
+    o.rejection_sampling = _RejectionSampling(s.seed, limit, s.max_samples)
+    return
+end
+
+MOI.get(o::Optimizer, ::RejectionSamplingMaxSamples) = o.rejection_sampling.max_samples
+
+function MOI.set(o::Optimizer, ::RejectionSamplingMaxSamples, num::Integer)
+    s = o.rejection_sampling
+    o.rejection_sampling = _RejectionSampling(s.seed, s.time_limit, num)
+    return
+end
+
 function _inner_factory(o::Optimizer)
     if o.inner_factory === nothing
         error(
@@ -282,7 +318,7 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     info = _model_info(src)
     _check_bounded_support(src, info)
     form = canonicalize(src, info)
-    mom = moments(form)
+    mom = _moments(form, dest.rejection_sampling, dest.moments_cache)
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
         remaining = nothing

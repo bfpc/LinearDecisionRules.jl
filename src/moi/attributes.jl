@@ -126,6 +126,53 @@ set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
 struct Formulations <: MOI.AbstractOptimizerAttribute end
 
 """
+    RejectionSamplingSeed()
+
+An optimizer attribute: the seed, an `Int`, of the rejection sampling that estimates the moments of
+the laws conditioned by constraints tagged [`Truncate`](@ref); `1234` by default.
+
+Each conditioned law draws from its own stream, whose seed is derived from this one and from its
+rank among the conditioned laws (see [`moments`](@ref)), so that two laws do not share their
+draws. The estimates are cached: a new `optimize!` samples again only the laws whose distributions,
+conditioning rows, seed or sample size changed. [`SampledLDR`](@ref) and [`simulate`](@ref) draw
+their scenarios with their own seeds.
+"""
+struct RejectionSamplingSeed <: MOI.AbstractOptimizerAttribute end
+
+"""
+    RejectionSamplingTimeLimit()
+
+An optimizer attribute: the time limit in seconds, a `Float64`, of the rejection sampling of each
+law conditioned by constraints tagged [`Truncate`](@ref); `10.0` by default.
+
+If fewer than [`RejectionSamplingMaxSamples`](@ref)`()` draws are kept within the limit, the
+moments are estimated from those, with a warning; fewer than `min(RejectionSamplingMaxSamples(),
+100)` are an error that names the conditioning constraints. The sampling stops with this error
+early when, even at an optimistic acceptance rate, too few draws can be kept in time.
+"""
+struct RejectionSamplingTimeLimit <: MOI.AbstractOptimizerAttribute end
+
+"""
+    RejectionSamplingMaxSamples()
+
+An optimizer attribute: the number of draws, an `Int`, kept by the rejection sampling of each law
+conditioned by constraints tagged [`Truncate`](@ref); `10_000` by default. The standard error of
+an estimated mean is about the standard deviation divided by its square root.
+
+It is the attribute `RejectionSamplingMaxIterations` of the previous versions (the number of draws
+kept, `1000` by default). Their `RejectionSamplingWarnAttempts` has no counterpart: the time limit
+bounds the attempts (see [`RejectionSamplingTimeLimit`](@ref)), and a draw is never replaced by a
+default value.
+
+## Example
+
+```julia
+set_attribute(model, RejectionSamplingMaxSamples(), 100_000)
+```
+"""
+struct RejectionSamplingMaxSamples <: MOI.AbstractOptimizerAttribute end
+
+"""
     FormulationAttribute(formulation::AbstractFormulation, attribute)
 
 A model attribute: the `attribute` of one formulation, for example
@@ -191,6 +238,9 @@ const _AttributesWithoutIndices = Union{
     BreakPoints,
     InnerOptimizer,
     Formulations,
+    RejectionSamplingSeed,
+    RejectionSamplingTimeLimit,
+    RejectionSamplingMaxSamples,
     FormulationAttribute,
     RuleCoefficients,
     UncertaintyVariables,

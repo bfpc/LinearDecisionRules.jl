@@ -24,6 +24,9 @@ import LinearDecisionRules:
     LDRModel,
     MvDiscreteNonParametric,
     PrimalLDR,
+    RejectionSamplingMaxSamples,
+    RejectionSamplingSeed,
+    RejectionSamplingTimeLimit,
     SampledLDR,
     Truncate,
     Uncertainty,
@@ -150,7 +153,7 @@ function budget(; total = 120.0)
     law = Distributions.product_distribution([Uniform(40, 80), Uniform(40, 80)])
     @variable(model, demand[1:2] in Uncertainty(law))
     @constraint(model, budget, demand[1] + demand[2] <= total, Truncate())
-    @constraint(model, [i in 1:2], sell[i] + leftover[i] <= buy[i])
+    @constraint(model, stock[i in 1:2], sell[i] + leftover[i] <= buy[i])
     @constraint(model, [i in 1:2], sell[i] <= demand[i])
     @objective(model, Max, sum(-10buy[i] + 15sell[i] + 5leftover[i] for i in 1:2))
     return model
@@ -251,6 +254,93 @@ function test_discrete_scenarios()
     @test termination_status(model) == MOI.OPTIMAL
     # The six remaining scenarios are equally likely; the standard error is about 0.14.
     @test isapprox(moments_of(model).mean[2:3], sum(scenarios[1:6]) / 6; atol = 0.6)
+    return
+end
+
+function test_rejection_sampling_attributes()
+    model = budget()
+    @test get_attribute(model, RejectionSamplingSeed()) == 1234
+    @test get_attribute(model, RejectionSamplingTimeLimit()) == 10.0
+    @test get_attribute(model, RejectionSamplingMaxSamples()) == 10_000
+    set_attribute(model, RejectionSamplingSeed(), -5)
+    set_attribute(model, RejectionSamplingTimeLimit(), 20)
+    set_attribute(model, RejectionSamplingMaxSamples(), 2_000)
+    @test get_attribute(model, RejectionSamplingSeed()) == -5
+    @test get_attribute(model, RejectionSamplingTimeLimit()) === 20.0
+    @test get_attribute(model, RejectionSamplingMaxSamples()) == 2_000
+    @test_throws ArgumentError set_attribute(model, RejectionSamplingTimeLimit(), 0)
+    @test_throws ArgumentError set_attribute(model, RejectionSamplingMaxSamples(), 0)
+    optimize!(model)
+    @test only(moments_of(model).blocks).num_samples == 2_000
+    # The same settings give the same estimates as `moments`.
+    expected = LDR.moments(form_of(model); seed = -5, max_samples = 2_000)
+    @test moments_of(model).mean == expected.mean
+    return
+end
+
+num_estimates(model) = JuMP.unsafe_backend(model).moments_cache.num_estimates
+
+# A re-solve samples again only when the inputs of the estimates change.
+function test_cache()
+    model = budget()
+    optimize!(model)
+    first = moments_of(model)
+    @test num_estimates(model) == 1
+    # Data that do not change the conditioned law: the right-hand side of a decision row, the
+    # objective, a new decision.
+    set_normalized_rhs(model[:stock][1], 5.0)
+    set_objective_coefficient(model, model[:buy][1], -11.0)
+    @variable(model, extra >= 0)
+    @constraint(model, extra <= model[:buy][1])
+    optimize!(model)
+    @test num_estimates(model) == 1
+    @test moments_of(model).mean == first.mean
+    @test only(moments_of(model).blocks).covariance == only(first.blocks).covariance
+    # A new seed samples again, and so does the previous seed then: the cache keeps the estimates
+    # of the last solve only.
+    set_attribute(model, RejectionSamplingSeed(), 99)
+    optimize!(model)
+    @test num_estimates(model) == 2
+    @test moments_of(model).mean != first.mean
+    set_attribute(model, RejectionSamplingSeed(), 1234)
+    optimize!(model)
+    @test num_estimates(model) == 3
+    @test moments_of(model).mean == first.mean
+    # So do a new sample size and a new conditioning row.
+    set_attribute(model, RejectionSamplingMaxSamples(), 5_000)
+    optimize!(model)
+    @test num_estimates(model) == 4
+    set_normalized_rhs(model[:budget], 130.0)
+    optimize!(model)
+    @test num_estimates(model) == 5
+    @test moments_of(model).mean[2] > first.mean[2]
+    # A sample cut by the time limit is not kept: it depends on the machine.
+    set_attribute(model, RejectionSamplingMaxSamples(), 10^8)
+    set_attribute(model, RejectionSamplingTimeLimit(), 0.01)
+    @test_logs (:warn, r"Rejection sampling kept fewer than") optimize!(model)
+    @test_logs (:warn, r"Rejection sampling kept fewer than") optimize!(model)
+    @test num_estimates(model) == 7
+    return
+end
+
+# Laws coupled by a row tagged `Truncate()` merge; the dual warns that it correlates stages.
+function test_coupled_declarations()
+    model = ldr_model()
+    @variable(model, 0 <= buy <= 1, FirstStage)
+    @variable(model, early, LDR.Stage(2))
+    @variable(model, late, LDR.Stage(3))
+    @variable(model, a in Uncertainty(Uniform(0, 1)), LDR.Stage(2))
+    @variable(model, b in Uncertainty(Uniform(0, 1)), LDR.Stage(3))
+    @constraint(model, a + b <= 1, Truncate())
+    @constraint(model, early <= buy + a)
+    @constraint(model, late <= early + b)
+    @objective(model, Max, late - 0.5buy)
+    @test_logs (:warn, r"correlated in the law of a, b \(stages 2, 3\)") optimize!(model)
+    mom = moments_of(model)
+    @test [block.columns for block in mom.blocks] == [[2, 3]]
+    # The triangle: mean 1 / 3, covariance -1 / 36.
+    @test isapprox(mom.mean[2:3], [1 / 3, 1 / 3]; atol = 0.02)
+    @test isapprox(only(mom.blocks).covariance[1, 2], -1 / 36; atol = 0.003)
     return
 end
 
