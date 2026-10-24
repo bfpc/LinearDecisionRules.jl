@@ -89,16 +89,13 @@ MOI.get(::Optimizer, ::MOI.SolverName) = "LinearDecisionRules"
 # `optimize!(dest, src)` reads `src` in place, which is JuMP's cache.
 MOI.supports_incremental_interface(::Optimizer) = false
 
-const _BoundSets =
-    Union{MOI.LessThan{Float64},MOI.GreaterThan{Float64},MOI.EqualTo{Float64},MOI.Interval{Float64}}
-
 # What `canonicalize` reads. Without bridges, anything else is an error when it is added.
 function MOI.supports_constraint(
     ::Optimizer,
     ::Type{MOI.VariableIndex},
     ::Type{
         <:Union{
-            _BoundSets,
+            _BoundSet,
             MOI.Integer,
             MOI.ZeroOne,
             MOI.Parameter{Float64},
@@ -112,22 +109,14 @@ end
 
 # Quadratic rows are read so that `canonicalize` can replace parameters in products, and name the
 # constraint in its error for any other product.
-const _ScalarFunction =
-    Union{MOI.ScalarAffineFunction{Float64},MOI.ScalarQuadraticFunction{Float64}}
+MOI.supports_constraint(::Optimizer, ::Type{<:_ScalarFunction}, ::Type{<:_BoundSet}) = true
 
-MOI.supports_constraint(::Optimizer, ::Type{<:_ScalarFunction}, ::Type{<:_BoundSets}) = true
-
-# Linear vector rows are read one output at a time. Cones wait for conic supports (Phase 3).
-const _VectorFunction = Union{MOI.VectorAffineFunction{Float64},MOI.VectorOfVariables}
-
-const _VectorSets = Union{MOI.Nonnegatives,MOI.Nonpositives,MOI.Zeros}
-
-MOI.supports_constraint(::Optimizer, ::Type{<:_VectorFunction}, ::Type{<:_VectorSets}) = true
+MOI.supports_constraint(::Optimizer, ::Type{<:_VectorFunction}, ::Type{<:_VectorSet}) = true
 
 function MOI.supports(
     ::Optimizer,
     ::MOI.ConstraintName,
-    ::Type{<:MOI.ConstraintIndex{<:_VectorFunction,<:_VectorSets}},
+    ::Type{<:MOI.ConstraintIndex{<:_VectorFunction,<:_VectorSet}},
 )
     return true
 end

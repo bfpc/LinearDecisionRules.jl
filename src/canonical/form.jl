@@ -3,8 +3,17 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
+# The constraints that `canonicalize` reads as rows; the optimizer supports exactly these.
 const _BoundSet =
     Union{MOI.LessThan{Float64},MOI.GreaterThan{Float64},MOI.EqualTo{Float64},MOI.Interval{Float64}}
+
+const _ScalarFunction =
+    Union{MOI.ScalarAffineFunction{Float64},MOI.ScalarQuadraticFunction{Float64}}
+
+# Linear vector rows, read one output at a time. Cones wait for conic support blocks (Phase 3).
+const _VectorFunction = Union{MOI.VectorAffineFunction{Float64},MOI.VectorOfVariables}
+
+const _VectorSet = Union{MOI.Nonnegatives,MOI.Nonpositives,MOI.Zeros}
 
 const _SparseMatrix = SparseArrays.SparseMatrixCSC{Float64,Int}
 
@@ -443,15 +452,13 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo)
                     end
                 end
             end
-        elseif F in (MOI.ScalarAffineFunction{Float64}, MOI.ScalarQuadraticFunction{Float64}) &&
-               S <: _BoundSet
+        elseif F <: _ScalarFunction && S <: _BoundSet
             for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
                 f = MOI.get(src, MOI.ConstraintFunction(), ci)
                 set = MOI.get(src, MOI.ConstraintSet(), ci)
                 _read_row!(rows, valid, row, src, info, cols, uncertainties, ci, f, set)
             end
-        elseif F in (MOI.VectorAffineFunction{Float64}, MOI.VectorOfVariables) &&
-               S in (MOI.Nonnegatives, MOI.Nonpositives, MOI.Zeros)
+        elseif F <: _VectorFunction && S <: _VectorSet
             # Each output is one scalar row of the same constraint.
             set = _scalar_set(S)
             for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
