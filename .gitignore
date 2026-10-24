@@ -28,3 +28,4 @@ Manifest.toml
 
 # log files
 *.log
+docs/src/design.md
