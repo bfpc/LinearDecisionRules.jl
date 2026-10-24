@@ -84,13 +84,24 @@ function unbounded_model()
     return model
 end
 
+# As in JuMP, statuses do not throw nor warn before `optimize!` or after a change to the model.
 function test_before_optimize()
     model = newsvendor()
-    status = termination_status(model)
-    @test status == MOI.OPTIMIZE_NOT_CALLED
-    @test_logs (:warn, r"has been modified since the last call") begin
-        @test_throws OptimizeNotCalled termination_status(model, DualLDR())
+    for m in (model, LDRModel(HiGHS.Optimizer))
+        @test termination_status(m) == MOI.OPTIMIZE_NOT_CALLED
+        for f in (PrimalLDR(), DualLDR(), SampledLDR(10))
+            @test (@test_logs termination_status(m, f)) == MOI.OPTIMIZE_NOT_CALLED
+            @test (@test_logs primal_status(m, f)) == MOI.NO_SOLUTION
+            @test (@test_logs raw_status(m, f)) == "optimize not called"
+        end
     end
+    optimize!(model)
+    @test termination_status(model, DualLDR()) == MOI.OPTIMAL
+    @variable(model, extra >= 0)
+    @test termination_status(model, DualLDR()) == MOI.OPTIMIZE_NOT_CALLED
+    @test primal_status(model, PrimalLDR()) == MOI.NO_SOLUTION
+    # Values throw, as `objective_value(model)` does.
+    @test_logs (:warn,) @test_throws OptimizeNotCalled objective_value(model, DualLDR())
     return
 end
 
@@ -131,6 +142,8 @@ function test_results_of_one_formulation()
     @test solve_time(model, PrimalLDR()) >= 0
     # A formulation that was not solved.
     @test termination_status(model, SampledLDR(10)) == MOI.OPTIMIZE_NOT_CALLED
+    @test primal_status(model, SampledLDR(10)) == MOI.NO_SOLUTION
+    @test raw_status(model, SampledLDR(10)) == "optimize not called"
     err = error_of(() -> objective_value(model, SampledLDR(10)))
     @test err isa MOI.GetAttributeNotAllowed
     @test occursin("add it to `Formulations()`", sprint(showerror, err))

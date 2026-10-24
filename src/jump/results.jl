@@ -10,13 +10,20 @@ function _formulation_attribute(model::JuMP.GenericModel, f::AbstractFormulation
     return MOI.get(model, FormulationAttribute(f, attribute))
 end
 
+# As in JuMP, statuses do not throw before `optimize!` or after a change to the model, which
+# JuMP reports as `OPTIMIZE_NOT_CALLED`; values throw `OptimizeNotCalled`.
+function _optimize_not_called(model::JuMP.GenericModel)
+    return JuMP.termination_status(model) == MOI.OPTIMIZE_NOT_CALLED
+end
+
 """
     JuMP.termination_status(model::JuMP.Model, formulation::AbstractFormulation)
 
 The termination status of the inner problem of `formulation`, or `OPTIMIZE_NOT_CALLED` if it was
-not solved.
+not solved, or if the model changed since the last `optimize!`.
 """
 function JuMP.termination_status(model::JuMP.GenericModel, f::AbstractFormulation)
+    _optimize_not_called(model) && return MOI.OPTIMIZE_NOT_CALLED
     return _formulation_attribute(model, f, MOI.TerminationStatus())
 end
 
@@ -28,6 +35,7 @@ The status of the rule of `formulation`: `FEASIBLE_POINT` for [`PrimalLDR`](@ref
 not a policy. If the inner problem has no solution, the status of the inner problem.
 """
 function JuMP.primal_status(model::JuMP.GenericModel, f::AbstractFormulation)
+    _optimize_not_called(model) && return MOI.NO_SOLUTION
     return _formulation_attribute(model, f, MOI.PrimalStatus())
 end
 
@@ -55,9 +63,10 @@ end
 """
     JuMP.raw_status(model::JuMP.Model, formulation::AbstractFormulation)
 
-The raw status of the inner problem of `formulation`.
+The raw status of the inner problem of `formulation`, or `"optimize not called"`.
 """
 function JuMP.raw_status(model::JuMP.GenericModel, f::AbstractFormulation)
+    _optimize_not_called(model) && return "optimize not called"
     return _formulation_attribute(model, f, MOI.RawStatusString())
 end
 

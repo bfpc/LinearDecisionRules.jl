@@ -165,9 +165,13 @@ function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.TerminationStatus}
     return r === nothing ? MOI.OPTIMIZE_NOT_CALLED : r.termination_status
 end
 
+# Statuses never throw: a formulation that was not solved has no solution.
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.PrimalStatus})
-    r = _require_result(o, attr)
-    return _has_solution(r) ? capabilities(r.formulation).rule_status : MOI.NO_SOLUTION
+    r = _find_result(o, attr.formulation)
+    if r === nothing || !_has_solution(r)
+        return MOI.NO_SOLUTION
+    end
+    return capabilities(r.formulation).rule_status
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.ObjectiveValue})
@@ -182,7 +186,8 @@ function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.ObjectiveBound})
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.RawStatusString})
-    return _require_result(o, attr).raw_status
+    r = _find_result(o, attr.formulation)
+    return r === nothing ? "optimize not called" : r.raw_status
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.SolveTimeSec})
