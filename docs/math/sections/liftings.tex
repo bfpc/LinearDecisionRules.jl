@@ -146,7 +146,11 @@ for other continuous laws the package integrates the density on each piece by ad
 for discrete laws with a finite support it sums over the atoms.
 These moments are computed once, when the lifted law is built (\code{LiftedDistribution}, \file{src/probability/distributions/lifted_distribution.jl}).
 For a continuous law with positive probability on every piece, $\Cov(\leta) \succ 0$ (the components of the lifting are nonconstant on disjoint pieces, as in the proof of \citet[Proposition~4.1]{GWK2015});
-for a discrete law, a piece with fewer than two atoms makes it singular, and \cref{ass:support} fails for the lifted problem.
+for a discrete law, $\Cov(\leta)$ is singular exactly when a nonzero continuous piecewise linear function with the same breakpoints vanishes at every atom,
+since the affine functions $a + c^\T \leta$ of the lifted vector are, as functions of $\eta$, all such functions.
+A law with no more atoms than pieces is therefore always singular, and then \cref{ass:support} fails for the lifted problem;
+two atoms in one piece and one atom in the interior of every other piece suffice for $\Cov(\leta) \succ 0$,
+because the function then vanishes on that piece and, piece after piece, on each neighbour, which it meets at a breakpoint.
 
 \subsection{Rules, evaluation and refinement}
 
