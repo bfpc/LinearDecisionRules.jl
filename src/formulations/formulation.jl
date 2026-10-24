@@ -107,7 +107,8 @@ The result of [`solve_formulation`](@ref).
 
  * `formulation::AbstractFormulation`
  * `termination_status::MOI.TerminationStatusCode`: of the inner problem.
- * `primal_status::MOI.ResultStatusCode`: of the inner problem.
+ * `primal_status::MOI.ResultStatusCode`: of the inner problem, except that a feasible point of an
+   inner problem that is infeasible or unbounded (by its termination status) is `NO_SOLUTION`.
  * `raw_status::String`: of the inner problem.
  * `objective_value::Float64`: in the sense of the model (zero for a feasibility problem); `NaN`
    unless `primal_status == FEASIBLE_POINT`.
@@ -368,6 +369,11 @@ function _objective_bound(form::CanonicalForm, model::JuMP.Model, objective_valu
     return NaN
 end
 
+# A solver can report a feasible point of an unbounded problem (the origin of a ray), or a point
+# along with an infeasibility certificate: neither is a solution.
+const _NO_SOLUTION_STATUS =
+    (MOI.INFEASIBLE, MOI.LOCALLY_INFEASIBLE, MOI.DUAL_INFEASIBLE, MOI.INFEASIBLE_OR_UNBOUNDED)
+
 function _formulation_result(
     f::AbstractFormulation,
     form::CanonicalForm,
@@ -375,9 +381,12 @@ function _formulation_result(
     X,
     time::Float64,
 )
+    termination = JuMP.termination_status(model)
     status = JuMP.primal_status(model)
+    if termination in _NO_SOLUTION_STATUS && status == MOI.FEASIBLE_POINT
+        status = MOI.NO_SOLUTION
+    end
     k = 1 + length(form.uncertainties)
-    # A primal ray (from an unbounded problem) or an infeasible point is not a solution.
     if status == MOI.FEASIBLE_POINT
         values = zeros(length(X), k)
         for i in eachindex(X)
@@ -390,7 +399,7 @@ function _formulation_result(
     end
     return FormulationResult(
         f,
-        JuMP.termination_status(model),
+        termination,
         status,
         JuMP.raw_status(model),
         objective,

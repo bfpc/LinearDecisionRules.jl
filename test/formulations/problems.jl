@@ -254,6 +254,19 @@ function unbounded()
     return Problem("unbounded", "", model, info, NaN, NaN)
 end
 
+# Without rows, HiGHS reports DUAL_INFEASIBLE with a FEASIBLE_POINT (the origin of the ray).
+function unbounded_without_rows()
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, demand)
+    @objective(model, Max, buy)
+    info = ModelInfo(;
+        uncertainties = [declare(Distributions.Uniform(80, 120), demand)],
+        decision_stages = stages(buy => 1),
+    )
+    return Problem("unbounded_without_rows", "", model, info, NaN, NaN)
+end
+
 # The tutorial newsvendor (buy 10, sell 15, salvage 5) with a discrete demand.
 function newsvendor_discrete(dist, name, primal, dual)
     model = Model()

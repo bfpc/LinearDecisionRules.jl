@@ -20,18 +20,7 @@ _has_rule(r::FormulationResult) = capabilities(r.formulation).rule_status != MOI
 
 _is_bound(r::FormulationResult) = capabilities(r.formulation).bound
 
-# A solver can report a feasible point of an unbounded problem, which is a point of a ray: it is
-# a solution only if the problem is solved, or stopped with a feasible point.
-const _NO_SOLUTION_STATUS = (
-    MOI.INFEASIBLE,
-    MOI.LOCALLY_INFEASIBLE,
-    MOI.DUAL_INFEASIBLE,
-    MOI.INFEASIBLE_OR_UNBOUNDED,
-)
-
-function _has_solution(r::FormulationResult)
-    return r.primal_status == MOI.FEASIBLE_POINT && !(r.termination_status in _NO_SOLUTION_STATUS)
-end
+_has_solution(r::FormulationResult) = r.primal_status == MOI.FEASIBLE_POINT
 
 # The results with a rule that is a solution, primal rules first: the results of `MOI`.
 function _rule_results(o::Optimizer)

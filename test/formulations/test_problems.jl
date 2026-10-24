@@ -147,8 +147,8 @@ end
 
 # Spike audit, bug 2: a ray of an unbounded problem is not reported as a solution.
 function test_unbounded()
-    p = Problems.unbounded()
-    for f in (PrimalLDR(), DualLDR(), SampledLDR(10))
+    problems = (Problems.unbounded(), Problems.unbounded_without_rows())
+    for p in problems, f in (PrimalLDR(), DualLDR(), SampledLDR(10))
         _, result = solve(p, f)
         @test result.termination_status in (MOI.DUAL_INFEASIBLE, MOI.INFEASIBLE_OR_UNBOUNDED)
         @test result.primal_status != MOI.FEASIBLE_POINT
