@@ -358,22 +358,38 @@ function _set_objective!(model::JuMP.Model, form::CanonicalForm, mom::Moments, X
             end
         end
     end
+    _add_quadratic_terms!(obj, form, mom, X)
+    JuMP.set_objective(model, form.sense, isempty(obj.terms) ? obj.aff : obj)
+    return
+end
+
+# `E[x'Px] = Σ_ik P_ik (E[x_i] E[x_k] + Σ_b X_ib' Σ_b X_kb)`, term by term: the columns of a block
+# are visited in increasing order, so that those beyond what a decision observes are skipped.
+function _add_quadratic_terms!(obj::JuMP.QuadExpr, form::CanonicalForm, mom::Moments, X)
+    μ = mom.mean
+    order = [sortperm(block.columns) for block in mom.blocks]
+    first_column = [minimum(block.columns; init = typemax(Int)) for block in mom.blocks]
     I, K, V = SparseArrays.findnz(form.P)
-    if !isempty(V)
-        Xμ = Dict(i => LinearAlgebra.dot(μ[eachindex(X[i])], X[i]) for i in unique(I))
-        for (i, k, p) in zip(I, K, V)
-            JuMP.add_to_expression!(obj, p * Xμ[i], Xμ[k])
-            for block in mom.blocks
-                ci = findall(<=(length(X[i])), block.columns)
-                ck = findall(<=(length(X[k])), block.columns)
-                if !isempty(ci) && !isempty(ck)
-                    Σx = block.covariance[ci, ck] * X[k][block.columns[ck]]
-                    JuMP.add_to_expression!(obj, p, LinearAlgebra.dot(X[i][block.columns[ci]], Σx))
+    for (i, k, p) in zip(I, K, V)
+        Xi, Xk = X[i], X[k]
+        for j in eachindex(Xi), l in eachindex(Xk)
+            c = p * μ[j] * μ[l]
+            iszero(c) || JuMP.add_to_expression!(obj, c, Xi[j], Xk[l])
+        end
+        for (b, block) in enumerate(mom.blocks)
+            first_column[b] <= min(length(Xi), length(Xk)) || continue
+            for a in order[b]
+                ja = block.columns[a]
+                ja <= length(Xi) || break
+                for c in order[b]
+                    jc = block.columns[c]
+                    jc <= length(Xk) || break
+                    s = p * block.covariance[a, c]
+                    iszero(s) || JuMP.add_to_expression!(obj, s, Xi[ja], Xk[jc])
                 end
             end
         end
     end
-    JuMP.set_objective(model, form.sense, isempty(obj.terms) ? obj.aff : obj)
     return
 end
 
