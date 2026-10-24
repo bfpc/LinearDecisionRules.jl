@@ -1,4 +1,99 @@
 \section{The primal approximation}
 \label{sec:primal}
 
-To be written.
+\subsection{Robust counterparts}
+
+The primal approximation keeps every inequality \eqref{eq:slack-rule} for all $\xi \in \Xis$.
+Each one is a robust linear constraint, and linear programming duality turns it into finitely many linear constraints.
+In the form of \citet[Proposition~1]{KWG2011}, with $\Xis = \{\xi : W\xi \ge h\}$ including the rows $\pm\eone^\T\xi \ge \pm1$ that fix $\xi_1 = 1$:
+$z^\T\xi \ge 0$ for all $\xi\in\Xis$ if and only if there is $\lambda \ge 0$ with $W^\T\lambda = z$ and $h^\T\lambda \ge 0$.
+Applied to every row, this gives the linear program \citet[(2.3)]{KWG2011}, and \citet[(4.2)]{KWG2011} in the multistage case,
+with one multiplier per row of $W$ and per inequality: a dense matrix $\Lambda \ge 0$ with $\Lambda W = S$ and $\Lambda h \ge 0$.
+
+The product structure \eqref{eq:product-support} lets us do much better.
+Split a slack rule along the blocks, $s(\xi) = s_1 + \sum_b s_b^\T \eta_b$, where $s_b$ is the subvector of $S_r$ on the columns of block $b$.
+
+\begin{proposition}[Block robust counterpart]
+\label{prop:block-counterpart}
+Let $\Touch$ be a set of support blocks that contains every block $b$ with $s_b \neq 0$.
+Then $s(\xi) \ge 0$ for all $\xi \in \Xis$ if and only if there are $\lambda_b \in \R^{q_b}$, $b \in \Touch$, with
+\begin{equation}
+\label{eq:block-counterpart}
+\lambda_b \ge 0, \qquad W_b^\T \lambda_b = s_b \quad (b \in \Touch), \qquad s_1 + \sum_{b \in \Touch} h_b^\T \lambda_b \ge 0.
+\end{equation}
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+The minimum of $s$ over the product $\Xis$ separates:
+$\min_{\Xis} s = s_1 + \sum_b \min_{\eta_b \in \Xib{b}} s_b^\T\eta_b$.
+A block with $s_b = 0$ contributes $0$, since $\Xib{b}$ is nonempty.
+For the others, linear programming duality, valid because $\Xib{b}$ is nonempty, gives
+$\min\{ s_b^\T\eta_b : W_b\eta_b \ge h_b\} = \max\{ h_b^\T\lambda_b : W_b^\T\lambda_b = s_b,\ \lambda_b \ge 0\}$,
+both sides being $-\infty$ when the dual is infeasible.
+So $\min_\Xis s \ge 0$ if and only if multipliers exist as in \eqref{eq:block-counterpart}.
+The details, and the link with the dense form, are in \cref{app:primal}.
+\end{proof}
+
+For the inequality $r$, the package takes for $\Touch$ the set $\Touch_r$ of the blocks that meet its structural columns $\Jr_r \setminus \{1\}$ (\code{\_touched\_blocks}, \file{src/formulations/primal.jl}).
+Since blocks are sorted by their first column, those that meet the observed prefix $2{:}\nvis_r$ are exactly the blocks whose first column is at most $\nvis_r$, a prefix of the list of blocks;
+the blocks of the nonzeros of $b_r$ beyond $\nvis_r$ are added to it.
+For each $b \in \Touch_r$, the robust counterpart has $q_b$ multipliers and $k_b$ equalities, one per column of the block;
+and each inequality has one \emph{coupling} inequality.
+The primal approximation solved by the package is therefore
+\begin{equation}
+\label{eq:primal-lp}
+\begin{aligned}
+\opt_{X \in \Rules,\ \lambda} \quad & \text{objective of \cref{prop:objective}} \\
+\text{s.t.} \quad & (a_r^\T X)_j = b_{rj}, \quad j \in \Jr_r, \quad \text{for the equality rows } r,\\
+& S_{r1} \ge 0 \quad \text{for the deterministic } r \in \Rows,\\
+& \lambda_{rb} \ge 0,\ W_b^\T\lambda_{rb} = S_{r,b}\ (b \in \Touch_r),\quad S_{r1} + \sum_{b\in\Touch_r} h_b^\T\lambda_{rb} \ge 0 \quad \text{for the other } r \in \Rows,
+\end{aligned}
+\end{equation}
+where $S_r = \sigma_r(b_r^\T - a_r^\T X)$ is an affine expression of $X$, not a variable.
+
+\begin{corollary}
+\label{cor:primal-dense}
+Problem \eqref{eq:primal-lp} is equivalent to \eqref{eq:PLDR}, and to the dense linear program of \citet[(4.2)]{KWG2011} for the same support:
+the three have the same feasible rules $X$ and the same objective.
+\end{corollary}
+
+The dense program is recovered by three changes, each exact (\cref{app:primal}):
+the two multipliers of the rows $\pm\eone^\T\xi \ge \pm 1$ only enter through their difference, which equals $s_1$, and are eliminated into the coupling inequality;
+the multipliers of the untouched blocks can be set to zero;
+and the explicit slack variables of the previous version, with their equalities $AX + S = B$, are substituted by expressions (the option \code{SlackAsExpr} of the previous version, now the only form).
+Explicit slacks would add one variable and one equality per inequality and structural column, and save nothing.
+
+A touched block without rows ($q_b = 0$, an unbounded coordinate) leaves the equalities $0 = s_b$:
+an inequality cannot depend on an uncertainty that is unbounded in both directions, which is the right answer.
+
+\subsection{Box blocks}
+
+The most common block is a single coordinate $\eta_j$ with a bounded law, $\Xib{b} = [\underline\eta_j, \overline\eta_j]$.
+Its rows are $\eta_j \ge \underline\eta_j$ and $-\eta_j \ge -\overline\eta_j$, so \eqref{eq:block-counterpart} reads
+$\lambda^+ - \lambda^- = s_j$, $\lambda^\pm \ge 0$, with the contribution $\underline\eta_j\lambda^+ - \overline\eta_j\lambda^-$ to the coupling.
+At the optimum it equals $\min(\underline\eta_j s_j, \overline\eta_j s_j) = c_j s_j - \rho_j\abs{s_j}$,
+with the center $c_j$ and the radius $\rho_j$ of the interval.
+For a row that only touches box blocks, the robust counterpart is thus
+\[
+s_1 + \sum_j \bigl(c_j s_j - \rho_j \abs{s_j}\bigr) \ge 0,
+\]
+which a hand-written model expresses with one auxiliary variable $w_j \ge \pm s_j$ per coefficient
+(the reference model of \file{benchmark/timing.jl}).
+The generic form uses two multipliers and one equality per coefficient instead;
+presolve reduces both to the same problem (\cref{sec:computation}).
+A closed form for box blocks is planned (``box fast path'' in the roadmap of the design document);
+version 0.4 treats box blocks as any other block.
+
+\subsection{What the structure saves}
+
+For an inequality $r$, the dense program has $2 + \sum_b q_b$ multipliers and $k$ equalities, whatever the inequality;
+the structured one has $\sum_{b\in\Touch_r} q_b$ multipliers and $\sum_{b\in\Touch_r} k_b$ equalities.
+In a multistage problem, a stage-$t$ inequality touches only the blocks of the stages up to $t$ (plus the blocks of its own right-hand side),
+so on average about half of the blocks with stagewise blocks of equal size;
+when the blocks are small, as with independent scalar uncertainties, the saving per block is the whole of the other blocks.
+On the $T$-period inventory problem of \file{benchmark/timing.jl}, with one scalar demand per stage, the structured primal has
+$4T^2$ multipliers against $8T(T+1)$ for the dense one (\cref{app:sizes});
+at $T = 32$, the whole program has 5,744 variables, 2,734 constraints and 13,101 nonzeros,
+against 10,096, 5,408 and 21,807 for the dense program on the same canonical form (\file{test/formulations/test_size.jl}).
+The gain is smaller when one law couples all the stages:
+then every inequality of stage at least 2 touches the single block, and the structured primal is about as large as the dense one.

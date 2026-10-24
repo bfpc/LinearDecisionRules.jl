@@ -1,4 +1,45 @@
 \section{Sampled decision rules}
 \label{sec:sampled}
 
-To be written.
+The third formulation, \code{SampledLDR(N; seed)} (\file{src/formulations/sampled.jl}), enforces the inequalities on drawn outcomes only.
+Draw $\xi^1, \dots, \xi^N$ from $\law$, one independent draw of each declaration per outcome, with a seeded generator,
+and solve
+\begin{equation}
+\label{eq:SLDR}
+\tag{S-LDR}
+\begin{aligned}
+\opt_{X \in \Rules} \quad & \frac1N \sum_{s=1}^N \Bigl( (\xi^s)^\T X^\T P X \xi^s + (\xi^s)^\T X^\T C \xi^s + (\eta^s)^\T Q\eta^s + d^\T\eta^s + f \Bigr) \\
+\text{s.t.} \quad & A_e X = B_e, \qquad S_r \xi^s \ge 0, \quad r \in \Rows,\ s = 1, \dots, N.
+\end{aligned}
+\end{equation}
+The objective is the sample average of the objective of \eqref{eq:P};
+since it is quadratic in $\xi$, it is the objective of \cref{prop:objective} with the empirical moments
+$\hat\mub = \frac1N\sum_s\xi^s$ and $\hat\Mom = \frac1N\sum_s \xi^s(\xi^s)^\T$,
+which the package computes with a single covariance block, the empirical covariance of separate declarations not being zero.
+
+The equalities are matched once, as in \cref{prop:matching}, rather than imposed at every outcome.
+Without random recourse, coefficient matching is exact and needs no scenario,
+while $N$ copies of the equalities $(A_eX - B_e)\xi^s = 0$ would describe the same affine subspace (when the outcomes span $\R^k$) with many linearly dependent rows,
+which leaves interior-point solvers with too few degrees of freedom.
+
+Problem \eqref{eq:SLDR} is the sample average approximation \citep[Chapter~5]{ShapiroDentchevaRuszczynski2014} of the problem already restricted to linear rules, not of \eqref{eq:P}:
+\begin{itemize}[nosep]
+\item there is one rule $X$ for all outcomes, not one recourse decision per scenario;
+\item nonanticipativity is the pattern of $\Rules$, so the outcomes are independent paths and no scenario tree is needed;
+\item the constraints hold on the outcomes and nowhere else.
+\end{itemize}
+Its value is not a bound.
+Its constraints are a relaxation of those of \eqref{eq:PLDR}, but its objective is a sample average,
+so it is an in-sample estimate, neither above nor below $\val\eqref{eq:PLDR}$ or $\val\eqref{eq:P}$ in general.
+As $N$ grows, one expects it to approach, under the usual regularity conditions, the value of the linear rules feasible on the support of $\law$,
+which is $\val\eqref{eq:PLDR}$ when $\Xis$ is the convex hull of the support.
+For a given $N$, the scenario approach of \citet{CalafioreCampi2006} bounds the probability that the rule violates some constraint at a new outcome,
+in terms of $N$ and the number of coefficients of $X$.
+The package reports the rule as a solution of unknown status, and \code{simulate} measures it out of sample:
+for outcomes drawn from the laws (or given by the user), it evaluates the rule, the objective at each outcome, its sample mean and standard error,
+and the frequency and size of the violations of each constraint (\file{src/jump/simulate.jl}).
+For the primal rule, which is feasible on $\Xis$, the same simulation has no violation,
+and its sample mean estimates the value of \eqref{eq:PLDR} when the moments are exact.
+
+Random recourse, excluded from the other formulations, would fit \eqref{eq:SLDR} at no cost:
+for a fixed outcome, $A(\xi^s)X\xi^s \le B\xi^s$ is linear in $X$ (\cref{sec:outlook}).

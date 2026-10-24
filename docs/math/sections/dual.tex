@@ -1,4 +1,168 @@
 \section{The dual approximation}
 \label{sec:dual}
 
-To be written.
+\subsection{The relaxation and why it bounds}
+
+\citet[Section~2.3]{KWG2011} obtain a lower bound on a minimization by dualizing the equalities $Ax + s = b$ of the problem with slacks,
+restricting the dual multipliers to linear rules $y(\xi) = Y\xi$, and carrying out the maximization over $Y$.
+What remains is the original problem with the equalities required to hold only in expectation against $\xi$,
+$\E[(Ax(\xi) + s(\xi) - b(\xi))\xi^\T] = 0$, and $s(\xi) \ge 0$ almost surely.
+Its tractable form \citep[(2.8) and (4.6)]{KWG2011} replaces the policies by their projections $X$, $S$ on the linear functions of $\xi$,
+defined by $X\Mom = \E[x(\xi)\xi^\T]$ and $S\Mom = \E[s(\xi)\xi^\T]$,
+and the almost sure nonnegativity of $s$ by a finite set of linear inequalities on $S\Mom$, one per row of $W$.
+
+We write the test functions as a cone:
+let $\Wp$ be the matrix with the rows $\eone^\T$ and $(-h_{bp}, W_{bp})$ for every row $p$ of every support block $b$, embedded in the $k$ columns of $\xi$,
+so that $\Wp\xi = (\xi_1,\ W\eta - h\xi_1)$ and
+\[
+\xi \in \Xis \implies \Wp\xi \ge 0.
+\]
+The rows of $\Wp$ other than $\eone^\T$ are those of $W - h\eone^\T$ in \citet{KWG2011}.
+The dual approximation solved by the package is
+\begin{equation}
+\label{eq:DLDR}
+\tag{D-LDR}
+\begin{aligned}
+\opt_{X \in \Rules} \quad & \text{objective of \cref{prop:objective}} \\
+\text{s.t.} \quad & A_e X = B_e, \qquad S_{r1} \ge 0 \text{ for the deterministic } r \in \Rows,\\
+& S_r \Mom \Wp^\T \ge 0 \quad \text{for the other } r \in \Rows, \qquad S_r = \sigma_r(b_r^\T - a_r^\T X).
+\end{aligned}
+\end{equation}
+The inequalities $S_r\Mom\Wp^\T \ge 0$ are $\E[s_r(\xi)\,(\Wp\xi)^\T] \ge 0$ for linear $s_r$:
+the slack must be nonnegative ``on average against every function that is nonnegative on $\Xis$ by construction''.
+
+\begin{theorem}[Dual bound]
+\label{thm:dual-bound}
+Suppose \cref{ass:support} and the following conditions hold.
+\begin{enumerate}[label=(\roman*)]
+\item\label{it:lce} \emph{Linear conditional expectations}: for every stage $t$ there is a matrix $N_t$ such that
+$\E[\xi \mid \xi_{1:\nvis(t)}] = N_t\, \xi_{1:\nvis(t)}$ almost surely.
+\item\label{it:convex} $P \succeq 0$ if $\opt = \min$, and $P \preceq 0$ if $\opt = \max$.
+\end{enumerate}
+Then for every feasible policy $x$ of \eqref{eq:P} with square-integrable components, the matrix $X = \E[x(\xi)\xi^\T]\Mom^{-1}$ is feasible in \eqref{eq:DLDR},
+and its objective is at least as good as that of $x$.
+Consequently, for a minimization, $\val\eqref{eq:DLDR} \le \val\eqref{eq:P} \le \val\eqref{eq:PLDR}$, and the reverse for a maximization.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+The equalities hold almost surely, so in expectation against $\xi^\T$, which gives $A_eX\Mom = B_e\Mom$, hence $A_eX = B_e$.
+For an inequality, $s_r(\xi) \ge 0$ and $\Wp\xi \ge 0$ almost surely, so $\E[s_r(\xi)(\Wp\xi)^\T] \ge 0$,
+and $\E[s_r(\xi)\xi^\T] = S_r\Mom$ with $S_r = \sigma_r(b_r^\T - a_r^\T X)$ by linearity.
+The objective is linear in $\E[x\xi^\T] = X\Mom$, except for the term in $P$:
+writing $x = X\xi + \varepsilon$ with $\E[\varepsilon\xi^\T] = 0$, the cross term vanishes and $\E[\varepsilon^\T P \varepsilon]$ has the sign of $P$.
+It remains to show that $X \in \Rules$, which is where condition~\ref{it:lce} enters:
+the projection of a function of the history $\xi_{1:\nvis_i}$ on the linear functions of the whole of $\xi$ only involves the history if the conditional expectation of the future given the history is linear,
+which is \citet[Lemma~2]{KWG2011}.
+An integer decision is a constant, and its projection is the same constant, so integrality is preserved.
+The complete argument is in \cref{app:dual}.
+\end{proof}
+
+This is the bound of \citet[Theorem~3]{KWG2011}, under their condition $\E_t[\xi] = M_tP_t\xi$,
+with a quadratic objective and integer first-stage decisions added.
+They also show that \eqref{eq:DLDR} is exact for their relaxed problem when the original one is strictly feasible \citep[Proposition~4]{KWG2011};
+the bound itself does not need strict feasibility.
+\citet{GWK2015} assume instead that the stages are independent \citep[condition (M4)]{GWK2015},
+which implies condition~\ref{it:lce} \citep[footnote~3]{KWG2011}.
+
+\begin{remark}[What condition~\ref{it:lce} asks of the laws]
+\label{rem:lce}
+Distinct declarations are independent, so condition~\ref{it:lce} holds as soon as each declaration lies in one stage,
+and more generally when the law of each declaration has linear conditional expectations across its own stages.
+A multivariate normal law has this property, and so has its truncation to a confidence ellipsoid (\cref{sec:confidence-normal});
+a discrete joint law of several stages generally does not.
+The package warns when a covariance block has a nonzero covariance between two stages, and then marks the bound as not certified (\code{\_correlated\_stage\_laws}, \file{src/formulations/dual.jl}).
+This test is a proxy:
+it flags laws that are correlated across stages but satisfy condition~\ref{it:lce}, such as the truncated normal law above,
+and it misses laws whose stages are uncorrelated but dependent.
+\end{remark}
+
+\begin{remark}[The row $\eone^\T$]
+\label{rem:e1-row}
+In \citet{KWG2011}, $\Xis$ is compact, and the cone $\{z : (W - h\eone^\T)z \ge 0\}$ already implies $z_1 \ge 0$ \citep[proof of Proposition~3]{KWG2011};
+the rows $\pm\eone^\T$ of their $W$ become zero rows of $W - h\eone^\T$.
+The package allows unbounded blocks, and keeps the row $\eone^\T$ of $\Wp$ explicitly,
+that is, the inequality $\E[s_r(\xi)] \ge 0$.
+Without it, a model in which no uncertainty is bounded would have no inequality left in its dual approximation;
+the previous version of the package had this defect.
+\end{remark}
+
+The relaxation depends on the set $\Xis$, not on the inequalities that describe it.
+
+\begin{proposition}[Invariance under the description of $\Xis$]
+\label{prop:description}
+Adding to $W\eta \ge h$ an inequality that is valid on $\Xis$ does not change the feasible set of \eqref{eq:DLDR}.
+In particular, redundant rows and positive scalings of rows have no effect on the dual bound.
+\end{proposition}
+
+\begin{proof}
+Let $w^\T\eta \ge g$ be valid on the nonempty polyhedron $\{W\eta \ge h\}$.
+By the affine form of Farkas' lemma there are $c \ge 0$ and $c_0 \ge 0$ with $w = W^\T c$ and $g = h^\T c - c_0$.
+Then $w^\T\eta - g\xi_1 = c^\T(W\eta - h\xi_1) + c_0\xi_1$ is a nonnegative combination of the rows of $\Wp$,
+and the new inequality $S_r\Mom(-g, w)^\T \ge 0$ is the same combination of inequalities of \eqref{eq:DLDR}.
+\end{proof}
+
+In the language of \citet[Proposition~3]{KWG2011}, the cone defined by the rows of $\Wp$ is the closed convex cone generated by $\Xis$.
+The row $\eone^\T$ is needed for the proposition when $\Xis$ is unbounded.
+
+\subsection{The structured form}
+
+Written literally, $S_r\Mom\Wp^\T$ is a row with one entry per row of $\Wp$, each a sum of $k$ products of an entry of $S_r$, itself an expression of $X$, by an entry of the dense matrix $\Mom\Wp^\T$.
+This is what made the dual of the previous version explode.
+Substituting \eqref{eq:structured-moments},
+\begin{equation}
+\label{eq:dual-identity}
+S_r \Mom \Wp^\T = (S_r\mub)(\Wp\mub)^\T + S_r\Cv\Wp^\T.
+\end{equation}
+Introduce the scalar $u_r \defeq S_r\mub$, the expected slack.
+The row $\eone^\T$ of $\Wp$ gives $u_r \ge 0$, since $\Cv\eone = 0$ and $\eone^\T\mub = 1$.
+The row $p$ of support block $b$ gives
+\begin{equation}
+\label{eq:dual-cone-row}
+u_r\,(W_{bp}\mu_b - h_{bp}) + S_r\, \Cv_{:,b} W_{bp}^\T \ge 0,
+\end{equation}
+where $W_{bp}\mu_b - h_{bp} \ge 0$ because the mean lies in $\Xib{b}$,
+and $\Cv_{:,b}$ are the columns of $\Cv$ of the coordinates of block $b$.
+The matrix $V_b \defeq \Cv_{:,b}W_b^\T$ is computed once per support block (\code{\_dual\_cones}),
+and its row $j$ is nonzero only if column $j$ shares a covariance block with some coordinate of $b$.
+In \eqref{eq:dual-cone-row}, $S_r$ has nonzeros only in $\Jr_r$, so:
+\begin{itemize}[nosep]
+\item only the support blocks that share a covariance block with a structural column of $r$ give inequalities with a slack term;
+\item a row of $\Wp$ whose term $S_r V_{b,:p}$ is structurally zero reduces to $u_r(W_{bp}\mu_b - h_{bp}) \ge 0$, implied by $u_r \ge 0$, and is dropped:
+all the blocks that the inequality does not see \emph{collapse} into the single inequality $u_r \ge 0$;
+\item each remaining inequality has one term in $u_r$ and one term per structural column $j$ with $(V_b)_{jp} \neq 0$.
+\end{itemize}
+The package creates, for each inequality $r$ that is not deterministic, the variables $u_r \ge 0$ and $S_{rj}$, $j \in \Jr_r$,
+with the equalities $S_{rj} = \sigma_r(b_{rj} - (a_r^\T X)_j)$ and $u_r = \sum_{j\in\Jr_r} \mub_j S_{rj}$,
+and the inequalities \eqref{eq:dual-cone-row} that have a slack term (\code{\_add\_dual\_cone!}).
+Restricting $S_r$ to $\Jr_r$ is not a restriction: the other entries are zero for every $X \in \Rules$, as noted after \eqref{eq:slack-rule}.
+This is the masking of $S$ by the history that \citet[(4.6)]{KWG2011} write as $S_tP_t$.
+
+\begin{proposition}[Structured dual]
+\label{prop:structured-dual}
+The structured problem above and the dense problem \eqref{eq:DLDR} have the same feasible rules $X$ and the same objective.
+\end{proposition}
+
+\begin{proof}
+By \eqref{eq:dual-identity}, the inequalities $S_r\Mom\Wp^\T \ge 0$ are $u_r \ge 0$ and the inequalities \eqref{eq:dual-cone-row} for all rows of all blocks, with $u_r = S_r\mub$.
+Those that are dropped are implied by $u_r \ge 0$ and $W_{bp}\mu_b - h_{bp} \ge 0$.
+The variables $u_r$ and $S_{rj}$ are determined by $X$ through the equalities.
+\end{proof}
+
+The previous version's spike validated this identity numerically on the hydrothermal problem
+(objectives equal to a relative difference of $10^{-12}$ on 12 instances),
+and the test suite compares both formulations with dense oracles (\file{test/oracles/dense.jl}).
+The auxiliary $u_r$ keeps each inequality \eqref{eq:dual-cone-row} as sparse as the covariance allows:
+substituting it out would add the $\abs{\Jr_r}$ terms $(\Wp\mub)_p\mub_j S_{rj}$ to every inequality of the row.
+Whether to keep it is a question of solver behaviour more than of size, discussed in \cref{sec:computation}.
+
+\subsection{Reporting the bound}
+
+The rule $X$ of \eqref{eq:DLDR} is not a policy: it need not be feasible for any outcome.
+The package reports only its value, as the objective bound of the model, and the relative gap between it and the primal value.
+With integer decisions, the inner problem is a mixed-integer program, and the bound is the inner solver's bound, which needs no incumbent;
+for a linear program, it is the optimal value, or the dual objective value of the inner solver if the solve stopped early.
+Since \eqref{eq:DLDR} is a relaxation, its infeasibility proves the infeasibility of \eqref{eq:P} (under the conditions of \cref{thm:dual-bound}),
+while an infeasible primal approximation only shows that no linear rule is feasible:
+the package reports \code{INFEASIBLE} only on the evidence of the dual, and \code{LOCALLY\_INFEASIBLE} otherwise.
+The bound is \emph{certified} when the moments are exact and no law correlates stages;
+otherwise the result says why it is not (\cref{sec:rejection}).
