@@ -41,11 +41,13 @@ include("jump/constraints.jl")
 include("jump/checks.jl")
 include("jump/model.jl")
 include("jump/results.jl")
+include("jump/rules.jl")
 
 export AbstractFormulation,
     BreakPoints,
     CanonicalForm,
     CovarianceBlock,
+    DecisionRule,
     DualLDR,
     FirstStage,
     FormulationAttribute,
@@ -69,6 +71,8 @@ export AbstractFormulation,
     ValidInequality,
     canonicalize,
     capabilities,
+    decision_rule,
+    expected_value,
     moments,
     observes,
     second_moment,
