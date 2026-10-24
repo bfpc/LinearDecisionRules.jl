@@ -14,9 +14,12 @@ import LinearDecisionRules
 import LinearDecisionRules:
     BreakPoints,
     FirstStage,
+    DualLDR,
     Formulations,
     InnerOptimizer,
     LDRModel,
+    PrimalLDR,
+    SampledLDR,
     Stage,
     Uncertainty,
     ValidInequality,
@@ -63,7 +66,7 @@ function test_ldr_model()
     @test solver_name(model) == "LinearDecisionRules"
     @test get_attribute(model, InnerOptimizer()) === HiGHS.Optimizer
     @test get_attribute(LDRModel(), InnerOptimizer()) === nothing
-    @test get_attribute(LDRModel(), Formulations()) == []
+    @test get_attribute(LDRModel(), Formulations()) == [PrimalLDR(), DualLDR()]
     return
 end
 
@@ -199,12 +202,13 @@ end
 
 function test_formulations_attribute()
     model = newsvendor()
-    set_attribute(model, Formulations(), [:a, :b])
-    @test get_attribute(model, Formulations()) == [:a, :b]
+    set_attribute(model, Formulations(), [DualLDR(), SampledLDR(10)])
+    @test get_attribute(model, Formulations()) == [DualLDR(), SampledLDR(10)]
     # The attribute is a copy.
-    get_attribute(model, Formulations())[1] = :c
-    @test get_attribute(model, Formulations()) == [:a, :b]
+    get_attribute(model, Formulations())[1] = PrimalLDR()
+    @test get_attribute(model, Formulations()) == [DualLDR(), SampledLDR(10)]
     @test_throws ArgumentError set_attribute(model, Formulations(), [])
+    @test_throws ArgumentError set_attribute(model, Formulations(), [:a])
     return
 end
 
@@ -212,7 +216,7 @@ function test_attributes_survive_changes_to_the_model()
     model = newsvendor()
     set_silent(model)
     set_attribute(model, "presolve", "off")
-    set_attribute(model, Formulations(), [:a])
+    set_attribute(model, Formulations(), [DualLDR()])
     @variable(model, extra >= 0)
     delete(model, extra)
     set_optimizer(model, () -> LinearDecisionRules.Optimizer(HiGHS.Optimizer); add_bridges = false)

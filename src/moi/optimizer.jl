@@ -19,21 +19,21 @@ It supports exactly what [`canonicalize`](@ref) reads, and the sets of the metad
 ## Optimizer attributes
 
  * [`InnerOptimizer`](@ref)`()`: the factory of the inner optimizer.
- * [`Formulations`](@ref)`()`: the formulations solved by `optimize!`.
+ * [`Formulations`](@ref)`()`: the formulations solved by `optimize!`, `[PrimalLDR(), DualLDR()]`
+   by default.
  * `MOI.Silent`, `MOI.TimeLimitSec` and `MOI.RawOptimizerAttribute` are kept and forwarded to the
    inner optimizers.
 """
 mutable struct Optimizer <: MOI.AbstractOptimizer
     inner_factory::Any
-    # TODO: tighten to `Vector{AbstractFormulation}` when the formulations are merged.
-    formulations::Vector{Any}
+    formulations::Vector{AbstractFormulation}
     silent::Bool
     time_limit::Union{Nothing,Float64}
     raw_attributes::Dict{String,Any}
     name::String
 
     function Optimizer(inner_factory = nothing)
-        return new(inner_factory, Any[], false, nothing, Dict{String,Any}(), "")
+        return new(inner_factory, [PrimalLDR(), DualLDR()], false, nothing, Dict{String,Any}(), "")
     end
 end
 
@@ -174,10 +174,10 @@ end
 MOI.get(o::Optimizer, ::Formulations) = copy(o.formulations)
 
 function MOI.set(o::Optimizer, ::Formulations, formulations)
-    if isempty(formulations)
-        throw(ArgumentError("`Formulations()` needs at least one formulation."))
+    if isempty(formulations) || !all(f -> f isa AbstractFormulation, formulations)
+        throw(ArgumentError("`Formulations()` needs a vector of at least one formulation."))
     end
-    o.formulations = collect(Any, formulations)
+    o.formulations = collect(AbstractFormulation, formulations)
     return
 end
 

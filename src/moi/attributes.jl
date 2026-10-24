@@ -67,11 +67,6 @@ set_attribute(d, BreakPoints(), [90.0, 100.0, 110.0])
 """
 struct BreakPoints <: MOI.AbstractVariableAttribute end
 
-# The values of these attributes hold no indices.
-function MOI.Utilities.map_indices(::Any, ::Union{XiRole,ConstraintStage,BreakPoints}, x)
-    return x
-end
-
 """
     InnerOptimizer()
 
@@ -98,3 +93,8 @@ set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
 ```
 """
 struct Formulations <: MOI.AbstractOptimizerAttribute end
+# The values of these attributes hold no indices.
+const _AttributesWithoutIndices =
+    Union{XiRole,ConstraintStage,BreakPoints,InnerOptimizer,Formulations}
+
+MOI.Utilities.map_indices(::Any, ::_AttributesWithoutIndices, x) = x
