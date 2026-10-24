@@ -9,7 +9,7 @@ using JuMP
 using Test
 
 import HiGHS
-import LinearDecisionRules: FormulationResult, PrimalLDR, moments, solve_formulation
+import LinearDecisionRules: DualLDR, FormulationResult, PrimalLDR, moments, solve_formulation
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
 include(joinpath(@__DIR__, "problems.jl"))
@@ -87,6 +87,22 @@ function test_size()
     # Per row: one equality for the column of demand, and the coupling inequality.
     @test num_constraints(model, AffExpr, MOI.EqualTo{Float64}) == 4
     @test num_constraints(model, AffExpr, MOI.GreaterThan{Float64}) == 4
+    return
+end
+
+# Names slow the build down: the inner problem has them only on request.
+function test_names()
+    p = Problems.newsvendor()
+    form = Problems.form(p)
+    for f in (PrimalLDR(), DualLDR())
+        model = solve_formulation(form, f, moments(form), HiGHS.Optimizer).model
+        @test all(isempty ∘ name, all_variables(model))
+        model = solve_formulation(form, f, moments(form), HiGHS.Optimizer; names = true).model
+        @test all(!isempty ∘ name, all_variables(model))
+        # sell is decision 2; its rule on the demand is X[2,2].
+        @test value(variable_by_name(model, "X[2,2]")) ≈ 1
+        @test variable_by_name(model, f == PrimalLDR() ? "λ[1,1][1]" : "S[1,2]") !== nothing
+    end
     return
 end
 

@@ -33,15 +33,18 @@ end
 function _add_robust_counterpart!(
     model::JuMP.Model,
     X,
+    r::Int,
     ineq::_Inequality,
     blocks::Vector{SupportBlock},
     touched::Vector{Int},
 )
     row, sign = ineq.row, ineq.sign
+    named = JuMP.set_string_names_on_creation(model)
     coupling = _add_row_column!(JuMP.AffExpr(0.0), X, row, 1, -sign)
     for b in touched
         block = blocks[b]
-        λ = JuMP.@variable(model, [1:length(block.h)], lower_bound = 0.0)
+        name = named ? "λ[$r,$b]" : ""
+        λ = JuMP.@variable(model, [1:length(block.h)], lower_bound = 0.0, base_name = name)
         for (k, h) in enumerate(block.h)
             iszero(h) || JuMP.add_to_expression!(coupling, h, λ[k])
         end
@@ -66,12 +69,12 @@ function _build!(model::JuMP.Model, ::PrimalLDR, form::CanonicalForm, mom::Momen
     blocks = support_blocks(form)
     block_of = _block_of_columns(blocks, 1 + length(form.uncertainties))
     first_columns = [first(block.columns) for block in blocks]
-    for ineq in _inequalities(form, info)
+    for (r, ineq) in enumerate(_inequalities(form, info))
         if _is_deterministic(ineq.row)
             _add_deterministic!(model, X, ineq)
         else
             touched = _touched_blocks(ineq.row, first_columns, block_of)
-            _add_robust_counterpart!(model, X, ineq, blocks, touched)
+            _add_robust_counterpart!(model, X, r, ineq, blocks, touched)
         end
     end
     _set_objective!(model, form, mom, X)

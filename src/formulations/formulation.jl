@@ -151,6 +151,7 @@ end
         silent::Bool = true,
         time_limit::Union{Nothing,Real} = nothing,
         raw_attributes = Dict{String,Any}(),
+        names::Bool = false,
     ) -> FormulationResult
 
 Build the inner problem of the formulation `f` for `form` and the moments `mom`, solve it with
@@ -160,6 +161,11 @@ Build the inner problem of the formulation `f` for `form` and the moments `mom`,
 what remains after the build. `raw_attributes` is an iterable of `name => value` pairs passed to
 `JuMP.set_attribute` on the inner problem. [`SampledLDR`](@ref) ignores `mom` and uses the
 empirical moments of its outcomes.
+
+With `names = true`, the variables of the inner problem are named, so that `write_to_file` is
+readable: `X[i,j]` for the rule of decision `i` on column `j` of ξ, and by inequality `r`,
+`λ[r,b]` (the multipliers of support block `b`) or `u[r]` and `S[r,j]` (the slack rule). Names
+slow the build down, so they are off by default.
 
 ## Example
 
@@ -177,9 +183,11 @@ function solve_formulation(
     silent::Bool = true,
     time_limit::Union{Nothing,Real} = nothing,
     raw_attributes = Dict{String,Any}(),
+    names::Bool = false,
 )
     start = time_ns()
     model = JuMP.Model(optimizer_factory)
+    JuMP.set_string_names_on_creation(model, names)
     if silent
         JuMP.set_silent(model)
     end
@@ -224,8 +232,11 @@ function _build! end
 # variable bounds; the bounds of the other decisions are rows (see `_inequalities`).
 function _rule_variables!(model::JuMP.Model, form::CanonicalForm, info::InformationStructure)
     X = Vector{Vector{JuMP.VariableRef}}(undef, length(form.decisions))
+    named = JuMP.set_string_names_on_creation(model)
     for i in eachindex(form.decisions)
-        X[i] = [JuMP.@variable(model, base_name = "X[$i,$j]") for j in visible_columns(info, i)]
+        X[i] = map(visible_columns(info, i)) do j
+            return JuMP.@variable(model, base_name = named ? "X[$i,$j]" : "")
+        end
         if info.num_visible[i] == 1
             isfinite(form.lower[i]) && JuMP.set_lower_bound(X[i][1], form.lower[i])
             isfinite(form.upper[i]) && JuMP.set_upper_bound(X[i][1], form.upper[i])

@@ -38,6 +38,7 @@ end
 function _add_dual_cone!(
     model::JuMP.Model,
     X,
+    r::Int,
     ineq::_Inequality,
     μ::Vector{Float64},
     cones::Vector{_DualCone},
@@ -45,11 +46,12 @@ function _add_dual_cone!(
 )
     row, sign = ineq.row, ineq.sign
     S = Dict{Int,JuMP.VariableRef}()
-    u = JuMP.@variable(model, lower_bound = 0.0)
+    named = JuMP.set_string_names_on_creation(model)
+    u = JuMP.@variable(model, lower_bound = 0.0, base_name = named ? "u[$r]" : "")
     mean = JuMP.AffExpr(0.0, u => 1.0)
     touched = Int[]
     for j in _structural_columns(row)
-        S[j] = JuMP.@variable(model)
+        S[j] = JuMP.@variable(model, base_name = named ? "S[$r,$j]" : "")
         # a ⋅ X_j + sign * S_j = b_j, that is, S_j = sign * (b_j - a ⋅ X_j).
         expr = _add_row_column!(JuMP.AffExpr(0.0), X, row, j, 1.0)
         JuMP.add_to_expression!(expr, sign, S[j])
@@ -110,11 +112,11 @@ function _build!(model::JuMP.Model, ::DualLDR, form::CanonicalForm, mom::Moments
     for (b, cone) in enumerate(cones), j in unique(SparseArrays.rowvals(cone.V))
         push!(cones_of[j], b)
     end
-    for ineq in _inequalities(form, info)
+    for (r, ineq) in enumerate(_inequalities(form, info))
         if _is_deterministic(ineq.row)
             _add_deterministic!(model, X, ineq)
         else
-            _add_dual_cone!(model, X, ineq, mom.mean, cones, cones_of)
+            _add_dual_cone!(model, X, r, ineq, mom.mean, cones, cones_of)
         end
     end
     _set_objective!(model, form, mom, X)
