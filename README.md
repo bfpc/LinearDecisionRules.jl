@@ -8,7 +8,7 @@ Linear decision rules for multistage stochastic programs written in [JuMP](https
 ```julia
 using JuMP, HiGHS, Distributions, LinearDecisionRules
 model = LDRModel(HiGHS.Optimizer)
-@variable(model, buy >= 0, Stage(1))
+@variable(model, buy >= 0, FirstStage)   # the same as `Stage(1)`
 @variable(model, d in Uncertainty(Uniform(80, 120)))
 @variable(model, sell >= 0)
 @variable(model, ret >= 0)
@@ -18,5 +18,8 @@ model = LDRModel(HiGHS.Optimizer)
 optimize!(model)
 objective_value(model)   # 460: value of the primal LDR policy
 objective_bound(model)   # 1460/3: dual LDR bound on the optimal value
+decision_rule(buy)       # buy = 120
 decision_rule(sell)      # sell = d
+value(sell)              # 100: E[sell(d)]
+expected_value(d * sell) # exact for affine and quadratic expressions
 ```
