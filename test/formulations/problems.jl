@@ -1,0 +1,311 @@
+# Copyright (c) 2024: Joaquim Dias Garcia, Bernardo Freitas Paulo da Costa, and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE file or at https://opensource.org/licenses/MIT.
+
+# The problem library of the formulation tests: plain JuMP models with a hand-made `ModelInfo`.
+# `primal` and `dual` are the known values (NaN when unknown), `legacy` the key in
+# `test/reference/legacy_values.toml` (empty when absent).
+
+module Problems
+
+using JuMP
+
+import Distributions
+import LinearDecisionRules:
+    CanonicalForm,
+    ModelInfo,
+    Moments,
+    MvDiscreteNonParametric,
+    UncertaintyDeclaration,
+    canonicalize,
+    moments
+
+struct Problem
+    name::String
+    legacy::String
+    model::Model
+    info::ModelInfo
+    primal::Float64
+    dual::Float64
+    atol::Float64 # 0 for the default tolerance of `isapprox`
+end
+
+function Problem(name, legacy, model, info, primal, dual; atol = 0.0)
+    return Problem(name, legacy, model, info, primal, dual, atol)
+end
+
+"""
+    matches(value, expected, p::Problem) -> Bool
+
+Whether `value` is the known value `expected` of `p`, with the tolerance of `p`.
+"""
+function matches(value, expected, p::Problem)
+    return p.atol > 0 ? isapprox(value, expected; atol = p.atol) : isapprox(value, expected)
+end
+
+form(p::Problem) = canonicalize(backend(p.model), p.info)
+
+function declare(dist, vars...; stages = fill(nothing, length(vars)))
+    return UncertaintyDeclaration(dist, collect(index.(vars)), stages)
+end
+
+stages(pairs...) = Dict(index(v) => t for (v, t) in pairs)
+
+function newsvendor(; integer = false)
+    model = Model()
+    @variable(model, buy >= 0, integer = integer)
+    @variable(model, sell >= 0)
+    @variable(model, ret >= 0)
+    @variable(model, demand)
+    @constraint(model, sell + ret <= buy)
+    @constraint(model, sell <= demand)
+    @objective(model, Max, -10buy + 8ret + 15sell)
+    info = ModelInfo(;
+        uncertainties = [declare(Distributions.Uniform(80, 120), demand)],
+        decision_stages = stages(buy => 1),
+    )
+    name = integer ? "newsvendor_integer" : "newsvendor"
+    return Problem(name, name, model, info, 460, integer ? 486 : 1460 / 3)
+end
+
+function newsvendor_random_price()
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, sell >= 0)
+    @variable(model, ret >= 0)
+    @variable(model, demand)
+    @variable(model, price)
+    @constraint(model, sell + ret <= buy)
+    @constraint(model, sell <= demand)
+    @objective(model, Max, -10buy + 8ret + price * sell)
+    info = ModelInfo(;
+        uncertainties = [
+            declare(Distributions.Uniform(80, 120), demand),
+            declare(Distributions.Uniform(13, 17), price),
+        ],
+        decision_stages = stages(buy => 1),
+    )
+    name = "newsvendor_random_price"
+    return Problem(name, name, model, info, 460, 1460 / 3)
+end
+
+function newsvendor_two_products()
+    model = Model()
+    @variable(model, buy[1:2] >= 0)
+    @variable(model, sell[1:2] >= 0)
+    @variable(model, ret[1:2] >= 0)
+    @variable(model, demand[1:2])
+    @constraint(model, [i in 1:2], sell[i] + ret[i] <= buy[i])
+    @constraint(model, [i in 1:2], sell[i] <= demand[i])
+    @objective(model, Max, sum(-10buy[i] + 8ret[i] + 15sell[i] for i in 1:2))
+    dist = Distributions.product_distribution([Distributions.Uniform(80, 120) for _ in 1:2])
+    info = ModelInfo(;
+        uncertainties = [declare(dist, demand...)],
+        decision_stages = stages((b => 1 for b in buy)...),
+    )
+    name = "newsvendor_two_products"
+    return Problem(name, name, model, info, 920, 2920 / 3)
+end
+
+function newsvendor_three_stages()
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, sell2 >= 0)
+    @variable(model, ret2 >= 0)
+    @variable(model, demand2)
+    @variable(model, buy2 >= 0)
+    @variable(model, buy_cost2)
+    @variable(model, sell3 >= 0)
+    @variable(model, ret3 >= 0)
+    @variable(model, demand3)
+    @constraint(model, sell2 + ret2 <= buy + buy2)
+    @constraint(model, sell2 <= demand2)
+    @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
+    @constraint(model, sell3 <= demand3)
+    @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
+    info = ModelInfo(;
+        uncertainties = [
+            declare(Distributions.Uniform(80, 120), demand2; stages = [2]),
+            declare(Distributions.Uniform(8, 14), buy_cost2; stages = [2]),
+            declare(Distributions.Uniform(80, 120), demand3; stages = [3]),
+        ],
+        decision_stages = stages(buy => 1, sell2 => 2, ret2 => 2, buy2 => 2, sell3 => 3, ret3 => 3),
+    )
+    name = "newsvendor_three_stages"
+    return Problem(name, name, model, info, 940, 1000)
+end
+
+# The inventory with backlog of `benchmark/timing.jl` in the previous version.
+function inventory(T::Int; dual = NaN)
+    model = Model()
+    @variable(model, d[1:T])
+    @variable(model, 0 <= x[1:T] <= 150)
+    @variable(model, I[1:T])
+    @variable(model, y[1:T])
+    @constraint(model, I[1] == x[1] - d[1])
+    @constraint(model, [t in 2:T], I[t] == I[t-1] + x[t] - d[t])
+    @constraint(model, [t in 1:T], y[t] >= 0.5 * I[t])
+    @constraint(model, [t in 1:T], y[t] >= -3 * I[t])
+    @objective(model, Min, sum(x[t] + y[t] for t in 1:T))
+    info = ModelInfo(;
+        uncertainties = [
+            declare(Distributions.Uniform(60, 100), d[t]; stages = [t + 1]) for t in 1:T
+        ],
+        decision_stages = merge(
+            stages((x[t] => t for t in 1:T)...),
+            stages((I[t] => t + 1 for t in 1:T)...),
+            stages((y[t] => t + 1 for t in 1:T)...),
+        ),
+    )
+    name = "inventory_T$T"
+    return Problem(name, name, model, info, 90T + 20, dual)
+end
+
+function hydro_toy()
+    model = Model()
+    @variable(model, vi == 0.5)
+    @variable(model, 0 <= vf <= 1)
+    @variable(model, gh >= 0)
+    @variable(model, gt >= 0)
+    @variable(model, inflow[1:3])
+    @constraint(model, vf == vi - gh + sum(inflow))
+    @constraint(model, gt + gh == 0.3)
+    @objective(model, Min, gt^2 + vf^2 / 2 - vf)
+    info = ModelInfo(;
+        uncertainties = [declare(Distributions.Uniform(0, 0.1i), inflow[i]) for i in 1:3],
+    )
+    name = "hydro_toy_fixed_volume"
+    return Problem(name, name, model, info, -0.412778, -0.412778; atol = 1e-6)
+end
+
+# Two products that share the stock bought in stage 1; `d[1] + d[2] <= 230` is a valid inequality.
+function shared_stock(; valid::Bool = true)
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, sell[1:2] >= 0)
+    @variable(model, d[1:2])
+    @constraint(model, sum(sell) <= buy)
+    @constraint(model, sell .<= d)
+    @objective(model, Max, -10buy + 15sum(sell))
+    rows = Set{MOI.ConstraintIndex}()
+    if valid
+        push!(rows, index(@constraint(model, d[1] + d[2] <= 230)))
+    end
+    info = ModelInfo(;
+        uncertainties = [declare(Distributions.Uniform(80, 120), d[i]) for i in 1:2],
+        decision_stages = stages(buy => 1),
+        valid_rows = rows,
+    )
+    return Problem(valid ? "shared_stock" : "shared_stock_box", "", model, info, NaN, NaN)
+end
+
+# Spike audit, bug 1: the dual must keep the inequalities of a model without bounded uncertainty.
+function deterministic(; bound::Bool = false)
+    model = Model()
+    if bound
+        @variable(model, x <= 3)
+    else
+        @variable(model, x)
+        @constraint(model, x <= 3)
+    end
+    @objective(model, Max, 2x)
+    name = bound ? "deterministic_bound" : "deterministic"
+    return Problem(name, "", model, ModelInfo(), 6, 6)
+end
+
+# An unbounded support: `x(η) = 3 + η` is feasible, so both values are 6.
+function unbounded_support()
+    model = Model()
+    @variable(model, x)
+    @variable(model, η)
+    @constraint(model, x <= 3 + η)
+    @objective(model, Max, 2x)
+    info = ModelInfo(; uncertainties = [declare(Distributions.Normal(0, 1), η)])
+    return Problem("unbounded_support", "", model, info, 6, 6)
+end
+
+function infeasible()
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, sell >= 0)
+    @variable(model, demand)
+    @constraint(model, sell <= demand)
+    @constraint(model, sell + buy <= -1)
+    @objective(model, Max, sell - buy)
+    info = ModelInfo(;
+        uncertainties = [declare(Distributions.Uniform(80, 120), demand)],
+        decision_stages = stages(buy => 1),
+    )
+    return Problem("infeasible", "", model, info, NaN, NaN)
+end
+
+function unbounded()
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, sell >= 0)
+    @variable(model, demand)
+    @constraint(model, sell <= demand)
+    @objective(model, Max, sell + buy)
+    info = ModelInfo(;
+        uncertainties = [declare(Distributions.Uniform(80, 120), demand)],
+        decision_stages = stages(buy => 1),
+    )
+    return Problem("unbounded", "", model, info, NaN, NaN)
+end
+
+# The tutorial newsvendor (buy 10, sell 15, salvage 5) with a discrete demand.
+function newsvendor_discrete(dist, name, primal, dual)
+    model = Model()
+    k = length(dist)
+    @variable(model, buy[1:k] >= 0)
+    @variable(model, sell[1:k] >= 0)
+    @variable(model, salvage[1:k] >= 0)
+    @variable(model, demand[1:k])
+    @constraint(model, [i in 1:k], sell[i] + salvage[i] <= buy[i])
+    @constraint(model, [i in 1:k], sell[i] <= demand[i])
+    @objective(model, Max, sum(-10buy[i] + 15sell[i] + 5salvage[i] for i in 1:k))
+    info = ModelInfo(;
+        uncertainties = [declare(dist, demand...)],
+        decision_stages = stages((b => 1 for b in buy)...),
+    )
+    return Problem(name, name, model, info, primal, dual)
+end
+
+function newsvendor_mv_discrete()
+    scenarios = [[80.0, 60.0], [100.0, 80.0], [120.0, 100.0], [80.0, 100.0], [120.0, 60.0]]
+    dist = MvDiscreteNonParametric(scenarios, [0.2, 0.3, 0.2, 0.15, 0.15])
+    return newsvendor_discrete(dist, "newsvendor_mv_discrete", 700, 760)
+end
+
+function newsvendor_discrete_demand()
+    dist = Distributions.DiscreteNonParametric([80.0, 90, 100, 110, 120], [0.1, 0.2, 0.4, 0.2, 0.1])
+    return newsvendor_discrete(dist, "newsvendor_discrete_demand", 400, 470)
+end
+
+"""
+    library() -> Vector{Problem}
+
+Every problem with an optimal primal and dual LDR.
+"""
+function library()
+    return [
+        newsvendor(),
+        newsvendor(; integer = true),
+        newsvendor_random_price(),
+        newsvendor_two_products(),
+        newsvendor_three_stages(),
+        inventory(4; dual = 340),
+        inventory(8; dual = 2020 / 3),
+        hydro_toy(),
+        shared_stock(),
+        shared_stock(; valid = false),
+        deterministic(),
+        deterministic(; bound = true),
+        unbounded_support(),
+        newsvendor_mv_discrete(),
+        newsvendor_discrete_demand(),
+    ]
+end
+
+end # module Problems
