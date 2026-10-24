@@ -18,6 +18,7 @@ import Distributions
 import JuMP
 import LinearAlgebra
 import MathOptInterface as MOI
+import QuadGK
 import Random
 import SparseArrays
 
@@ -28,6 +29,7 @@ include("canonical/information.jl")
 include("canonical/support.jl")
 include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
+include("probability/distributions/lifted_distribution.jl")
 include("formulations/formulation.jl")
 include("formulations/primal.jl")
 include("formulations/dual.jl")
@@ -60,6 +62,7 @@ export AbstractFormulation,
     InformationStructure,
     InnerOptimizer,
     LDRModel,
+    LiftedDistribution,
     ModelInfo,
     Moments,
     MvDiscreteNonParametric,
