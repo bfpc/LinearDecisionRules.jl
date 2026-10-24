@@ -15,7 +15,7 @@ zero for the columns that decision `i` does not observe (see [`InformationStruct
 abstract type AbstractFormulation end
 
 """
-    PrimalLDR()
+    PrimalLDR(; attributes = [])
 
 The primal linear decision rule: every constraint holds for every outcome in the support Ξ.
 
@@ -25,11 +25,25 @@ bound of a minimization). Each inequality is replaced by its robust counterpart 
 multipliers in the dual cone of each block: nonnegative for its linear rows, in a second-order
 cone for each of its second-order cone rows, so the inner problem is then a second-order cone
 program.
+
+`attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
+of the optimizer, for this formulation only: `PrimalLDR(; attributes = ["solver" => "ipx"])`.
+Formulations are compared by type: the attributes are settings, not part of the identity.
+
+The benchmark of `benchmark/compare/` (HiGHS 1.15 on inventory and hydro problems) recommends the
+default dual simplex for this formulation: it is within 2 times of the best mode almost everywhere.
+The exception is a long hydro problem (T = 8), where the interior point method IPX without
+crossover, `["solver" => "ipx", "run_crossover" => "off"]`, is 3 times faster; the other modes
+cost 3 to 16 times more on the larger inventory problem, or fail on the hydro one.
 """
-struct PrimalLDR <: AbstractFormulation end
+struct PrimalLDR <: AbstractFormulation
+    attributes::Vector{Pair{String,Any}}
+end
+
+PrimalLDR(; attributes = Pair{String,Any}[]) = PrimalLDR(_attribute_pairs(attributes))
 
 """
-    DualLDR()
+    DualLDR(; attributes = [])
 
 The dual linear decision rule: a relaxation whose objective value bounds the optimal value of the
 stochastic program (an upper bound of a maximization, a lower bound of a minimization).
@@ -40,8 +54,59 @@ the nonnegative orthant of the linear rows of the [`SupportBlock`](@ref)s times 
 cone for each of their second-order cone rows, so the inner problem is then a second-order cone
 program. The bound is certified when the uncertainties of different stages are independent;
 building it warns when a law correlates uncertainties of different stages.
+
+`attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
+of the optimizer, for this formulation only. Formulations are compared by type: the attributes are
+settings, not part of the identity.
+
+The dual needs its bound only, not a basis, and the benchmark of `benchmark/compare/` (HiGHS 1.15
+on inventory and hydro problems, "Solver modes" of its README) recommends HiGHS's interior point
+method without crossover:
+
+```julia
+DualLDR(; attributes = ["solver" => "ipm", "run_crossover" => "off"])
+```
+
+It solved all the benchmark's duals within 7 seconds, where the default dual simplex took 145
+seconds on the hydro problem with T = 8. This is not the default, since the names are HiGHS's
+and the best mode depends on the problem. The bound is then the dual objective value of the inner
+linear program (see [`FormulationResult`](@ref)). Only a termination status `OPTIMAL` can be
+trusted: HiGHS may stop an interior point without crossover at an `unknown` status (its HiPO
+stagnates a little above the tolerance), with a wrong objective value or none; the termination
+status is then `OTHER_ERROR` and the bound `NaN`. This happens on most of the small problems of the
+test library, so keep the default for small models.
 """
-struct DualLDR <: AbstractFormulation end
+struct DualLDR <: AbstractFormulation
+    attributes::Vector{Pair{String,Any}}
+end
+
+DualLDR(; attributes = Pair{String,Any}[]) = DualLDR(_attribute_pairs(attributes))
+
+_attribute_pairs(attributes) = Pair{String,Any}[String(k) => v for (k, v) in attributes]
+
+# The formulations of a type are the same formulation whatever their attributes.
+Base.:(==)(::PrimalLDR, ::PrimalLDR) = true
+
+Base.:(==)(::DualLDR, ::DualLDR) = true
+
+Base.hash(::PrimalLDR, h::UInt) = hash(:PrimalLDR, h)
+
+Base.hash(::DualLDR, h::UInt) = hash(:DualLDR, h)
+
+function Base.show(io::IO, f::Union{PrimalLDR,DualLDR})
+    print(io, nameof(typeof(f)), "(")
+    if !isempty(f.attributes)
+        pairs = ("$(repr(k)) => $(repr(v))" for (k, v) in f.attributes)
+        print(io, "attributes = [", join(pairs, ", "), "]")
+    end
+    print(io, ")")
+    return
+end
+
+# The raw attributes that a formulation sets on its inner problem, over those of the optimizer.
+_formulation_attributes(f::Union{PrimalLDR,DualLDR}) = f.attributes
+
+_formulation_attributes(::AbstractFormulation) = Pair{String,Any}[]
 
 """
     SampledLDR(num_scenarios::Integer; seed::Integer = 1234)
@@ -119,10 +184,12 @@ The result of [`solve_formulation`](@ref).
  * `objective_value::Float64`: in the sense of the model (zero for a feasibility problem); `NaN`
    unless `primal_status == FEASIBLE_POINT`.
  * `objective_bound::Float64`: the inner solver's bound on `objective_value`, in the sense of the
-   model: `MOI.ObjectiveBound` when the inner problem has integer variables, else the optimal value
-   (or the dual objective value when the inner problem is not solved to optimality); `Inf` for a
-   maximization (`-Inf` for a minimization) whose inner problem is unbounded; `NaN` if unknown. It
-   needs no primal point. For [`DualLDR`](@ref) with integer decisions, this is the bound to report.
+   model: `MOI.ObjectiveBound` when the inner problem has integer variables; the dual objective
+   value when the inner problem is a linear program solved to optimality, if the solver has it
+   (by weak duality it is a bound even for an interior point without crossover, whose primal
+   point is feasible up to a tolerance only), else the optimal value; the dual objective value
+   when the inner problem is not solved to optimality; `Inf` for a maximization (`-Inf` for a
+   minimization) whose inner problem is unbounded; `NaN` if unknown. It needs no primal point. For [`DualLDR`](@ref) with integer decisions, this is the bound to report.
  * `certified::Bool`: whether `objective_value` and `objective_bound` are exact for the laws of the
    model, so that the value of [`PrimalLDR`](@ref) is attained and the bound of [`DualLDR`](@ref)
    is a bound. It is `false` when they use moments estimated by rejection sampling (laws
@@ -172,8 +239,9 @@ Build the inner problem of the formulation `f` for `form` and the moments `mom`,
 
 `time_limit` is in seconds, for building and solving the inner problem: the inner optimizer gets
 what remains after the build. `raw_attributes` is an iterable of `name => value` pairs passed to
-`JuMP.set_attribute` on the inner problem. [`SampledLDR`](@ref) ignores `mom` and uses the
-empirical moments of its outcomes.
+`JuMP.set_attribute` on the inner problem, followed by the `attributes` of `f` (see
+[`DualLDR`](@ref)). [`SampledLDR`](@ref) ignores `mom` and uses the empirical moments of its
+outcomes.
 
 With `names = true`, the variables of the inner problem are named, so that `write_to_file` is
 readable: `X[i,j]` for the rule of decision `i` on column `j` of ξ, and by inequality `r`,
@@ -206,6 +274,9 @@ function solve_formulation(
         JuMP.set_silent(model)
     end
     for (name, value) in raw_attributes
+        JuMP.set_attribute(model, name, value)
+    end
+    for (name, value) in _formulation_attributes(f)
         JuMP.set_attribute(model, name, value)
     end
     X = _build!(model, f, form, mom)
@@ -449,8 +520,34 @@ function _has_integers(model::JuMP.Model)
            JuMP.num_constraints(model, JuMP.VariableRef, MOI.ZeroOne) > 0
 end
 
+# Whether the inner problem has an affine objective and scalar constraints only: for a quadratic
+# or conic one, the dual objective of the solver can leave out terms (HiGHS's, for a QP).
+function _is_linear_program(model::JuMP.Model)
+    if !(JuMP.objective_function_type(model) <: Union{JuMP.VariableRef,JuMP.AffExpr})
+        return false
+    end
+    return all(JuMP.list_of_constraint_types(model)) do (F, S)
+        return F <: Union{JuMP.VariableRef,JuMP.AffExpr} && S <: MOI.AbstractScalarSet
+    end
+end
+
+# The dual objective of an optimal linear program is a bound by weak duality, also when the primal
+# point is only feasible up to a tolerance (an interior point without crossover). It is used when
+# the solver provides it and it is finite, else the primal objective.
+function _dual_objective_or(model::JuMP.Model, objective_value::Float64)
+    if JuMP.dual_status(model) == MOI.FEASIBLE_POINT
+        try
+            bound = JuMP.dual_objective_value(model)
+            isfinite(bound) && return bound
+        catch err
+            err isa Union{MOI.UnsupportedAttribute,MOI.GetAttributeNotAllowed} || rethrow()
+        end
+    end
+    return objective_value
+end
+
 # The bound that the inner solver proves, which needs no primal point: a MIP bound, the dual
-# objective of an LP stopped early, or no bound at all for an unbounded inner problem.
+# objective of an LP, or no bound at all for an unbounded inner problem.
 function _objective_bound(form::CanonicalForm, model::JuMP.Model, objective_value::Float64)
     status = JuMP.termination_status(model)
     if form.sense == MOI.FEASIBILITY_SENSE
@@ -461,6 +558,8 @@ function _objective_bound(form::CanonicalForm, model::JuMP.Model, objective_valu
         return NaN
     elseif _has_integers(model)
         return JuMP.objective_bound(model)
+    elseif status == MOI.OPTIMAL && _is_linear_program(model)
+        return _dual_objective_or(model, objective_value)
     elseif status in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
         return objective_value
     elseif JuMP.dual_status(model) == MOI.FEASIBLE_POINT
