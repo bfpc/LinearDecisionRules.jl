@@ -21,6 +21,7 @@ import MathOptInterface as MOI
 import Random
 import SparseArrays
 
+include("lifting/lifting.jl")
 include("canonical/info.jl")
 include("canonical/form.jl")
 include("canonical/information.jl")
@@ -44,6 +45,8 @@ include("jump/results.jl")
 include("jump/rules.jl")
 
 export AbstractFormulation,
+    AbstractLifting,
+    AxisPiecewise,
     BreakPoints,
     CanonicalForm,
     CovarianceBlock,
@@ -73,8 +76,10 @@ export AbstractFormulation,
     capabilities,
     decision_rule,
     expected_value,
+    lift,
     moments,
     observes,
+    retraction,
     second_moment,
     set_stage,
     solve_formulation,
