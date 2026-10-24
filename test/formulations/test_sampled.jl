@@ -9,6 +9,7 @@ using JuMP
 using Test
 
 import HiGHS
+import LinearAlgebra
 import LinearDecisionRules
 import LinearDecisionRules:
     DualLDR, PrimalLDR, SampledLDR, moments, second_moment, solve_formulation
@@ -43,17 +44,35 @@ function test_legacy_value()
     return
 end
 
-# As in the tests of the previous version: the sampled value is near [primal, dual].
+# The value of the rule `X` on the empirical moments of `outcomes`, for a linear objective.
+function empirical_value(form, X, outcomes)
+    return LinearAlgebra.dot(form.C, X * second_moment(LDR._empirical_moments(outcomes))) + form.f
+end
+
+# On its outcomes, the sampled rule is at least as good as the primal rule (which is feasible
+# there), and at most as good as the decisions that know the outcome (wait and see).
 function test_sandwich()
     p = Problems.newsvendor()
-    primal = solve(p, PrimalLDR()).objective_value
-    dual = solve(p, DualLDR()).objective_value
-    sampled = solve(p, SampledLDR(50))
-    @test primal - 5 <= sampled.objective_value <= dual + 1
+    form = Problems.form(p)
+    f = SampledLDR(50)
+    outcomes = LDR._sample_outcomes(form, f)
+    primal = solve(p, PrimalLDR())
+    sampled = solve(p, f)
+    # Knowing the demand d, the newsvendor buys and sells d: 5d.
+    wait_and_see = 5 * sum(outcomes[2, :]) / 50
+    @test empirical_value(form, primal.X, outcomes) <= sampled.objective_value + 1e-6
+    @test sampled.objective_value <= wait_and_see + 1e-6
     @test sampled.X[1, 2] == 0  # buy is in stage 1
+    # The inventory (Min) orders each demand when it knows it: Σ_t d_t.
     p = Problems.inventory(4; dual = 340)
-    sampled = solve(p, SampledLDR(200)).objective_value
-    @test p.dual - 1 <= sampled <= p.primal + 5
+    form = Problems.form(p)
+    f = SampledLDR(200)
+    outcomes = LDR._sample_outcomes(form, f)
+    primal = solve(p, PrimalLDR())
+    sampled = solve(p, f)
+    wait_and_see = sum(outcomes[2:end, :]) / 200
+    @test wait_and_see - 1e-6 <= sampled.objective_value
+    @test sampled.objective_value <= empirical_value(form, primal.X, outcomes) + 1e-6
     return
 end
 

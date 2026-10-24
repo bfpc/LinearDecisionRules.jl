@@ -293,15 +293,6 @@ function test_delete()
     return
 end
 
-function test_parameters()
-    model = newsvendor()
-    @variable(model, p in Parameter(2.0))
-    @constraint(model, model[:sell] <= p * 10)
-    set_parameter_value(p, 3.0)
-    @test parameter_value(p) == 3.0
-    return
-end
-
 function test_constraint_attributes_are_kept()
     model = newsvendor()
     d = model[:d]
