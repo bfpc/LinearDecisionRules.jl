@@ -21,4 +21,8 @@ import MathOptInterface as MOI
 import Random
 import SparseArrays
 
+include("probability/distributions/mv_discrete_non_parametric.jl")
+
+export MvDiscreteNonParametric
+
 end # module LinearDecisionRules
