@@ -323,8 +323,8 @@ end
 
 # A deterministic inequality `sign * (b₁ - a ⋅ X[:, 1]) ≥ 0`.
 function _add_deterministic!(model::JuMP.Model, X, ineq::_Inequality)
-    expr = _add_row_column!(JuMP.AffExpr(0.0), X, ineq.row, 1, -ineq.sign)
-    JuMP.@constraint(model, expr >= -ineq.sign * ineq.row.b[1])
+    expr = _add_row_column!(JuMP.AffExpr(ineq.sign * ineq.row.b[1]), X, ineq.row, 1, -ineq.sign)
+    JuMP.@constraint(model, expr >= 0)
     return
 end
 

@@ -40,7 +40,8 @@ function _add_robust_counterpart!(
 )
     row, sign = ineq.row, ineq.sign
     named = JuMP.set_string_names_on_creation(model)
-    coupling = _add_row_column!(JuMP.AffExpr(0.0), X, row, 1, -sign)
+    # The coupling `s₁ + Σ_b h_b ⋅ λ_b ≥ 0`, with `s₁ = sign * (b₁ - a ⋅ X₁)`.
+    coupling = _add_row_column!(JuMP.AffExpr(sign * row.b[1]), X, row, 1, -sign)
     for b in touched
         block = blocks[b]
         name = named ? "λ[$r,$b]" : ""
@@ -58,7 +59,7 @@ function _add_robust_counterpart!(
             JuMP.@constraint(model, expr == sign * row.b[j])
         end
     end
-    JuMP.@constraint(model, coupling >= -sign * row.b[1])
+    JuMP.@constraint(model, coupling >= 0)
     return
 end
 
