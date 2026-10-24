@@ -1,0 +1,625 @@
+[hydro_toy_fixed_volume]
+description = "Hydro toy, one reservoir, quadratic objective (test_core.jl test_recursion, the second model with the cost-to-go vf^2/2 - vf added). Fixed initial volume vi == 0.5 (a fixed variable, not random). Decisions vf in [0, 1], gh >= 0, gt >= 0. Uncertainties inflow[i] ~ Uniform(0, 0.1 i), i = 1..3, independent. Constraints vf == vi - gh + inflow[1] + inflow[2] + inflow[3]; gt + gh == 0.3. Minimize gt^2 + vf^2/2 - vf (convex QP). Single stage: all decisions may depend on all inflows."
+dual = -0.4127777777767676
+primal = -0.41277777777342894
+termination_status = "OPTIMAL"
+
+    [hydro_toy_fixed_volume.rules.dual.gh]
+    constant = 0.03333117818350273
+
+        [hydro_toy_fixed_volume.rules.dual.gh.coefficients]
+        inflow1 = 0.3333582596571201
+        inflow2 = 0.3333391329122769
+        inflow3 = 0.3333357184342575
+
+    [hydro_toy_fixed_volume.rules.dual.vf]
+    constant = 0.46666882181649727
+
+        [hydro_toy_fixed_volume.rules.dual.vf.coefficients]
+        inflow1 = 0.6666417403428799
+        inflow2 = 0.6666608670877231
+        inflow3 = 0.6666642815657424
+
+    [hydro_toy_fixed_volume.rules.primal.gh]
+    constant = 0.033328790206602954
+
+        [hydro_toy_fixed_volume.rules.primal.gh.coefficients]
+        inflow1 = 0.3333845773526823
+        inflow2 = 0.3333456319305142
+        inflow3 = 0.33333857008103535
+
+    [hydro_toy_fixed_volume.rules.primal.vf]
+    constant = 0.46667120979339705
+
+        [hydro_toy_fixed_volume.rules.primal.vf.coefficients]
+        inflow1 = 0.6666154226473178
+        inflow2 = 0.6666543680694859
+        inflow3 = 0.6666614299189647
+
+[inventory_T4]
+description = "Inventory with backlog, T = 4 periods (benchmark/timing.jl). Uncertainties d[t], t = 1..T, independent Uniform(60, 100), d[t] of stage t + 1 (one @variable call with stage = t + 1). Decisions: order x[t] in [0, 150] of stage t; inventory I[t] and cost y[t] (both free) of stage t + 1. Constraints I[1] == 0 + x[1] - d[1]; I[t] == I[t-1] + x[t] - d[t] for t >= 2; y[t] >= 0.5 I[t]; y[t] >= -3 I[t]. Minimize sum_t (1.0 x[t] + y[t])."
+dual = 339.99999999999994
+primal = 380.0
+termination_status = "OPTIMAL"
+
+    [inventory_T4.rules.dual.x1]
+    constant = 86.66666666666664
+
+        [inventory_T4.rules.dual.x1.coefficients]
+        d1 = 0.0
+
+    [inventory_T4.rules.dual.x2]
+    constant = 80.0000000000001
+
+        [inventory_T4.rules.dual.x2.coefficients]
+        d1 = -1.1102230246251565e-15
+        d2 = 0.0
+
+    [inventory_T4.rules.primal.x1]
+    constant = 100.0
+
+        [inventory_T4.rules.primal.x1.coefficients]
+        d1 = 0.0
+
+    [inventory_T4.rules.primal.x2]
+    constant = 0.0
+
+        [inventory_T4.rules.primal.x2.coefficients]
+        d1 = 1.0
+        d2 = 0.0
+
+[inventory_T8]
+description = "Inventory with backlog, T = 8 periods (benchmark/timing.jl). Uncertainties d[t], t = 1..T, independent Uniform(60, 100), d[t] of stage t + 1 (one @variable call with stage = t + 1). Decisions: order x[t] in [0, 150] of stage t; inventory I[t] and cost y[t] (both free) of stage t + 1. Constraints I[1] == 0 + x[1] - d[1]; I[t] == I[t-1] + x[t] - d[t] for t >= 2; y[t] >= 0.5 I[t]; y[t] >= -3 I[t]. Minimize sum_t (1.0 x[t] + y[t])."
+dual = 673.3333333333331
+primal = 740.0
+termination_status = "OPTIMAL"
+
+    [inventory_T8.rules.dual.x1]
+    constant = 86.66666666666664
+
+        [inventory_T8.rules.dual.x1.coefficients]
+        d1 = 0.0
+
+    [inventory_T8.rules.dual.x2]
+    constant = 80.0000000000001
+
+        [inventory_T8.rules.dual.x2.coefficients]
+        d1 = -1.1102230246251565e-15
+        d2 = 0.0
+
+    [inventory_T8.rules.primal.x1]
+    constant = 100.0
+
+        [inventory_T8.rules.primal.x1.coefficients]
+        d1 = 0.0
+
+    [inventory_T8.rules.primal.x2]
+    constant = 0.0
+
+        [inventory_T8.rules.primal.x2.coefficients]
+        d1 = 1.0
+        d2 = 0.0
+
+[meta]
+generator = "test/reference/generate_legacy_values.jl"
+legacy_package = "LinearDecisionRules.jl 0.3.1, branch Multistage"
+solver = "HiGHS"
+
+[newsvendor]
+description = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand (single stage after buy)."
+dual = 486.6666666666665
+primal = 460.0
+termination_status = "OPTIMAL"
+
+    [newsvendor.rules.dual.buy]
+    constant = 106.6666666666667
+
+        [newsvendor.rules.dual.buy.coefficients]
+        demand = 0.0
+
+    [newsvendor.rules.dual.ret]
+    constant = 106.6666666666667
+
+        [newsvendor.rules.dual.ret.coefficients]
+        demand = -1.0
+
+    [newsvendor.rules.dual.sell]
+    constant = 0.0
+
+        [newsvendor.rules.dual.sell.coefficients]
+        demand = 1.0
+
+    [newsvendor.rules.primal.buy]
+    constant = 120.0
+
+        [newsvendor.rules.primal.buy.coefficients]
+        demand = 0.0
+
+    [newsvendor.rules.primal.ret]
+    constant = 120.0
+
+        [newsvendor.rules.primal.ret.coefficients]
+        demand = -1.0
+
+    [newsvendor.rules.primal.sell]
+    constant = 0.0
+
+        [newsvendor.rules.primal.sell.coefficients]
+        demand = 1.0
+
+[newsvendor_breakpoint_critical]
+description = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand (single stage after buy). Piecewise-linear lifting of demand with a single breakpoint at 760/7 = 108.571428..., the critical quantile of the optimal buy; expected primal 3300/7."
+dual = 480.9523809523812
+primal = 471.42857142857133
+termination_status = "OPTIMAL"
+
+    [newsvendor_breakpoint_critical.rules.dual.buy]
+    constant = 102.85714285714275
+
+        [newsvendor_breakpoint_critical.rules.dual.buy.coefficients]
+        demand = [0.0, 0.0]
+
+    [newsvendor_breakpoint_critical.rules.dual.ret]
+    constant = 120.76190476190528
+
+        [newsvendor_breakpoint_critical.rules.dual.ret.coefficients]
+        demand = [-1.2000000000000068, 1.2500000000000286]
+
+    [newsvendor_breakpoint_critical.rules.dual.sell]
+    constant = -17.904761904762545
+
+        [newsvendor_breakpoint_critical.rules.dual.sell.coefficients]
+        demand = [1.2000000000000068, -1.2500000000000275]
+
+    [newsvendor_breakpoint_critical.rules.primal.buy]
+    constant = 108.57142857142857
+
+        [newsvendor_breakpoint_critical.rules.primal.buy.coefficients]
+        demand = [0.0, 0.0]
+
+    [newsvendor_breakpoint_critical.rules.primal.ret]
+    constant = 108.57142857142857
+
+        [newsvendor_breakpoint_critical.rules.primal.ret.coefficients]
+        demand = [-1.0, 0.0]
+
+    [newsvendor_breakpoint_critical.rules.primal.sell]
+    constant = 0.0
+
+        [newsvendor_breakpoint_critical.rules.primal.sell.coefficients]
+        demand = [1.0, 0.0]
+
+[newsvendor_breakpoints_1]
+description = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand (single stage after buy). Piecewise-linear lifting of demand with 1 breakpoints at [100.0] (nested: set 1 inside 2 inside 3 inside 4; the intervals are [80, b1], ..., [bn, 120]). Decision rules are piecewise affine in demand."
+dual = 476.6666666666671
+primal = 465.0
+termination_status = "OPTIMAL"
+
+    [newsvendor_breakpoints_1.rules.dual.buy]
+    constant = 99.99999999999989
+
+        [newsvendor_breakpoints_1.rules.dual.buy.coefficients]
+        demand = [0.0, 0.0]
+
+    [newsvendor_breakpoints_1.rules.dual.ret]
+    constant = 143.33333333333476
+
+        [newsvendor_breakpoints_1.rules.dual.ret.coefficients]
+        demand = [-1.500000000000017, 0.5000000000000197]
+
+    [newsvendor_breakpoints_1.rules.dual.sell]
+    constant = -43.33333333333488
+
+        [newsvendor_breakpoints_1.rules.dual.sell.coefficients]
+        demand = [1.500000000000017, -0.5000000000000197]
+
+    [newsvendor_breakpoints_1.rules.primal.buy]
+    constant = 100.0
+
+        [newsvendor_breakpoints_1.rules.primal.buy.coefficients]
+        demand = [0.0, 0.0]
+
+    [newsvendor_breakpoints_1.rules.primal.ret]
+    constant = 100.0
+
+        [newsvendor_breakpoints_1.rules.primal.ret.coefficients]
+        demand = [-1.0, 0.0]
+
+    [newsvendor_breakpoints_1.rules.primal.sell]
+    constant = 0.0
+
+        [newsvendor_breakpoints_1.rules.primal.sell.coefficients]
+        demand = [1.0, 0.0]
+
+[newsvendor_breakpoints_2]
+description = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand (single stage after buy). Piecewise-linear lifting of demand with 3 breakpoints at [90.0, 100.0, 110.0] (nested: set 1 inside 2 inside 3 inside 4; the intervals are [80, b1], ..., [bn, 120]). Decision rules are piecewise affine in demand."
+dual = 474.1666666666668
+primal = 471.25
+termination_status = "OPTIMAL"
+
+    [newsvendor_breakpoints_2.rules.dual.buy]
+    constant = 109.99999999999999
+
+        [newsvendor_breakpoints_2.rules.dual.buy.coefficients]
+        demand = [0.0, 0.0, 0.0, 0.0]
+
+    [newsvendor_breakpoints_2.rules.dual.ret]
+    constant = 112.97619047619078
+
+        [newsvendor_breakpoints_2.rules.dual.ret.coefficients]
+        demand = [-1.0357142857142894, -0.892857142857141, -1.392857142857143, 0.46428571428571436]
+
+    [newsvendor_breakpoints_2.rules.dual.sell]
+    constant = -2.976190476190794
+
+        [newsvendor_breakpoints_2.rules.dual.sell.coefficients]
+        demand = [1.0357142857142894, 0.892857142857141, 1.392857142857143, -0.46428571428571436]
+
+    [newsvendor_breakpoints_2.rules.primal.buy]
+    constant = 110.0
+
+        [newsvendor_breakpoints_2.rules.primal.buy.coefficients]
+        demand = [0.0, 0.0, 0.0, 0.0]
+
+    [newsvendor_breakpoints_2.rules.primal.ret]
+    constant = 110.0
+
+        [newsvendor_breakpoints_2.rules.primal.ret.coefficients]
+        demand = [-1.0, -1.0, -1.0, 0.0]
+
+    [newsvendor_breakpoints_2.rules.primal.sell]
+    constant = 0.0
+
+        [newsvendor_breakpoints_2.rules.primal.sell.coefficients]
+        demand = [1.0, 1.0, 1.0, 0.0]
+
+[newsvendor_breakpoints_3]
+description = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand (single stage after buy). Piecewise-linear lifting of demand with 7 breakpoints at [85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0] (nested: set 1 inside 2 inside 3 inside 4; the intervals are [80, b1], ..., [bn, 120]). Decision rules are piecewise affine in demand."
+dual = 471.9791666666667
+primal = 471.25
+termination_status = "OPTIMAL"
+
+    [newsvendor_breakpoints_3.rules.dual.buy]
+    constant = 110.0
+
+        [newsvendor_breakpoints_3.rules.dual.buy.coefficients]
+        demand = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    [newsvendor_breakpoints_3.rules.dual.ret]
+    constant = 109.94737972508595
+
+        [newsvendor_breakpoints_3.rules.dual.ret.coefficients]
+        demand = [-0.9993556701030933, -1.0019329896907212, -0.9929123711340209, -1.0264175257731953, -0.9014175257731971, -1.367912371134017, 0.37306701030926764, -0.12435567010305851]
+
+    [newsvendor_breakpoints_3.rules.dual.sell]
+    constant = 0.05262027491404171
+
+        [newsvendor_breakpoints_3.rules.dual.sell.coefficients]
+        demand = [0.9993556701030933, 1.0019329896907212, 0.9929123711340209, 1.0264175257731953, 0.9014175257731971, 1.367912371134017, -0.37306701030926764, 0.12435567010305851]
+
+    [newsvendor_breakpoints_3.rules.primal.buy]
+    constant = 110.0
+
+        [newsvendor_breakpoints_3.rules.primal.buy.coefficients]
+        demand = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    [newsvendor_breakpoints_3.rules.primal.ret]
+    constant = 110.0
+
+        [newsvendor_breakpoints_3.rules.primal.ret.coefficients]
+        demand = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0, 0.0]
+
+    [newsvendor_breakpoints_3.rules.primal.sell]
+    constant = 0.0
+
+        [newsvendor_breakpoints_3.rules.primal.sell.coefficients]
+        demand = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0]
+
+[newsvendor_breakpoints_4]
+description = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand (single stage after buy). Piecewise-linear lifting of demand with 15 breakpoints at [82.5, 85.0, 87.5, 90.0, 92.5, 95.0, 97.5, 100.0, 102.5, 105.0, 107.5, 110.0, 112.5, 115.0, 117.5] (nested: set 1 inside 2 inside 3 inside 4; the intervals are [80, b1], ..., [bn, 120]). Decision rules are piecewise affine in demand."
+dual = 471.5104166666668
+primal = 471.328125
+termination_status = "OPTIMAL"
+
+    [newsvendor_breakpoints_4.rules.dual.buy]
+    constant = 107.49999999999999
+
+        [newsvendor_breakpoints_4.rules.dual.buy.coefficients]
+        demand = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    [newsvendor_breakpoints_4.rules.dual.ret]
+    constant = 107.50007156965458
+
+        [newsvendor_breakpoints_4.rules.dual.ret.coefficients]
+        demand = [-1.0000008853977889, -0.9999973438066336, -1.0000097393756766, -0.99996369869066, -1.0001354658616832, -0.999494437862607, -1.0018867826878886, -0.992958431385839, -1.026279491768756, -0.9019236015391362, -1.3660261020746889, 0.3660280098378807, -0.09808593727683138, 0.026315739269452885, -0.007177019800809175, 0.0023923399336133015]
+
+    [newsvendor_breakpoints_4.rules.dual.sell]
+    constant = -7.156965459339588e-5
+
+        [newsvendor_breakpoints_4.rules.dual.sell.coefficients]
+        demand = [1.0000008853977889, 0.9999973438066336, 1.0000097393756766, 0.99996369869066, 1.0001354658616832, 0.999494437862607, 1.0018867826878886, 0.992958431385839, 1.026279491768756, 0.9019236015391362, 1.3660261020746889, -0.3660280098378807, 0.09808593727683138, -0.026315739269452885, 0.007177019800809175, -0.0023923399336133015]
+
+    [newsvendor_breakpoints_4.rules.primal.buy]
+    constant = 107.5
+
+        [newsvendor_breakpoints_4.rules.primal.buy.coefficients]
+        demand = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    [newsvendor_breakpoints_4.rules.primal.ret]
+    constant = 107.5
+
+        [newsvendor_breakpoints_4.rules.primal.ret.coefficients]
+        demand = [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    [newsvendor_breakpoints_4.rules.primal.sell]
+    constant = 0.0
+
+        [newsvendor_breakpoints_4.rules.primal.sell.coefficients]
+        demand = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+[newsvendor_discrete_demand]
+description = "Tutorial newsvendor (docs distributions.jl): buy >= 0 first stage, sell >= 0, salvage >= 0; demand ~ DiscreteNonParametric on [80, 90, 100, 110, 120] with probabilities [0.1, 0.2, 0.4, 0.2, 0.1]. Constraints sell + salvage <= buy, sell <= demand. Maximize -10 buy + 15 sell + 5 salvage. Note: salvage value 5, not the return value 8."
+dual = 470.0
+primal = 400.0
+termination_status = "OPTIMAL"
+
+    [newsvendor_discrete_demand.rules.dual.buy]
+    constant = 94.0
+
+        [newsvendor_discrete_demand.rules.dual.buy.coefficients]
+        demand = 0.0
+
+    [newsvendor_discrete_demand.rules.dual.sell]
+    constant = 94.0
+
+        [newsvendor_discrete_demand.rules.dual.sell.coefficients]
+        demand = 0.0
+
+    [newsvendor_discrete_demand.rules.primal.buy]
+    constant = 80.0
+
+        [newsvendor_discrete_demand.rules.primal.buy.coefficients]
+        demand = 0.0
+
+    [newsvendor_discrete_demand.rules.primal.sell]
+    constant = 80.0
+
+        [newsvendor_discrete_demand.rules.primal.sell.coefficients]
+        demand = 0.0
+
+[newsvendor_integer]
+description = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand (single stage after buy). The first-stage variable buy is additionally integer."
+dual = 486.0000000000001
+primal = 460.0
+termination_status = "OPTIMAL"
+
+    [newsvendor_integer.rules.dual.buy]
+    constant = 107.0
+
+        [newsvendor_integer.rules.dual.buy.coefficients]
+        demand = 0.0
+
+    [newsvendor_integer.rules.dual.ret]
+    constant = 107.0000000000001
+
+        [newsvendor_integer.rules.dual.ret.coefficients]
+        demand = -1.0000000000000009
+
+    [newsvendor_integer.rules.dual.sell]
+    constant = 0.0
+
+        [newsvendor_integer.rules.dual.sell.coefficients]
+        demand = 1.0
+
+    [newsvendor_integer.rules.primal.buy]
+    constant = 120.0
+
+        [newsvendor_integer.rules.primal.buy.coefficients]
+        demand = 0.0
+
+    [newsvendor_integer.rules.primal.ret]
+    constant = 120.0
+
+        [newsvendor_integer.rules.primal.ret.coefficients]
+        demand = -1.0
+
+    [newsvendor_integer.rules.primal.sell]
+    constant = 0.0
+
+        [newsvendor_integer.rules.primal.sell.coefficients]
+        demand = 1.0
+
+[newsvendor_mv_discrete]
+description = "Two-product tutorial newsvendor (docs distributions.jl): buy[1:2] >= 0 first stage, sell[1:2] >= 0, salvage[1:2] >= 0; demand[1:2] one multivariate discrete distribution with scenarios (demand1, demand2) = (80,60), (100,80), (120,100), (80,100), (120,60) and probabilities 0.2, 0.3, 0.2, 0.15, 0.15 (correlated). Constraints sell[i] + salvage[i] <= buy[i], sell[i] <= demand[i]. Maximize sum_i (-10 buy[i] + 15 sell[i] + 5 salvage[i])."
+dual = 760.0
+primal = 700.0
+termination_status = "OPTIMAL"
+
+    [newsvendor_mv_discrete.rules.dual.buy1]
+    constant = 86.0
+
+        [newsvendor_mv_discrete.rules.dual.buy1.coefficients]
+        demand1 = 0.0
+        demand2 = 0.0
+
+    [newsvendor_mv_discrete.rules.dual.sell1]
+    constant = 86.0
+
+        [newsvendor_mv_discrete.rules.dual.sell1.coefficients]
+        demand1 = 0.0
+        demand2 = 0.0
+
+    [newsvendor_mv_discrete.rules.primal.buy1]
+    constant = 80.0
+
+        [newsvendor_mv_discrete.rules.primal.buy1.coefficients]
+        demand1 = 0.0
+        demand2 = 0.0
+
+    [newsvendor_mv_discrete.rules.primal.sell1]
+    constant = 80.0
+
+        [newsvendor_mv_discrete.rules.primal.sell1.coefficients]
+        demand1 = 0.0
+        demand2 = 0.0
+
+[newsvendor_random_price]
+description = "Newsvendor with random sell price: buy >= 0 first stage, sell >= 0, ret >= 0; independent uncertainties demand ~ Uniform(80, 120) and price ~ Uniform(13, 17), each declared in its own @variable call. Constraints sell + ret <= buy, sell <= demand. Maximize -10 buy + 8 ret + price * sell (the product price * sell is quadratic in the decision rule of sell)."
+dual = 486.6666666666665
+primal = 460.0
+termination_status = "OPTIMAL"
+
+    [newsvendor_random_price.rules.dual.buy]
+    constant = 106.6666666666667
+
+        [newsvendor_random_price.rules.dual.buy.coefficients]
+        demand = 0.0
+        price = 0.0
+
+    [newsvendor_random_price.rules.dual.sell]
+    constant = 0.0
+
+        [newsvendor_random_price.rules.dual.sell.coefficients]
+        demand = 1.0
+        price = 0.0
+
+    [newsvendor_random_price.rules.primal.buy]
+    constant = 120.0
+
+        [newsvendor_random_price.rules.primal.buy.coefficients]
+        demand = 0.0
+        price = 0.0
+
+    [newsvendor_random_price.rules.primal.sell]
+    constant = 0.0
+
+        [newsvendor_random_price.rules.primal.sell.coefficients]
+        demand = 1.0
+        price = 0.0
+
+[newsvendor_three_stages]
+description = "Three-stage newsvendor (test_stages.jl). Stage 1: buy >= 0. Stage 2: sell2, ret2, buy2 >= 0, after observing demand2 ~ Uniform(80, 120) and buy_cost2 ~ Uniform(8, 14) (both uncertainties of stage 2). Stage 3: sell3, ret3 >= 0 after demand3 ~ Uniform(80, 120) (stage 3). All uncertainties independent, each in its own @variable call. Constraints: sell2 + ret2 <= buy + buy2; sell2 <= demand2; sell2 + ret2 + sell3 + ret3 <= buy + buy2; sell3 <= demand3. Maximize -10 buy - buy_cost2 buy2 + 8 ret2 + 15 sell2 + 8 ret3 + 15 sell3. A decision of stage t may depend on the uncertainties of stages <= t only."
+dual = 1000.0
+primal = 940.0
+termination_status = "OPTIMAL"
+
+    [newsvendor_three_stages.rules.dual.buy]
+    constant = 200.0
+
+        [newsvendor_three_stages.rules.dual.buy.coefficients]
+        demand2 = 0.0
+        demand3 = 0.0
+
+    [newsvendor_three_stages.rules.dual.sell2]
+    constant = 0.0
+
+        [newsvendor_three_stages.rules.dual.sell2.coefficients]
+        buy_cost2 = 0.0
+        demand2 = 1.0
+        demand3 = 0.0
+
+    [newsvendor_three_stages.rules.dual.sell3]
+    constant = 0.0
+
+        [newsvendor_three_stages.rules.dual.sell3.coefficients]
+        demand2 = 0.0
+        demand3 = 1.0
+
+    [newsvendor_three_stages.rules.primal.buy]
+    constant = 200.0
+
+        [newsvendor_three_stages.rules.primal.buy.coefficients]
+        demand2 = 0.0
+        demand3 = 0.0
+
+    [newsvendor_three_stages.rules.primal.sell2]
+    constant = 0.0
+
+        [newsvendor_three_stages.rules.primal.sell2.coefficients]
+        buy_cost2 = 0.0
+        demand2 = 1.0
+        demand3 = 0.0
+
+    [newsvendor_three_stages.rules.primal.sell3]
+    constant = 0.0
+
+        [newsvendor_three_stages.rules.primal.sell3.coefficients]
+        demand2 = 0.0
+        demand3 = 1.0
+
+[newsvendor_two_products]
+description = "Two independent newsvendors (test_core.jl test_double_newsvendor): buy[1:2] >= 0 first stage, sell[1:2] >= 0, ret[1:2] >= 0; demand[1:2] one vector uncertainty, product of two independent Uniform(80, 120). Constraints sell[i] + ret[i] <= buy[i], sell[i] <= demand[i]. Maximize sum_i (-10 buy[i] + 8 ret[i] + 15 sell[i]). Value is twice the newsvendor value."
+dual = 973.333333333333
+primal = 920.0
+termination_status = "OPTIMAL"
+
+    [newsvendor_two_products.rules.dual.buy1]
+    constant = 106.6666666666667
+
+        [newsvendor_two_products.rules.dual.buy1.coefficients]
+        demand1 = 0.0
+        demand2 = 0.0
+
+    [newsvendor_two_products.rules.dual.sell1]
+    constant = 0.0
+
+        [newsvendor_two_products.rules.dual.sell1.coefficients]
+        demand1 = 1.0
+        demand2 = 0.0
+
+    [newsvendor_two_products.rules.primal.buy1]
+    constant = 120.0
+
+        [newsvendor_two_products.rules.primal.buy1.coefficients]
+        demand1 = 0.0
+        demand2 = 0.0
+
+    [newsvendor_two_products.rules.primal.sell1]
+    constant = 0.0
+
+        [newsvendor_two_products.rules.primal.sell1.coefficients]
+        demand1 = 1.0
+        demand2 = 0.0
+
+[sampled_newsvendor_N1000_seed1234]
+description = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand (single stage after buy). Besides primal and dual, the sampled LDR with 1000 scenarios drawn by the legacy package (Random.Xoshiro(1234), its default seed); the sampled value depends on the generator and is only reproducible with the legacy sampler."
+dual = 486.6666666666665
+primal = 460.0
+sampled = 464.6321326753763
+termination_status = "OPTIMAL"
+
+    [sampled_newsvendor_N1000_seed1234.rules.dual.buy]
+    constant = 106.6666666666667
+
+        [sampled_newsvendor_N1000_seed1234.rules.dual.buy.coefficients]
+        demand = 0.0
+
+    [sampled_newsvendor_N1000_seed1234.rules.dual.ret]
+    constant = 106.6666666666667
+
+        [sampled_newsvendor_N1000_seed1234.rules.dual.ret.coefficients]
+        demand = -1.0
+
+    [sampled_newsvendor_N1000_seed1234.rules.dual.sell]
+    constant = 0.0
+
+        [sampled_newsvendor_N1000_seed1234.rules.dual.sell.coefficients]
+        demand = 1.0
+
+    [sampled_newsvendor_N1000_seed1234.rules.primal.buy]
+    constant = 120.0
+
+        [sampled_newsvendor_N1000_seed1234.rules.primal.buy.coefficients]
+        demand = 0.0
+
+    [sampled_newsvendor_N1000_seed1234.rules.primal.ret]
+    constant = 120.0
+
+        [sampled_newsvendor_N1000_seed1234.rules.primal.ret.coefficients]
+        demand = -1.0
+
+    [sampled_newsvendor_N1000_seed1234.rules.primal.sell]
+    constant = 0.0
+
+        [sampled_newsvendor_N1000_seed1234.rules.primal.sell.coefficients]
+        demand = 1.0
