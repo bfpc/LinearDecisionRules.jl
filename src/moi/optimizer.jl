@@ -35,12 +35,15 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     form::Union{Nothing,CanonicalForm}
     moments::Union{Nothing,Moments}
     parameters::Dict{MOI.VariableIndex,Float64}
+    decision_rows::Dict{MOI.VariableIndex,Int}
+    uncertainty_columns::Dict{MOI.VariableIndex,Int}
     results::Vector{FormulationResult}
     solve_time::Float64
 
     function Optimizer(inner_factory = nothing)
         formulations = AbstractFormulation[PrimalLDR(), DualLDR()]
         parameters = Dict{MOI.VariableIndex,Float64}()
+        indices = Dict{MOI.VariableIndex,Int}()
         raw_attributes = Dict{String,Any}()
         results = FormulationResult[]
         return new(
@@ -53,6 +56,8 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             nothing,
             nothing,
             parameters,
+            indices,
+            copy(indices),
             results,
             NaN,
         )
@@ -66,6 +71,8 @@ function MOI.empty!(o::Optimizer)
     o.form = nothing
     o.moments = nothing
     empty!(o.parameters)
+    empty!(o.decision_rows)
+    empty!(o.uncertainty_columns)
     empty!(o.results)
     o.solve_time = NaN
     return
@@ -280,6 +287,8 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     end
     dest.form, dest.moments, dest.results = form, mom, results
     dest.parameters = _parameter_values(src)
+    dest.decision_rows = Dict(v => i for (i, v) in enumerate(form.decisions))
+    dest.uncertainty_columns = Dict(v => 1 + j for (j, v) in enumerate(form.uncertainties))
     dest.solve_time = (time_ns() - start) / 1e9
     return _identity_map(src), false
 end

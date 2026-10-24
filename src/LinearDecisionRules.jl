@@ -35,10 +35,12 @@ include("moi/sets.jl")
 include("moi/attributes.jl")
 include("moi/model_info.jl")
 include("moi/optimizer.jl")
+include("moi/results.jl")
 include("jump/variables.jl")
 include("jump/constraints.jl")
 include("jump/checks.jl")
 include("jump/model.jl")
+include("jump/results.jl")
 
 export AbstractFormulation,
     BreakPoints,
@@ -46,6 +48,7 @@ export AbstractFormulation,
     CovarianceBlock,
     DualLDR,
     FirstStage,
+    FormulationAttribute,
     FormulationCapabilities,
     FormulationResult,
     Formulations,

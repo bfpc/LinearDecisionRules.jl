@@ -93,8 +93,53 @@ set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
 ```
 """
 struct Formulations <: MOI.AbstractOptimizerAttribute end
-# The values of these attributes hold no indices.
-const _AttributesWithoutIndices =
-    Union{XiRole,ConstraintStage,BreakPoints,InnerOptimizer,Formulations}
+
+"""
+    FormulationAttribute(formulation::AbstractFormulation, attribute)
+
+A model attribute: the `attribute` of one formulation, for example
+`FormulationAttribute(DualLDR(), MOI.TerminationStatus())`.
+
+`attribute` is one of `MOI.TerminationStatus()`, `MOI.PrimalStatus()`, `MOI.ObjectiveValue()`,
+`MOI.ObjectiveBound()`, `MOI.RawStatusString()` and `MOI.SolveTimeSec()`. The objective value of a
+formulation whose rule is not a policy, [`DualLDR`](@ref), is its bound.
+
+See also `JuMP.termination_status(model, formulation)` and the other short helpers.
+"""
+struct FormulationAttribute{A<:MOI.AbstractModelAttribute} <: MOI.AbstractModelAttribute
+    formulation::AbstractFormulation
+    attribute::A
+end
+
+MOI.is_set_by_optimize(::FormulationAttribute) = true
+
+# The three attributes below are internal: the JuMP functions of `jump/results.jl` read them.
+
+# The rule of a variable on ξ = (1, η), as a `Vector{Float64}`.
+struct RuleCoefficients <: MOI.AbstractVariableAttribute
+    formulation::AbstractFormulation
+end
+
+# The uncertainties of the last solve, in the columns of ξ after the constant.
+struct UncertaintyVariables <: MOI.AbstractModelAttribute end
+
+# The `Moments` of ξ of the last solve.
+struct XiMoments <: MOI.AbstractModelAttribute end
+
+MOI.is_set_by_optimize(::Union{RuleCoefficients,UncertaintyVariables,XiMoments}) = true
+
+# The values of these attributes hold no indices, except `UncertaintyVariables`, which the
+# identity map of `optimize!` leaves as they are.
+const _AttributesWithoutIndices = Union{
+    XiRole,
+    ConstraintStage,
+    BreakPoints,
+    InnerOptimizer,
+    Formulations,
+    FormulationAttribute,
+    RuleCoefficients,
+    UncertaintyVariables,
+    XiMoments,
+}
 
 MOI.Utilities.map_indices(::Any, ::_AttributesWithoutIndices, x) = x
