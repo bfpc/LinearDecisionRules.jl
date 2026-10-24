@@ -47,25 +47,20 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     solve_time::Float64
 
     function Optimizer(inner_factory = nothing)
-        formulations = AbstractFormulation[PrimalLDR(), DualLDR()]
-        parameters = Dict{MOI.VariableIndex,Float64}()
-        indices = Dict{MOI.VariableIndex,Int}()
-        raw_attributes = Dict{String,Any}()
-        results = FormulationResult[]
         return new(
             inner_factory,
-            formulations,
-            false,
-            nothing,
-            raw_attributes,
-            "",
-            nothing,
-            nothing,
-            parameters,
-            indices,
-            copy(indices),
-            results,
-            NaN,
+            AbstractFormulation[PrimalLDR(), DualLDR()],
+            false,                            # silent
+            nothing,                          # time_limit
+            Dict{String,Any}(),               # raw_attributes
+            "",                               # name
+            nothing,                          # form
+            nothing,                          # moments
+            Dict{MOI.VariableIndex,Float64}(), # parameters
+            Dict{MOI.VariableIndex,Int}(),    # decision_rows
+            Dict{MOI.VariableIndex,Int}(),    # uncertainty_columns
+            FormulationResult[],
+            NaN,                              # solve_time
         )
     end
 end

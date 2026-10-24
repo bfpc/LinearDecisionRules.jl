@@ -69,12 +69,12 @@ end
 
 function test_empirical_moments()
     form = Problems.form(Problems.newsvendor_three_stages())
-    Ξ = LDR._sample_outcomes(form, SampledLDR(20; seed = 7))
-    @test size(Ξ) == (4, 20)
-    @test all(==(1), Ξ[1, :])
-    @test all(80 .<= Ξ[2, :] .<= 120) && all(8 .<= Ξ[3, :] .<= 14) && all(80 .<= Ξ[4, :] .<= 120)
-    @test Ξ == LDR._sample_outcomes(form, SampledLDR(20; seed = 7))
-    @test second_moment(LDR._empirical_moments(Ξ)) ≈ Ξ * Ξ' ./ 20
+    ξs = LDR._sample_outcomes(form, SampledLDR(20; seed = 7))
+    @test size(ξs) == (4, 20)
+    @test all(==(1), ξs[1, :])
+    @test all(80 .<= ξs[2, :] .<= 120) && all(8 .<= ξs[3, :] .<= 14) && all(80 .<= ξs[4, :] .<= 120)
+    @test ξs == LDR._sample_outcomes(form, SampledLDR(20; seed = 7))
+    @test second_moment(LDR._empirical_moments(ξs)) ≈ ξs * ξs' ./ 20
     return
 end
 

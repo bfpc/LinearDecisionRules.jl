@@ -130,9 +130,9 @@ end
 struct UncertaintyVariables <: MOI.AbstractModelAttribute end
 
 # The `Moments` of ξ of the last solve.
-struct XiMoments <: MOI.AbstractModelAttribute end
+struct UncertaintyMoments <: MOI.AbstractModelAttribute end
 
-MOI.is_set_by_optimize(::Union{RuleCoefficients,UncertaintyVariables,XiMoments}) = true
+MOI.is_set_by_optimize(::Union{RuleCoefficients,UncertaintyVariables,UncertaintyMoments}) = true
 
 # The values of these attributes hold no indices, except `UncertaintyVariables`, which the
 # identity map of `optimize!` leaves as they are.
@@ -145,7 +145,7 @@ const _AttributesWithoutIndices = Union{
     FormulationAttribute,
     RuleCoefficients,
     UncertaintyVariables,
-    XiMoments,
+    UncertaintyMoments,
 }
 
 MOI.Utilities.map_indices(::Any, ::_AttributesWithoutIndices, x) = x

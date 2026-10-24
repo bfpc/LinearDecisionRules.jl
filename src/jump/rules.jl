@@ -117,7 +117,7 @@ function expected_value(
         return Float64(JuMP.constant(expr))
     end
     model = JuMP.owner_model(x)
-    mom = MOI.get(model, XiMoments())
+    mom = MOI.get(model, UncertaintyMoments())
     f = convert(MOI.ScalarQuadraticFunction{Float64}, JuMP.moi_function(expr))
     rules = Dict{MOI.VariableIndex,Vector{Float64}}()
     function rule(v)

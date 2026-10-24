@@ -204,4 +204,4 @@ end
 
 MOI.get(o::Optimizer, ::UncertaintyVariables) = copy(o.form.uncertainties)
 
-MOI.get(o::Optimizer, ::XiMoments) = o.moments
+MOI.get(o::Optimizer, ::UncertaintyMoments) = o.moments
