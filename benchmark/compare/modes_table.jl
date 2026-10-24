@@ -3,11 +3,11 @@
 # first OPTIMAL row among dsimplex, psimplex, ipm, ipx_nox) and print the Markdown table of the
 # README (one row per file, one column per mode: seconds, with the status or the error when not a
 # plain optimal solve).
-#   julia benchmark/compare/modes_table.jl [table]
+#   julia benchmark/compare/modes_table.jl [table] [table=mode,mode,...]
 const RESULTS = joinpath(@__DIR__, "..", "results", "compare_modes.csv")
 const REF_ORDER = ["dsimplex", "psimplex", "ipm", "ipx_nox"]
 const MODE_ORDER = [
-    "dsimplex", "psimplex", "ipm", "ipm_nox", "ipx_nox", "pdlp", "hipdlp", "ipopt", "ipopt_tol6", "ipopt_tol10",
+    "dsimplex", "psimplex", "ipm", "ipm_nox", "ipx_nox", "pdlp", "hipdlp", "ipopt", "ipopt_tol6", "ipopt_tol10", "ipopt_br0",
 ]
 
 function read_rows()
@@ -47,7 +47,10 @@ function main(args)
             println(io, join((r[c] for c in cols), ","))
         end
     end
-    "table" in args && print_table(rows)
+    for a in args
+        a == "table" && print_table(rows, ["dsimplex", "psimplex", "ipm", "ipm_nox", "ipx_nox", "ipopt"])
+        startswith(a, "table=") && print_table(rows, String.(split(a[7:end], ",")))
+    end
 end
 
 function fmt_time(t)
@@ -66,8 +69,9 @@ function cell(r)
     return isempty(flags) ? t : "$t ($(join(flags, "; ")))"
 end
 
-function print_table(rows)
-    present = [m for m in MODE_ORDER if any(r["mode"] == m for r in rows)]
+function print_table(rows, modes)
+    present = [m for m in MODE_ORDER if m in modes && any(r["mode"] == m for r in rows)]
+    rows = [r for r in rows if r["mode"] in present]
     println("| Instance | Formulation | Package | ", join(present, " | "), " |")
     println("|---|---|---|", join(fill("--:", length(present)), "|"), "|")
     stems = unique(stemof(r) for r in rows)

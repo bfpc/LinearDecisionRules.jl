@@ -17,7 +17,7 @@ const MPS = joinpath(DIR, "mps")
 const LOGS = joinpath(DIR, "logs")
 const RESULTS = joinpath(DIR, "..", "results", "compare_modes.csv")
 const TIME_LIMIT = 120.0
-const HARD_LIMIT = 400.0            # process kill (reading, start-up included)
+const HARD_LIMIT = parse(Float64, get(ENV, "HARD_LIMIT", "400"))   # process kill (reading, start-up included)
 const IPOPT_MAX_BYTES = 100e6
 
 # name => (program, options)
@@ -27,11 +27,13 @@ const MODES = Dict(
     "ipm" => (:highs, ["solver=ipm"]),                                # HiPO, with crossover
     "ipm_nox" => (:highs, ["solver=ipm", "run_crossover=off"]),
     "ipx_nox" => (:highs, ["solver=ipx", "run_crossover=off"]),
-    "pdlp" => (:highs, ["solver=pdlp"]),
+    # time_limit=120 stops cuPDLP-C after 0.1 s (it seems to read the limit in ms): pass 120000
+    "pdlp" => (:highs, ["solver=pdlp", "time_limit=120000"]),
     "hipdlp" => (:highs, ["solver=hipdlp"]),
     "ipopt" => (:ipopt, String[]),                                    # tol = 1e-8, the default of Ipopt
     "ipopt_tol6" => (:ipopt, ["tol=1e-6"]),
     "ipopt_tol10" => (:ipopt, ["tol=1e-10"]),
+    "ipopt_br0" => (:ipopt, ["bound_relax_factor=0.0"]),                # no relaxation of the bounds
 )
 const HIGHS_STATUS = Dict(
     0 => "NOTSET", 1 => "LOAD_ERROR", 2 => "MODEL_ERROR", 3 => "PRESOLVE_ERROR", 4 => "SOLVE_ERROR",

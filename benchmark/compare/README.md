@@ -38,6 +38,12 @@ julia --project=benchmark/compare benchmark/compare/variants.jl nou hydro_T8_new
 julia --project=benchmark/compare benchmark/compare/run_solves.jl hydro_T8_new_dual_nou
 julia --project=benchmark/compare benchmark/compare/solve_jump.jl new inventory 128 primal   # through JuMP, as the packages do
 julia benchmark/compare/table.jl [default|settings]
+
+# solver modes (sequential; Ipopt added to this environment); nou files first: variants.jl nou <stem>
+julia --project=benchmark/compare benchmark/compare/run_modes.jl modes=dsimplex,psimplex,ipm,ipm_nox set=main
+julia --project=benchmark/compare benchmark/compare/run_modes.jl modes=ipx_nox,ipopt reps=2 set=main
+julia --project=benchmark/compare benchmark/compare/run_modes.jl modes=dsimplex,psimplex,ipm_nox,ipm hydro_T8_new_dual_nou
+julia benchmark/compare/modes_table.jl table   # adds rel_err to the CSV, prints the table (not while run_modes runs)
 ```
 
 The MPS files (up to 0.5 GB) and the logs go to `mps/` and `logs/`, which are not committed.
@@ -161,6 +167,119 @@ presolve is what equalizes the primal. Status 15 (unknown) of the IPM without cr
 status for a solution without a basis; on the 0.4 dual rows its objective agrees with the simplex one to 2e-10 (2e-6 at worst, legacy dual at inventory T = 64). The IPM
 rows of the primal are the exception to the parity, see hypothesis P1.
 
+## Solver modes (`results/compare_modes.csv`, seconds of the solver's own clock)
+
+Same MPS files (re-exported from the worktree and the legacy environment; objective values as in
+`compare.csv`), one fresh process per solve, **run one after the other** (the earlier run had up to
+four in parallel). The dual simplex column is the re-measured baseline: it agrees with `compare.csv`
+to 10% (hydro T = 8 primal 12.3 s against 12.4 s, legacy dual 20.9 s against 22.4 s, 0.4 dual at
+inventory T = 128 6.4 s against 6.9 s; the 0.4 dual at hydro T = 8 and the legacy dual at inventory
+T = 128 hit the limit, as they took 145 s and 1,048 s). A solve over 5 s is a single run, the faster
+ones the best of 2 or 3. Time limit 120 s (`TL`, not retried; a mode that reaches it is not run on
+the larger T of its chain, `skip`; Ipopt is not run on the two files over 100 MB, which JuMP takes
+minutes to read). `unk` is HiGHS's "unknown" model status (an IPM solution without a basis), `err` the
+relative error of the objective against the HiGHS optimum, shown when over 1e-6. HiGHS 1.15.1 (HiGHS.jl 1.26.1), Ipopt 3.14.19 (Ipopt.jl 1.16.0, MUMPS,
+`print_level = 0`, default `tol = 1e-8`), 28 threads.
+
+Modes: `dsimplex` and `psimplex` are `solver = "simplex"` with `simplex_strategy = 1` and `4`
+(presolve on); `ipm` is `solver = "ipm"` with crossover (HiPO in this HiGHS) and `ipm_nox` the same
+with `run_crossover = "off"`; `ipx_nox` is `solver = "ipx"` (the previous IPM of HiGHS) without
+crossover; `ipopt` is Ipopt through JuMP (`read_from_file`; time is that of `optimize!`, which includes
+the copy of the model; the 0.4 primal files have `λ` in the names, which MOI's reader refuses, so they are
+read from an ASCII copy). The accepted values of `solver` in HiGHS 1.15.1 are `choose`, `simplex`,
+`ipm`, `ipx`, `hipo`, `pdlp`, `qpasm` and `hipdlp`: `ipm` and `hipo` gave the same iterations and
+objective here (HiPO), `ipx`, `pdlp` (cuPDLP-C, on the CPU) and `hipdlp` (HiGHS's own PDLP) are for
+LPs only, and `qpasm` (the active-set method) is for QPs, so none of these LPs use it.
+
+| Instance | Formulation | Package | dsimplex | psimplex | ipm | ipm_nox | ipx_nox | ipopt |
+|---|---|---|--:|--:|--:|--:|--:|--:|
+| inventory T=32 | primal | new | 0.024 | 0.032 | 0.085 | 0.066 | 0.084 | 0.27 |
+| inventory T=64 | primal | new | 0.099 | 0.24 | 0.38 | 0.3 | 0.6 | 0.57 |
+| inventory T=128 | primal | new | 0.57 | 3.6 | 2.0 | 1.6 | 6.8 | 2.7 |
+| inventory T=32 | primal | legacy | 0.033 | 0.074 | 0.1 | 0.08 | 0.08 | 0.65 |
+| inventory T=64 | primal | legacy | 0.11 | 0.62 | 0.44 | 0.38 | 0.62 | 2.5 |
+| inventory T=128 | primal | legacy | 0.57 | 9.2 | 2.3 | 2.0 | 5.2 | 12.6 |
+| inventory T=32 | primal_sae | legacy | 0.035 | 0.058 | 0.087 | 0.079 | 0.099 | 0.59 |
+| inventory T=64 | primal_sae | legacy | 0.091 | 0.59 | 0.42 | 0.39 | 0.55 | 2.0 |
+| inventory T=128 | primal_sae | legacy | 0.69 | 8.5 | 2.1 | 1.9 | 6.9 | 10.0 |
+| inventory T=32 | dual | new | 0.087 | 0.029 | 0.19 | 0.15 | 0.081 | 0.3 |
+| inventory T=64 | dual | new | 0.68 | 0.15 | 1.1 | 0.79 | 0.43 | 0.72 |
+| inventory T=128 | dual | new | 6.4 | 1.1 | 6.2 | 4.4 | 22.1 | 5.1 |
+| inventory T=32 | dual | legacy | 0.53 | 0.12 | 0.42 | 0.34 | 0.4 | 1.2 |
+| inventory T=64 | dual | legacy | 11.2 | 1.3 | 5.8 | 5.2 (unk; err 2.0e-6) | 6.6 | 28.2 |
+| inventory T=128 | dual | legacy | >120 (TL) | 13.9 | 45.3 | 36.9 | >120 (TL) | skip |
+| hydro T=4 | primal | new | 0.53 | 0.31 | 0.96 | 0.47 (unk; err 10.0) | 0.35 | 1.0 (err 0.0002) |
+| hydro T=8 | primal | new | 12.3 | 9.5 | 5.7 (solve_error; err 1.0) | 5.5 (err 3.0e-5) | 3.7 | 7.1 (err 0.0001) |
+| hydro T=4 | primal | legacy | 0.86 | 0.44 | 0.63 | 0.59 | 0.45 | 8.8 (almost_locally_solved; err 0.0004) |
+| hydro T=8 | primal | legacy | 20.3 | 11.1 | 7.1 | 6.5 | 5.7 | 83.1 (err 0.0002) |
+| hydro T=4 | primal_sae | legacy | 0.3 | 0.33 | 1.1 | 0.83 (unk; err 0.005) | 0.36 | 5.3 (err 0.0003) |
+| hydro T=8 | primal_sae | legacy | 12.8 | 11.5 | 3.8 | 3.6 | 3.8 | 49.7 (err 0.0002) |
+| hydro T=4 | dual | new | 3.3 | 2.8 | 1.1 | 0.51 | 0.39 | 16.1 (err 5.0e-5) |
+| hydro T=8 | dual | new | >120 (TL) | >120 (TL) | >120 (TL) | 6.5 | 3.5 | >120 (TL) |
+| hydro T=4 | dual | legacy | 0.78 | 1.6 | 1.4 | 1.3 (unk) | 0.6 (unk) | 18.4 (err 9.0e-5) |
+| hydro T=8 | dual | legacy | 20.9 | 96.4 | 17.9 | 15.9 (unk) | 12.2 (unk) | skip |
+| inventory T=32 | dual_nou | new | 0.4 | 0.058 | 0.35 | 0.29 |  |  |
+| inventory T=64 | dual_nou | new | 8.7 | 0.42 | 2.9 | 2.5 |  |  |
+| inventory T=128 | dual_nou | new | >120 (TL) | 3.6 | 37.9 | 38.0 |  |  |
+| hydro T=4 | dual_nou | new | 0.89 | 1.5 | 1.9 | 1.1 (unk; err 20.0) |  |  |
+| hydro T=8 | dual_nou | new | 28.3 | 112.0 | 13.8 | 12.6 |  |  |
+
+`dual_nou` is the 0.4 dual with `u` substituted out (`variants.jl nou`), solved in the first four
+modes only. Other modes, on the few files where they were tried (seconds; `results/compare_modes.csv`):
+
+| Instance | Formulation | Package | pdlp | hipdlp | ipopt_tol6 | ipopt_tol10 | ipopt_br0 |
+|---|---|---|--:|--:|--:|--:|--:|
+| inventory T=32 | primal | new |  | 0.047 (unk) |  |  |  |
+| inventory T=32 | dual | new | 2.0 | 1.1 |  |  |  |
+| inventory T=64 | dual | new |  | 16.5 | 0.72 | 0.91 | 0.71 |
+| hydro T=4 | primal | new | 10.7 (unk) | 7.7 (err 5.0e-5) | 1.0 (err 0.0005) | 1.1 (err 0.0002) | 4.5 (err 6.0e-6) |
+| hydro T=4 | dual | new |  | 28.0 | 2.3 (err 0.03) | 16.3 | 91.2 (almost_locally_solved; err 0.04) |
+
+Facts. (1) No HiGHS mode is the best everywhere, and the spread is up to 75x on the same file: the
+legacy dual of inventory T = 128 takes 1,048 s by dual simplex (limit reached again here), 13.9 s by
+primal simplex and 37 s by IPM; the 0.4 dual of hydro T = 8 reaches the limit with dual simplex, primal
+simplex and IPM with crossover, and takes 6.5 s by IPM without crossover and 3.5 s by IPX without
+crossover. (2) For the 0.4 dual, `ipm_nox` solved the five instances in 0.15, 0.79, 4.4, 0.51 and 6.5 s,
+always `OPTIMAL` and within 5.3x of the best mode of the row; primal simplex is the best on the
+inventory (1.1 s against 6.4 s at T = 128) but reaches the limit at hydro T = 8, and IPX without crossover
+needs 22 s at inventory T = 128. (3) For the primals the default dual simplex is the best or near it on
+the inventory (0.57 s at T = 128 against 1.6 s for the best other mode), while at hydro T = 8 IPX without
+crossover is 3.3x faster (3.7 s against 12.3 s); the HiPO IPM is not reliable on the 0.4 hydro primal
+(SOLVE_ERROR with crossover at T = 8; `ipm_nox` returns objective 44.7 against 3.76 at T = 4 with status
+`unk`, and the same wrong value appeared in `compare.csv`), so only status `OPTIMAL` can be trusted
+from it. (4) Ipopt always converged on the 0.4 inventory files (0.27 s to 5.1 s, errors 1e-9 on the dual
+and 1e-7 on the primal) and on the 0.4 hydro T = 4 and T = 8 primal (1.0 s and 7.1 s), but it is never
+the fastest (1.9x to 41x slower than the best HiGHS mode on the 22 rows it solved, 3x or more on 21 of them;
+faster than HiGHS's default only at the 0.4 inventory T = 128 dual, 5.1 s against 6.4 s, and at the 0.4 hydro T = 8
+primal, 7.1 s against 12.3 s), it reached the limit on the 0.4 dual at hydro T = 8, and on the hydro files its "locally solved" objective is off by 5e-5 to 4e-4
+(the same with `tol = 1e-10`; `bound_relax_factor = 0` gives 6e-6 on the primal but 91 s and an error of
+0.04 on the T = 4 dual, `tol = 1e-6` an error of 0.03 on it), so its bound is not exact there; on the legacy
+duals it is slower still (28 s at inventory T = 64 against 0.72 s on the 0.4 dual). (5) The `u`
+substitution does not combine with a good mode: with `ipm_nox` the `nou` dual takes 12.6 s at hydro T = 8
+(6.5 s with `u`), 38 s at inventory T = 128 (4.4 s) and, at hydro T = 4, an `unk` answer with objective 25.2
+against 0.98; with primal simplex 3.6 s at inventory T = 128 (1.1 s with `u`); it only wins against the
+default dual simplex (28 s against over 120 s at hydro T = 8). (6) The first-order solvers are not
+competitive: `hipdlp` takes 1.1 s, 16.5 s and 28 s on the 0.4 duals of inventory T = 32 and 64 and hydro
+T = 4 (0.15, 0.8 and 0.5 s for `ipm_nox`), and `pdlp` 2.0 s and 10.7 s on the two it was run on; HiGHS's
+`pdlp` stopped at once with `time_limit = 120` (it seems to read the limit in ms), so its rows use
+`time_limit = 120000`.
+
+Recommended defaults (HiGHS, this machine): **DualLDR (0.4): `solver = "ipm", run_crossover = "off"`**
+(the bound needs no basis; it is the only mode that solves the five 0.4 dual instances within 7 s, all with
+status `OPTIMAL`; primal simplex is 4x faster on the inventory duals but reaches the limit at hydro T = 8,
+and the `u`-free variant does not help it).
+**PrimalLDR (0.4): keep HiGHS's default (dual simplex)**: it is within 2x of the best everywhere
+but at hydro T = 8, where IPX without crossover (`solver = "ipx", run_crossover = "off"`) gains 3x, and
+the other modes cost 3x to 16x at inventory T = 128 or fail on the 0.4 hydro primal. Ipopt is worth it only when
+the inner optimizer has to be Ipopt (then use the 0.4 forms: Ipopt solves the 0.4 dual 4x to 39x faster than the legacy dense one on the
+inventory, and the same at hydro T = 4) and the bound is needed to about 1e-4 only: not when the LDR bound is used as a
+certificate or compared between models.
+
+Skipped for the budget (about 38 minutes of solver time in the CSV, 60 allowed): hydro T = 12 in all
+modes; Ipopt on the legacy dual of inventory T = 128 and hydro T = 8 (files of 508 and 176 MB),
+`pdlp` and `hipdlp` on most files (only a few small ones, listed above), `ipx` with crossover, and
+the `nou` variant under Ipopt and under the first-order solvers.
+
 ## Hypotheses for the formulation code, ranked by evidence
 
 **D1. The auxiliary `u = S mu` keeps the cone rows sparse but costs presolve half of its work
@@ -208,5 +327,6 @@ but not by the factors seen on the dual.
 
 `inventory.jl` (the instance, for both packages), `export_new.jl`, `export_legacy.jl`,
 `solve_mps.jl`, `run_solves.jl`, `run_settings.sh`, `solve_jump.jl`, `analyze_mps.jl` and
-`lpdata.jl` (structure before and after presolve), `permute_test.jl`, `variants.jl`, `table.jl`;
+`lpdata.jl` (structure before and after presolve), `permute_test.jl`, `variants.jl`, `table.jl`,
+`run_modes.jl`, `solve_ipopt.jl` and `modes_table.jl` (solver modes);
 results in `../results/compare*.csv`.
