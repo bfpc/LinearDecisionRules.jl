@@ -1,4 +1,162 @@
 \section{Uncertainty sets and laws}
 \label{sec:laws}
 
-To be written.
+The formulations use the law only through $\mub$ and the covariance blocks, and the support only through $\Xis \supseteq \supp\law$.
+This section describes where both come from.
+The conditioning of laws (\code{Truncate()}) is on the branch being merged, and \code{ConfidenceMvNormal} is being ported from the previous version;
+we describe both as part of the package.
+
+\subsection{Roles of the rows of \texorpdfstring{$\Xis$}{the support}}
+
+Each row of $W\eta \ge h$ has a role (\code{SupportBlock}, \file{src/canonical/support.jl}):
+\begin{description}[nosep,font=\normalfont\ttfamily]
+\item[:box] a finite bound of a law, from its \code{minimum} and \code{maximum}.
+A law without finite bounds gives none; an unbounded law is rejected when it is declared.
+\item[:valid] a constraint over uncertainties only, tagged \code{ValidInequality()}:
+it holds almost surely under the declared law and only tightens $\Xis$.
+Since it holds on the support it holds at the mean, which the package checks;
+equalities are rejected, since $\Xis$ must have a nonempty interior.
+\item[:truncate] a constraint tagged \code{Truncate()}:
+it \emph{conditions} the law on the set $\mathcal{C}$ where such constraints hold,
+and the conditioned law is supported in $\mathcal{C}$, so the row also belongs to $\Xis$.
+\item[:hull] a convex-hull row of a lifting (\cref{sec:axis-lifting}).
+\end{description}
+A constraint over uncertainties only without a tag is an error that names both tags:
+in the previous version such a constraint silently conditioned the law, which proved error-prone.
+The two tags differ in what they mean for the law, not for $\Xis$:
+both give rows of $\Xis$, but only \code{Truncate()} changes $\law$, hence the moments and the draws.
+
+\subsection{Exact truncation}
+
+When the rows tagged \code{Truncate()} that involve a univariate law involve it alone, they define an interval $[\alpha, \beta]$,
+and the law is truncated exactly (\code{\_condition}, \file{src/canonical/conditioning.jl}):
+a continuous law becomes \code{truncated(d, alpha, beta)}, whose mean and variance come from Distributions when it has them and from quadrature of the truncated density otherwise;
+a discrete law with a finite support becomes the law of its atoms in the interval, renormalized.
+The rows are then dropped: the box of the truncated law replaces them.
+A truncation of probability zero is an error that names the constraints.
+
+\subsection{Conditioning by rejection sampling}
+\label{sec:rejection}
+
+Rows tagged \code{Truncate()} that couple several declarations, or that involve a multivariate law, have no closed form.
+The declarations coupled by such rows are merged by union--find into one law,
+the product of their laws conditioned on $\mathcal{C} = \{\eta : W_{\mathcal{C}}\eta \ge h_{\mathcal{C}}\}$ (\code{ConditionedDistribution}),
+which has one covariance block, and whose draws are obtained by rejection: draws of the product law are kept when they lie in $\mathcal{C}$.
+
+Its moments are those of the empirical law of the kept draws.
+Up to $N_{\max}$ draws are kept (\code{RejectionSamplingMaxSamples()}, $10\,000$ by default), within a time limit per conditioned law (\code{RejectionSamplingTimeLimit()}, 10 seconds),
+and with $n$ kept draws $\eta^1, \dots, \eta^n$ the package uses
+\[
+\hat\mu = \frac1n\sum_{s=1}^n \eta^s, \qquad \hat\Cv = \frac1n\sum_{s=1}^n (\eta^s - \hat\mu)(\eta^s - \hat\mu)^\T,
+\]
+dividing by $n$ rather than $n - 1$ (\file{src/probability/moments.jl}).
+These are then exactly the moments of a probability law supported in $\mathcal{C}$ and in the boxes of the laws,
+the uniform law on the draws:
+the mean lies in $\Xis$ and $\hat\Mom$ is a second-moment matrix, so all the statements of \cref{sec:primal,sec:dual} hold for that law.
+Sums are accumulated relative to the first kept draw, for accuracy.
+
+The $k$-th conditioned law of a model draws from its own stream, seeded by the $k$-th entry of a vector of seeds drawn from the seed of the model (\code{RejectionSamplingSeed()}, 1234), so laws never share draws.
+Fewer than $\min(N_{\max}, 100)$ kept draws is an error, which names the constraints and the acceptance rate;
+the sampling stops early when even the upper bound of the acceptance rate given by the rule of three cannot reach that number in time.
+Fewer than $N_{\max}$ draws is a warning.
+The estimates are cached by the conditioned law, its seed and the sample size,
+so that a new solve of a model whose laws and conditioning rows did not change does not sample again.
+A law conditioned by rejection cannot be lifted yet.
+
+The Monte Carlo error of these moments is of order $n^{-1/2}$:
+the standard error of the mean of a coordinate is $\sqrt{\hat\Cv_{jj}/n}$, one percent of its standard deviation with $10\,000$ draws,
+and an acceptance rate $\pi$ costs about $n/\pi$ draws of the product law.
+What it means for the results:
+\begin{itemize}[nosep]
+\item the primal rule is still feasible on all of $\Xis$, since robust feasibility does not involve the moments;
+only its value is an estimate of the expected value under the conditioned law;
+\item the dual bound is a valid bound for the problem under the empirical law of the draws, and an estimate for the conditioned law;
+\item both are reported with \code{certified = false} and a reason appended to the raw status.
+\end{itemize}
+Values of the dual are also not certified when a law correlates stages (\cref{rem:lce}),
+and values of the sampled formulation never are, being estimates by construction.
+
+\subsection{Discrete laws}
+
+\code{MvDiscreteNonParametric} is a law on finitely many joint outcomes (scenarios) with given probabilities.
+Its mean and covariance are exact sums, its draws are by inversion of the cumulative probabilities,
+and its box is the componentwise minimum and maximum of the atoms.
+$\Xis$ is then a box around the atoms, larger than their convex hull;
+valid inequalities can describe the hull more tightly, at the price of coupling the coordinates into one support block.
+The law has $\Cv \succ 0$ only if its atoms are affinely independent enough, that is, if they span an affine space of full dimension.
+In the hydrothermal benchmark (\cref{sec:computation}), each stage has 82 joint outcomes of 4 inflows.
+
+\subsection{The confidence-ellipsoid normal law}
+\label{sec:confidence-normal}
+
+A normal law has an unbounded support, and the robust primal approximation would force every rule to ignore it.
+\code{ConfidenceMvNormal(mu, Sigma, alpha)} is the normal law $\mathcal{N}(\mu, \Sigma)$ in $\R^d$ conditioned on its confidence ellipsoid of probability $\alpha$,
+\[
+\mathcal{E} = \{\, \eta : (\eta - \mu)^\T\Sigma^{-1}(\eta - \mu) \le \rho^2 \,\},
+\qquad
+\rho^2 = \Fchi{d}^{-1}(\alpha),
+\]
+where $\Fchi{d}$ is the distribution function of the $\chi^2$ law with $d$ degrees of freedom:
+with $\Sigma = LL^\T$ and $z = L^{-1}(\eta - \mu) \sim \mathcal{N}(0, I_d)$, the ellipsoid is $\norm{z}^2 \le \rho^2$ and $\norm{z}^2 \sim \chi^2_d$.
+
+\begin{proposition}[Moments of \code{ConfidenceMvNormal}]
+\label{prop:confidence-moments}
+The conditioned law has mean $\mu$ and covariance $c_\alpha\Sigma$, with
+\[
+c_\alpha = \frac{\Fchi{d+2}(\rho^2)}{\alpha} \in (0, 1).
+\]
+Moreover, for any split $\eta = (\eta_h, \eta_f)$ of its coordinates,
+$\E[\eta_f \mid \eta_h] = \mu_f + \Sigma_{fh}\Sigma_{hh}^{-1}(\eta_h - \mu_h)$, which is linear in $\eta_h$.
+\end{proposition}
+
+The proof is in \cref{app:moments}.
+The mean is $\mu$ by symmetry, and the covariance is $\Sigma$ scaled by the conditional mean of $\norm{z}^2/d$ on the ball,
+which a change of degrees of freedom of the $\chi^2$ density turns into $\Fchi{d+2}(\rho^2)/\alpha$.
+This is the formula of the previous version, which computed $\rho^2$ with \code{quantile(Chisq(d), alpha)} and $c_\alpha$ with \code{cdf(Chisq(d + 2), rho2) / alpha}.
+The second statement holds because, given $\eta_h$, the ellipsoid is an ellipsoid in $\eta_f$ centered at the conditional mean of the untruncated normal law (a Schur complement),
+and the conditional normal law is symmetric around that center.
+So a \code{ConfidenceMvNormal} whose components are in several stages satisfies the condition of \cref{thm:dual-bound},
+even though its components are correlated and dependent across stages (\cref{rem:lce}).
+
+Draws are by rejection in the standardized space: draw $z \sim \mathcal{N}(0, I_d)$ until $\norm{z} \le \rho$, and return $\mu + Lz$,
+with acceptance probability $\alpha$.
+An exact alternative without rejection draws a direction uniformly on the sphere and a radius $r$ with $r^2 = \Fchi{d}^{-1}(\alpha U)$, $U$ uniform on $(0,1)$.
+
+\paragraph{Two representations of the support.}
+The support $\mathcal{E}$ is not a polyhedron, and the design plans two representations, chosen by the user (with a default to be decided from the inner solver, the dimension and the presence of integers):
+\begin{description}[nosep]
+\item[Ellipsoid.] The exact set, as the second-order cone row $(\rho,\ L^{-1}(\eta - \mu)) \in \mathcal{L}^{d+1}$,
+which makes the support block conic and the formulations second-order cone programs.
+Both approximations extend to conic blocks \citep[Theorem~2.1]{GWK2015}:
+the multipliers of the row lie in the dual cone (the same cone), and so does $\E[s_r(\xi)\,(\Wp\xi)]$ for the conic rows of $\Wp$.
+\item[Boxes.] The bounding box $\abs{\eta_j - \mu_j} \le \rho\sqrt{\Sigma_{jj}}$ (the projection of $\mathcal{E}$ on the axes), the box of the previous version,
+and the principal-axis box $\abs{v_j^\T(\eta - \mu)} \le \rho\sqrt{\lambda_j}$, where $\Sigma = V\operatorname{diag}(\lambda)V^\T$:
+a polytope with $4d$ rows that contains $\mathcal{E}$, keeping the formulations linear (and mixed-integer linear with integers, much easier than mixed-integer second-order cone programs).
+\end{description}
+The boxes are an outer approximation, so the primal rule stays feasible and the dual a valid bound; both get looser.
+How much, can be computed for a constraint that depends on $\eta$ alone.
+
+\begin{proposition}[Ellipsoid against principal-axis box]
+\label{prop:ellipsoid-box}
+Let $s(\xi) = s_1 + s_\eta^\T\eta$, and let $\bar s = s_1 + s_\eta^\T\mu = \E[s(\xi)]$ and $\omega = \Lambda^{1/2}V^\T s_\eta$, so that $\norm{\omega}_2 = (s_\eta^\T\Sigma s_\eta)^{1/2}$.
+Then
+\begin{enumerate}[label=(\alph*),nosep]
+\item the primal robust counterpart over $\mathcal{E}$ is $\bar s \ge \rho\norm{\omega}_2$, and over the principal-axis box $\bar s \ge \rho\norm{\omega}_1$;
+\item the dual inequalities $\E[s(\xi)(\Wp\xi)] \in \mathcal{L}^{d+1}$ of the ellipsoid row are $\bar s \ge (c_\alpha/\rho)\norm{\omega}_2$,
+and those of the principal-axis box are $\bar s \ge (c_\alpha/\rho)\norm{\omega}_\infty$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(a) With $\eta = \mu + Lz$, $\min_{\norm z \le \rho} s_\eta^\T Lz = -\rho\norm{L^\T s_\eta}_2$ and $\norm{L^\T s_\eta}_2 = \norm{\omega}_2$;
+over the box $\{\abs{v_j^\T(\eta - \mu)} \le \rho\sqrt{\lambda_j}\}$, the minimum of $s_\eta^\T(\eta - \mu) = \sum_j (v_j^\T s_\eta)\, v_j^\T(\eta - \mu)$ is $-\rho\sum_j\sqrt{\lambda_j}\abs{v_j^\T s_\eta}$.
+(b) $\E[s(\xi)(\eta - \mu)] = c_\alpha\Sigma s_\eta$ by \cref{prop:confidence-moments}.
+For the cone row, $\E[s(\xi)(\rho,\ L^{-1}(\eta - \mu))] = (\rho\bar s,\ c_\alpha L^\T s_\eta)$, which lies in $\mathcal{L}^{d+1}$ if and only if $\rho\bar s \ge c_\alpha\norm{\omega}_2$.
+For the rows $\pm v_j^\T(\eta - \mu) + \rho\sqrt{\lambda_j} \ge 0$, the inequalities are $\rho\sqrt{\lambda_j}\,\bar s \pm c_\alpha\lambda_j v_j^\T s_\eta \ge 0$, that is, $\rho\bar s \ge c_\alpha\abs{\omega_j}$.
+\end{proof}
+
+Since $\norm{\omega}_\infty \le \norm{\omega}_2 \le \norm{\omega}_1 \le \sqrt d\norm{\omega}_2$,
+the box representation is at most a factor $\sqrt d$ more conservative in the primal and at most a factor $\sqrt d$ looser in the dual, on these rows;
+adding the axis-aligned box tightens both.
+The two radii, $\rho$ for the primal and $c_\alpha/\rho$ for the dual, also show how the two approximations see the law:
+the primal guards against the worst point of the ellipsoid, the dual only against the spread of the law around its mean.

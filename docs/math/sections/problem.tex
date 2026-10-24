@@ -25,7 +25,8 @@ This is the role of the truncation operators $P_t$ of \citet[Section~4]{KWG2011}
 sorting makes them prefixes, which the implementation uses everywhere.
 
 The law of $\eta$ is given by \emph{declarations}:
-each \code{@variable(model, \dots{} in Uncertainty(dist))} declares a group of columns with a joint law (univariate or multivariate),
+each declaration of variables \code{in Uncertainty(dist)}
+gives a group of columns with a joint law (univariate or multivariate),
 and distinct declarations are independent.
 The components of one multivariate declaration may be in different stages;
 then the law itself correlates stages, and we will see in \cref{sec:dual} that this matters for the dual bound.

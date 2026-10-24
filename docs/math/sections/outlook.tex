@@ -1,4 +1,42 @@
 \section{Outlook}
 \label{sec:outlook}
 
-To be written.
+The structured formulations make problems with hundreds of thousands of rule coefficients routine.
+For larger ones, the following directions follow from the structure described above; none is implemented.
+
+\paragraph{Decomposition.}
+The reformulations are block-angular:
+the rule coefficients $X$ are shared, and each inequality contributes its own multipliers (primal) or slack variables (dual), linked to $X$ by a few equalities.
+This is the structure that Benders and Dantzig--Wolfe decompositions exploit, by inequality, by stage or by support block,
+and also the structure of a stage-by-stage scheme in which the rules of the earlier stages are fixed while those of the later ones are optimized.
+
+\paragraph{Column-and-constraint generation.}
+Most multipliers of the primal and most cone inequalities of the dual are inactive at the optimum.
+For a polyhedral $\Xis$, the robust counterpart of an inequality can be enforced lazily,
+by adding the vertices of $\Xis$ that violate it (constraint generation)
+or the multipliers of the rows of $W$ that price out (column generation), as in \citet{ZengZhao2013}.
+For the dual, cone inequalities can be added as they are violated.
+
+\paragraph{Warm starts across liftings.}
+A rule computed with fewer breakpoints is a feasible rule with more (\cref{sec:liftings}),
+so the problem without breakpoints, which is the smallest, can warm-start a problem with breakpoints:
+its rule gives a primal feasible point, and its active multipliers suggest the columns and constraints to keep.
+The same holds along a sequence of nested breakpoints, and could guide where to add them.
+
+\paragraph{Solver-aware formulations.}
+Two choices measured in \cref{sec:computation} are planned:
+a density rule deciding, row by row, whether to keep the auxiliary $u_r$ of the dual,
+and hints to the inner solver per formulation, such as the interior-point method without crossover for the dual, whose value only is needed.
+The closed form of the robust counterpart over box blocks, and JuMP parameters to re-solve with new data without rebuilding, belong to the same phase.
+
+\paragraph{Conic supports and random recourse.}
+Second-order cone rows of $\Xis$, needed for the exact ellipsoid of \cref{sec:confidence-normal}, extend both approximations by conic duality \citep[Theorem~2.1]{GWK2015}.
+Random recourse (an uncertainty multiplying a decision in a constraint) makes the robust counterparts quadratic in $\xi$:
+\citet[Section~3]{KWG2011} treat it by the S-lemma, exactly for an ellipsoidal support and conservatively for polyhedra.
+It is cheap in two cases: when the decision is a first-stage constant, the product is linear in $\xi$;
+and in the sampled formulation, where each outcome gives a constraint linear in $X$.
+
+\paragraph{Richer rules.}
+Liftings of linear combinations of several uncertainties and nonlinear liftings \citep[Section~5]{GWK2015} fit the framework of \cref{sec:liftings} with new maps $\Lift$ and $\Retr$;
+expected-value constraints at a given stage \citep[(MSP)]{KWG2011} fit the canonical form with new rows;
+and two-stage linear decision rules \citep{BodurLuedtke2022} combine linear rules with an exact recourse at each stage, at the price of a decomposition.

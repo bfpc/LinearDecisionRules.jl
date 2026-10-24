@@ -1,4 +1,156 @@
 \section{Computational notes}
 \label{sec:computation}
 
-To be written.
+This section collects the sizes of the reformulations and what was measured on two benchmarks:
+the $T$-period inventory problem of \file{benchmark/timing.jl} (one scalar uniform demand per stage, a box support, $T+1$ stages),
+and the hydrothermal problem of \citet{ShapiroEtAl2013} in \file{benchmark/hydro} (4 reservoirs, one joint discrete law of 4 inflows per stage, independent across stages).
+All times are from HiGHS \citep{HuangfuHall2018} with default options unless stated, on one machine (Windows 11, Julia 1.12.6);
+the result files are in \file{benchmark/results}, and the analyses in \file{benchmark/README.md}, \file{benchmark/hydro/README.md} and \file{benchmark/compare/README.md}.
+
+\subsection{Where the sizes come from}
+
+Each part of the reformulation is attached to one row of the model and grows with what that row sees.
+For an inequality $r$ that is not deterministic, with touched support blocks $\Touch_r$ (\cref{sec:primal}):
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+& variables & constraints \\
+\midrule
+rules & $\sum_i \nvis_i$ in total & \\
+equality row $r$ & & $\abs{\Jr_r}$ \\
+primal, inequality $r$ & $\sum_{b\in\Touch_r} q_b$ & $1 + \sum_{b\in\Touch_r} k_b$ \\
+dual, inequality $r$ & $1 + \abs{\Jr_r}$ & $1 + \abs{\Jr_r} + (\text{rows of } \Wp \text{ with a slack term})$ \\
+dense primal \citep[(4.2)]{KWG2011} & $2 + \sum_b q_b$ & $1 + k$ \\
+dense dual \citep[(4.6)]{KWG2011} & & $1 + \sum_b q_b$, each with up to $k$ slack terms \\
+\bottomrule
+\end{tabular}
+\end{center}
+In the dense dual each slack term $S_{rj}$ is itself an expression of $X$, and the matrix $\Mom\Wp^\T$ is dense because of the rank-one term $\mub\mub^\T$;
+its nonzeros grow as the number of inequalities times the number of rows of $W$ times $k$.
+In the structured dual the rank-one term is carried by the single variable $u_r$,
+and a row of $\Wp$ gets a slack term only from the structural columns that share a covariance block with its support block.
+
+In a multistage problem the history grows with the stage, so even the structured formulations grow quadratically with $T$ when the stage dimension is fixed:
+a stage-$t$ decision has $1 + \sum_{s \le t}(\text{dimension of stage } s)$ coefficients.
+For the inventory problem the counts are exact polynomials (\cref{app:sizes}):
+the structured primal has $\tfrac{11}{2}T^2 + \tfrac72 T$ variables and $\tfrac52 T^2 + \tfrac{11}{2}T - 2$ constraints,
+the structured dual $\tfrac72T^2 + \tfrac{23}{2}T - 4$ variables and $\tfrac{13}{2}T^2 + \tfrac{19}{2}T - 4$ constraints,
+all matching the measured models;
+the nonzeros of the dense dual of the previous version grow as $T^3$ (279 thousand, 2.17 million and 17.0 million at $T = 32$, 64 and 128),
+those of the structured dual as $T^2$ (17.6, 69.0 and 273 thousand).
+
+\subsection{Measured sizes, against the previous version}
+
+\Cref{tab:inventory,tab:hydro-legacy} compare the models of version 0.4 with those of the previous version on the same instances;
+the objective values agree (to 12 digits on the hydrothermal problem).
+
+\begin{table}[ht]
+\centering
+\caption[Inventory problem]{Inventory problem, $T = 128$: size of the inner problem (constraints without variable bounds) and HiGHS time.
+The legacy rows are the previous version, with explicit slacks (default) or slacks as expressions (\code{SlackAsExpr});
+the hand-written model uses the closed form of the box counterparts.
+Sources: \file{benchmark/README.md}, \file{benchmark/results/compare.csv}.}
+\label{tab:inventory}
+\begin{tabular}{lrrrr}
+\toprule
+Model & Variables & Constraints & Nonzeros & HiGHS (s) \\
+\midrule
+legacy primal & 223,168 & 149,120 & 471,231 & 0.61 \\
+legacy primal, \code{SlackAsExpr} & 157,120 & 83,072 & 339,135 & 0.72 \\
+hand-written robust LP & 57,792 & 74,432 & 271,807 & 1.9 \\
+0.4 primal & 90,560 & 41,662 & 206,013 & 0.63 \\
+legacy dual (dense) & 91,072 & 213,632 & 17,049,279 & 1048 \\
+0.4 dual (structured) & 58,812 & 107,708 & 273,079 & 6.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\caption[Hydrothermal problem]{Hydrothermal problem, $T = 12$, no breakpoints.
+Build is everything but the inner solve (for the previous version, its build and canonicalization);
+times of the previous version come from another run and are indicative.
+Source: \file{benchmark/hydro/README.md}.}
+\label{tab:hydro-legacy}
+\begin{tabular}{lrrrrr}
+\toprule
+Model & Variables & Constraints & Nonzeros & Build (s) & Solve (s) \\
+\midrule
+legacy primal & 356,208 & 166,044 & 758,328 & 5.2 & 103 \\
+0.4 primal & 195,024 & 82,784 & 435,668 & 0.1 & 131 \\
+legacy dual (dense) & 198,528 & 470,892 & 14,161,128 & -- & 230 \\
+0.4 dual (structured) & 124,360 & 240,172 & 1,062,008 & 0.4 & 152 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The structured primal has 41\% to 55\% of the variables of the legacy one, and the structured dual 13 to 62 times fewer nonzeros;
+building the reformulation takes a fraction of a second on all these instances.
+The spike of the previous version measured larger factors on the hydrothermal problem with breakpoints:
+13 to 19 times fewer nonzeros in the dual at $T = 12$ with 0 to 3 breakpoints per inflow, and 27 to 40 times at $T = 24$.
+When one law couples all stages with a dense covariance, nothing collapses, the primal gain disappears and the dual keeps only the factor of about 2 of masking $S$ by the history.
+
+\subsection{Smaller is not always faster}
+
+Solve times do not follow the sizes, because presolve does much of the same work (\file{benchmark/compare/README.md}).
+\begin{itemize}
+\item \emph{Primal.} After presolve, the 0.4 primal and the legacy primal with \code{SlackAsExpr} are the same linear program
+(at hydrothermal $T = 12$, both about 42.2 thousand rows, 150.5 thousand columns and 390.9 thousand nonzeros),
+and they take the same time (161 s and 168 s); differences of $\pm30\%$ in iterations come from the order of rows and columns alone.
+The smaller formulation saves the time to build and to read the model, and wins clearly without presolve (1.4 s against 6.8 s at inventory $T = 128$).
+\item \emph{Dual.} The structured dual is 6 to 150 times faster than the dense one on the inventory problem, from $T = 32$ to $T = 128$ (6.9 s against 1048 s at $T = 128$),
+but 4 to 6.5 times slower on the hydrothermal problem (145 s against 22 s at $T = 8$).
+There, presolve reduces the dense dual much more (from 200,648 to 33,455 rows, merging pairs of rows into ranges) than the structured one (from 103,280 to 66,743 rows),
+and the dual simplex needs four times more iterations.
+The cause is the auxiliary $u_r = S_r\mub$: substituting it out gives back the presolved model and the iteration counts of the dense dual on the hydrothermal problem (39 s instead of 145 s at $T = 8$),
+but makes the inventory dual 20 times slower (15.2 s instead of 0.72 s at $T = 64$), where the denser rows cost more than the rows saved.
+Neither form is better in general; a density rule choosing per row whether to keep $u_r$ is planned.
+\item \emph{Solver mode for the bound.} The dual approximation is solved for its value only, and its rule is not a policy, so no basis is needed.
+HiGHS's interior-point method without crossover solved the hydrothermal dual at $T = 8$ in 8.0 s instead of 145 s,
+with an objective equal to the simplex one to a relative $2\cdot10^{-10}$, but was slower on the inventory dual (1.2 s against 0.72 s).
+Solver hints per formulation are planned.
+A bound taken from an inexact solve is safest when it is the inner solver's dual objective value, which bounds the inner optimum by weak duality;
+the package uses the optimal value for an optimal status, and the dual objective value when the solve stopped early.
+\end{itemize}
+
+\subsection{Breakpoints and solve time}
+
+Breakpoints multiply the size by about the number of pieces per uncertainty.
+On the hydrothermal problem, with $k$ breakpoints per inflow at the equiprobable quantiles of its marginal law (\cref{tab:breakpoints}),
+one breakpoint halves the primal value at $T = 4$ and divides it by 2.5 at $T = 8$,
+while the dual bound moves by at most 1\%;
+the primal problem has 2.4 times more variables and takes 3.7 times (at $T = 4$) to 9.3 times (at $T = 8$) longer to solve.
+The out-of-sample means of the primal policies, simulated on 2000 outcomes of the joint law, agree with the primal values within 1.3 standard errors, and no constraint is violated.
+The breakpoint variants declare the inflows of a stage as independent marginals (breakpoints apply to univariate declarations);
+with no breakpoint this changes nothing in the primal value, the cost being linear, but it splits the covariance blocks, and the dual has 42\% fewer nonzeros (57,296 against 99,344 at $T = 4$).
+
+\begin{table}[ht]
+\centering
+\caption[Hydrothermal problem with breakpoints]{Hydrothermal problem with $k$ breakpoints per inflow (cost, minimized).
+Source: \file{benchmark/hydro/README.md}, \file{benchmark/results/hydro.csv}.}
+\label{tab:breakpoints}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{rrrrrrrr}
+\toprule
+$T$ & $k$ & Primal value & Out of sample & Dual bound & Primal var. & Primal (s) & Dual (s) \\
+\midrule
+4 & 0 & 3.7600 & $3.7587 \pm 0.0124$ & 0.9803 & 18,160 & 0.60 & 1.3 \\
+4 & 1 & 1.8888 & $1.8875 \pm 0.0150$ & 0.9891 & 42,736 & 2.2 & 6.0 \\
+4 & 2 & 1.5962 & $1.5991 \pm 0.0135$ & 0.9912 & 67,312 & 5.4 & 33 \\
+8 & 0 & 94.875 & $95.584 \pm 0.572$ & 1.9606 & 83,168 & 13.3 & 64 \\
+8 & 1 & 37.296 & $37.717 \pm 0.548$ & 1.9703 & 197,856 & 124 & 66 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The gap between the bounds stays large on this problem (the bound is 52\% of the value at $T = 4$ with one breakpoint, 5.3\% at $T = 8$):
+the primal rules improve with breakpoints, while the dual bound coincides with the value of the average-scenario problem at $T = 4$ and $8$.
+Where to place few breakpoints, rather than how many to add, is the open question \citep[end of Section~4.1]{GWK2015}.
+
+\subsection{Building the inner problems}
+
+The reformulations are built from sparse blocks, row by row, as JuMP models;
+objectives are assembled term by term with \code{dot}, never as traces of matrix products.
+The variables of the inner problems are unnamed by default, since names slow the build down; \code{names = true} gives names such as \code{X[i,j]}, \code{$\lambda$[r,b]}, \code{u[r]}, \code{S[r,j]} for inspection.
+The dense formulations of the previous version are kept in \file{test/oracles/dense.jl}, and the tests require that both agree.
