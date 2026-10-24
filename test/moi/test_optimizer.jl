@@ -191,7 +191,7 @@ function test_settings_reach_the_inner_models()
     optimize!(model)
     for result in unsafe_backend(model).results
         @test get_attribute(result.model, MOI.Silent())
-        @test time_limit_sec(result.model) == 12.5
+        @test 0 < time_limit_sec(result.model) <= 12.5
         @test get_attribute(result.model, "presolve") == "off"
     end
     # Without settings, the inner models keep their defaults.

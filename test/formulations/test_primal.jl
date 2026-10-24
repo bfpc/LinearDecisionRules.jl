@@ -70,7 +70,8 @@ function test_solver_settings()
         raw_attributes = Dict("presolve" => "off"),
     )
     @test get_attribute(result.model, MOI.Silent())
-    @test time_limit_sec(result.model) == 10
+    # The build takes some of the limit.
+    @test 0 < time_limit_sec(result.model) < 10
     @test get_attribute(result.model, "presolve") == "off"
     @test result.objective_value ≈ 460
     return

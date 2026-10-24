@@ -25,8 +25,9 @@ names the constraint (random recourse, or a quadratic constraint).
  * [`InnerOptimizer`](@ref)`()`: the factory of the inner optimizer.
  * [`Formulations`](@ref)`()`: the formulations solved by `optimize!`, `[PrimalLDR(), DualLDR()]`
    by default.
- * `MOI.Silent`, `MOI.TimeLimitSec` and `MOI.RawOptimizerAttribute` are kept and forwarded to the
-   inner optimizers.
+ * `MOI.Silent` and `MOI.RawOptimizerAttribute` are kept and forwarded to the inner optimizers.
+ * `MOI.TimeLimitSec` limits the whole `optimize!`: each formulation, built and solved in turn,
+   gets the time that remains, and a formulation reached after the limit has status `TIME_LIMIT`.
 """
 mutable struct Optimizer <: MOI.AbstractOptimizer
     inner_factory::Any
@@ -281,14 +282,20 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     _check_bounded_support(src, info)
     form = canonicalize(src, info)
     mom = moments(form)
+    # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
+        remaining = nothing
+        if dest.time_limit !== nothing
+            remaining = dest.time_limit - _seconds_since(start)
+            remaining <= 0 && return _time_limit_result(f, form)
+        end
         return solve_formulation(
             form,
             f,
             mom,
             factory;
             silent = dest.silent,
-            time_limit = dest.time_limit,
+            time_limit = remaining,
             raw_attributes = dest.raw_attributes,
         )
     end
@@ -296,6 +303,6 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     dest.parameters = _parameter_values(src)
     dest.decision_rows = Dict(v => i for (i, v) in enumerate(form.decisions))
     dest.uncertainty_columns = Dict(v => 1 + j for (j, v) in enumerate(form.uncertainties))
-    dest.solve_time = (time_ns() - start) / 1e9
+    dest.solve_time = _seconds_since(start)
     return _identity_map(src), false
 end

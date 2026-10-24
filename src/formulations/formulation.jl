@@ -116,10 +116,11 @@ The result of [`solve_formulation`](@ref).
    model: `MOI.ObjectiveBound` when the inner problem has integer variables, else the optimal value
    (or the dual objective value when the inner problem is not solved to optimality); `NaN` if
    unknown. For [`DualLDR`](@ref) with integer decisions, this is the bound to report.
- * `solve_time::Float64`: wall-clock seconds of the inner `optimize!`.
+ * `solve_time::Float64`: wall-clock seconds of the inner `optimize!` (zero if it was not built).
  * `X::Matrix{Float64}`: the decision rules, `decisions × (1 + uncertainties)`, with zeros in the
    columns that a decision does not observe; all `NaN` unless `primal_status == FEASIBLE_POINT`.
- * `model::JuMP.Model`: the inner problem, for inspection and `write_to_file`.
+ * `model::JuMP.Model`: the inner problem, for inspection and `write_to_file`; an empty model if
+   the time limit was reached before it was built.
 """
 struct FormulationResult
     formulation::AbstractFormulation
@@ -153,8 +154,10 @@ end
 Build the inner problem of the formulation `f` for `form` and the moments `mom`, solve it with
 `optimizer_factory` and return a [`FormulationResult`](@ref).
 
-`raw_attributes` is an iterable of `name => value` pairs passed to `JuMP.set_attribute` on the
-inner problem. [`SampledLDR`](@ref) ignores `mom` and uses the empirical moments of its outcomes.
+`time_limit` is in seconds, for building and solving the inner problem: the inner optimizer gets
+what remains after the build. `raw_attributes` is an iterable of `name => value` pairs passed to
+`JuMP.set_attribute` on the inner problem. [`SampledLDR`](@ref) ignores `mom` and uses the
+empirical moments of its outcomes.
 
 ## Example
 
@@ -173,20 +176,41 @@ function solve_formulation(
     time_limit::Union{Nothing,Real} = nothing,
     raw_attributes = Dict{String,Any}(),
 )
+    start = time_ns()
     model = JuMP.Model(optimizer_factory)
     if silent
         JuMP.set_silent(model)
-    end
-    if time_limit !== nothing
-        JuMP.set_time_limit_sec(model, time_limit)
     end
     for (name, value) in raw_attributes
         JuMP.set_attribute(model, name, value)
     end
     X = _build!(model, f, form, mom)
-    start = time()
+    if time_limit !== nothing
+        # The limit covers the build too, which can take longer than the solve.
+        JuMP.set_time_limit_sec(model, max(0.0, time_limit - _seconds_since(start)))
+    end
+    solve_start = time_ns()
     JuMP.optimize!(model)
-    return _formulation_result(f, form, model, X, time() - start)
+    return _formulation_result(f, form, model, X, _seconds_since(solve_start))
+end
+
+# `time_ns` rather than `time`, whose resolution can be 16 ms on Windows.
+_seconds_since(start::UInt64) = (time_ns() - start) / 1e9
+
+# The result of a formulation that was not built, because the time limit was reached before.
+function _time_limit_result(f::AbstractFormulation, form::CanonicalForm)
+    k = 1 + length(form.uncertainties)
+    return FormulationResult(
+        f,
+        MOI.TIME_LIMIT,
+        MOI.NO_SOLUTION,
+        "The time limit was reached before $f was built.",
+        NaN,
+        NaN,
+        0.0,
+        fill(NaN, length(form.decisions), k),
+        JuMP.Model(),
+    )
 end
 
 # `_build!(model, f, form, mom)` builds the inner problem of the formulation `f` in `model` and
