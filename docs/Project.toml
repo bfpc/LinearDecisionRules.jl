@@ -1,4 +1,5 @@
 [deps]
+Clarabel = "61c947e1-3e6d-4ee4-985a-eec8c727bd6e"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"

@@ -126,3 +126,48 @@ simulate(model, 10_000; formulation = sampled, rng = Random.Xoshiro(1))
 s = simulate(model, 10_000; formulation = sampled, rng = Random.Xoshiro(1))
 s.violation_counts
 ```
+
+## Correlated demands: an ellipsoidal support
+
+[`ConfidenceMvNormal`](@ref) is a normal law conditioned on its confidence ellipsoid. Two products
+share a stock bought before their correlated demands are known:
+
+```@example conic
+using JuMP, HiGHS, Clarabel, LinearDecisionRules
+
+function shared_stock(optimizer; support = :auto)
+    model = LDRModel(optimizer)
+    set_silent(model)
+    law = ConfidenceMvNormal([100.0, 80.0], [100.0 20.0; 20.0 64.0], 0.95; support)
+    @variable(model, d[1:2] in Uncertainty(law))
+    @variable(model, buy >= 0, FirstStage)
+    @variable(model, sell[1:2] >= 0)
+    @constraint(model, sum(sell) <= buy)
+    @constraint(model, sell .<= d)
+    @objective(model, Max, -10buy + 15sell[1] + 12sell[2])
+    optimize!(model)
+    return objective_value(model), objective_bound(model)
+end
+nothing # hide
+```
+
+The formulations see the ellipsoid through [`support_constraints`](@ref): with
+`support = :ellipsoid`, as a second-order cone, so the inner problems are second-order cone
+programs; with `support = :boxes`, as its box along the principal axes, a polyhedron around it,
+so they stay linear programs with a feasible primal rule and a valid, looser dual bound. The
+default, `:auto`, takes the ellipsoid when the inner optimizer supports second-order cones and no
+decision is integer. HiGHS solves linear programs only, so it gets the boxes:
+
+```@example conic
+shared_stock(HiGHS.Optimizer)
+```
+
+and Clarabel, a conic solver, the ellipsoid, with a better rule and a tighter bound:
+
+```@example conic
+shared_stock(Clarabel.Optimizer)
+```
+
+A constraint in `SecondOrderCone` over the uncertainties, tagged [`ValidInequality`](@ref) or
+[`Truncate`](@ref), describes the support in the same way, such as the disc
+`@constraint(model, [20; d .- 100] in SecondOrderCone(), Truncate())`.
