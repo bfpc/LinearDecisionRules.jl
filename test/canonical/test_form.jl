@@ -102,10 +102,10 @@ function test_bare_moi_model()
     @test Matrix(form.A_u) == [-1 1 1; 0 1 0]
     @test Matrix(form.B_u) == [0 0; 0 1]
     @test Matrix(form.C) == [-10 0; 15 0; 8 0]
-    # Unnamed variables fall back to their index.
+    # Unnamed variables are printed as JuMP prints them.
     src = MOI.Utilities.Model{Float64}()
     x = MOI.add_variable(src)
-    @test canonicalize(src, ModelInfo()).decision_names == [string(x)]
+    @test canonicalize(src, ModelInfo()).decision_names == ["_[$(x.value)]"]
     return
 end
 
@@ -347,10 +347,35 @@ function test_error_uncertainty_only_row()
     msg = error_message(() -> canonicalize(backend(model), info))
     @test occursin("The constraint cap involves only uncertainties (d)", msg)
     @test occursin("ValidInequality()", msg) && occursin("Truncate()", msg)
-    # Unnamed constraints are named by their index.
+    # Unnamed constraints are printed.
     model, info = newsvendor()
     @constraint(model, model[:d] <= 115)
-    @test occursin("ConstraintIndex", error_message(() -> canonicalize(backend(model), info)))
+    msg = error_message(() -> canonicalize(backend(model), info))
+    @test occursin("The constraint `d <= 115` involves only uncertainties (d)", msg)
+    return
+end
+
+function test_unnamed_constraints_are_printed()
+    model = Model()
+    @variable(model, x[1:2])
+    @variable(model, d[1:2])
+    @variable(model, anonymous)
+    set_name(anonymous, "")
+    src = backend(model)
+    quadratic = @constraint(model, x[1]^2 - 2x[1] * d[1] + x[2] >= 1)
+    vector = @constraint(model, [x[1] - 1, d[2]] in MOI.Nonnegatives(2))
+    cases = (
+        @constraint(model, d[1] + d[2] <= 190) => "`d[1] + d[2] <= 190`",
+        @constraint(model, 1 <= 2x[1] - 0.5d[1] + 3 <= 4.5) => "`-2 <= 2 x[1] - 0.5 d[1] <= 1.5`",
+        @constraint(model, x[1] == -d[2]) => "`x[1] + d[2] == 0`",
+        quadratic => "`x[1]² - 2 x[1] * d[1] + x[2] >= 1`",
+        vector => "`[x[1] - 1, d[2]] in Nonnegatives(2)`",
+        @constraint(model, d[1] in MOI.LessThan(110.0)) => "`d[1] <= 110`",
+        @constraint(model, anonymous >= 0) => "`_[$(index(anonymous).value)] >= 0`",
+    )
+    for (c, text) in cases
+        @test LinearDecisionRules._constraint_name(src, index(c)) == text
+    end
     return
 end
 
@@ -468,6 +493,7 @@ function test_error_unobservable_equality()
     @constraint(model, eq, model[:buy] == model[:d])
     msg = error_message(() -> canonicalize(backend(model), info))
     @test occursin("The equality constraint eq has the uncertainty d (Stage(2))", msg)
+    @test !occursin("Integer", msg)
     # A stage-2 decision observes it.
     model, info = newsvendor()
     @constraint(model, eq, model[:buy] + model[:sell] == model[:d])
@@ -476,10 +502,9 @@ function test_error_unobservable_equality()
     model, info = newsvendor(; integer = true)
     @constraint(model, eq, model[:buy] == model[:d])
     info.uncertainties[1] = declare(Distributions.Uniform(80, 120), model[:d]; stages = [1])
-    @test occursin(
-        "eq has the uncertainty d (Stage(1))",
-        error_message(() -> canonicalize(backend(model), info)),
-    )
+    msg = error_message(() -> canonicalize(backend(model), info))
+    @test occursin("eq has the uncertainty d (Stage(1))", msg)
+    @test occursin("Integer decisions observe none.", msg)
     return
 end
 
@@ -505,10 +530,10 @@ function test_error_declarations()
             uncertainties = [
                 UncertaintyDeclaration(Distributions.Uniform(0, 1), [MOI.VariableIndex(99)]),
             ],
-        ) => "is not a variable of the model",
+        ) => "The uncertainty with index 99 is not a variable of the model",
         ModelInfo(;
             decision_stages = Dict(MOI.VariableIndex(99) => 1),
-        ) => "is not a variable of the model",
+        ) => "The variable with index 99 has a stage, but it is not in the model",
         ModelInfo(; breakpoints = Dict(d => [100.0])) => "not supported yet",
         ModelInfo(;
             uncertainties = [UncertaintyDeclaration(Distributions.Wishart(3, [1.0 0; 0 1]), [d])],
