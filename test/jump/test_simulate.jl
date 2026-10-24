@@ -407,6 +407,43 @@ function test_simulate_sampled()
     @test first(s.violation_counts).second > 0
     @test s.max_violation > 1e-6
 end
+# The sampled rule is feasible on the scenarios that it was solved on, and these are reproduced
+# from the seed: one draw of each law per scenario, with `Xoshiro(seed)`.
+function test_sampled_in_sample()
+    for N in (3, 20)
+        sampled = SampledLDR(N; seed = 9)
+        model = newsvendor()
+        set_attribute(model, Formulations(), [PrimalLDR(), sampled])
+        optimize!(model)
+        rng = Random.Xoshiro(9)
+        drawn = [Dict(model[:d] => rand(rng, Uniform(80, 120))) for _ in 1:N]
+        s = simulate(model, drawn; formulation = sampled)
+        @test s.violation_fraction == 0
+        @test s.max_violation <= 1e-6
+        @test s.num_outside_support == 0
+        # The inner problem maximizes the empirical mean over its scenarios.
+        @test s.objective_mean ≈ objective_value(model, sampled) atol = 1e-6
+        # Out of sample, the rule is only as good as its scenarios.
+        out = simulate(model, 5_000; formulation = sampled, rng = Random.Xoshiro(1))
+        @test out.violation_fraction >= 0 && out.max_violation >= 0
+        @test length(out.objectives) == 5_000
+    end
+end
+
+# More scenarios, fewer out-of-sample violations (a statement about these seeds).
+function test_sampled_out_of_sample_improves()
+    fractions = Float64[]
+    for N in (2, 50)
+        sampled = SampledLDR(N; seed = 3)
+        model = newsvendor()
+        set_attribute(model, Formulations(), [sampled])
+        optimize!(model)
+        s = simulate(model, 5_000; formulation = sampled, rng = Random.Xoshiro(4))
+        push!(fractions, s.violation_fraction)
+    end
+    @test fractions[1] > 0
+    @test fractions[2] < fractions[1]
+end
 
 end # module
 
