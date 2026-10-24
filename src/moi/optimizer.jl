@@ -13,8 +13,12 @@ An MOI optimizer for the linear decision rules of a JuMP model. `inner_factory`,
 Use it without bridges, since a bridge would add variables that have no stage:
 `Model(() -> Optimizer(HiGHS.Optimizer); add_bridges = false)`, or [`LDRModel`](@ref).
 
-It supports exactly what [`canonicalize`](@ref) reads, and the sets of the metadata:
-[`Uncertainty`](@ref) and [`Stage`](@ref). Anything else is rejected when the model is built.
+It supports what [`canonicalize`](@ref) reads, and the sets of the metadata, [`Uncertainty`](@ref)
+and [`Stage`](@ref): affine and quadratic rows in `LessThan`, `GreaterThan`, `EqualTo` and
+`Interval`; variable bounds, `Integer`, `ZeroOne` and `Parameter`; an affine or quadratic objective.
+Other constraints are rejected when they are added to the model. A product in a row is read only
+when one of its factors is a JuMP `Parameter`; any other product is an error of `optimize!` that
+names the constraint (random recourse, or a quadratic constraint).
 
 ## Optimizer attributes
 
@@ -104,13 +108,12 @@ function MOI.supports_constraint(
     return true
 end
 
-function MOI.supports_constraint(
-    ::Optimizer,
-    ::Type{MOI.ScalarAffineFunction{Float64}},
-    ::Type{<:_BoundSets},
-)
-    return true
-end
+# Quadratic rows are read so that `canonicalize` can replace parameters in products, and name the
+# constraint in its error for any other product.
+const _ScalarFunction =
+    Union{MOI.ScalarAffineFunction{Float64},MOI.ScalarQuadraticFunction{Float64}}
+
+MOI.supports_constraint(::Optimizer, ::Type{<:_ScalarFunction}, ::Type{<:_BoundSets}) = true
 
 function MOI.supports_constraint(
     ::Optimizer,
@@ -137,12 +140,10 @@ MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
 
 MOI.supports(::Optimizer, ::Union{MOI.VariableName,BreakPoints}, ::Type{MOI.VariableIndex}) = true
 
-const _AffineConstraintIndex = MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}}
-
 function MOI.supports(
     ::Optimizer,
     ::Union{MOI.ConstraintName,XiRole,ConstraintStage},
-    ::Type{<:_AffineConstraintIndex},
+    ::Type{<:MOI.ConstraintIndex{<:_ScalarFunction}},
 )
     return true
 end

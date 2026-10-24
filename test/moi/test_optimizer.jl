@@ -105,11 +105,10 @@ function test_unsupported_constraints_are_rejected_at_declaration()
     model = newsvendor()
     sell, ret = model[:sell], model[:ret]
     rejected = (
-        () -> @constraint(model, sell^2 <= 1),
-        () -> @constraint(model, sell * ret == 1),
         () -> @constraint(model, [sell, ret, 1] in SecondOrderCone()),
         () -> @constraint(model, [sell, ret] in MOI.Nonnegatives(2)),
         () -> @constraint(model, sell in MOI.Semicontinuous(1.0, 2.0)),
+        () -> @constraint(model, sell^2 in MOI.Semicontinuous(1.0, 2.0)),
     )
     for f in rejected
         err = error_of(f)
@@ -117,10 +116,27 @@ function test_unsupported_constraints_are_rejected_at_declaration()
         @test occursin("are not supported by the solver", err.msg)
     end
     msg = error_of(rejected[1]).msg
-    @test occursin("ScalarQuadraticFunction{Float64}-in-", msg) && occursin("LessThan", msg)
+    @test occursin("VectorAffineFunction{Float64}-in-", msg) && occursin("SecondOrderCone", msg)
     # The rejected constraints leave no trace, and there are no bridge variables.
     @test num_variables(model) == 4
     @test num_constraints(model; count_variable_in_set_constraints = false) == 2
+    return
+end
+
+# Quadratic rows are accepted, so that `canonicalize` names the constraint and the product in its
+# error, and reads the products with a parameter.
+function test_quadratic_rows_reach_canonicalize()
+    for (row, message) in (
+        (m -> @constraint(m, q, m[:d] * m[:sell] <= 100), "q multiplies the decision sell by the"),
+        (m -> @constraint(m, q, m[:sell] * m[:ret] == 1), "q has the product of sell and ret"),
+        (m -> @constraint(m, q, m[:sell]^2 <= 1), "q has the product of sell and sell"),
+    )
+        model = newsvendor()
+        row(model)
+        @test num_constraints(model, QuadExpr, MOI.LessThan{Float64}) +
+              num_constraints(model, QuadExpr, MOI.EqualTo{Float64}) == 1
+        @test occursin(message, sprint(showerror, error_of(() -> optimize!(model))))
+    end
     return
 end
 

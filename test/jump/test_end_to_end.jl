@@ -365,6 +365,30 @@ function test_parameters()
     return
 end
 
+# A product of a parameter and a decision in a row is a quadratic row that `canonicalize` reads
+# as affine.
+function test_parameter_times_decision_in_a_row()
+    function build(capacity)
+        model = newsvendor()
+        @variable(model, c in Parameter(capacity))
+        @constraint(model, model[:sell] <= c * model[:buy])
+        return model, c
+    end
+    model, c = build(0.8)
+    @test num_constraints(model, QuadExpr, MOI.LessThan{Float64}) == 1
+    optimize!(model)
+    fresh = newsvendor()
+    @constraint(fresh, fresh[:sell] <= 0.8 * fresh[:buy])
+    optimize!(fresh)
+    @test objective_value(model) < 460 - 1
+    @test objective_value(model) ≈ objective_value(fresh)
+    @test objective_bound(model) ≈ objective_bound(fresh)
+    set_parameter_value(c, 2.0)
+    optimize!(model)
+    @test objective_value(model) ≈ 460
+    return
+end
+
 function test_copy_model()
     model = newsvendor_three_stages()
     copied, map = copy_model(model)
