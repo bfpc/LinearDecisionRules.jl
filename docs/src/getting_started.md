@@ -61,6 +61,25 @@ value(sell)
 expected_value(d * sell)
 ```
 
+## Decision rules
+
+For post-processing, the coefficients of the rules are available directly. `rule_coefficient(x, η)`
+is the coefficient of the uncertainty `η` in the rule of the decision `x`, and
+`rule_coefficient(x)` is its constant. For an uncertainty with [`BreakPoints`](@ref), it is the
+vector of the coefficients on its pieces.
+
+```@example newsvendor
+rule_coefficient(buy), rule_coefficient(sell, d)
+```
+
+[`rule_matrix`](@ref) is the whole matrix `X`, with the decisions as rows and the constant and the
+uncertainties as columns; its entries are zero where a decision does not observe a column. The
+columns are in lifted coordinates when there are breakpoints.
+
+```@example newsvendor
+rule_matrix(model)
+```
+
 ## Simulation
 
 [`evaluate`](@ref) applies the policy to one scenario: a `Dict`, or pairs, from each uncertainty to
