@@ -60,3 +60,50 @@ value(sell)
 ```@example newsvendor
 expected_value(d * sell)
 ```
+
+## Simulation
+
+[`evaluate`](@ref) applies the policy to one scenario: a `Dict`, or pairs, from each uncertainty to
+a value. The result has the value of every decision, the objective at the scenario, and the
+constraints that it violates. A scenario outside the support is an error, since the rule is
+only guaranteed on the support (`outside_support = :warn` or `:ignore` evaluate it anyway).
+
+```@example newsvendor
+r = evaluate(model, d => 90.0)
+```
+
+```@example newsvendor
+value(r, sell), value(r, ret), objective_value(r)
+```
+
+[`simulate`](@ref) applies it to many scenarios, drawn from the laws of the uncertainties or given
+(for example, simulated by another method). The sample mean of the objective of the primal rule
+estimates the objective value of the model, and the rule has no violation on the support.
+
+```@example newsvendor
+using Random
+s = simulate(model, 10_000; rng = Random.Xoshiro(1))
+```
+
+```@example newsvendor
+(objective_value(model), s.objective_mean, s.objective_stderr)
+```
+
+```@example newsvendor
+simulate(model, [Dict(d => 90.0), Dict(d => 110.0)])
+```
+
+The rule of the [`SampledLDR`](@ref) formulation is feasible on the scenarios that it was solved
+on, and only there: `simulate` reports its violations out of sample, how often and by how much.
+
+```@example newsvendor
+sampled = SampledLDR(5; seed = 1)
+set_attribute(model, Formulations(), [PrimalLDR(), sampled])
+optimize!(model)
+simulate(model, 10_000; formulation = sampled, rng = Random.Xoshiro(1))
+```
+
+```@example newsvendor
+s = simulate(model, 10_000; formulation = sampled, rng = Random.Xoshiro(1))
+s.violation_counts
+```

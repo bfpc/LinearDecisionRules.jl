@@ -479,10 +479,12 @@ end
 function Base.show(io::IO, s::Simulation)
     n = length(s.objectives)
     print(io, "Simulation of ", s.formulation, " on ", n, " scenarios\n")
-    print(io, "  objective: mean ", s.objective_mean, " ± ", s.objective_stderr, " (standard error)\n")
-    num_violated = sum(s.violated)
-    print(io, "  violations: ", num_violated, " scenarios (", 100 * s.violation_fraction, "%)")
-    print(io, ", max violation ", s.max_violation, " (tolerance ", s.tolerance, ")")
+    mean, stderr = round(s.objective_mean; sigdigits = 8), round(s.objective_stderr; sigdigits = 3)
+    print(io, "  objective: mean ", mean, " ± ", stderr, " (standard error)\n")
+    percent = round(100 * s.violation_fraction; sigdigits = 3)
+    print(io, "  violations: ", sum(s.violated), " scenarios (", percent, "%)")
+    print(io, ", max violation ", round(s.max_violation; sigdigits = 3))
+    print(io, " (tolerance ", s.tolerance, ")")
     if s.num_outside_support > 0
         print(io, "\n  ", s.num_outside_support, " scenarios outside the support")
     end
