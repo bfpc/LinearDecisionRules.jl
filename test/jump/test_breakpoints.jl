@@ -65,6 +65,38 @@ function newsvendor()
     return model
 end
 
+function newsvendor_random_price()
+    model = ldr_model()
+    @variable(model, buy >= 0, FirstStage)
+    @variable(model, sell >= 0)
+    @variable(model, ret >= 0)
+    @variable(model, demand in Uncertainty(Uniform(80, 120)))
+    @variable(model, price in Uncertainty(Uniform(13, 17)))
+    @constraint(model, sell + ret <= buy)
+    @constraint(model, sell <= demand)
+    @objective(model, Max, -10buy + 8ret + price * sell)
+    return model
+end
+
+function newsvendor_three_stages()
+    model = ldr_model()
+    @variable(model, buy >= 0, Stage(1))
+    @variable(model, sell2 >= 0, Stage(2))
+    @variable(model, ret2 >= 0, Stage(2))
+    @variable(model, demand2 in Uncertainty(Uniform(80, 120)), Stage(2))
+    @variable(model, buy2 >= 0, Stage(2))
+    @variable(model, buy_cost2 in Uncertainty(Uniform(8, 14)), Stage(2))
+    @variable(model, sell3 >= 0, Stage(3))
+    @variable(model, ret3 >= 0, Stage(3))
+    @variable(model, demand3 in Uncertainty(Uniform(80, 120)), Stage(3))
+    @constraint(model, sell2 + ret2 <= buy + buy2)
+    @constraint(model, sell2 <= demand2)
+    @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
+    @constraint(model, sell3 <= demand3)
+    @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
+    return model
+end
+
 function error_message(f)
     try
         f()
@@ -72,6 +104,15 @@ function error_message(f)
         return sprint(showerror, err)
     end
     return ""
+end
+
+# The value of the canonical problem of the library, solved directly.
+function library_values(p)
+    form = Problems.form(p)
+    mom = moments(form)
+    primal = solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer; time_limit = 60.0)
+    dual = solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer; time_limit = 60.0)
+    return primal.objective_value, dual.objective_value
 end
 
 const GOLDEN = [
@@ -188,6 +229,59 @@ function test_change_breakpoints_after_solve()
     set_attribute(demand, BreakPoints(), Float64[])
     optimize!(model)
     @test objective_value(model) ≈ 460
+    return
+end
+
+# The lifting applies to the uncertainties of the objective: the price multiplies `sell`.
+function test_random_price()
+    model = newsvendor_random_price()
+    buy, sell, ret, price = model[:buy], model[:sell], model[:ret], model[:price]
+    set_attribute(price, BreakPoints(), [14.0, 16.0])
+    set_attribute(model[:demand], BreakPoints(), 3)
+    optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    primal, dual = library_values(Problems.newsvendor_random_price_breakpoints())
+    @test objective_value(model) ≈ primal
+    @test objective_bound(model) ≈ dual
+    # The objective value is the expected profit of the rules, with the exact moments of the
+    # pieces of the price.
+    @test expected_value(-10buy + 8ret + price * sell) ≈ objective_value(model)
+    @test 460 - 1e-6 <= objective_value(model) <= objective_bound(model) + 1e-6
+    @test objective_bound(model) <= 1460 / 3 + 1e-6
+    return
+end
+
+# Breakpoints on the stage-2 demand of three stages: the rules of stage 2 do not see the stage-3
+# demand, the pieces are seen from stage 2 on, and the bounds are ordered: the primal improves on
+# 940 (to 946.25) and the dual is at most 1000.
+function test_three_stages()
+    model = newsvendor_three_stages()
+    demand2, demand3 = model[:demand2], model[:demand3]
+    set_attribute(demand2, BreakPoints(), [90.0, 100.0, 110.0])
+    # No warning: the pieces of `demand2` are in its stage, so the dual bound is certified.
+    @test_logs optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    primal, dual = objective_value(model), objective_bound(model)
+    @test 940 - 1e-6 <= primal <= dual + 1e-6
+    @test primal ≈ 946.25
+    @test dual <= 1000 + 1e-6
+    library = library_values(Problems.newsvendor_three_stages_breakpoints())
+    @test primal ≈ library[1] && dual ≈ library[2]
+    for name in (:buy, :sell2, :ret2, :buy2)
+        rule = decision_rule(model[name])
+        @test !haskey(rule.coefficients, demand3)
+        name == :buy && @test isempty(rule.lifted) && isempty(rule.coefficients)
+    end
+    @test haskey(decision_rule(model[:sell2]).lifted, demand2)
+    for name in (:sell3, :ret3), f in (PrimalLDR(), DualLDR())
+        @test !haskey(decision_rule(model[name]; formulation = f).coefficients, demand2)
+    end
+    # The values are stable: a second solve gives the same rules.
+    rule = decision_rule(model[:sell2])
+    optimize!(model)
+    @test objective_value(model) ≈ primal
+    scenario = Dict(demand2 => 95.0, demand3 => 100.0, model[:buy_cost2] => 10.0)
+    @test decision_rule(model[:sell2])(scenario) ≈ rule(scenario)
     return
 end
 
