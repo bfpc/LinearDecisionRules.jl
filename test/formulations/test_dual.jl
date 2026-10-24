@@ -8,8 +8,9 @@ module TestDual
 using JuMP
 using Test
 
+import Distributions
 import HiGHS
-import LinearDecisionRules: DualLDR, moments, solve_formulation
+import LinearDecisionRules: DualLDR, PrimalLDR, moments, solve_formulation
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
 include(joinpath(@__DIR__, "problems.jl"))
@@ -76,6 +77,30 @@ function test_size()
     # Each column of each block has 2 box rows; a stage-2 row sees 2 blocks, a stage-3 row 3.
     @test num_constraints(model, AffExpr, MOI.GreaterThan{Float64}) == 2 * (2 * 5 + 3 * 4)
     @test num_constraints(model, AffExpr, MOI.EqualTo{Float64}) == num_S + num_rows
+    return
+end
+
+# The bound needs stagewise independence: a law that correlates two stages gets a warning.
+function test_warns_when_a_law_correlates_stages()
+    p = Problems.law_spanning_stages()
+    form = Problems.form(p)
+    mom = moments(form)
+    warning = (:warn, r"in the law of d\[1\], d\[2\] \(stages 2, 3\)\. Stagewise independence")
+    result = @test_logs warning solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer)
+    @test result.termination_status == MOI.OPTIMAL
+    @test_logs solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
+    # Independent components in different stages, or correlated ones in one stage, are fine.
+    for (law, t) in (
+        (Distributions.product_distribution([Distributions.Uniform(80, 120) for _ in 1:2]), [2, 3]),
+        (Problems.CORRELATED, [2, 2]),
+    )
+        info = Problems.ModelInfo(;
+            uncertainties = [Problems.declare(law, p.model[:d]...; stages = t)],
+            decision_stages = p.info.decision_stages,
+        )
+        form = Problems.canonicalize(backend(p.model), info)
+        @test_logs solve_formulation(form, DualLDR(), moments(form), HiGHS.Optimizer)
+    end
     return
 end
 

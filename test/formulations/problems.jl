@@ -296,6 +296,29 @@ function newsvendor_discrete_demand()
     return newsvendor_discrete(dist, "newsvendor_discrete_demand", 400, 470)
 end
 
+const CORRELATED = MvDiscreteNonParametric(
+    [[80.0, 60.0], [100.0, 80.0], [120.0, 100.0], [80.0, 100.0], [120.0, 60.0]],
+    [0.2, 0.3, 0.2, 0.15, 0.15],
+)
+
+# One correlated law over stages 2 and 3, a row touching both of its blocks, and an interval row.
+function law_spanning_stages()
+    model = Model()
+    @variable(model, buy >= 0)
+    @variable(model, s2 >= 0)
+    @variable(model, s3 >= 0)
+    @variable(model, d[1:2])
+    @constraint(model, s2 + s3 <= buy)
+    @constraint(model, s2 <= d[1])
+    @constraint(model, 10 <= s3 + d[1] - d[2] <= 100)
+    @objective(model, Max, -10buy + 15s2 + 12s3)
+    info = ModelInfo(;
+        uncertainties = [declare(CORRELATED, d...; stages = [2, 3])],
+        decision_stages = stages(buy => 1, s2 => 2, s3 => 3),
+    )
+    return Problem("law_spanning_stages", "", model, info, NaN, NaN)
+end
+
 """
     library() -> Vector{Problem}
 

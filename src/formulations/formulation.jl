@@ -33,7 +33,8 @@ stochastic program (an upper bound of a maximization, a lower bound of a minimiz
 
 Its rule is not a policy. Each inequality `s(ξ) ≥ 0` is relaxed to `E[s(ξ) (W'ξ)ᵀ] ≥ 0`, where
 `W'ξ ≥ 0` describes Ξ, including the row `ξ₁ ≥ 0` (Kuhn, Wiesemann and Georghiou, 2011). The bound
-is certified when the uncertainties of different stages are independent.
+is certified when the uncertainties of different stages are independent; building it warns when a
+law correlates uncertainties of different stages.
 """
 struct DualLDR <: AbstractFormulation end
 

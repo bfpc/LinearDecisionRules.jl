@@ -75,7 +75,32 @@ function _add_dual_cone!(
     return
 end
 
+# The dual bound relies on stagewise independence: warn when a covariance block correlates
+# uncertainties of different stages.
+function _warn_correlated_stages(form::CanonicalForm, mom::Moments)
+    laws = String[]
+    for block in mom.blocks
+        stages = form.uncertainty_stages[block.columns.-1]
+        correlated = any(
+            stages[a] != stages[b] && !iszero(block.covariance[a, b]) for
+            a in eachindex(stages), b in eachindex(stages)
+        )
+        if correlated
+            names = join((form.uncertainty_names[j-1] for j in block.columns), ", ")
+            push!(laws, "$names (stages $(join(unique(stages), ", ")))")
+        end
+    end
+    isempty(laws) && return
+    @warn(
+        "The uncertainties of different stages are correlated in the law of " *
+        "$(join(laws, "; ")). Stagewise independence fails, so the bound of DualLDR() is not " *
+        "certified.",
+    )
+    return
+end
+
 function _build!(model::JuMP.Model, ::DualLDR, form::CanonicalForm, mom::Moments)
+    _warn_correlated_stages(form, mom)
     info = InformationStructure(form)
     X = _rule_variables!(model, form, info)
     _add_equalities!(model, form, info, X)
