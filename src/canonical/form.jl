@@ -158,6 +158,10 @@ _bounds(s::MOI.GreaterThan{Float64}) = (s.lower, Inf)
 _bounds(s::MOI.EqualTo{Float64}) = (s.value, s.value)
 _bounds(s::MOI.Interval{Float64}) = (s.lower, s.upper)
 
+_scalar_set(::Type{MOI.Nonnegatives}) = MOI.GreaterThan(0.0)
+_scalar_set(::Type{MOI.Nonpositives}) = MOI.LessThan(0.0)
+_scalar_set(::Type{MOI.Zeros}) = MOI.EqualTo(0.0)
+
 _dimension(::Distributions.UnivariateDistribution) = 1
 _dimension(d::Distributions.MultivariateDistribution) = length(d)
 _dimension(::Distributions.Distribution) = 0
@@ -445,6 +449,16 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo)
                 f = MOI.get(src, MOI.ConstraintFunction(), ci)
                 set = MOI.get(src, MOI.ConstraintSet(), ci)
                 _read_row!(rows, valid, row, src, info, cols, uncertainties, ci, f, set)
+            end
+        elseif F in (MOI.VectorAffineFunction{Float64}, MOI.VectorOfVariables) &&
+               S in (MOI.Nonnegatives, MOI.Nonpositives, MOI.Zeros)
+            # Each output is one scalar row of the same constraint.
+            set = _scalar_set(S)
+            for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,S}())
+                f = MOI.get(src, MOI.ConstraintFunction(), ci)
+                for fi in MOI.Utilities.scalarize(convert(MOI.VectorAffineFunction{Float64}, f))
+                    _read_row!(rows, valid, row, src, info, cols, uncertainties, ci, fi, set)
+                end
             end
         else
             error("Constraints of type $F-in-$S are not supported by LinearDecisionRules.")

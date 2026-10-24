@@ -106,7 +106,7 @@ function test_unsupported_constraints_are_rejected_at_declaration()
     sell, ret = model[:sell], model[:ret]
     rejected = (
         () -> @constraint(model, [sell, ret, 1] in SecondOrderCone()),
-        () -> @constraint(model, [sell, ret] in MOI.Nonnegatives(2)),
+        () -> @constraint(model, [sell, ret] in SecondOrderCone()),
         () -> @constraint(model, sell in MOI.Semicontinuous(1.0, 2.0)),
         () -> @constraint(model, sell^2 in MOI.Semicontinuous(1.0, 2.0)),
     )

@@ -238,6 +238,23 @@ function test_newsvendor()
     return
 end
 
+# The newsvendor with vector rows, which are read one output at a time.
+function test_vector_rows()
+    model = ldr_model()
+    @variable(model, buy >= 0, FirstStage)
+    @variable(model, sell >= 0)
+    @variable(model, ret >= 0)
+    @variable(model, demand in Uncertainty(Uniform(80, 120)))
+    @constraint(model, rows, [sell + ret - buy, sell - demand] in MOI.Nonpositives(2))
+    @constraint(model, [sell, ret] >= 0)
+    @objective(model, Max, -10buy + 8ret + 15sell)
+    optimize!(model)
+    @test objective_value(model) ≈ 460
+    @test objective_bound(model) ≈ 1460 / 3
+    @test name(rows) == "rows"
+    return
+end
+
 function test_integer_first_stage()
     model = newsvendor(; integer = true)
     optimize!(model)

@@ -205,6 +205,29 @@ function test_interval_rows()
     return
 end
 
+# Each output of a vector row is a scalar row of the same constraint.
+function test_vector_rows()
+    model = Model()
+    @variable(model, x[1:2])
+    @variable(model, d)
+    @constraint(model, le, [x[1] - d, 2x[2] + 1] in MOI.Nonpositives(2))
+    @constraint(model, ge, [x[1] + x[2] - 3, x[2]] in MOI.Nonnegatives(2))
+    @constraint(model, eq, [x[1] - x[2]] in MOI.Zeros(1))
+    info = ModelInfo(; uncertainties = [declare(Distributions.Uniform(0, 1), d)])
+    form = canonicalize(backend(model), info)
+    @test Matrix(form.A_u) == [1 0; 0 2] && Matrix(form.B_u) == [0 1; -1 0]
+    @test form.u_constraints == [index(le), index(le)]
+    @test Matrix(form.A_l) == [1 1; 0 1] && Matrix(form.B_l) == [3 0; 0 0]
+    @test form.l_constraints == [index(ge), index(ge)]
+    @test Matrix(form.A_e) == [1 -1] && Matrix(form.B_e) == [0 0]
+    @test form.e_constraints == [index(eq)]
+    # An output with uncertainties only is an error naming the constraint.
+    @constraint(model, bad, [x[1], d - 1] in MOI.Nonnegatives(2))
+    msg = error_message(() -> canonicalize(backend(model), info))
+    @test occursin("The constraint bad involves only uncertainties (d)", msg)
+    return
+end
+
 function test_variable_bounds_and_integrality()
     model = Model()
     @variable(model, 1 <= x <= 4, Int)
