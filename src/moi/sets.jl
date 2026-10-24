@@ -38,7 +38,9 @@ declarations are independent. The distribution must have a bounded support, sinc
 @variable(model, e[1:2] in Uncertainty(product_distribution(Uniform(0, 1), Uniform(0, 2))))
 ```
 """
-Uncertainty(distribution::Distributions.UnivariateDistribution) = UnivariateUncertainty(distribution)
+function Uncertainty(distribution::Distributions.UnivariateDistribution)
+    return UnivariateUncertainty(distribution)
+end
 
 function Uncertainty(distribution::Distributions.MultivariateDistribution)
     return MultivariateUncertainty(distribution)

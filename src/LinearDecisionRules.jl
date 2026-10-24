@@ -30,15 +30,20 @@ include("probability/distributions/mv_discrete_non_parametric.jl")
 include("moi/sets.jl")
 include("moi/attributes.jl")
 include("moi/model_info.jl")
+include("moi/optimizer.jl")
 include("jump/variables.jl")
 include("jump/constraints.jl")
 include("jump/checks.jl")
+include("jump/model.jl")
 
 export BreakPoints,
     CanonicalForm,
     CovarianceBlock,
     FirstStage,
+    Formulations,
     InformationStructure,
+    InnerOptimizer,
+    LDRModel,
     ModelInfo,
     Moments,
     MvDiscreteNonParametric,

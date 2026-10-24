@@ -9,6 +9,7 @@ using JuMP
 using Test
 
 import Distributions
+import Distributions: Uniform
 import LinearDecisionRules
 import LinearDecisionRules: Stage, Uncertainty
 
@@ -27,7 +28,7 @@ function test_uncertainty_constructor()
     s = Uncertainty(Distributions.Uniform(80, 120))
     @test s isa LinearDecisionRules.UnivariateUncertainty
     @test s isa MOI.AbstractScalarSet
-    mv = Distributions.product_distribution(Distributions.Uniform(0, 1), Distributions.Uniform(0, 2))
+    mv = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
     v = Uncertainty(mv)
     @test v isa LinearDecisionRules.MultivariateUncertainty
     @test v isa MOI.AbstractVectorSet
@@ -81,7 +82,7 @@ end
 function test_metadata_constraint()
     f = LinearDecisionRules._is_metadata_constraint
     @test f(MOI.VariableIndex, typeof(Uncertainty(Distributions.Uniform(0, 1))))
-    mv = Distributions.product_distribution(Distributions.Uniform(0, 1), Distributions.Uniform(0, 2))
+    mv = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
     @test f(MOI.VectorOfVariables, typeof(Uncertainty(mv)))
     @test f(MOI.VariableIndex, Stage)
     @test !f(MOI.VariableIndex, MOI.GreaterThan{Float64})
@@ -92,7 +93,7 @@ end
 function test_sets_in_a_jump_model()
     model = Model()
     @variable(model, d in Uncertainty(Distributions.Uniform(80, 120)))
-    mv = Distributions.product_distribution(Distributions.Uniform(0, 1), Distributions.Uniform(0, 2))
+    mv = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
     @variable(model, e[1:2] in Uncertainty(mv))
     @variable(model, x)
     @constraint(model, x in Stage(2))

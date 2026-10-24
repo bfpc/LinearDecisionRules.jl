@@ -9,6 +9,7 @@ using JuMP
 using Test
 
 import Distributions
+import Distributions: Uniform
 import LinearDecisionRules
 import LinearDecisionRules:
     BreakPoints,
@@ -201,7 +202,7 @@ end
 
 function test_vector_uncertainty()
     model = Model()
-    mv = Distributions.product_distribution(Distributions.Uniform(0, 1), Distributions.Uniform(0, 2))
+    mv = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
     @variable(model, x >= 0, FirstStage)
     @variable(model, y >= 0)
     @variable(model, d[1:2] in Uncertainty(mv))

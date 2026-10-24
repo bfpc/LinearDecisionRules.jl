@@ -9,8 +9,10 @@ using JuMP
 using Test
 
 import Distributions
+import Distributions: Uniform
 import LinearDecisionRules
-import LinearDecisionRules: BreakPoints, FirstStage, Stage, Uncertainty, set_stage, stage, unset_stage
+import LinearDecisionRules:
+    BreakPoints, FirstStage, Stage, Uncertainty, set_stage, stage, unset_stage
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -89,7 +91,7 @@ function test_uncertainty_with_stage()
     @test collect(stage.(v)) == [2, 3]
     @variable(model, w[1:2] in Uncertainty(d))
     @test stage.(w) == [nothing, nothing]
-    mv = Distributions.product_distribution(Distributions.Uniform(0, 1), Distributions.Uniform(0, 2))
+    mv = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
     @variable(model, p[1:2] in Uncertainty(mv), Stage(2))
     @test stage.(p) == [2, 2]
     @variable(model, q[t = 1:2] in Uncertainty(mv), Stage(t + 1))

@@ -71,3 +71,30 @@ struct BreakPoints <: MOI.AbstractVariableAttribute end
 function MOI.Utilities.map_indices(::Any, ::Union{XiRole,ConstraintStage,BreakPoints}, x)
     return x
 end
+
+"""
+    InnerOptimizer()
+
+An optimizer attribute: the factory of the optimizer that solves the reformulated models, for
+example `HiGHS.Optimizer`. [`LDRModel`](@ref)`(factory)` sets it.
+
+## Example
+
+```julia
+set_attribute(model, InnerOptimizer(), HiGHS.Optimizer)
+```
+"""
+struct InnerOptimizer <: MOI.AbstractOptimizerAttribute end
+
+"""
+    Formulations()
+
+An optimizer attribute: the vector of formulations that `optimize!` solves.
+
+## Example
+
+```julia
+set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
+```
+"""
+struct Formulations <: MOI.AbstractOptimizerAttribute end

@@ -9,6 +9,7 @@ using JuMP
 using Test
 
 import Distributions
+import Distributions: Uniform
 import LinearDecisionRules
 import LinearDecisionRules: Stage, Uncertainty, stage
 
@@ -53,7 +54,8 @@ function test_unbounded_univariate()
     end
     msg = @error_message @variable(model, d[1:3] in Uncertainty(Distributions.Normal(0, 1)))
     @test occursin("has an unbounded support", msg)
-    msg = @error_message @variable(model, d[t = 1:3] in Uncertainty(Distributions.Normal(0, 1)), Stage(t))
+    normal = Uncertainty(Distributions.Normal(0, 1))
+    msg = @error_message @variable(model, d[t = 1:3] in normal, Stage(t))
     @test occursin("has an unbounded support", msg)
     @test num_variables(model) == 0
     # Bounded laws, even a truncated unbounded one, are accepted.
@@ -75,7 +77,7 @@ function test_unbounded_multivariate()
     msg = @error_message @variable(model, d[1:2] in Uncertainty(mixed))
     @test occursin("has an unbounded support", msg)
     @test num_variables(model) == 0
-    ok = Distributions.product_distribution(Distributions.Uniform(0, 1), Distributions.Uniform(0, 2))
+    ok = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
     @variable(model, e[1:2] in Uncertainty(ok), Stage(2))
     @variable(model, f[1:2] in Uncertainty(ok))
     discrete = LinearDecisionRules.MvDiscreteNonParametric([[0.0, 1.0], [1.0, 2.0]], [0.5, 0.5])
@@ -109,7 +111,7 @@ function test_bounds_on_an_uncertainty()
     @test occursin("An uncertainty cannot have integrality (binary)", msg)
     msg = @error_message @variable(model, d in set, lower_bound = 1, upper_bound = 1)
     @test occursin("An uncertainty cannot have a lower bound", msg)
-    mv = Distributions.product_distribution(Distributions.Uniform(0, 1), Distributions.Uniform(0, 2))
+    mv = Distributions.product_distribution(Uniform(0, 1), Uniform(0, 2))
     msg = @error_message @variable(model, d[1:2] in Uncertainty(mv), lower_bound = 0)
     @test occursin("An uncertainty cannot have a lower bound", msg)
     msg = @error_message @variable(model, d[t = 1:2] in Uncertainty(mv), Stage(t), upper_bound = 0)
@@ -145,7 +147,7 @@ function test_two_stage_tags()
     @test occursin("A variable has one `Stage`", msg)
     msg = @error_message @variable(model, x[1:2], Stage(1), Stage(2))
     @test occursin("A variable has one `Stage`", msg)
-    msg = @error_message @variable(model, x in Uncertainty(Distributions.Uniform(0, 1)), Stage(1), Stage(2))
+    msg = @error_message @variable(model, x in Uncertainty(Uniform(0, 1)), Stage(1), Stage(2))
     @test occursin("A variable has one `Stage`", msg)
     @test num_variables(model) == 0
     return
@@ -156,7 +158,7 @@ function test_invalid_stage()
     for t in (0, -1)
         err = error_of(() -> @variable(model, x, Stage(t)))
         @test err isa ArgumentError && occursin("stages start at 1", err.msg)
-        err = error_of(() -> @variable(model, x in Uncertainty(Distributions.Uniform(0, 1)), Stage(t)))
+        err = error_of(() -> @variable(model, x in Uncertainty(Uniform(0, 1)), Stage(t)))
         @test err isa ArgumentError
         err = error_of(() -> @constraint(model, 0 <= 1, Stage(t)))
         @test err isa ArgumentError

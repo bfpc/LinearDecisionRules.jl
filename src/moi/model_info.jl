@@ -24,7 +24,8 @@ function _uncertainty_declarations(src::MOI.ModelLike, stages::Dict{MOI.Variable
             variables = f isa MOI.VariableIndex ? [f] : copy(f.variables)
             set = MOI.get(src, MOI.ConstraintSet(), ci)
             variable_stages = Union{Nothing,Int}[get(stages, v, nothing) for v in variables]
-            push!(declarations, UncertaintyDeclaration(set.distribution, variables, variable_stages))
+            declaration = UncertaintyDeclaration(set.distribution, variables, variable_stages)
+            push!(declarations, declaration)
         end
     end
     return declarations
