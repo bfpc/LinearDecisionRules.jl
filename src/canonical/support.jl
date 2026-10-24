@@ -7,17 +7,20 @@
     SupportBlock
 
 One factor of the support Ξ, built by [`support_blocks`](@ref): the coordinates `η_b = ξ[columns]`
-range over `{η_b : W η_b - h ∈ cone}`.
+range over `{η_b : W η_b - h ∈ K}`, where `K = cones[1] × cones[2] × …`.
 
 ## Fields
 
  * `columns::Vector{Int}`: the columns of ξ in the block, sorted (never the constant column 1).
  * `W::SparseMatrixCSC{Float64,Int}`: one row per inequality, one column per entry of `columns`.
  * `h::Vector{Float64}`
- * `cone::MOI.Nonnegatives`: the cone of `W η_b - h`; for now always the nonnegative orthant.
+ * `cones::Vector{Union{MOI.Nonnegatives,MOI.SecondOrderCone}}`: the pieces of the cone `K` of
+   `W η_b - h`, in the order of the rows: first `MOI.Nonnegatives` for the linear rows (possibly
+   of dimension zero), then one `MOI.SecondOrderCone` per second-order cone row.
  * `roles::Vector{Symbol}`: the role of each row, `:box` (a bound from the distribution), `:valid`
    (a constraint tagged `ValidInequality()`), `:truncate` (a constraint tagged `Truncate()`, which
-   also conditions the law) or `:hull` (a convex-hull row of a lifting).
+   also conditions the law) or `:hull` (a convex-hull row of a lifting). The rows of a second-order
+   cone have the role of their constraint.
  * `constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}`: the constraint each `:valid` or
    `:truncate` row comes from; `nothing` for the other rows.
 
@@ -27,11 +30,16 @@ struct SupportBlock
     columns::Vector{Int}
     W::_SparseMatrix
     h::Vector{Float64}
-    cone::MOI.Nonnegatives
+    cones::Vector{_SupportCone}
     roles::Vector{Symbol}
     constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}
 end
 
+# The rows of each piece of the cone of a block.
+function _cone_rows(block::SupportBlock)
+    offsets = cumsum([0; [MOI.dimension(cone) for cone in block.cones]])
+    return [offsets[k]+1:offsets[k+1] for k in eachindex(block.cones)]
+end
 # The bounds `(lower, upper)` of the support of a law, or `nothing` if the law does not define
 # them. `applicable(minimum, d)` cannot tell: every multivariate law falls back on
 # `Base.minimum(itr)`, which throws a `MethodError` for laws without bounds, such as `Dirichlet`.
@@ -67,17 +75,19 @@ function _find_root!(parent::Vector{Int}, a::Int)
     return a
 end
 
+
 """
     support_blocks(form::CanonicalForm) -> Vector{SupportBlock}
 
 Return the support Ξ of the uncertainties of `form` as a product of [`SupportBlock`](@ref)s.
 
 The rows of Ξ are the finite bounds of the distributions (`minimum` and `maximum`), the rows
-tagged `ValidInequality()` or `Truncate()` and the convex-hull rows of the liftings. The blocks are
-the connected components of the coordinates coupled by some row, so every uncertainty column is in
-exactly one block; blocks are sorted by their first column. Every block contains the mean of its
-coordinates (checked by [`canonicalize`](@ref) when the mean is finite; the estimated mean of a
-conditioned law is that of draws in the conditioning set), so it is nonempty.
+tagged `ValidInequality()` or `Truncate()`, linear or in a second-order cone, and the convex-hull
+rows of the liftings. The blocks are the connected components of the coordinates coupled by some
+row, so every uncertainty column is in exactly one block; blocks are sorted by their first column.
+Every block contains the mean of its coordinates (checked by [`canonicalize`](@ref) when the mean
+is finite; the estimated mean of a conditioned law is that of draws in the conditioning set), so
+it is nonempty.
 """
 function support_blocks(form::CanonicalForm)
     m = length(form.uncertainties)
@@ -91,15 +101,23 @@ function support_blocks(form::CanonicalForm)
             lo[j-1], hi[j-1] = l[k], u[k]
         end
     end
-    # Union–find of the η coordinates coupled by a valid row.
+    # Union–find of the η coordinates coupled by a valid or a conic row.
     parent = collect(1:m)
+    function join!(coordinates)
+        isempty(coordinates) && return
+        a = _find_root!(parent, first(coordinates))
+        for j in coordinates
+            parent[_find_root!(parent, j)] = a
+        end
+        return
+    end
     Wt = SparseArrays.sparse(transpose(form.W_valid))
     rv, nz = SparseArrays.rowvals(Wt), SparseArrays.nonzeros(Wt)
-    for r in axes(Wt, 2), k in SparseArrays.nzrange(Wt, r)
-        a = _find_root!(parent, rv[first(SparseArrays.nzrange(Wt, r))])
-        b = _find_root!(parent, rv[k])
-        parent[b] = a
+    for r in axes(Wt, 2)
+        join!(view(rv, SparseArrays.nzrange(Wt, r)))
     end
+    conic_columns = [_nonzero_columns(row.W) for row in form.conic_rows]
+    foreach(join!, conic_columns)
     block_of_root = Dict{Int,Int}()
     block = zeros(Int, m)
     local_index = zeros(Int, m)
@@ -114,6 +132,7 @@ function support_blocks(form::CanonicalForm)
     h = [Float64[] for _ in columns]
     roles = [Symbol[] for _ in columns]
     constraints = [Union{Nothing,MOI.ConstraintIndex}[] for _ in columns]
+    cones = [_SupportCone[] for _ in columns]
     function add_row!(b, role, rhs, ci)
         push!(h[b], rhs)
         push!(roles[b], role)
@@ -138,15 +157,26 @@ function support_blocks(form::CanonicalForm)
             _push!(triplets[b], row, local_index[rv[k]], nz[k])
         end
     end
+    for b in eachindex(columns)
+        push!(cones[b], MOI.Nonnegatives(length(h[b])))
+    end
+    # The conic rows come after the linear ones, one piece of the cone each.
+    for (c, row) in enumerate(form.conic_rows)
+        isempty(conic_columns[c]) && continue
+        b = block[first(conic_columns[c])]
+        role = row.conditioning ? :truncate : :valid
+        first_row = length(h[b]) + 1
+        for k in eachindex(row.h)
+            add_row!(b, role, row.h[k], row.constraint)
+        end
+        I, J, V = SparseArrays.findnz(row.W)
+        for (i, j, w) in zip(I, J, V)
+            _push!(triplets[b], first_row + i - 1, local_index[j], w)
+        end
+        push!(cones[b], row.cone)
+    end
     return map(eachindex(columns)) do b
         W = _sparse(triplets[b], length(h[b]), length(columns[b]))
-        return SupportBlock(
-            columns[b],
-            W,
-            h[b],
-            MOI.Nonnegatives(length(h[b])),
-            roles[b],
-            constraints[b],
-        )
+        return SupportBlock(columns[b], W, h[b], cones[b], roles[b], constraints[b])
     end
 end

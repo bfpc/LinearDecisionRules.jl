@@ -8,11 +8,13 @@
         laws::AbstractVector{<:Distributions.Distribution},
         W::AbstractMatrix{<:Real},
         h::AbstractVector{<:Real};
+        cones::AbstractVector = [MOI.Nonnegatives(length(h))],
         names::AbstractVector{<:AbstractString} = fill("", length(h)),
     )
 
 The law of `η = (η₁, …, η_L)`, with independent `ηₗ ~ laws[l]`, conditioned on the set
-`C = {η : W η ≥ h}`.
+`C = {η : W η - h ∈ K}`, where `K = cones[1] × cones[2] × …` is a product of `MOI.Nonnegatives`
+and `MOI.SecondOrderCone`s whose dimensions add up to `length(h)`: by default, `C = {η : W η ≥ h}`.
 
 The components of `η` are those of the laws, in order: `W` has one column per component. `names`
 names the constraint of each row, for the messages. [`canonicalize`](@ref) builds it for the
@@ -27,12 +29,20 @@ rejection sampling. `minimum` and `maximum` are the boxes of the laws.
 ```julia
 d = ConditionedDistribution([Uniform(40, 80), Uniform(40, 80)], [-1.0 -1.0], [-120.0])
 rand(d)  # a draw with d[1] + d[2] ≤ 120
+# The disc ‖η - (60, 60)‖ ≤ 20, as (20, η₁ - 60, η₂ - 60) in a second-order cone:
+disc = ConditionedDistribution(
+    [Uniform(40, 80), Uniform(40, 80)],
+    [0 0; 1 0; 0 1],
+    [-20, 60, 60];
+    cones = [MOI.SecondOrderCone(3)],
+)
 ```
 """
 struct ConditionedDistribution <: Distributions.ContinuousMultivariateDistribution
     laws::Vector{Distributions.Distribution}
     W::Matrix{Float64}
     h::Vector{Float64}
+    cones::Vector{_SupportCone}
     names::Vector{String}
     # The first component of each law, and `length + 1` after the last.
     offsets::Vector{Int}
@@ -41,6 +51,7 @@ struct ConditionedDistribution <: Distributions.ContinuousMultivariateDistributi
         laws::AbstractVector{<:Distributions.Distribution},
         W::AbstractMatrix{<:Real},
         h::AbstractVector{<:Real};
+        cones::AbstractVector = [MOI.Nonnegatives(length(h))],
         names::AbstractVector{<:AbstractString} = fill("", length(h)),
     )
         dims = map(_dimension, laws)
@@ -57,12 +68,17 @@ struct ConditionedDistribution <: Distributions.ContinuousMultivariateDistributi
             )
         elseif length(names) != length(h)
             throw(ArgumentError("There must be one name per row of W."))
+        elseif !all(c -> c isa _SupportCone, cones)
+            throw(ArgumentError("The cones must be `MOI.Nonnegatives` or `MOI.SecondOrderCone`."))
+        elseif sum(MOI.dimension, cones; init = 0) != length(h)
+            throw(ArgumentError("The dimensions of the cones must add up to the rows of W."))
         end
         offsets = cumsum([1; dims])
         return new(
             collect(Distributions.Distribution, laws),
             Matrix{Float64}(W),
             Vector{Float64}(h),
+            collect(_SupportCone, cones),
             Vector{String}(names),
             offsets,
         )
@@ -73,7 +89,7 @@ Base.length(d::ConditionedDistribution) = d.offsets[end] - 1
 
 Base.eltype(::Type{ConditionedDistribution}) = Float64
 
-Distributions.params(d::ConditionedDistribution) = (d.laws, d.W, d.h)
+Distributions.params(d::ConditionedDistribution) = (d.laws, d.W, d.h, d.cones)
 
 function Base.minimum(d::ConditionedDistribution)
     return reduce(vcat, (_support_box(law)[1] for law in d.laws); init = Float64[])
@@ -86,11 +102,11 @@ end
 # The estimates of the moments are cached by the law, so equality is by value. The names of the
 # constraints do not change the law.
 function Base.:(==)(a::ConditionedDistribution, b::ConditionedDistribution)
-    return isequal(a.laws, b.laws) && a.W == b.W && a.h == b.h
+    return isequal(a.laws, b.laws) && a.W == b.W && a.h == b.h && a.cones == b.cones
 end
 
 function Base.hash(d::ConditionedDistribution, h::UInt)
-    return hash(d.laws, hash(d.W, hash(d.h, hash(:ConditionedDistribution, h))))
+    return hash(d.laws, hash(d.W, hash(d.h, hash(d.cones, hash(:ConditionedDistribution, h)))))
 end
 
 function Base.show(io::IO, d::ConditionedDistribution)
@@ -101,7 +117,7 @@ end
 # The constraints of the rows, for the messages: their names, without repeats.
 function _constraint_names(d::ConditionedDistribution)
     names = unique(filter(!isempty, d.names))
-    return isempty(names) ? "W η ≥ h" : join(names, ", ")
+    return isempty(names) ? "W η - h ∈ K" : join(names, ", ")
 end
 
 # A draw of each law in the columns of `C`, which are candidates for the rejection.
@@ -117,14 +133,29 @@ function _draw_candidates!(rng::Random.AbstractRNG, d::ConditionedDistribution, 
     return C
 end
 
-# Whether each column of `C` is in the set `W η ≥ h`, with a relative tolerance, so that the atoms
-# of discrete laws on the boundary are kept despite rounding.
+# Whether each column of `C` is in the set `W η - h ∈ K`, with a relative tolerance, so that the
+# atoms of discrete laws on the boundary are kept despite rounding.
 function _in_set(d::ConditionedDistribution, C::AbstractMatrix)
     WC = d.W * C
     accepted = trues(size(C, 2))
-    for s in axes(C, 2), r in eachindex(d.h)
-        if WC[r, s] < d.h[r] - 1e-9 * (1 + abs(d.h[r]))
-            accepted[s] = false
+    offset = 0
+    for cone in d.cones
+        rows = offset .+ (1:MOI.dimension(cone))
+        offset += MOI.dimension(cone)
+        if cone isa MOI.Nonnegatives
+            for s in axes(C, 2), r in rows
+                if WC[r, s] < d.h[r] - 1e-9 * (1 + abs(d.h[r]))
+                    accepted[s] = false
+                end
+            end
+        else
+            tolerance = 1e-9 * (1 + LinearAlgebra.norm(view(d.h, rows)))
+            for s in axes(C, 2)
+                v = view(WC, rows, s) .- view(d.h, rows)
+                if _cone_violation(cone, v) > tolerance
+                    accepted[s] = false
+                end
+            end
         end
     end
     return accepted

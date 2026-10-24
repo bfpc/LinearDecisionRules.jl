@@ -16,10 +16,12 @@ Use it without bridges, since a bridge would add variables that have no stage:
 It supports what [`canonicalize`](@ref) reads, and the sets of the metadata, [`Uncertainty`](@ref)
 and [`Stage`](@ref): affine and quadratic rows in `LessThan`, `GreaterThan`, `EqualTo` and
 `Interval`; affine vector rows in `Nonnegatives`, `Nonpositives` and `Zeros`, read one output at a
-time; variable bounds, `Integer`, `ZeroOne` and `Parameter`; an affine or quadratic objective. Other
-constraints are rejected when they are added to the model. A product in a row is read only
-when one of its factors is a JuMP `Parameter`; any other product is an error of `optimize!` that
-names the constraint (random recourse, or a quadratic constraint).
+time; affine vector rows in `SecondOrderCone` over the uncertainties, tagged
+[`ValidInequality`](@ref) or [`Truncate`](@ref) (they describe the support Ξ); variable bounds,
+`Integer`, `ZeroOne` and `Parameter`; an affine or quadratic objective. Other constraints are
+rejected when they are added to the model. A product in a row is read only when one of its factors
+is a JuMP `Parameter`; any other product is an error of `optimize!` that names the constraint
+(random recourse, or a quadratic constraint).
 
 ## Optimizer attributes
 
@@ -118,10 +120,13 @@ MOI.supports_constraint(::Optimizer, ::Type{<:_ScalarFunction}, ::Type{<:_BoundS
 
 MOI.supports_constraint(::Optimizer, ::Type{<:_VectorFunction}, ::Type{<:_VectorSet}) = true
 
+# Second-order cone rows describe Ξ: `canonicalize` requires them over uncertainties, and tagged.
+MOI.supports_constraint(::Optimizer, ::Type{<:_VectorFunction}, ::Type{MOI.SecondOrderCone}) = true
+
 function MOI.supports(
     ::Optimizer,
-    ::MOI.ConstraintName,
-    ::Type{<:MOI.ConstraintIndex{<:_VectorFunction,<:_VectorSet}},
+    ::Union{MOI.ConstraintName,XiRole},
+    ::Type{<:MOI.ConstraintIndex{<:_VectorFunction,<:Union{_VectorSet,MOI.SecondOrderCone}}},
 )
     return true
 end

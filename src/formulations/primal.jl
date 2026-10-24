@@ -67,7 +67,7 @@ function _build!(model::JuMP.Model, ::PrimalLDR, form::CanonicalForm, mom::Momen
     info = InformationStructure(form)
     X = _rule_variables!(model, form, info)
     _add_equalities!(model, form, info, X)
-    blocks = support_blocks(form)
+    blocks = _polyhedral(support_blocks(form), PrimalLDR())
     block_of = _block_of_columns(blocks, 1 + length(form.uncertainties))
     first_columns = [first(block.columns) for block in blocks]
     for (r, ineq) in enumerate(_inequalities(form, info))

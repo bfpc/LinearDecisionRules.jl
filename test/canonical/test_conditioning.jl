@@ -215,6 +215,43 @@ function test_merging_declared_conditioned_law()
     return
 end
 
+# A second-order cone row tagged `Truncate()` conditions the laws that it couples, by rejection,
+# even a univariate law alone; it stays a row of Ξ.
+function test_conic_truncation()
+    model, decls = model_with("a" => Uniform(0, 2), "b" => Uniform(0, 2), "c" => Uniform(0, 2))
+    a, b, c = model[:a], model[:b], model[:c]
+    disc = @constraint(model, disc, [1, a - 1, b - 1] in SecondOrderCone())
+    cut = @constraint(model, cut, b + c <= 2)
+    form = form_of(model, decls; truncate = [disc, cut])
+    d = only(form.laws).distribution
+    @test d isa ConditionedDistribution && length(d) == 3
+    @test d.cones == [MOI.Nonnegatives(1), MOI.SecondOrderCone(3)]
+    @test d.W == [0 -1 -1; 0 0 0; 1 0 0; 0 1 0] && d.h == [-2, -1, 1, 1]
+    @test d.names == ["cut", "disc", "disc", "disc"]
+    @test only(form.conic_rows).conditioning
+    block = only(support_blocks(form))
+    @test block.cones == [MOI.Nonnegatives(7), MOI.SecondOrderCone(3)]
+    @test block.roles == [fill(:box, 6); :truncate; fill(:truncate, 3)]
+    mom = moments(form)
+    # The disc is symmetric about (1, 1), and the cut keeps (a, b) in it.
+    @test only(mom.blocks).num_samples == 10_000
+    @test abs(mom.mean[2] - 1) < 0.02
+    draws = rand(LDR.Random.Xoshiro(1), d, 1000)
+    @test all((draws[1, :] .- 1) .^ 2 .+ (draws[2, :] .- 1) .^ 2 .<= 1 + 1e-9)
+    @test all(draws[2, :] .+ draws[3, :] .<= 2 + 1e-9)
+    # A univariate law in a cone alone is conditioned by rejection, not truncated.
+    model, decls = model_with("e" => Uniform(0, 4))
+    row = @constraint(model, [1, model[:e] - 1] in SecondOrderCone())
+    form = form_of(model, decls; truncate = [row])
+    @test only(form.laws).distribution isa ConditionedDistribution
+    # A lifted form keeps the conic rows, over the lifted coordinates.
+    model, decls = model_with("f" => Uniform(0, 2), "g" => Uniform(0, 2))
+    row = @constraint(model, [3, model[:g] - 1] in SecondOrderCone())
+    form = form_of(model, decls; valid = [row], breakpoints = Dict(index(model[:f]) => [1.0]))
+    @test Matrix(only(form.conic_rows).W) == [0 0 0; 0 0 1]
+    return
+end
+
 # A valid inequality holds at the mean of the truncated law, not of the original one.
 function test_valid_row_at_truncated_mean()
     model, decls = model_with("d" => Uniform(80, 120))

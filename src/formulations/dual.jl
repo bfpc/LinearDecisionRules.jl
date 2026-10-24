@@ -111,7 +111,7 @@ function _build!(model::JuMP.Model, ::DualLDR, form::CanonicalForm, mom::Moments
     info = InformationStructure(form)
     X = _rule_variables!(model, form, info)
     _add_equalities!(model, form, info, X)
-    cones = _dual_cones(support_blocks(form), mom)
+    cones = _dual_cones(_polyhedral(support_blocks(form), DualLDR()), mom)
     # The cones whose rows involve each column of ξ.
     cones_of = [Int[] for _ in mom.mean]
     for (b, cone) in enumerate(cones), j in unique(SparseArrays.rowvals(cone.V))

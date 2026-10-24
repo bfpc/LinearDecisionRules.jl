@@ -10,12 +10,57 @@ const _BoundSet =
 const _ScalarFunction =
     Union{MOI.ScalarAffineFunction{Float64},MOI.ScalarQuadraticFunction{Float64}}
 
-# Linear vector rows, read one output at a time. Cones wait for conic support blocks (Phase 3).
+# Linear vector rows, read one output at a time; second-order cone rows describe Ξ only.
 const _VectorFunction = Union{MOI.VectorAffineFunction{Float64},MOI.VectorOfVariables}
 
 const _VectorSet = Union{MOI.Nonnegatives,MOI.Nonpositives,MOI.Zeros}
 
 const _SparseMatrix = SparseArrays.SparseMatrixCSC{Float64,Int}
+
+# The pieces of the cone of a support block: the nonnegative orthant and second-order cones.
+const _SupportCone = Union{MOI.Nonnegatives,MOI.SecondOrderCone}
+
+"""
+    ConicRow(
+        W::SparseMatrixCSC{Float64,Int},
+        h::Vector{Float64},
+        cone::MOI.SecondOrderCone,
+        constraint::MOI.ConstraintIndex,
+        conditioning::Bool,
+    )
+
+A second-order cone row of the support Ξ in a [`CanonicalForm`](@ref): the uncertainties `η`
+satisfy `W η - h ∈ cone`, that is, `‖(W η - h)[2:end]‖ ≤ (W η - h)[1]`.
+
+## Fields
+
+ * `W::SparseMatrixCSC{Float64,Int}`: `MOI.dimension(cone)` rows, one column per uncertainty.
+ * `h::Vector{Float64}`
+ * `cone::MOI.SecondOrderCone`
+ * `constraint::MOI.ConstraintIndex`: the constraint in `MOI.SecondOrderCone`, tagged
+   [`ValidInequality`](@ref) or [`Truncate`](@ref), that the row comes from.
+ * `conditioning::Bool`: whether that constraint is tagged `Truncate()`, so that it also conditions
+   the law of its uncertainties.
+"""
+struct ConicRow
+    W::_SparseMatrix
+    h::Vector{Float64}
+    cone::MOI.SecondOrderCone
+    constraint::MOI.ConstraintIndex
+    conditioning::Bool
+end
+
+# The η columns where some row of `W` is nonzero.
+function _nonzero_columns(W::_SparseMatrix)
+    return [j for j in axes(W, 2) if !isempty(SparseArrays.nzrange(W, j))]
+end
+
+# How far `v` is from `cone`, in the units of `v`: 0 if `v ∈ cone`.
+function _cone_violation(::MOI.SecondOrderCone, v::AbstractVector)
+    return max(0.0, LinearAlgebra.norm(view(v, 2:length(v))) - v[1])
+end
+
+_cone_violation(::MOI.Nonnegatives, v::AbstractVector) = max(0.0, -minimum(v; init = 0.0))
 
 """
     UncertaintyBlock(
@@ -93,6 +138,8 @@ rows of each lifting, whose constraint is `nothing`:
    conditions the law of its uncertainties: their laws are merged into one
    [`ConditionedDistribution`](@ref) in `laws`. The rows tagged `Truncate()` that only bound a
    univariate law are not rows: that law is truncated exactly instead (see [`canonicalize`](@ref)).
+ * `conic_rows::Vector{ConicRow}`: the constraints in `MOI.SecondOrderCone` tagged
+   `ValidInequality()` or `Truncate()`, as [`ConicRow`](@ref)s.
 
 Objective (`FEASIBILITY_SENSE` when the model has none; then every term is zero):
 
@@ -136,6 +183,7 @@ struct CanonicalForm
     h_valid::Vector{Float64}
     valid_constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}
     conditioning::BitVector
+    conic_rows::Vector{ConicRow}
     sense::MOI.OptimizationSense
     P::_SparseMatrix
     C::_SparseMatrix
@@ -484,6 +532,7 @@ struct _Constraints
     u::_RowBlock
     l::_RowBlock
     valid::_ValidRows
+    conic_rows::Vector{ConicRow}
     lower::Vector{Float64}
     upper::Vector{Float64}
     integer::BitVector
@@ -497,6 +546,7 @@ function _Constraints(n::Int)
         _RowBlock(),
         _RowBlock(),
         _ValidRows(),
+        ConicRow[],
         fill(-Inf, n),
         fill(Inf, n),
         falses(n),
@@ -526,8 +576,13 @@ The rows tagged `Truncate()` condition the law on the set `C` where they hold, a
    union–find) share one [`ConditionedDistribution`](@ref), in the place of the first, whose
    moments are estimated by rejection sampling (see [`moments`](@ref)).
 
+Constraints in `MOI.SecondOrderCone` describe Ξ only: they must be over uncertainties and tagged
+`ValidInequality()` or `Truncate()`, and they become [`ConicRow`](@ref)s. A law conditioned by such
+a constraint is always estimated by rejection sampling.
+
 Errors name the variables and constraints involved, for: unsupported constraint types, uncertainty-
-only rows not tagged `ValidInequality()` or `Truncate()`, tagged equalities (Ξ must be
+only rows not tagged `ValidInequality()` or `Truncate()`, second-order cone constraints with
+decisions or without a tag, tagged equalities (Ξ must be
 full-dimensional), a truncation of probability zero, bounds or integrality on an uncertainty,
 integer decisions after stage 1, products of uncertainties and decisions in constraints (random
 recourse), quadratic constraints, and equality rows with an uncertainty that none of their
@@ -762,6 +817,53 @@ function _read_constraints!(
     return
 end
 
+# A second-order cone constraint describes Ξ, so it must be over uncertainties and tagged.
+function _read_constraints!(
+    c::_Constraints,
+    src::MOI.ModelLike,
+    info::ModelInfo,
+    layout::_Layout,
+    ::Type{F},
+    ::Type{MOI.SecondOrderCone},
+) where {F<:_VectorFunction}
+    m = length(layout.uncertainties)
+    for ci in MOI.get(src, MOI.ListOfConstraintIndices{F,MOI.SecondOrderCone}())
+        f = MOI.get(src, MOI.ConstraintFunction(), ci)
+        cone = MOI.get(src, MOI.ConstraintSet(), ci)
+        conditioning = ci in info.truncate_rows
+        tagged = conditioning || ci in info.valid_rows
+        W, h = _Triplets(), Float64[]
+        has_decisions = false
+        outputs = MOI.Utilities.scalarize(convert(MOI.VectorAffineFunction{Float64}, f))
+        for (k, fk) in enumerate(outputs)
+            row = _read!(_reset!(c.buffer), layout.columns, fk)
+            has_decisions |= any(!iszero, values(row.x))
+            for (j, w) in row.ξ
+                _push!(W, k, j - 1, w)
+            end
+            push!(h, -row.constant)
+        end
+        name = _constraint_name(src, ci)
+        if has_decisions
+            error(
+                "The constraint $name in a second-order cone has decisions; second-order cone " *
+                "constraints describe the support of the uncertainties only, and must be tagged " *
+                "`ValidInequality()` or `Truncate()`.",
+            )
+        elseif !tagged
+            error(
+                "The constraint $name in a second-order cone involves only uncertainties. Tag it " *
+                "with `ValidInequality()` if it describes the support Ξ without changing the " *
+                "law, or with `Truncate()` if it conditions the law.",
+            )
+        elseif conditioning && isempty(W.V)
+            error("The constraint $name is tagged `Truncate()`, but it has no uncertainty.")
+        end
+        push!(c.conic_rows, ConicRow(_sparse(W, length(h), m), h, cone, ci, conditioning))
+    end
+    return
+end
+
 # Bounds and integrality of the decisions.
 function _read_constraints!(
     c::_Constraints,
@@ -921,6 +1023,21 @@ function _check_valid_rows_at_mean(src, form::CanonicalForm)
             )
         end
     end
+    for row in form.conic_rows
+        row.conditioning && continue
+        # The sparse product reads only the columns of the row, so the NaN of others do not show.
+        Wμ = row.W * μ
+        all(isfinite, Wμ) || continue
+        scale = max(1.0, maximum(abs, Wμ; init = 0.0), maximum(abs, row.h; init = 0.0))
+        if _cone_violation(row.cone, Wμ - row.h) > 1e-9 * scale
+            error(
+                "The constraint $(_constraint_name(src, row.constraint)) is tagged " *
+                "`ValidInequality()`, but the mean of the uncertainty violates it, so it does " *
+                "not hold on the support of the distribution. Use `Truncate()` to condition " *
+                "the law.",
+            )
+        end
+    end
     return
 end
 
@@ -969,6 +1086,7 @@ function _canonical_form(src, layout::_Layout, c::_Constraints, sense, objective
         c.valid.h,
         Vector{Union{Nothing,MOI.ConstraintIndex}}(c.valid.constraints),
         c.valid.conditioning,
+        c.conic_rows,
         sense,
         _sparse(objective.P, n, n),
         _sparse(objective.C, n, 1 + m),

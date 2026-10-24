@@ -250,6 +250,14 @@ function _time_limit_result(f::AbstractFormulation, form::CanonicalForm, mom::Mo
     )
 end
 
+# Conic support blocks are not supported by the formulations yet.
+function _polyhedral(blocks::Vector{SupportBlock}, f::AbstractFormulation)
+    if any(block -> length(block.cones) > 1, blocks)
+        error("$f does not support second-order cone rows in the support yet.")
+    end
+    return blocks
+end
+
 # `_build!(model, f, form, mom)` builds the inner problem of the formulation `f` in `model` and
 # returns its rule variables `X` (see `_rule_variables!`).
 function _build! end

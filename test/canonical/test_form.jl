@@ -485,9 +485,9 @@ end
 
 function test_error_unsupported_constraint()
     model, info = newsvendor()
-    @constraint(model, [model[:buy], model[:sell], model[:ret]] in SecondOrderCone())
+    @constraint(model, [model[:buy], model[:sell], model[:ret]] in MOI.ExponentialCone())
     msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("VectorOfVariables-in-MathOptInterface.SecondOrderCone", msg)
+    @test occursin("VectorOfVariables-in-MathOptInterface.ExponentialCone", msg)
     @test occursin("not supported", msg)
     return
 end

@@ -248,7 +248,8 @@ function _group_name(model::JuMP.GenericModel, sim::_Simulator, g::Int)
 end
 
 # For each outcome, why it is not in the support Ξ, or `nothing`: outside the box of a law, or a
-# violated `ValidInequality()` (the convex-hull rows of the liftings follow from the lifting).
+# violated row tagged `ValidInequality()` or `Truncate()`, linear or conic (the convex-hull rows
+# of the liftings follow from the lifting).
 function _support_reasons(
     model::JuMP.GenericModel,
     sim::_Simulator,
@@ -276,6 +277,17 @@ function _support_reasons(
                 name = _constraint_name(JuMP.backend(model), form.valid_constraints[r])
                 what = form.conditioning[r] ? "constraint tagged `Truncate()`" : "valid inequality"
                 reasons[s] = "the $what $name is violated by $(-slack[k, s])"
+                break
+            end
+        end
+        reasons[s] === nothing || continue
+        for row in form.conic_rows
+            v = row.W * view(batch.ξ̃, 2:size(batch.ξ̃, 1), s) .- row.h
+            violation = _cone_violation(row.cone, v)
+            if violation > tolerance * (1 + LinearAlgebra.norm(row.h))
+                name = _constraint_name(JuMP.backend(model), row.constraint)
+                what = row.conditioning ? "constraint tagged `Truncate()`" : "valid inequality"
+                reasons[s] = "the $what $name is violated by $violation"
                 break
             end
         end

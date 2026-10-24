@@ -16,7 +16,7 @@ Each uncertainty in `liftings` must be declared alone, with a univariate law. It
 replaced by its lifted coordinates, which are in its stage; the columns are sorted by stage again.
 The data are lifted with sparse products: `B ← BR` for the rows, `C ← CR`, `d ← Rᵀd` and
 `Q ← RᵀQR` for the objective (whose constant `f` does not change), and `W ← WR` for the valid
-rows. The law of the lifted coordinates is a [`LiftedDistribution`](@ref), whose box replaces the
+and conic rows. The law of the lifted coordinates is a [`LiftedDistribution`](@ref), whose box replaces the
 box of the original law, and the convex-hull rows of each lifting are added to the valid rows,
 with constraint `nothing`, so that they form a support block with its box.
 
@@ -118,6 +118,7 @@ function lift(form::CanonicalForm, liftings::AbstractDict{MOI.VariableIndex,<:Ab
         vcat(form.h_valid, h_hull),
         vcat(form.valid_constraints, fill(nothing, length(h_hull))),
         vcat(form.conditioning, falses(length(h_hull))),
+        [ConicRow(r.W * Rη, r.h, r.cone, r.constraint, r.conditioning) for r in form.conic_rows],
         form.sense,
         form.P,
         form.C * R,

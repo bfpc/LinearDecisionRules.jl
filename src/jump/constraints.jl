@@ -43,6 +43,20 @@ function JuMP.build_constraint(
     return _TaggedConstraint(JuMP.build_constraint(error_fn, f, lower, upper; kwargs...), tag)
 end
 
+# A vector row, such as `[r; d .- μ] in SecondOrderCone()`, describes Ξ only with a role.
+function JuMP.build_constraint(
+    error_fn::Function,
+    f::AbstractVector,
+    set::Union{MOI.AbstractVectorSet,JuMP.AbstractVectorSet},
+    tag::AbstractXiRole;
+    kwargs...,
+)
+    for fi in f
+        fi isa Number || _check_tagged_row(error_fn, fi, tag)
+    end
+    return _TaggedConstraint(JuMP.build_constraint(error_fn, f, set; kwargs...), tag)
+end
+
 function JuMP.add_constraint(model::JuMP.GenericModel, c::_TaggedConstraint, name::String = "")
     cref = JuMP.add_constraint(model, c.constraint, name)
     _set_tag(model, cref, c.tag)

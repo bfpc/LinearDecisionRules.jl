@@ -55,6 +55,27 @@ function test_xi_roles_in_containers()
     return
 end
 
+# A vector row takes a role: a second-order cone, or the vector syntax of linear rows.
+function test_xi_roles_on_vector_rows()
+    model = Model()
+    @variable(model, x[1:2])
+    a = @constraint(model, [1; x .- 1] in SecondOrderCone(), Truncate())
+    @test get_attribute(a, XiRole()) == Truncate()
+    @test constraint_object(a).set == MOI.SecondOrderCone(3)
+    b = @constraint(model, [x[1], x[2]] in SecondOrderCone(), ValidInequality())
+    @test get_attribute(b, XiRole()) == ValidInequality()
+    @test constraint_object(b).func == x
+    c = @constraint(model, x .- 1 in MOI.Nonnegatives(2), ValidInequality())
+    @test get_attribute(c, XiRole()) == ValidInequality()
+    err = try
+        @constraint(model, [1, x[1]^2] in SecondOrderCone(), ValidInequality())
+    catch err
+        err
+    end
+    @test occursin("must be affine", err.msg)
+    return
+end
+
 function test_constraint_stage()
     model = Model()
     @variable(model, x)

@@ -84,6 +84,33 @@ function test_rand_in_set()
     return
 end
 
+# The disc ‖η - (60, 60)‖ ≤ 20 in a second-order cone: the uniform law on it has mean (60, 60)
+# and covariance 20² / 4 I.
+function test_conic_set()
+    laws = [Distributions.Uniform(40, 80), Distributions.Uniform(40, 80)]
+    W, h = [0.0 0.0; 1.0 0.0; 0.0 1.0], [-20.0, 60.0, 60.0]
+    d = ConditionedDistribution(laws, W, h; cones = [MOI.SecondOrderCone(3)])
+    @test d.cones == [MOI.SecondOrderCone(3)] && Distributions.params(d)[4] == d.cones
+    draws = rand(Random.Xoshiro(1), d, 1000)
+    @test all(sum((draws .- 60) .^ 2; dims = 1) .<= 400 * (1 + 1e-9))
+    @test d != ConditionedDistribution(laws, W, h; cones = [MOI.Nonnegatives(3)])
+    @test d == ConditionedDistribution(laws, W, h; cones = Any[MOI.SecondOrderCone(3)])
+    mom = moments_of(d; max_samples = 100_000)
+    @test isapprox(mom.mean[2:3], [60, 60]; atol = 0.2)
+    @test isapprox(only(mom.blocks).covariance, [100 0; 0 100]; atol = 2)
+    # A product of cones: the disc and `η₁ ≤ 60`, the left half of the disc.
+    half = ConditionedDistribution(
+        laws,
+        [W; -1.0 0.0],
+        [h; -60.0];
+        cones = [MOI.SecondOrderCone(3), MOI.Nonnegatives(1)],
+    )
+    @test all(rand(Random.Xoshiro(2), half, 1000)[1, :] .<= 60)
+    @test_throws ArgumentError ConditionedDistribution(laws, W, h; cones = [MOI.Nonnegatives(2)])
+    @test_throws ArgumentError ConditionedDistribution(laws, W, h; cones = [MOI.Zeros(3)])
+    return
+end
+
 # Atoms on the boundary of the set are kept despite rounding.
 function test_discrete_boundary()
     law = Distributions.DiscreteNonParametric([0.1, 0.2, 0.3], [1 / 3, 1 / 3, 1 / 3])

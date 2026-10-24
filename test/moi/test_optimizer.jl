@@ -105,8 +105,8 @@ function test_unsupported_constraints_are_rejected_at_declaration()
     model = newsvendor()
     sell, ret = model[:sell], model[:ret]
     rejected = (
-        () -> @constraint(model, [sell, ret, 1] in SecondOrderCone()),
-        () -> @constraint(model, [sell, ret] in SecondOrderCone()),
+        () -> @constraint(model, [sell, ret, 1] in MOI.ExponentialCone()),
+        () -> @constraint(model, [sell, ret, ret] in MOI.ExponentialCone()),
         () -> @constraint(model, sell in MOI.Semicontinuous(1.0, 2.0)),
         () -> @constraint(model, sell^2 in MOI.Semicontinuous(1.0, 2.0)),
     )
@@ -116,10 +116,29 @@ function test_unsupported_constraints_are_rejected_at_declaration()
         @test occursin("are not supported by the solver", err.msg)
     end
     msg = error_of(rejected[1]).msg
-    @test occursin("VectorAffineFunction{Float64}-in-", msg) && occursin("SecondOrderCone", msg)
+    @test occursin("VectorAffineFunction{Float64}-in-", msg) && occursin("ExponentialCone", msg)
     # The rejected constraints leave no trace, and there are no bridge variables.
     @test num_variables(model) == 4
     @test num_constraints(model; count_variable_in_set_constraints = false) == 2
+    return
+end
+
+# Second-order cone rows are accepted, and must be tagged rows over uncertainties at `optimize!`.
+function test_second_order_cone_rows_reach_canonicalize()
+    model = newsvendor()
+    sell, d = model[:sell], model[:d]
+    c = @constraint(model, soc, [20, d - 100] in SecondOrderCone())
+    @test name(c) == "soc"
+    msg = error_of(() -> optimize!(model)).msg
+    @test occursin("The constraint soc in a second-order cone involves only uncertainties", msg)
+    delete(model, c)
+    @constraint(model, mixed, [20, d - sell] in SecondOrderCone(), ValidInequality())
+    msg = error_of(() -> optimize!(model)).msg
+    @test occursin("The constraint mixed in a second-order cone has decisions", msg)
+    model = newsvendor()
+    t = @constraint(model, [model[:d], 100] in SecondOrderCone(), ValidInequality())
+    @test get_attribute(t, LinearDecisionRules.XiRole()) == ValidInequality()
+    @test constraint_object(t).set == MOI.SecondOrderCone(2)
     return
 end
 
