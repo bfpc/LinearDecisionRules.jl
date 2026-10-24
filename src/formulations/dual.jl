@@ -77,9 +77,9 @@ function _add_dual_cone!(
     return
 end
 
-# The dual bound relies on stagewise independence: warn when a covariance block correlates
-# uncertainties of different stages.
-function _warn_correlated_stages(form::CanonicalForm, mom::Moments)
+# The dual bound relies on stagewise independence: the laws whose covariance block correlates
+# uncertainties of different stages, as `"a, b (stages 2, 3)"`.
+function _correlated_stage_laws(form::CanonicalForm, mom::Moments)
     laws = String[]
     for block in mom.blocks
         stages = form.uncertainty_stages[block.columns.-1]
@@ -92,6 +92,11 @@ function _warn_correlated_stages(form::CanonicalForm, mom::Moments)
             push!(laws, "$names (stages $(join(unique(stages), ", ")))")
         end
     end
+    return laws
+end
+
+function _warn_correlated_stages(form::CanonicalForm, mom::Moments)
+    laws = _correlated_stage_laws(form, mom)
     isempty(laws) && return
     @warn(
         "The uncertainties of different stages are correlated in the law of " *

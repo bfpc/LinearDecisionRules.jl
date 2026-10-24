@@ -88,7 +88,14 @@ function test_warns_when_a_law_correlates_stages()
     warning = (:warn, r"in the law of d\[1\], d\[2\] \(stages 2, 3\)\. Stagewise independence")
     result = @test_logs warning solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer)
     @test result.termination_status == MOI.OPTIMAL
-    @test_logs solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
+    @test !result.certified
+    @test endswith(
+        result.raw_status,
+        "[not certified: uncertainties of different stages are correlated]",
+    )
+    # The value of the primal rule is exact: only bounds need stagewise independence.
+    primal = @test_logs solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
+    @test primal.certified && !occursin("not certified", primal.raw_status)
     # Independent components in different stages, or correlated ones in one stage, are fine.
     for (law, t) in (
         (Distributions.product_distribution([Distributions.Uniform(80, 120) for _ in 1:2]), [2, 3]),
@@ -99,7 +106,8 @@ function test_warns_when_a_law_correlates_stages()
             decision_stages = p.info.decision_stages,
         )
         form = Problems.canonicalize(backend(p.model), info)
-        @test_logs solve_formulation(form, DualLDR(), moments(form), HiGHS.Optimizer)
+        result = @test_logs solve_formulation(form, DualLDR(), moments(form), HiGHS.Optimizer)
+        @test result.certified
     end
     return
 end

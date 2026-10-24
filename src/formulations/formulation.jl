@@ -118,6 +118,13 @@ The result of [`solve_formulation`](@ref).
    (or the dual objective value when the inner problem is not solved to optimality); `Inf` for a
    maximization (`-Inf` for a minimization) whose inner problem is unbounded; `NaN` if unknown. It
    needs no primal point. For [`DualLDR`](@ref) with integer decisions, this is the bound to report.
+ * `certified::Bool`: whether `objective_value` and `objective_bound` are exact for the laws of the
+   model, so that the value of [`PrimalLDR`](@ref) is attained and the bound of [`DualLDR`](@ref)
+   is a bound. It is `false` when they use moments estimated by rejection sampling (laws
+   conditioned by constraints tagged [`Truncate`](@ref)), for a bound when uncertainties of
+   different stages are correlated (stagewise independence fails), and for a rule that is feasible
+   on drawn outcomes only ([`SampledLDR`](@ref)). Except for the latter, `raw_status` then ends
+   with `[not certified: <reason>]`.
  * `solve_time::Float64`: wall-clock seconds of the inner `optimize!` (zero if it was not built).
  * `X::Matrix{Float64}`: the decision rules, `decisions × (1 + uncertainties)`, with zeros in the
    columns that a decision does not observe; all `NaN` unless `primal_status == FEASIBLE_POINT`.
@@ -131,6 +138,7 @@ struct FormulationResult
     raw_status::String
     objective_value::Float64
     objective_bound::Float64
+    certified::Bool
     solve_time::Float64
     X::Matrix{Float64}
     model::JuMP.Model
@@ -201,22 +209,41 @@ function solve_formulation(
     end
     solve_start = time_ns()
     JuMP.optimize!(model)
-    return _formulation_result(f, form, model, X, _seconds_since(solve_start))
+    return _formulation_result(f, form, mom, model, X, _seconds_since(solve_start))
+end
+
+# Whether the values of `f` are exact for the laws of `form`, and if not, why (empty for a rule that
+# is feasible on drawn outcomes only, whose values are estimates by construction).
+function _certification(f::AbstractFormulation, form::CanonicalForm, mom::Moments)
+    if capabilities(f).rule_status == MOI.UNKNOWN_RESULT_STATUS
+        return false, ""
+    elseif _is_estimated(mom)
+        return false, "moments of conditioned laws estimated by rejection sampling"
+    elseif capabilities(f).bound && !isempty(_correlated_stage_laws(form, mom))
+        return false, "uncertainties of different stages are correlated"
+    end
+    return true, ""
+end
+
+function _raw_status(raw::String, reason::String)
+    return isempty(reason) ? raw : "$raw [not certified: $reason]"
 end
 
 # `time_ns` rather than `time`, whose resolution can be 16 ms on Windows.
 _seconds_since(start::UInt64) = (time_ns() - start) / 1e9
 
 # The result of a formulation that was not built, because the time limit was reached before.
-function _time_limit_result(f::AbstractFormulation, form::CanonicalForm)
+function _time_limit_result(f::AbstractFormulation, form::CanonicalForm, mom::Moments)
     k = 1 + length(form.uncertainties)
+    certified, reason = _certification(f, form, mom)
     return FormulationResult(
         f,
         MOI.TIME_LIMIT,
         MOI.NO_SOLUTION,
-        "The time limit was reached before $f was built.",
+        _raw_status("The time limit was reached before $f was built.", reason),
         NaN,
         NaN,
+        certified,
         0.0,
         fill(NaN, length(form.decisions), k),
         JuMP.Model(),
@@ -437,6 +464,7 @@ const _NO_SOLUTION_STATUS =
 function _formulation_result(
     f::AbstractFormulation,
     form::CanonicalForm,
+    mom::Moments,
     model::JuMP.Model,
     X,
     time::Float64,
@@ -457,13 +485,15 @@ function _formulation_result(
         values = fill(NaN, length(X), k)
         objective = NaN
     end
+    certified, reason = _certification(f, form, mom)
     return FormulationResult(
         f,
         termination,
         status,
-        JuMP.raw_status(model),
+        _raw_status(JuMP.raw_status(model), reason),
         objective,
         _objective_bound(form, model, objective),
+        certified,
         time,
         values,
         model,

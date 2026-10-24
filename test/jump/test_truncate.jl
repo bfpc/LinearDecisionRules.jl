@@ -125,6 +125,27 @@ function test_newsvendor_mean()
     return
 end
 
+results_of(model) = JuMP.unsafe_backend(model).results
+
+# Values computed with moments estimated by Monte Carlo are not certified; exact ones are.
+function test_certified()
+    exact = exact_newsvendor()
+    set_attribute(exact, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(100)])
+    optimize!(exact)
+    @test [r.certified for r in results_of(exact)] == [true, true, false]
+    @test !occursin("not certified", raw_status(exact))
+    rejection = rejection_newsvendor()
+    set_attribute(rejection, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(100)])
+    optimize!(rejection)
+    @test !any(r.certified for r in results_of(rejection))
+    note = "[not certified: moments of conditioned laws estimated by rejection sampling]"
+    @test endswith(raw_status(rejection, DualLDR()), note)
+    @test endswith(raw_status(rejection, PrimalLDR()), note)
+    @test !occursin("not certified", raw_status(rejection, SampledLDR(100)))
+    @test termination_status(rejection, DualLDR()) == MOI.OPTIMAL
+    return
+end
+
 # Two independent demands, each truncated alone: two independent laws.
 function test_separate_truncations_are_independent()
     model = rejection_newsvendor()

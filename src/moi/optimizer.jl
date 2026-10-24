@@ -324,7 +324,7 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
         remaining = nothing
         if dest.time_limit !== nothing
             remaining = dest.time_limit - _seconds_since(start)
-            remaining <= 0 && return _time_limit_result(f, form)
+            remaining <= 0 && return _time_limit_result(f, form, mom)
         end
         return solve_formulation(
             form,
