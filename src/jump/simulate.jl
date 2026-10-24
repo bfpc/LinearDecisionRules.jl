@@ -3,10 +3,10 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# `evaluate` applies the rule `X` of a formulation to outcomes of the original uncertainties, in
-# batches (the columns of a matrix): `ξ = (1, η)` is lifted with `lift(form.lifting, ξ)` when there
-# are breakpoints, the decisions are `x = X ξ̃`, and the objective and the rows of the canonical form
-# are evaluated at `(x, ξ̃)`.
+# `evaluate` and `simulate` apply the rule `X` of a formulation to outcomes of the original
+# uncertainties, in batches (the columns of a matrix): `ξ = (1, η)` is lifted with
+# `lift(form.lifting, ξ)` when there are breakpoints, the decisions are `x = X ξ̃`, and the
+# objective and the rows of the canonical form are evaluated at `(x, ξ̃)`.
 
 # One law of the original uncertainties, on the columns of the original ξ.
 struct _OriginalLaw
@@ -437,4 +437,221 @@ end
 
 function evaluate(model::JuMP.GenericModel, scenario::AbstractVector{<:Pair}; kwargs...)
     return evaluate(model, Dict{Any,Any}(scenario); kwargs...)
+end
+
+"""
+    Simulation
+
+The result of [`simulate`](@ref): the decision rule applied to many scenarios.
+
+## Fields
+
+ * `formulation::AbstractFormulation`
+ * `objectives::Vector{Float64}`: the objective at each scenario.
+ * `objective_mean::Float64`, `objective_stderr::Float64`: the sample mean of the objective and its
+   standard error (`NaN` with one scenario).
+ * `violated::BitVector`: whether each scenario violates a constraint by more than `tolerance`.
+ * `max_violations::Vector{Float64}`: the largest violation at each scenario.
+ * `violation_fraction::Float64`: the fraction of scenarios with a violation.
+ * `max_violation::Float64`: the largest violation of all the scenarios.
+ * `violation_counts::Vector{Pair{String,Int}}`: for each constraint (or bound, as `x >= 0`) that
+   some scenario violates, the number of scenarios that do, the largest first.
+ * `decisions::Union{Nothing,Dict{JuMP.VariableRef,Vector{Float64}}}`: the value of each decision
+   at each scenario, if `keep_decisions = true`.
+ * `num_outside_support::Int`: the number of scenarios outside the support (given by the user).
+ * `tolerance::Float64`: as in [`Evaluation`](@ref).
+"""
+struct Simulation
+    formulation::AbstractFormulation
+    objectives::Vector{Float64}
+    objective_mean::Float64
+    objective_stderr::Float64
+    violated::BitVector
+    max_violations::Vector{Float64}
+    violation_fraction::Float64
+    max_violation::Float64
+    violation_counts::Vector{Pair{String,Int}}
+    decisions::Union{Nothing,Dict{JuMP.VariableRef,Vector{Float64}}}
+    num_outside_support::Int
+    tolerance::Float64
+end
+
+function Base.show(io::IO, s::Simulation)
+    n = length(s.objectives)
+    print(io, "Simulation of ", s.formulation, " on ", n, " scenarios\n")
+    print(io, "  objective: mean ", s.objective_mean, " ± ", s.objective_stderr, " (standard error)\n")
+    num_violated = sum(s.violated)
+    print(io, "  violations: ", num_violated, " scenarios (", 100 * s.violation_fraction, "%)")
+    print(io, ", max violation ", s.max_violation, " (tolerance ", s.tolerance, ")")
+    if s.num_outside_support > 0
+        print(io, "\n  ", s.num_outside_support, " scenarios outside the support")
+    end
+    return
+end
+
+# The scenarios `first:last`, as the columns of a matrix of outcomes: drawn from the original laws.
+function _draw_chunk(rng::Random.AbstractRNG, sim::_Simulator, num::Int)
+    ξ = ones(1 + length(sim.uncertainties), num)
+    for law in sim.laws
+        draws = rand(rng, law.distribution, num)
+        univariate = law.distribution isa Distributions.UnivariateDistribution
+        ξ[law.columns, :] = univariate ? reshape(draws, 1, :) : draws
+    end
+    return ξ
+end
+
+function _simulate(
+    model::JuMP.GenericModel,
+    sim::_Simulator,
+    formulation::AbstractFormulation,
+    n::Int,
+    outcomes::Function,
+    outside_support::Union{Nothing,Symbol},
+    keep_decisions::Bool,
+    tolerance::Float64,
+)
+    objectives, max_violations = zeros(n), zeros(n)
+    violated = falses(n)
+    counts = zeros(Int, length(sim.groups))
+    kept = keep_decisions ? zeros(size(sim.X, 1), n) : nothing
+    outside, first_reason = 0, ""
+    # Batches bound the memory: one value per row and scenario.
+    chunk = clamp(500_000 ÷ (size(sim.G, 1) + length(sim.groups) + size(sim.X, 1) + 1), 1, 4096)
+    for start in 1:chunk:n
+        scenarios = start:min(start + chunk - 1, n)
+        ξ = outcomes(start, length(scenarios))
+        batch = _assess(sim, ξ, tolerance)
+        objectives[scenarios] = batch.objective
+        max_violations[scenarios] = maximum(batch.excess; dims = 1, init = 0.0)
+        violated[scenarios] = vec(any(batch.flagged; dims = 1))
+        counts .+= vec(sum(batch.flagged; dims = 2))
+        kept === nothing || (kept[:, scenarios] = batch.decisions)
+        outside_support === nothing && continue
+        reasons = _support_reasons(model, sim, ξ, batch, tolerance)
+        for (k, reason) in enumerate(reasons)
+            reason === nothing && continue
+            outside += 1
+            if outside == 1
+                first_reason = reason
+                outside_support == :error && _outside_support(:error, reason, " $(start + k - 1)")
+            end
+        end
+    end
+    if outside > 0 && outside_support == :warn
+        @warn "$outside scenarios are outside the support; the first has $first_reason."
+    end
+    mean = sum(objectives) / n
+    stderr = n > 1 ? sqrt(sum(abs2, objectives .- mean) / (n - 1) / n) : NaN
+    violation_counts = [_group_name(model, sim, g) => c for (g, c) in enumerate(counts) if c > 0]
+    sort!(violation_counts; by = last, rev = true)
+    decisions = nothing
+    if kept !== nothing
+        decisions = Dict(JuMP.VariableRef(model, v) => kept[i, :] for (v, i) in sim.decision_index)
+    end
+    return Simulation(
+        formulation,
+        objectives,
+        mean,
+        stderr,
+        violated,
+        max_violations,
+        count(violated) / n,
+        maximum(max_violations),
+        violation_counts,
+        decisions,
+        outside,
+        tolerance,
+    )
+end
+
+"""
+    simulate(
+        model::JuMP.Model,
+        n::Integer;
+        formulation::AbstractFormulation = PrimalLDR(),
+        rng::Random.AbstractRNG = Random.default_rng(),
+        keep_decisions::Bool = false,
+        tolerance::Real = 1e-6,
+    ) -> Simulation
+    simulate(
+        model::JuMP.Model,
+        scenarios::AbstractVector;
+        formulation::AbstractFormulation = PrimalLDR(),
+        keep_decisions::Bool = false,
+        tolerance::Real = 1e-6,
+        outside_support::Symbol = :error,
+    ) -> Simulation
+
+Apply the decision rule of `formulation` to `n` scenarios drawn from the laws of the uncertainties
+(in the original, not lifted, coordinates, one independent draw of each declaration), or to the
+`scenarios` given, each as in [`evaluate`](@ref), for example the simulations of another method.
+
+The [`Simulation`](@ref) has the objective at each scenario, its sample mean and standard error, and
+the violations of the constraints: the fraction of scenarios with a violation, the largest one, and
+how often each constraint is violated. The decisions of each scenario are kept only with
+`keep_decisions = true`, since they take `n` values per decision.
+
+For the rule of [`PrimalLDR`](@ref), which is feasible on the support, there is no violation (up to
+the tolerance), and the sample mean of the objective estimates `objective_value(model)`. The rule of
+[`SampledLDR`](@ref) is feasible on the scenarios that it was solved on only, so `simulate` reports
+its out-of-sample violations. Given `scenarios` must be in the support, with `outside_support` as in
+`evaluate`.
+
+## Example
+
+```julia
+optimize!(model)
+s = simulate(model, 10_000; rng = Random.Xoshiro(1))
+s.objective_mean, s.objective_stderr   # compare with objective_value(model)
+s.violation_fraction                   # 0.0 for the primal rule
+simulate(model, [Dict(d => 90.0), Dict(d => 110.0)])
+```
+"""
+function simulate(
+    model::JuMP.GenericModel,
+    n::Integer;
+    formulation::AbstractFormulation = PrimalLDR(),
+    rng::Random.AbstractRNG = Random.default_rng(),
+    keep_decisions::Bool = false,
+    tolerance::Real = 1e-6,
+)
+    if n < 1
+        throw(ArgumentError("The number of scenarios must be positive; got $n."))
+    end
+    sim = _simulator(model, formulation)
+    draw(_, num) = _draw_chunk(rng, sim, num)
+    tol = Float64(tolerance)
+    return _simulate(model, sim, formulation, Int(n), draw, nothing, keep_decisions, tol)
+end
+
+function simulate(
+    model::JuMP.GenericModel,
+    scenarios::AbstractVector;
+    formulation::AbstractFormulation = PrimalLDR(),
+    keep_decisions::Bool = false,
+    tolerance::Real = 1e-6,
+    outside_support::Symbol = :error,
+)
+    _check_policy(outside_support)
+    if isempty(scenarios)
+        throw(ArgumentError("There are no scenarios to simulate."))
+    end
+    sim = _simulator(model, formulation)
+    function outcomes(start, num)
+        ξ = zeros(1 + length(sim.uncertainties), num)
+        for k in 1:num
+            ξ[:, k] = _outcome(sim, model, scenarios[start+k-1])
+        end
+        return ξ
+    end
+    return _simulate(
+        model,
+        sim,
+        formulation,
+        length(scenarios),
+        outcomes,
+        outside_support,
+        keep_decisions,
+        Float64(tolerance),
+    )
 end
