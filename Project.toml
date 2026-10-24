@@ -1,0 +1,32 @@
+name = "LinearDecisionRules"
+uuid = "ee4db4e3-7eec-47e5-9935-9699b02754f6"
+authors = ["Bernardo Freitas Paulo da Costa", "Joaquim Dias Garcia"]
+version = "0.4.0-DEV"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+
+[compat]
+Aqua = "0.8"
+Distributions = "0.25"
+HiGHS = "1"
+JuMP = "1.25"
+LinearAlgebra = "1"
+MathOptInterface = "1.37"
+Random = "1"
+SparseArrays = "1"
+Test = "1"
+julia = "1.10"
+
+[extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Aqua", "HiGHS", "Test"]
