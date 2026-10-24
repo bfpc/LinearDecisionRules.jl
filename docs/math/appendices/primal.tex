@@ -1,4 +1,43 @@
 \section{The block robust counterpart}
 \label{app:primal}
 
-To be written.
+\begin{proof}[Proof of \cref{prop:block-counterpart}]
+Write $\eta = (\eta_b)_b$ and $s(\xi) = s_1 + \sum_b s_b^\T\eta_b$.
+Since $\Xis = \{1\} \times \prod_b \Xib{b}$, the infimum of $s$ over $\Xis$ separates:
+\[
+\inf_{\xi\in\Xis} s(\xi) = s_1 + \sum_b \inf_{\eta_b \in \Xib{b}} s_b^\T\eta_b,
+\]
+with the convention that the sum is $-\infty$ if one term is.
+For $b \notin \Touch$ we have $s_b = 0$, and the term is $0$ because $\Xib{b} \neq \emptyset$.
+For $b \in \Touch$, the linear program $\inf\{s_b^\T\eta_b : W_b\eta_b \ge h_b\}$ is feasible,
+so by linear programming duality its value equals $\sup\{h_b^\T\lambda_b : W_b^\T\lambda_b = s_b,\ \lambda_b \ge 0\}$,
+the supremum being attained when finite, and both being $-\infty$ when the dual is infeasible.
+(For a block without rows, the dual has the single point $\lambda_b \in \R^0$ if $s_b = 0$ and is infeasible otherwise.)
+
+If multipliers satisfy \eqref{eq:block-counterpart}, then each infimum is at least $h_b^\T\lambda_b$, and $\inf_\Xis s \ge s_1 + \sum_{b\in\Touch} h_b^\T\lambda_b \ge 0$.
+Conversely, if $\inf_\Xis s \ge 0$, every term is finite, each dual attains its value at some $\lambda_b$, and these multipliers satisfy \eqref{eq:block-counterpart}.
+\end{proof}
+
+\begin{proof}[Proof of \cref{cor:primal-dense}]
+The equivalence of \eqref{eq:primal-lp} with \eqref{eq:PLDR} is \cref{prop:matching} for the equalities and \cref{prop:block-counterpart} for the inequalities, with $\Touch = \Touch_r$, which contains every block where $S_r$ can be nonzero.
+
+The dense program of \citet[(4.2)]{KWG2011}, written with pointwise constraints and for the same rules, describes $\Xis$ as $\{\xi : W^{\mathrm{d}}\xi \ge h^{\mathrm{d}}\}$, where the first two rows are $\pm\eone^\T\xi \ge \pm1$ and the others are the rows $(0, W_{bp})\xi \ge h_{bp}$ of all blocks.
+For one inequality $r$, its multipliers are $(\lambda^+, \lambda^-, (\lambda_b)_b) \ge 0$ with
+\[
+\lambda^+ - \lambda^- = S_{r1}, \qquad
+W_b^\T\lambda_b = S_{r,b} \text{ for every block } b, \qquad
+\lambda^+ - \lambda^- + \sum_b h_b^\T\lambda_b \ge 0,
+\]
+the first equality being the column of $\xi_1$ of $\Lambda W^{\mathrm{d}} = S$, since the rows of the blocks vanish on that column.
+Three changes take it to \eqref{eq:primal-lp}, each preserving the set of feasible $X$:
+\begin{enumerate}[nosep]
+\item $\lambda^\pm$ appear only through $\lambda^+ - \lambda^-$, which is fixed to $S_{r1}$; substituting it gives the coupling inequality $S_{r1} + \sum_b h_b^\T\lambda_b \ge 0$, and any $S_{r1}$ is the difference of two nonnegative numbers.
+\item For a block $b \notin \Touch_r$, $W_b^\T\lambda_b = 0$ and $\lambda_b \ge 0$ imply $h_b^\T\lambda_b \le 0$: take any $\eta_b \in \Xib{b}$, then $h_b^\T\lambda_b \le (W_b\eta_b)^\T\lambda_b = \eta_b^\T W_b^\T\lambda_b = 0$.
+So replacing $\lambda_b$ by $0$ keeps the coupling inequality, and these multipliers and their equalities $0 = 0$ can be dropped.
+\item The slack matrix $S$, a variable with the equalities $S = D_\sigma(B - AX)$ in the dense form ($D_\sigma$ the diagonal matrix of the signs $\sigma_r$), is replaced by these affine expressions.
+\end{enumerate}
+The objective is the same function of $X$ in both (\cref{prop:objective}).
+\end{proof}
+
+In the dense form with explicit slacks, an inequality costs $k$ slack variables, $k$ equalities for $S$, $2 + \sum_b q_b$ multipliers, $k$ equalities $\Lambda W = S$ and one inequality;
+in \eqref{eq:primal-lp} it costs $\sum_{b\in\Touch_r} q_b$ multipliers, $\sum_{b\in\Touch_r} k_b$ equalities and one inequality.

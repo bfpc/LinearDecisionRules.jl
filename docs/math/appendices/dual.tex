@@ -1,4 +1,75 @@
 \section{The dual approximation}
 \label{app:dual}
 
-To be written.
+The key step is that projecting a nonanticipative policy on the linear functions of $\xi$ keeps it nonanticipative.
+This is \citet[Lemma~2]{KWG2011}, which we restate with prefixes.
+
+\begin{lemma}[Projection of a function of the history]
+\label{lem:projection}
+Let $v \le k$, write $\xi = (\xi_h, \xi_f)$ with $\xi_h = \xi_{1:v}$, and suppose that $\E[\xi_f \mid \xi_h] = N_f\xi_h$ almost surely for some matrix $N_f$.
+Let $y$ be a square-integrable function of $\xi_h$ with values in $\R^p$, and $Y = \E[y(\xi_h)\xi^\T]\Mom^{-1}$.
+Then $Y = (Y_h, 0)$ with $Y_h = \E[y(\xi_h)\xi_h^\T]\Mom_{hh}^{-1}$.
+\end{lemma}
+
+\begin{proof}
+$\Mom_{hh}$ is a principal submatrix of $\Mom \succ 0$, hence invertible, and $Y_h$ is well defined.
+Since $\Mom$ is invertible, it suffices to check that $(Y_h, 0)\Mom = \E[y\xi^\T]$.
+On the columns $h$, $Y_h\Mom_{hh} = \E[y\xi_h^\T]$ by definition.
+On the columns $f$, by the tower property,
+$\E[y\xi_f^\T] = \E\bigl[y\,\E[\xi_f\mid\xi_h]^\T\bigr] = \E[y\xi_h^\T]N_f^\T$,
+and likewise $\Mom_{hf} = \E[\xi_h\xi_f^\T] = \Mom_{hh}N_f^\T$,
+so $Y_h\Mom_{hf} = Y_h\Mom_{hh}N_f^\T = \E[y\xi_h^\T]N_f^\T = \E[y\xi_f^\T]$.
+\end{proof}
+
+\begin{proof}[Proof of \cref{thm:dual-bound}]
+Let $x$ be a feasible policy of \eqref{eq:P}: $x_i$ is a square-integrable function of $\xi_{1:\nvis_i}$, integer for the integer decisions, and the constraints hold almost surely.
+Let $X = \E[x\xi^\T]\Mom^{-1}$, row by row $X_i = \E[x_i\xi^\T]\Mom^{-1}$.
+
+\emph{Information structure.}
+For a decision of stage $t$ with $\nvis_i = \nvis(t)$, condition~\ref{it:lce} gives $\E[\xi_f\mid\xi_{1:\nvis_i}] = N_f\xi_{1:\nvis_i}$ for the trailing columns $f$,
+and \cref{lem:projection} shows that $X_{ij} = 0$ for $j > \nvis_i$.
+For an integer decision, $\nvis_i = 1$, $x_i$ is a constant $c_i \in \mathbb{Z}$, and $X_i = c_i\E[\xi^\T]\Mom^{-1} = c_i\eone^\T$ because $\Mom\eone = \mub$;
+so $X_{i1} = c_i$ is integer, and the same argument gives $X_{i1} = x_i$ for every decision with $\nvis_i = 1$, which therefore satisfies its bounds.
+Hence $X \in \Rules$.
+
+\emph{Equalities.}
+$A_ex(\xi) = B_e\xi$ almost surely; multiplying by $\xi^\T$ and taking expectations, $A_eX\Mom = B_e\Mom$, so $A_eX = B_e$.
+
+\emph{Inequalities.}
+For $r \in \Rows$, let $s_r(\xi) = \sigma_r(b_r^\T\xi - a_r^\T x(\xi)) \ge 0$ almost surely.
+By linearity, $\E[s_r(\xi)\xi^\T] = \sigma_r(b_r^\T\Mom - a_r^\T X\Mom) = S_r\Mom$ with $S_r = \sigma_r(b_r^\T - a_r^\T X)$.
+Since $\supp\law \subseteq \Xis$, $\Wp\xi \ge 0$ almost surely, so $s_r(\xi)(\Wp\xi)^\T \ge 0$ almost surely, and taking expectations,
+$S_r\Mom\Wp^\T = \E[s_r(\xi)(\Wp\xi)^\T] \ge 0$.
+For a deterministic inequality, all its decisions observe only the constant, so $s_r$ is the constant $S_{r1}$, which is nonnegative.
+
+\emph{Objective.}
+The terms in $\eta$ alone do not depend on the policy.
+The linear term is $\E[x^\T C\xi] = \tr(C^\T\E[x\xi^\T]) = \tr(C^\T X\Mom) = \E[(X\xi)^\T C\xi]$.
+For the quadratic term, let $\varepsilon = x - X\xi$, so that $\E[\varepsilon\xi^\T] = 0$.
+Then $\E[\varepsilon^\T P X\xi] = \tr(PX\E[\xi\varepsilon^\T]) = 0$, and
+\[
+\E[x^\T Px] = \E[(X\xi)^\T P(X\xi)] + \E[\varepsilon^\T P\varepsilon],
+\]
+where the last term is nonnegative if $P \succeq 0$ and nonpositive if $P \preceq 0$.
+So, for a minimization with $P \succeq 0$, the objective of $X$ in \eqref{eq:DLDR} is at most that of $x$, and symmetrically for a maximization.
+
+Taking the infimum over feasible policies gives $\val\eqref{eq:DLDR} \le \val\eqref{eq:P}$ for a minimization;
+$\val\eqref{eq:P} \le \val\eqref{eq:PLDR}$ holds because a feasible rule of \eqref{eq:PLDR} is a feasible policy of \eqref{eq:P}, by $\supp\law\subseteq\Xis$.
+\end{proof}
+
+\begin{remark}
+The proof uses condition~\ref{it:lce} only through \cref{lem:projection}, at the prefixes $\nvis_i$ of the decisions.
+It does not need the strict feasibility of \citet[Proposition~4]{KWG2011}, which serves to show that \eqref{eq:DLDR} has the same value as their relaxed problem (MSP$^l$), not that it bounds \eqref{eq:P}.
+\end{remark}
+
+\paragraph{The structured identity, row by row.}
+Index the rows of $\Wp$ by the constant row and by the pairs $(b, p)$ of a support block and one of its rows, and let $\Cv_{:,b}$ be the columns of $\Cv$ of the coordinates of block $b$.
+Since the first row and column of $\Cv$ vanish and $\eone^\T\mub = 1$,
+\[
+S_r\Mom\eone = S_r\mub = u_r,
+\qquad
+S_r\Mom\Wp_{bp}{}^\T = u_r\,(\Wp_{bp}\mub) + S_r\Cv\Wp_{bp}{}^\T = u_r\,(W_{bp}\mu_b - h_{bp}) + S_r\Cv_{:,b}W_{bp}^\T,
+\]
+which are the inequalities $u_r \ge 0$ and \eqref{eq:dual-cone-row}.
+The column $j$ of $\Cv_{:,b}$ is nonzero only if coordinate $j$ is in a covariance block that meets support block $b$,
+so the term $S_r\Cv_{:,b}W_{bp}^\T = \sum_{j\in\Jr_r} S_{rj}(V_b)_{jp}$ has at most $\abs{\Jr_r}$ terms, and none when no structural column of $r$ shares a covariance block with $b$.

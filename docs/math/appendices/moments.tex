@@ -1,4 +1,73 @@
 \section{Moments}
 \label{app:moments}
 
-To be written.
+\subsection{Lifted moments}
+
+\begin{proof}[Proof of \cref{prop:lifted-moments}]
+With $v_0 = \underline\eta$, the shifted coordinates are $\upsilon_1 = \leta_1 - \underline\eta = \min(\eta - v_0, \Delta_1)$ (on the support, $\eta \ge v_0$)
+and $\upsilon_i = \min(\max(\eta - v_{i-1}, 0), \Delta_i)$ for $i \ge 2$, the last one without the upper clamp, which the support makes redundant.
+On the piece $i$, that is when $v_{i-1} < \eta \le v_i$,
+\[
+\upsilon_j = \Delta_j \ (j < i), \qquad \upsilon_i = \eta - v_{i-1}, \qquad \upsilon_j = 0 \ (j > i).
+\]
+(The atom $\eta = v_0$ of a discrete law, which belongs to no piece, gives $\upsilon = 0$ and contributes nothing below.)
+Hence, summing over the pieces,
+$\E[\upsilon_i] = \E[(\eta - v_{i-1})\one_i] + \Delta_i\sum_{j > i}\E[\one_j] = m_i + \Delta_i\theta_i$
+and $\E[\upsilon_i^2] = s_i + \Delta_i^2\theta_i$.
+For $i < j$, $\upsilon_j > 0$ only on the pieces $j' \ge j > i$, where $\upsilon_i = \Delta_i$,
+so $\upsilon_i\upsilon_j = \Delta_i\upsilon_j$ everywhere and $\E[\upsilon_i\upsilon_j] = \Delta_i\E[\upsilon_j]$.
+Finally $\leta = \upsilon + \underline\eta e_1$ shifts the mean and leaves the covariance unchanged.
+\end{proof}
+
+For the uniform law on $[\underline\eta, \overline\eta]$, with $w = 1/(\overline\eta - \underline\eta)$,
+the piece moments are $p_i = w\Delta_i$, $m_i = w\Delta_i^2/2$, $s_i = w\Delta_i^3/3$,
+and $\theta_i = w(\overline\eta - v_i)$, so
+\[
+\E[\upsilon_i] = w\Delta_i\Bigl(\frac{\Delta_i}2 + \overline\eta - v_i\Bigr),
+\qquad
+\E[\upsilon_i^2] = w\Delta_i^2\Bigl(\frac{\Delta_i}3 + \overline\eta - v_i\Bigr),
+\qquad
+\E[\upsilon_i\upsilon_j] = \Delta_i\,\E[\upsilon_j] \ (i < j).
+\]
+For instance, for $\mathcal{U}(80, 120)$ with the breakpoint $100$, $\E[\leta] = (80 + 15, 5) = (95, 5)$.
+For other continuous laws, $p_i$ comes from the distribution function, and $m_i$, $s_i$ from quadrature of the density on the piece
+(\code{\_piece\_moments}, \file{src/probability/distributions/lifted_distribution.jl}).
+
+\subsection{The confidence-ellipsoid normal law}
+
+Let $\eta \sim \mathcal{N}(\mu, \Sigma)$ in $\R^d$ with $\Sigma = LL^\T \succ 0$, and $z = L^{-1}(\eta - \mu) \sim \mathcal{N}(0, I_d)$.
+The ellipsoid $\mathcal{E}$ is $\{\norm z^2 \le \rho^2\}$, and $R \defeq \norm z^2 \sim \chi^2_d$, with density
+$f_d(r) = r^{d/2-1}e^{-r/2}/(2^{d/2}\Gamma(d/2))$ on $r > 0$.
+So $\Prob(\eta\in\mathcal{E}) = \Fchi{d}(\rho^2) = \alpha$ defines $\rho^2 = \Fchi{d}^{-1}(\alpha)$.
+
+\begin{proof}[Proof of \cref{prop:confidence-moments}]
+\emph{Mean.} The law of $z$ and the ball are invariant under $z \mapsto -z$, so $\E[z \mid \norm z \le \rho] = 0$ and the mean of $\eta$ is $\mu$.
+
+\emph{Covariance.} The law of $z$ and the ball are invariant under rotations, so $\E[zz^\T \mid \norm z \le \rho] = c\,I_d$ for some $c$,
+and taking the trace, $c = \E[R \mid R \le \rho^2]/d$.
+Now $r f_d(r) = d\, f_{d+2}(r)$, because $2^{d/2+1}\Gamma(d/2+1) = d\,2^{d/2}\Gamma(d/2)$.
+Therefore
+\[
+\E[R\,\ind{R \le \rho^2}] = \int_0^{\rho^2} r f_d(r)\,dr = d\,\Fchi{d+2}(\rho^2),
+\qquad
+c = \frac{d\,\Fchi{d+2}(\rho^2)}{d\,\alpha} = \frac{\Fchi{d+2}(\rho^2)}{\alpha} = c_\alpha,
+\]
+and $\Cov(\eta) = L\,(c_\alpha I_d)L^\T = c_\alpha\Sigma$.
+Since $\chi^2_{d+2}$ is stochastically larger than $\chi^2_d$, $\Fchi{d+2}(\rho^2) < \Fchi{d}(\rho^2) = \alpha$, so $c_\alpha < 1$:
+truncation shrinks the covariance.
+
+\emph{Conditional expectation.}
+Split $\eta = (\eta_h, \eta_f)$ and $\Sigma$ accordingly; let $m(\eta_h) = \mu_f + \Sigma_{fh}\Sigma_{hh}^{-1}(\eta_h - \mu_h)$ and $\Sigma_{f|h} = \Sigma_{ff} - \Sigma_{fh}\Sigma_{hh}^{-1}\Sigma_{hf} \succ 0$.
+The Schur complement gives
+\[
+(\eta - \mu)^\T\Sigma^{-1}(\eta - \mu) = (\eta_h - \mu_h)^\T\Sigma_{hh}^{-1}(\eta_h - \mu_h) + (\eta_f - m(\eta_h))^\T\Sigma_{f|h}^{-1}(\eta_f - m(\eta_h)).
+\]
+Under the untruncated law, $\eta_f$ given $\eta_h$ is $\mathcal{N}(m(\eta_h), \Sigma_{f|h})$.
+Under the truncated law, its conditional density is that density restricted to the ellipsoid
+$\{(\eta_f - m)^\T\Sigma_{f|h}^{-1}(\eta_f - m) \le \rho^2 - (\eta_h - \mu_h)^\T\Sigma_{hh}^{-1}(\eta_h - \mu_h)\}$ and renormalized.
+Both are symmetric under $\eta_f - m \mapsto -(\eta_f - m)$, so $\E[\eta_f \mid \eta_h] = m(\eta_h)$, which is affine in $\eta_h$.
+\end{proof}
+
+The formulas of the previous version, written with incomplete gamma functions, are the same:
+$\Fchi{p}(x) = \gamma(p/2, x/2)/\Gamma(p/2)$, so $\rho^2$ solves $\gamma(d/2, \rho^2/2) = \alpha\Gamma(d/2)$
+and $c_\alpha = \gamma(d/2+1, \rho^2/2)/(\alpha\Gamma(d/2+1))$.

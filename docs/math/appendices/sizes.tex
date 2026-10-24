@@ -1,4 +1,38 @@
 \section{Size counts}
 \label{app:sizes}
 
-To be written.
+\paragraph{General counts.}
+Let $\Rows'$ be the inequalities that are not deterministic, and for $r \in \Rows'$ let $\Touch_r$ be its touched support blocks and $\Jr_r$ its structural columns.
+Not counting simple bounds as constraints:
+\begin{itemize}[nosep]
+\item rules: $\sum_i \nvis_i$ variables; equalities: $\sum_{r \text{ equality}} \abs{\Jr_r}$ constraints; deterministic inequalities: one constraint each;
+\item primal \eqref{eq:primal-lp}: $\sum_{r\in\Rows'}\sum_{b\in\Touch_r} q_b$ multipliers and $\sum_{r\in\Rows'}\bigl(1 + \sum_{b\in\Touch_r} k_b\bigr)$ constraints;
+\item dual (structured): $\sum_{r\in\Rows'}(1 + \abs{\Jr_r})$ variables and $\sum_{r\in\Rows'}(1 + \abs{\Jr_r} + c_r)$ constraints,
+where $c_r$ is the number of rows of $\Wp$ whose term $S_r\Cv_{:,b}W_{bp}^\T$ is structurally nonzero.
+\end{itemize}
+
+\paragraph{The inventory problem.}
+In \file{benchmark/timing.jl}, the demand $d_t \sim \mathcal{U}(60, 100)$ is revealed in stage $t+1$, for $t = 1, \dots, T$;
+the order $x_t \in [0, 150]$ is in stage $t$, and the inventory $I_t$ and the cost $y_t$ are in stage $t+1$, with
+$I_t = I_{t-1} + x_t - d_t$, $y_t \ge 0.5 I_t$ and $y_t \ge -3I_t$.
+There are $T$ support blocks, each a single coordinate with 2 rows, and $T$ covariance blocks, the same.
+The decision $x_t$ observes $t$ columns (the constant and $d_1, \dots, d_{t-1}$), and $I_t$, $y_t$ observe $t+1$.
+\begin{itemize}[nosep]
+\item Rules: $\sum_t (t + 2(t+1)) = \frac32T(T+1) + 2T$.
+\item Equalities: the balance of $I_t$ has $\abs{\Jr} = t+1$, in total $\frac12T(T+3)$.
+\item Inequalities: the two cost rows of stage $t$ have $\abs{\Jr} = t+1$ and touch $t$ blocks;
+the bounds of $x_t$, for $t \ge 2$ (the bounds of $x_1$ are simple bounds), have $\abs{\Jr} = t$ and touch $t-1$ blocks.
+In total $4T - 2$ inequalities, with $\sum\abs{\Jr} = (T^2 + 3T) + (T^2 + T - 2) = 2T^2 + 4T - 2$.
+\end{itemize}
+Primal: each touched block costs 2 multipliers and 1 equality, and each inequality one coupling, so
+there are $2\sum(\abs{\Jr} - 1) = 4T^2$ multipliers and $\sum\abs{\Jr} = 2T^2 + 4T - 2$ inequality constraints. In total,
+\[
+\text{variables } \tfrac{11}{2}T^2 + \tfrac72T, \qquad \text{constraints } \tfrac52T^2 + \tfrac{11}{2}T - 2.
+\]
+Dual: each inequality has $1 + \abs{\Jr}$ variables, $1 + \abs{\Jr}$ equalities and two cone rows per touched block, so
+\[
+\text{variables } \tfrac72T^2 + \tfrac{23}{2}T - 4, \qquad \text{constraints } \tfrac{13}{2}T^2 + \tfrac{19}{2}T - 4.
+\]
+At $T = 32$ and $T = 128$ these give 5,744 and 90,560 primal variables, 2,734 and 41,662 primal constraints, 3,948 and 58,812 dual variables, and 6,956 and 107,708 dual constraints, as measured (\file{benchmark/results/timings.csv}).
+The dense primal on the same canonical form has, per inequality (the bounds of $x_1$ included), $2 + 2T$ multipliers, so $4T(2T + 2) = 8T(T+1)$ in total.
+The dense dual has $1 + 2T$ cone rows per inequality, each with up to $T + 1$ slack terms that are themselves expressions of $X$, hence its $\Theta(T^3)$ nonzeros.
