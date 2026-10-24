@@ -28,8 +28,12 @@ include("canonical/support.jl")
 include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
 include("moi/sets.jl")
+include("moi/attributes.jl")
+include("jump/variables.jl")
+include("jump/constraints.jl")
 
-export CanonicalForm,
+export BreakPoints,
+    CanonicalForm,
     CovarianceBlock,
     FirstStage,
     InformationStructure,
@@ -38,14 +42,19 @@ export CanonicalForm,
     MvDiscreteNonParametric,
     Stage,
     SupportBlock,
+    Truncate,
     Uncertainty,
     UncertaintyBlock,
     UncertaintyDeclaration,
+    ValidInequality,
     canonicalize,
     moments,
     observes,
     second_moment,
+    set_stage,
+    stage,
     support_blocks,
+    unset_stage,
     visible_columns
 
 end # module LinearDecisionRules
