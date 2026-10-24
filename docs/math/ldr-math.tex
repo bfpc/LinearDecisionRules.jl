@@ -1,0 +1,86 @@
+% The mathematics of LinearDecisionRules.jl 0.4.
+%
+% Build: `latexmk` in this folder (see latexmkrc); the PDF is written to build/.
+% Source conventions: semantic line breaks (one sentence, or one clause, per line),
+% notation through the macros of macros.tex.
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!50!black]{hyperref}
+
+\input{macros}
+
+% Statements
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{example}[theorem]{Example}
+
+\numberwithin{equation}{section}
+
+\title{The mathematics of \pkg{} 0.4\\[0.5ex]
+\large Primal, dual and sampled linear decision rules, liftings,\\
+and how the reformulated problems are kept small}
+\author{Bernardo Freitas Paulo da Costa\thanks{Escola de Matem\'atica Aplicada, Funda\c{c}\~ao Getulio Vargas (FGV), Rio de Janeiro, Brazil.}
+\and Joaquim Dias Garcia\thanks{PSR, Rio de Janeiro, Brazil.}}
+\date{Draft, October 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\pkg{} reformulates a multistage stochastic program written in JuMP, with uncertain right-hand sides and costs, into deterministic problems over the coefficients of linear decision rules.
+The primal approximation restricts the policies to affine functions of the observed uncertainties and gives a feasible policy, hence a bound on the optimal value from the side of the objective;
+the dual approximation relaxes the constraints to hold in expectation against the functions that describe the support, and gives a bound from the other side.
+Liftings extend both to piecewise affine rules, and a sampled formulation enforces the constraints on drawn outcomes only.
+These notes describe the mathematics as implemented in version 0.4,
+and the computational choices that keep the reformulated problems small:
+the information structure as prefixes of the sorted uncertainties,
+the support as a product of blocks,
+the second-moment matrix as a rank-one term plus a block-diagonal covariance,
+and sparse retractions for the liftings.
+We also describe how laws are conditioned and their moments estimated,
+and the confidence-ellipsoid normal law that is being ported from the previous version.
+\end{abstract}
+
+\tableofcontents
+
+\input{sections/introduction}
+\input{sections/problem}
+\input{sections/rules}
+\input{sections/primal}
+\input{sections/dual}
+\input{sections/sampled}
+\input{sections/liftings}
+\input{sections/laws}
+\input{sections/computation}
+\input{sections/outlook}
+
+\appendix
+\input{appendices/primal}
+\input{appendices/dual}
+\input{appendices/moments}
+\input{appendices/sizes}
+
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,4 @@
+# latexmk settings: PDF through pdflatex, every generated file in build/.
+$pdf_mode = 1;
+$out_dir = 'build';
+@default_files = ('ldr-math.tex');

@@ -1,0 +1,74 @@
+% Notation of the document.
+% One macro per recurring object, so that a change of notation is a change of one line.
+
+% Sets and operators
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\T}{\top}
+\newcommand{\tr}{\operatorname{tr}}
+\newcommand{\Cov}{\operatorname{Cov}}
+\newcommand{\conv}{\operatorname{conv}}
+\newcommand{\supp}{\operatorname{supp}}
+\newcommand{\blockdiag}{\operatorname{blockdiag}}
+\newcommand{\inner}[2]{\langle #1, #2 \rangle}
+\newcommand{\norm}[1]{\lVert #1 \rVert}
+\newcommand{\abs}[1]{\lvert #1 \rvert}
+\newcommand{\one}{\mathbf{1}}
+\newcommand{\ind}[1]{\mathbb{1}\{#1\}}
+\newcommand{\eye}{I}
+\newcommand{\eone}{e_1}
+\newcommand{\opt}{\operatorname{opt}}
+\newcommand{\val}{\operatorname{val}}
+\newcommand{\defeq}{\coloneqq}
+
+% Uncertainty and its law
+\newcommand{\xis}{\xi}                 % ξ = (1, η)
+\newcommand{\etas}{\eta}               % the uncertainties
+\newcommand{\Xis}{\Xi}                 % the support set
+\newcommand{\Xib}[1]{\Xi_{#1}}         % one support block
+\newcommand{\law}{\Prob}               % the law of η
+\newcommand{\mub}{\bar\mu}             % E[ξ] = (1, μ)
+\newcommand{\Mom}{M}                   % E[ξ ξᵀ]
+\newcommand{\Cv}{\Sigma}               % covariance of ξ, block diagonal
+\newcommand{\Cvb}[1]{\Sigma_{#1}}      % one covariance block
+\newcommand{\Wp}{W'}                   % rows of Ξ as a cone, W'ξ ≥ 0
+\newcommand{\nvis}{v}                  % number of observed columns
+\newcommand{\Jr}{J}                    % structural columns of a row
+\newcommand{\Touch}{\mathcal{B}}       % support blocks touched by a row
+\newcommand{\Rows}{\mathcal{R}}        % the inequalities
+\newcommand{\Rules}{\mathcal{X}}       % the rules allowed by the information structure
+\newcommand{\stage}{\tau}              % stage of a column of ξ
+\newcommand{\dstage}{t}                % stage of a decision
+
+% Liftings
+\newcommand{\Lift}{L}
+\newcommand{\Retr}{R}
+\newcommand{\lxi}{\tilde\xi}
+\newcommand{\leta}{\tilde\eta}
+\newcommand{\lXi}{\tilde\Xi}
+\newcommand{\lX}{\tilde X}
+\newcommand{\lM}{\tilde M}
+\newcommand{\lk}{\tilde k}
+\newcommand{\lm}{\tilde m}
+
+% Values of the problems
+\newcommand{\Vstar}{V^{\star}}
+\newcommand{\Vp}{V^{\mathrm{P}}}
+\newcommand{\Vd}{V^{\mathrm{D}}}
+\newcommand{\Vs}{V^{\mathrm{S}}_N}
+
+% Problems
+\newcommand{\Pb}{\textup{(P)}}
+\newcommand{\PbLDR}{\textup{(P-LDR)}}
+\newcommand{\DbLDR}{\textup{(D-LDR)}}
+\newcommand{\SbLDR}{\textup{(S-LDR)}}
+
+% Chi-squared distribution function and quantile
+\newcommand{\Fchi}[1]{F_{\chi^2_{#1}}}
+
+% Software
+\newcommand{\pkg}{\textsf{LinearDecisionRules.jl}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\file}{\path} % reads its argument verbatim, so `_` needs no escape

@@ -1,0 +1,13 @@
+# latexmk writes everything here (see latexmkrc)
+build/
+# in case of a direct pdflatex/bibtex run
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.pdf
