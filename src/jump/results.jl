@@ -32,7 +32,9 @@ end
 
 The status of the rule of `formulation`: `FEASIBLE_POINT` for [`PrimalLDR`](@ref),
 `UNKNOWN_RESULT_STATUS` for [`SampledLDR`](@ref), `NO_SOLUTION` for [`DualLDR`](@ref), whose rule is
-not a policy. If the inner problem has no solution, the status of the inner problem.
+not a policy. It is `NO_SOLUTION` if the inner problem has no solution (see
+`termination_status(model, formulation)`), if `formulation` was not solved, or if the model
+changed since the last `optimize!`.
 """
 function JuMP.primal_status(model::JuMP.GenericModel, f::AbstractFormulation)
     _optimize_not_called(model) && return MOI.NO_SOLUTION
