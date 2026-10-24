@@ -10,12 +10,15 @@ using Test
 
 import Distributions
 import LinearDecisionRules:
+    ConditionedDistribution,
+    ConfidenceMvNormal,
     ModelInfo,
     MvDiscreteNonParametric,
     SupportBlock,
     UncertaintyDeclaration,
     canonicalize,
-    support_blocks
+    support_blocks,
+    support_constraints
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -147,6 +150,45 @@ function test_second_order_cone_row()
     @test block.roles == [fill(:box, 4); fill(:valid, 3)]
     @test block.constraints == [fill(nothing, 4); fill(index(disc), 3)]
     @test blocks[2].cones == [MOI.Nonnegatives(2)]
+    return
+end
+
+# The rows of `support_constraints` of a law join its block with the role `:law`: the linear ones
+# after the box, the second-order cones after the linear rows; they couple the law's coordinates.
+function test_law_support_rows()
+    μ, Σ = [100.0, 80.0], [100.0 20.0; 20.0 64.0]
+    model = Model()
+    @variable(model, x)
+    @variable(model, d[1:2])
+    @variable(model, e[1:2])
+    @constraint(model, x >= sum(d) + sum(e))
+    cut = @constraint(model, cut, e[1] + e[2] <= 250)
+    info = ModelInfo(;
+        uncertainties = [
+            declare(ConfidenceMvNormal(μ, Σ, 0.9; support = :ellipsoid), d...),
+            declare(ConfidenceMvNormal(μ, Σ, 0.9; support = :boxes), e...),
+        ],
+        valid_rows = Set{MOI.ConstraintIndex}([index(cut)]),
+    )
+    form = canonicalize(backend(model), info)
+    ellipsoid, boxes = support_blocks(form)
+    @test ellipsoid.columns == [2, 3]
+    @test ellipsoid.cones == [MOI.Nonnegatives(4), MOI.SecondOrderCone(3)]
+    @test ellipsoid.roles == [fill(:box, 4); fill(:law, 3)]
+    rows = support_constraints(form.laws[1].distribution)
+    @test Matrix(ellipsoid.W)[5:7, :] == rows.W && ellipsoid.h[5:7] == rows.h
+    @test boxes.columns == [4, 5]
+    @test boxes.cones == [MOI.Nonnegatives(9)]
+    @test boxes.roles == [fill(:box, 4); fill(:law, 4); :valid]
+    # A conditioned law has the rows of its laws.
+    conditioned = ConditionedDistribution(
+        [Distributions.Uniform(0, 1), ConfidenceMvNormal(μ, Σ, 0.9; support = :ellipsoid)],
+        [1.0 0.0 0.0],
+        [0.5],
+    )
+    rows = support_constraints(conditioned)
+    @test rows.cones == [MOI.SecondOrderCone(3)] && rows.W[:, 1] == zeros(3)
+    @test rows.W[:, 2:3] == support_constraints(conditioned.laws[2]).W
     return
 end
 

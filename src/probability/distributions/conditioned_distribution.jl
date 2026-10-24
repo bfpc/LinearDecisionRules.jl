@@ -183,3 +183,25 @@ function Distributions._rand!(
         "the constraints $(_constraint_names(d)): its probability is zero or too small.",
     )
 end
+
+# The rows of the supports of its laws, each over its own components: its own rows condition the
+# law, and they are rows of the canonical form already.
+function support_constraints(d::ConditionedDistribution)
+    pieces = [support_constraints(law) for law in d.laws]
+    W = zeros(sum(p -> length(p.h), pieces; init = 0), length(d))
+    row = 0
+    for (l, p) in enumerate(pieces)
+        W[row.+(1:length(p.h)), d.offsets[l]:d.offsets[l+1]-1] = p.W
+        row += length(p.h)
+    end
+    h = reduce(vcat, (p.h for p in pieces); init = Float64[])
+    return (W = W, h = h, cones = reduce(vcat, (p.cones for p in pieces); init = _SupportCone[]))
+end
+
+_has_auto_support(d::ConditionedDistribution) = any(_has_auto_support, d.laws)
+
+function _resolve_support(d::ConditionedDistribution, conic::Bool)
+    _has_auto_support(d) || return d
+    laws = [_resolve_support(law, conic) for law in d.laws]
+    return ConditionedDistribution(laws, d.W, d.h; d.cones, d.names)
+end

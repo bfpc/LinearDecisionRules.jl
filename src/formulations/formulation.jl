@@ -38,8 +38,8 @@ Its rule is not a policy. Each inequality `s(ξ) ≥ 0` is relaxed to `E[s(ξ) W
 `W'ξ ∈ K` describes Ξ, including the row `ξ₁ ≥ 0` (Kuhn, Wiesemann and Georghiou, 2011): `K` is
 the nonnegative orthant of the linear rows of the [`SupportBlock`](@ref)s times a second-order
 cone for each of their second-order cone rows, so the inner problem is then a second-order cone
-program. The bound is certified when the uncertainties of different stages are independent; building it warns when a
-law correlates uncertainties of different stages.
+program. The bound is certified when the uncertainties of different stages are independent;
+building it warns when a law correlates uncertainties of different stages.
 """
 struct DualLDR <: AbstractFormulation end
 

@@ -66,6 +66,20 @@ function DenseData(form::CanonicalForm, mom::Moments)
     W = [1 zeros(1, m); -1 zeros(1, m); zeros(length(hη)) Wη]
     h = [1; -1; hη]
     cones = UnitRange{Int}[]
+    # The rows of the support of each law (`support_constraints`), over all the columns of ξ.
+    for law in form.laws
+        rows = LinearDecisionRules.support_constraints(law.distribution)
+        offset = 0
+        for cone in rows.cones
+            k = offset .+ (1:MOI.dimension(cone))
+            offset += MOI.dimension(cone)
+            Wk = zeros(length(k), 1 + m)
+            Wk[:, law.columns] = rows.W[k, :]
+            cone isa MOI.SecondOrderCone && push!(cones, length(h) .+ (1:length(k)))
+            W = [W; Wk]
+            h = [h; rows.h[k]]
+        end
+    end
     for row in form.conic_rows
         push!(cones, length(h) .+ (1:length(row.h)))
         W = [W; zeros(length(row.h)) Matrix(row.W)]

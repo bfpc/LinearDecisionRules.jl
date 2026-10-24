@@ -28,6 +28,7 @@ include("canonical/form.jl")
 include("canonical/information.jl")
 include("canonical/support.jl")
 include("probability/distributions/conditioned_distribution.jl")
+include("probability/distributions/confidence_mv_normal.jl")
 include("canonical/conditioning.jl")
 include("probability/moments.jl")
 include("probability/distributions/mv_discrete_non_parametric.jl")
@@ -57,6 +58,7 @@ export AbstractFormulation,
     CanonicalForm,
     ConicRow,
     ConditionedDistribution,
+    ConfidenceMvNormal,
     CovarianceBlock,
     DecisionRule,
     DualLDR,
@@ -107,6 +109,7 @@ export AbstractFormulation,
     solve_formulation,
     stage,
     support_blocks,
+    support_constraints,
     unset_stage,
     visible_columns
 

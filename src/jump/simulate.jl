@@ -8,10 +8,33 @@
 # `lift(form.lifting, ξ)` when there are breakpoints, the decisions are `x = X ξ̃`, and the
 # objective and the rows of the canonical form are evaluated at `(x, ξ̃)`.
 
-# One law of the original uncertainties, on the columns of the original ξ.
+# One law of the original uncertainties, on the columns of the original ξ, and the rows of its
+# support beyond its box (see `support_constraints`).
 struct _OriginalLaw
     distribution::Distributions.Distribution
     columns::Vector{Int}
+    rows::@NamedTuple{W::Matrix{Float64}, h::Vector{Float64}, cones::Vector{_SupportCone}}
+end
+
+function _OriginalLaw(d::Distributions.Distribution, columns::Vector{Int})
+    rows = support_constraints(d)
+    W, h = Matrix{Float64}(rows.W), Vector{Float64}(rows.h)
+    return _OriginalLaw(d, columns, (W = W, h = h, cones = collect(_SupportCone, rows.cones)))
+end
+
+# Whether the outcome `x` of `law` violates a row of its support beyond its box.
+function _outside_law_rows(law::_OriginalLaw, x::AbstractVector, tolerance::Float64)
+    rows = law.rows
+    isempty(rows.h) && return false
+    v = rows.W * x .- rows.h
+    offset = 0
+    for cone in rows.cones
+        r = offset .+ (1:MOI.dimension(cone))
+        offset += MOI.dimension(cone)
+        scale = 1 + maximum(abs, view(rows.h, r); init = 0.0)
+        _cone_violation(cone, view(v, r)) > tolerance * scale && return true
+    end
+    return false
 end
 
 # A group of rows that violations are reported by: a constraint, or the lower or upper bound of
@@ -247,9 +270,9 @@ function _group_name(model::JuMP.GenericModel, sim::_Simulator, g::Int)
     return "$name $(side == :lower ? ">=" : "<=") $(_number_string(bound))"
 end
 
-# For each outcome, why it is not in the support Ξ, or `nothing`: outside the box of a law, or a
-# violated row tagged `ValidInequality()` or `Truncate()`, linear or conic (the convex-hull rows
-# of the liftings follow from the lifting).
+# For each outcome, why it is not in the support Ξ, or `nothing`: outside the box of a law or the
+# rows of its support, or a violated row tagged `ValidInequality()` or `Truncate()`, linear or
+# conic (the convex-hull rows of the liftings follow from the lifting).
 function _support_reasons(
     model::JuMP.GenericModel,
     sim::_Simulator,
@@ -268,6 +291,15 @@ function _support_reasons(
             if min(slack_lo, slack_hi) < -tolerance * (1 + abs(lo) + abs(hi))
                 name = sim.uncertainty_names[j-1]
                 reasons[s] = "$name = $(ξ[j, s]) is outside its support [$lo, $hi]"
+                break
+            end
+        end
+        reasons[s] === nothing || continue
+        for law in sim.laws
+            x = view(ξ, law.columns, s)
+            if _outside_law_rows(law, x, tolerance)
+                names = join((sim.uncertainty_names[j-1] for j in law.columns), ", ")
+                reasons[s] = "($names) = $(collect(x)) is outside the support of its law"
                 break
             end
         end

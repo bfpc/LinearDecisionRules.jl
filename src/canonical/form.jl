@@ -556,7 +556,11 @@ function _Constraints(n::Int)
 end
 
 """
-    canonicalize(src::MOI.ModelLike, info::ModelInfo) -> CanonicalForm
+    canonicalize(
+        src::MOI.ModelLike,
+        info::ModelInfo;
+        conic_support::Bool = true,
+    ) -> CanonicalForm
 
 Read the model `src` and its metadata `info` into a [`CanonicalForm`](@ref).
 
@@ -580,13 +584,18 @@ Constraints in `MOI.SecondOrderCone` describe Ξ only: they must be over uncerta
 `ValidInequality()` or `Truncate()`, and they become [`ConicRow`](@ref)s. A law conditioned by such
 a constraint is always estimated by rejection sampling.
 
+A law whose representation of the support is chosen automatically, such as a
+[`ConfidenceMvNormal`](@ref) with `support = :auto`, gets second-order cone rows (see
+[`support_constraints`](@ref)) when `conic_support` is `true` and no decision is integer, and
+linear rows otherwise; the optimizer sets `conic_support` to whether its inner optimizer supports
+second-order cone constraints.
+
 Errors name the variables and constraints involved, for: unsupported constraint types, uncertainty-
 only rows not tagged `ValidInequality()` or `Truncate()`, second-order cone constraints with
-decisions or without a tag, tagged equalities (Ξ must be
-full-dimensional), a truncation of probability zero, bounds or integrality on an uncertainty,
-integer decisions after stage 1, products of uncertainties and decisions in constraints (random
-recourse), quadratic constraints, and equality rows with an uncertainty that none of their
-decisions observe.
+decisions or without a tag, tagged equalities (Ξ must be full-dimensional), a truncation of
+probability zero, bounds or integrality on an uncertainty, integer decisions after stage 1,
+products of uncertainties and decisions in constraints (random recourse), quadratic constraints,
+and equality rows with an uncertainty that none of their decisions observe.
 
 ## Example
 
@@ -605,18 +614,32 @@ info = ModelInfo(;
 form = canonicalize(backend(model), info)
 ```
 """
-function canonicalize(src::MOI.ModelLike, info::ModelInfo)
+function canonicalize(src::MOI.ModelLike, info::ModelInfo; conic_support::Bool = true)
     variables = MOI.get(src, MOI.ListOfVariableIndices())
     parameter = _parameter_values(src)
     entries = _check_declarations(src, info, variables, parameter)
     layout = _layout(src, info, variables, parameter, entries)
     constraints = _read_constraints(src, info, layout)
     sense, objective = _read_objective(src, layout)
-    form = _condition(src, _canonical_form(src, layout, constraints, sense, objective))
+    form = _canonical_form(src, layout, constraints, sense, objective)
+    form = _condition(src, _resolve_supports(form, conic_support))
     _check_valid_rows_at_mean(src, form)
     _check_observable_equalities(src, form)
     liftings = _breakpoint_liftings(src, form, info.breakpoints)
     return isempty(liftings) ? form : lift(form, liftings)
+end
+
+# The laws with the representation of their support chosen: second-order cones if the inner
+# optimizer supports them, unless a decision is integer, since a mixed-integer second-order cone
+# program is much harder than a mixed-integer linear one.
+function _resolve_supports(form::CanonicalForm, conic_support::Bool)
+    any(law -> _has_auto_support(law.distribution), form.laws) || return form
+    conic = conic_support && !any(form.integer)
+    laws = map(form.laws) do law
+        d = _resolve_support(law.distribution, conic)
+        return UncertaintyBlock(d, law.columns, law.stages)
+    end
+    return _replace(form; laws)
 end
 
 # The `AxisPiecewise` lifting of each uncertainty with breakpoints: a vector of breakpoints, or a

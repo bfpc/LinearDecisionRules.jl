@@ -308,10 +308,24 @@ function _check_bounded_support(src::MOI.ModelLike, info::ModelInfo)
     return
 end
 
+# Whether the inner optimizer supports second-order cone constraints, with the bridges of the inner
+# models. It is asked only when a law chooses the representation of its support (see
+# `canonicalize`), since an instance of some optimizers costs a license check.
+function _conic_support(factory, info::ModelInfo)
+    any(d -> _has_auto_support(d.distribution), info.uncertainties) || return true
+    inner = MOI.instantiate(factory; with_bridge_type = Float64)
+    return MOI.supports_constraint(inner, MOI.VectorAffineFunction{Float64}, MOI.SecondOrderCone)
+end
+
 """
     MOI.optimize!(dest::Optimizer, src::MOI.ModelLike) -> (MOI.Utilities.IndexMap, Bool)
 
 Read the model `src` in place, and solve each of the [`Formulations`](@ref) of `dest` for it.
+
+A law with a choice of representation for its support, such as a [`ConfidenceMvNormal`](@ref)
+with `support = :auto`, gets second-order cone rows when the inner optimizer supports them (with
+bridges) and no decision is integer, and linear rows otherwise; the inner optimizer is
+instantiated to ask, only for such a law.
 
 The results are kept in `dest`. The index map is the identity, and `false` means that `dest` does
 not hold a copy of the model, so that the next call reads `src` again.
@@ -322,7 +336,7 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     factory = _inner_factory(dest)
     info = _model_info(src)
     _check_bounded_support(src, info)
-    form = canonicalize(src, info)
+    form = canonicalize(src, info; conic_support = _conic_support(factory, info))
     mom = _moments(form, dest.rejection_sampling, dest.moments_cache)
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
