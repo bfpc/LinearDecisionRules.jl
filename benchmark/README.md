@@ -105,12 +105,16 @@ Inventory T = 64, 20 re-solves, HiGHS 1.15, Julia 1.12.6, one run on an idle mac
 | bf91f9c (main #144) | `PrimalLDR` | rebuild | 0.289 | 3.124 | 3.413 | |
 | bf91f9c (main #144) | `DualLDR` | cached | 0.218 | 0.061 | 0.278 | 3.1e-5 |
 | bf91f9c (main #144) | `DualLDR` | rebuild | 0.405 | 14.144 | 14.549 | |
+| main #147 (src of #144) | `PrimalLDR` | cached | 0.044 | 0.036 | 0.080 | 3.1e-5 |
+| main #147 (src of #144) | `PrimalLDR` | rebuild | 0.499 | 3.088 | 3.588 | |
+| main #147 (src of #144) | `DualLDR` | cached | 0.045 | 0.056 | 0.101 | 3.0e-5 |
+| main #147 (src of #144) | `DualLDR` | rebuild | 0.521 | 14.454 | 14.975 | |
 
-The bf91f9c rows (`src/` of main #144 2509dbb) are a re-run on an idle machine: the solver time of the
-cached re-solves is unchanged and the rebuilds are 9% (primal) and 3% (dual) faster in the solver. The
-cached `build` is now 0.22 to 0.24 s (0.05 to 0.08 s at f204dc1); this column includes the first,
-from-scratch construction of the inner problem, so it is not a per-re-solve cost. The cached total is 0.27 s
-against 3.4 s (primal, 12.5 times) and 14.5 s (dual, 52 times) for the rebuilds.
+The bf91f9c rows (`src/` of main #144 2509dbb) ran right after the benchmark environment was
+instantiated: their cached `build` (0.22 to 0.24 s) includes compilation, not a per-re-solve cost.
+The main #147 rows rerun the same `src/` on an idle machine, after a warm-up run: the cached re-solves
+spend 2 ms each outside the solver, and the cached total is 0.080 s against 3.6 s for the primal
+(45 times faster) and 0.101 s against 15.0 s for the dual (148 times).
 
 The f204dc1 re-solves are 29 times faster for the primal and 139 times for the dual: HiGHS starts from its
 basis, which stays optimal after a change of the initial stock (0 simplex iterations, against 4999
