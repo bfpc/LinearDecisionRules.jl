@@ -301,7 +301,8 @@ const CORRELATED = MvDiscreteNonParametric(
     [0.2, 0.3, 0.2, 0.15, 0.15],
 )
 
-# One correlated law over stages 2 and 3, a row touching both of its blocks, and an interval row.
+# One correlated law over stages 2 and 3 (with an affine conditional mean of `d[2]` given `d[1]`),
+# a row touching both of its blocks, and an interval row.
 function law_spanning_stages()
     model = Model()
     @variable(model, buy >= 0)
@@ -457,7 +458,8 @@ end
     edge_cases() -> Vector{Problem}
 
 The edge models of the Phase 1 review, with no known value: the dense oracles are the reference.
-The dual of `law_spanning_stages` warns that its bound is not certified.
+The dual bound of `law_spanning_stages` is certified: its correlated law has linear conditional
+expectations across its stages.
 """
 function edge_cases()
     return [

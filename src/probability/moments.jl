@@ -56,6 +56,28 @@ _law_mean(d::Distributions.MultivariateDistribution) = Vector{Float64}(Distribut
 _law_covariance(d::Distributions.UnivariateDistribution) = fill(Float64(Distributions.var(d)), 1, 1)
 _law_covariance(d::Distributions.MultivariateDistribution) = Matrix{Float64}(Distributions.cov(d))
 
+# Whether the conditional expectation of the components of `d` in later stages, given those in
+# earlier stages, is affine in the latter, when its components are in the stages `stages`: `true`,
+# `false`, or `nothing` when it is not known. Separate laws are independent, so this is, law by
+# law, condition (i) of the dual bound (Kuhn, Wiesemann and Georghiou, 2011, Section 4), which
+# independent stages satisfy. A law in one stage has it trivially.
+function _linear_conditional_expectations(d::Distributions.Distribution, stages::AbstractVector)
+    return allequal(stages) ? true : nothing
+end
+
+_linear_conditional_expectations(::Distributions.UnivariateDistribution, ::AbstractVector) = true
+
+# The components of a product of univariate laws are independent.
+function _linear_conditional_expectations(
+    ::Union{Distributions.Product,Distributions.ProductDistribution{1,0}},
+    ::AbstractVector,
+)
+    return true
+end
+
+# The law of some components of a normal vector given the others is normal, with an affine mean.
+_linear_conditional_expectations(::Distributions.AbstractMvNormal, ::AbstractVector) = true
+
 const _ContinuousTruncated =
     Distributions.Truncated{<:Distributions.ContinuousUnivariateDistribution}
 

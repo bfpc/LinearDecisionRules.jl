@@ -52,8 +52,15 @@ Its rule is not a policy. Each inequality `s(ξ) ≥ 0` is relaxed to `E[s(ξ) W
 `W'ξ ∈ K` describes Ξ, including the row `ξ₁ ≥ 0` (Kuhn, Wiesemann and Georghiou, 2011): `K` is
 the nonnegative orthant of the linear rows of the [`SupportBlock`](@ref)s times a second-order
 cone for each of their second-order cone rows, so the inner problem is then a second-order cone
-program. The bound is certified when the uncertainties of different stages are independent;
-building it warns when a law correlates uncertainties of different stages.
+program.
+
+The bound needs the conditional expectations of the uncertainties of later stages, given those of
+earlier stages, to be linear (as for independent stages). Separate declarations are independent,
+so this is a property of each law whose components are in several stages: it holds for a product
+of univariate laws, a normal law and a [`ConfidenceMvNormal`](@ref), and it is checked exactly
+for a [`MvDiscreteNonParametric`](@ref); it is unknown for other laws, such as a
+[`ConditionedDistribution`](@ref). Building the dual warns, and the bound is not certified, when
+such a law does not have it or is not known to.
 
 `attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
 of the optimizer, for this formulation only. Formulations are compared by type: the attributes are
@@ -193,9 +200,10 @@ The result of [`solve_formulation`](@ref).
  * `certified::Bool`: whether `objective_value` and `objective_bound` are exact for the laws of the
    model, so that the value of [`PrimalLDR`](@ref) is attained and the bound of [`DualLDR`](@ref)
    is a bound. It is `false` when they use moments estimated by rejection sampling (laws
-   conditioned by constraints tagged [`Truncate`](@ref)), for a bound when uncertainties of
-   different stages are correlated (stagewise independence fails) or the second-moment matrix is
-   singular, and for a rule that is feasible on drawn outcomes only ([`SampledLDR`](@ref)). Except
+   conditioned by constraints tagged [`Truncate`](@ref)), for a bound when a law spanning several
+   stages does not have, or is not known to have, linear conditional expectations of its later
+   stages given its earlier ones (see [`DualLDR`](@ref)) or the second-moment matrix is singular,
+   and for a rule that is feasible on drawn outcomes only ([`SampledLDR`](@ref)). Except
    for the latter, `raw_status` then ends with `[not certified: <reason>]`.
  * `solve_time::Float64`: wall-clock seconds of the inner `optimize!` (zero if it was not built).
  * `X::Matrix{Float64}`: the decision rules, `decisions × (1 + uncertainties)`, with zeros in the
@@ -300,10 +308,13 @@ function _certification(f::AbstractFormulation, form::CanonicalForm, mom::Moment
         push!(reasons, "moments of conditioned laws estimated by rejection sampling")
     end
     if capabilities(f).bound
-        # The dual bound needs `M ≻ 0` (the proof inverts it) and stagewise independence.
+        # The dual bound needs `M ≻ 0` (the proof inverts it) and linear conditional expectations.
         isempty(_singular_blocks(mom)) || push!(reasons, "the second-moment matrix is singular")
-        if !isempty(_correlated_stage_laws(form, mom))
-            push!(reasons, "uncertainties of different stages are correlated")
+        nonlinear, unknown = _stage_dependent_laws(form)
+        if !isempty(nonlinear)
+            push!(reasons, "conditional expectations across stages are not linear")
+        elseif !isempty(unknown)
+            push!(reasons, "conditional expectations across stages are not known to be linear")
         end
     end
     return isempty(reasons), join(reasons, "; ")

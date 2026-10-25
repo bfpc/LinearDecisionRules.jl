@@ -19,6 +19,8 @@ Its mean is `μ` and its covariance `cdf(Chisq(d + 2), ρ²) / α ⋅ Σ`: with 
 `z = L⁻¹ (η - μ) ~ N(0, I)`, `‖z‖²` is `χ²(d)`, the direction of `z` is uniform and independent
 of `‖z‖`, and `x f_d(x) = d f_{d+2}(x)` for the densities `f_k` of `χ²(k)`, so
 `E[z zᵀ | ‖z‖² ≤ ρ²] = E[‖z‖² | ‖z‖² ≤ ρ²] / d ⋅ I = cdf(Chisq(d + 2), ρ²) / α ⋅ I`.
+Its components can be in different stages: the conditional expectation of some given the others
+is affine, as for the normal law, so the bound of [`DualLDR`](@ref) is certified.
 `minimum` and `maximum` are the bounding box of `E`, `μ ± ρ √diag(Σ)`. Draws are by rejection in
 the standardized space: `z ~ N(0, I)` until `‖z‖ ≤ ρ`, then `η = μ + L z`, with `1 / α` attempts
 per draw on average.
@@ -157,6 +159,12 @@ function support_constraints(d::ConfidenceMvNormal)
         cones = _SupportCone[MOI.SecondOrderCone(n + 1)],
     )
 end
+
+# Given some components `η_h`, the others `η_f` follow the conditional normal law, centered at the
+# affine `μ_f + Σ_fh Σ_hh⁻¹ (η_h - μ_h)`, restricted to an ellipsoid with the same center (a Schur
+# complement): a symmetric law about that center, whose mean is the center (`docs/math`,
+# Proposition "Moments of ConfidenceMvNormal").
+_linear_conditional_expectations(::ConfidenceMvNormal, ::AbstractVector) = true
 
 _has_auto_support(d::ConfidenceMvNormal) = d.support == :auto
 

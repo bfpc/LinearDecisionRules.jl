@@ -125,8 +125,8 @@ function test_edge_cases()
             form = Problems.form(p)
             mom = moments(form)
             primal = solve(form, PrimalLDR())
-            warning = p.name == "law_spanning_stages" ? ((:warn, r"not certified"),) : ()
-            dual = @test_logs warning... solve(form, DualLDR())
+            # No warning: the correlated law of `law_spanning_stages` has linear conditional means.
+            dual = @test_logs solve(form, DualLDR())
             sampled = solve(form, f)
             for (result, builder) in
                 ((primal, DenseOracle.build_primal), (dual, DenseOracle.build_dual))

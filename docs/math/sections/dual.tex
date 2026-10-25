@@ -71,10 +71,13 @@ Distinct declarations are independent, so condition~\ref{it:lce} holds as soon a
 and more generally when the law of each declaration has linear conditional expectations across its own stages.
 A multivariate normal law has this property, and so has its truncation to a confidence ellipsoid (\cref{sec:confidence-normal});
 a discrete joint law of several stages generally does not.
-The package warns when a covariance block has a nonzero covariance between two stages, and then marks the bound as not certified (\code{\_correlated\_stage\_laws}, \file{src/formulations/dual.jl}).
-This test is a proxy:
-it flags laws that are correlated across stages but satisfy condition~\ref{it:lce}, such as the truncated normal law above,
-and it misses laws whose stages are uncorrelated but dependent.
+The package checks condition~\ref{it:lce} law by law, for the laws whose components are in several stages (\code{\_linear\_conditional\_expectations}, \file{src/probability/moments.jl}):
+it holds for a product of univariate laws (independent components), a normal law and \code{ConfidenceMvNormal};
+for an \code{MvDiscreteNonParametric} it is checked exactly, for each stage $t$, by fitting an affine function of the history to the conditional means of the later components, one per distinct history, which must leave no residual;
+for any other law, such as a law conditioned by rejection, it is unknown.
+When it fails or is unknown for some law, the package warns, and marks the bound as not certified (\code{\_stage\_dependent\_laws}, \file{src/formulations/dual.jl}).
+Correlation is not the test: a correlated law may satisfy condition~\ref{it:lce}, such as the truncated normal law above,
+and an uncorrelated one may not, such as $\eta_2 = \eta_1^2$ with $\eta_1$ uniform on $\{-1, 0, 1\}$.
 \end{remark}
 
 \begin{remark}[The row $\eone^\T$]
@@ -165,5 +168,5 @@ for a linear program, it is the optimal value, or the dual objective value of th
 Since \eqref{eq:DLDR} is a relaxation, its infeasibility proves the infeasibility of \eqref{eq:P} (under the conditions of \cref{thm:dual-bound}),
 while an infeasible primal approximation only shows that no linear rule is feasible:
 the package reports \code{INFEASIBLE} only on the evidence of the dual, and \code{LOCALLY\_INFEASIBLE} otherwise.
-The bound is \emph{certified} when the moments are exact and no law correlates stages;
+The bound is \emph{certified} when the moments are exact, $\Mom \succ 0$, and every law spanning several stages is known to satisfy condition~\ref{it:lce} (\cref{rem:lce});
 otherwise the result says why it is not (\cref{sec:rejection}).

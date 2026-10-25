@@ -353,7 +353,8 @@ function test_cache()
     return
 end
 
-# Laws coupled by a row tagged `Truncate()` merge; the dual warns that it correlates stages.
+# Laws coupled by a row tagged `Truncate()` merge; the dual warns that the conditioned law, which
+# spans two stages, is not known to have linear conditional expectations.
 function test_coupled_declarations()
     model = ldr_model()
     @variable(model, 0 <= buy <= 1, FirstStage)
@@ -365,7 +366,7 @@ function test_coupled_declarations()
     @constraint(model, early <= buy + a)
     @constraint(model, late <= early + b)
     @objective(model, Max, late - 0.5buy)
-    @test_logs (:warn, r"correlated in the law of a, b \(stages 2, 3\)") optimize!(model)
+    @test_logs (:warn, r"is not known for the law of a, b \(stages 2, 3\)") optimize!(model)
     mom = moments_of(model)
     @test [block.columns for block in mom.blocks] == [[2, 3]]
     # The triangle: mean 1 / 3, covariance -1 / 36.

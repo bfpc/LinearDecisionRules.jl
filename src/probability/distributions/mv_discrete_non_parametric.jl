@@ -131,3 +131,28 @@ function _finite_atoms(d::MvDiscreteNonParametric)
     atoms = reduce(hcat, [Vector{Float64}(d.support[i]) for i in positive])
     return atoms, Vector{Float64}(d.p[positive])
 end
+
+# Checked exactly: for each stage but the last, the conditional means of the later components, one
+# per history (the values of the components up to that stage), must be an affine function of the
+# history, that is, a least-squares fit must leave no residual.
+function _linear_conditional_expectations(d::MvDiscreteNonParametric, stages::AbstractVector)
+    atoms, p = _finite_atoms(d)
+    for t in sort!(unique(stages))[1:end-1]
+        history, future = findall(<=(t), stages), findall(>(t), stages)
+        mass = Dict{Vector{Float64},Float64}()
+        sums = Dict{Vector{Float64},Vector{Float64}}()
+        for (s, q) in enumerate(p)
+            h = atoms[history, s]
+            mass[h] = get(mass, h, 0.0) + q
+            sums[h] = get(sums, h, zeros(length(future))) .+ q .* atoms[future, s]
+        end
+        histories = collect(keys(mass))
+        H = [ones(length(histories)) permutedims(reduce(hcat, histories))]
+        # Centered histories, for the conditioning of the fit.
+        H[:, 2:end] .-= sum(H[:, 2:end]; dims = 1) ./ length(histories)
+        F = permutedims(reduce(hcat, [sums[h] ./ mass[h] for h in histories]))
+        residual = H * (LinearAlgebra.pinv(H; rtol = sqrt(eps())) * F) - F
+        maximum(abs, residual) <= 1e-9 * (1 + maximum(abs, F)) || return false
+    end
+    return true
+end

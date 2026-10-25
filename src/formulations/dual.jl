@@ -98,37 +98,38 @@ function _add_dual_cone!(
     return
 end
 
-# The dual bound relies on stagewise independence: the laws whose covariance block correlates
-# uncertainties of different stages, as `"a, b (stages 2, 3)"`.
-function _correlated_stage_laws(form::CanonicalForm, mom::Moments)
-    laws = String[]
-    for block in mom.blocks
-        stages = form.uncertainty_stages[block.columns.-1]
-        correlated = any(
-            stages[a] != stages[b] && !iszero(block.covariance[a, b]) for
-            a in eachindex(stages), b in eachindex(stages)
-        )
-        if correlated
-            names = join((form.uncertainty_names[j-1] for j in block.columns), ", ")
-            push!(laws, "$names (stages $(join(unique(stages), ", ")))")
-        end
+# The dual bound needs the conditional expectations of later stages given earlier ones to be
+# linear, law by law (see `_linear_conditional_expectations`): the laws spanning several stages
+# that do not have them, and those that are not known to, each as `"a, b (stages 2, 3)"`.
+function _stage_dependent_laws(form::CanonicalForm)
+    nonlinear, unknown = String[], String[]
+    for law in form.laws
+        allequal(law.stages) && continue
+        value = _linear_conditional_expectations(law.distribution, law.stages)
+        value === true && continue
+        names = _name_list([form.uncertainty_names[j-1] for j in law.columns])
+        stages = join(sort!(unique(law.stages)), ", ")
+        push!(value === false ? nonlinear : unknown, "$names (stages $stages)")
     end
-    return laws
+    return nonlinear, unknown
 end
 
-function _warn_correlated_stages(form::CanonicalForm, mom::Moments)
-    laws = _correlated_stage_laws(form, mom)
-    isempty(laws) && return
+function _warn_stage_dependence(form::CanonicalForm)
+    nonlinear, unknown = _stage_dependent_laws(form)
+    isempty(nonlinear) && isempty(unknown) && return
+    parts = String[]
+    isempty(nonlinear) || push!(parts, "fails for the law of $(join(nonlinear, "; "))")
+    isempty(unknown) || push!(parts, "is not known for the law of $(join(unknown, "; "))")
     @warn(
-        "The uncertainties of different stages are correlated in the law of " *
-        "$(join(laws, "; ")). Stagewise independence fails, so the bound of DualLDR() is not " *
-        "certified.",
+        "The bound of DualLDR() is not certified: it needs the conditional expectations of the " *
+        "uncertainties of later stages given those of earlier stages to be linear (as for " *
+        "independent stages), which $(join(parts, ", and ")).",
     )
     return
 end
 
 function _build!(model::JuMP.Model, ::DualLDR, form::CanonicalForm, mom::Moments)
-    _warn_correlated_stages(form, mom)
+    _warn_stage_dependence(form)
     info = InformationStructure(form)
     X = _rule_variables!(model, form, info)
     _add_equalities!(model, form, info, X)

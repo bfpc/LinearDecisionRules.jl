@@ -206,33 +206,93 @@ function test_size()
     return
 end
 
-# The bound needs stagewise independence: a law that correlates two stages gets a warning.
-function test_warns_when_a_law_correlates_stages()
+# Uncorrelated, but the second component is a function of the first, `60 + (d[1] - 80)²`: its
+# conditional expectation is not affine.
+const SQUARE = LinearDecisionRules.MvDiscreteNonParametric(
+    [[79.0, 61.0], [80.0, 60.0], [81.0, 61.0]],
+    [1 / 3, 1 / 3, 1 / 3],
+)
+
+const ELLIPSOID = LinearDecisionRules.ConfidenceMvNormal(
+    [100.0, 80.0],
+    [100.0 20.0; 20.0 64.0],
+    0.9;
+    support = :boxes,
+)
+
+# A law whose second component is in a stage after the first one, and its outcomes in
+# `law_spanning_stages`.
+function form_spanning_stages(law; stages = [2, 3])
     p = Problems.law_spanning_stages()
-    form = Problems.form(p)
+    info = Problems.ModelInfo(;
+        uncertainties = [Problems.declare(law, p.model[:d]...; stages)],
+        decision_stages = p.info.decision_stages,
+    )
+    return Problems.canonicalize(backend(p.model), info)
+end
+
+# The trait of each law: known for univariate, product, normal and confidence-ellipsoid normal
+# laws, checked exactly for discrete laws, unknown for other multivariate laws across stages.
+function test_linear_conditional_expectations()
+    lce = LinearDecisionRules._linear_conditional_expectations
+    uniform = Distributions.Uniform(0, 1)
+    @test lce(uniform, [2]) === true
+    @test lce(Distributions.product_distribution([uniform, uniform]), [2, 3]) === true
+    @test lce(Distributions.ProductDistribution((uniform, uniform)), [2, 3]) === true
+    @test lce(Distributions.MvNormal([0.0, 0.0], [1.0 0.5; 0.5 1.0]), [2, 3]) === true
+    @test lce(ELLIPSOID, [2, 3]) === true
+    # Correlated, but the conditional mean of `d[2]` is affine in `d[1]`: (460 + d[1]) / 7.
+    @test lce(Problems.CORRELATED, [2, 3]) === true
+    @test lce(SQUARE, [2, 3]) === false
+    @test lce(SQUARE, [2, 2]) === true
+    # Three stages: affine given the first stage, but not given the first two.
+    atoms = [[0.0, 0.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 1.0]]
+    three = LinearDecisionRules.MvDiscreteNonParametric(atoms, fill(0.25, 4))
+    @test lce(three, [1, 2, 2]) === true
+    @test lce(three, [1, 2, 3]) === false
+    # The triangle `d[1] + d[2] ≤ 1`.
+    W, h = [-1.0 -1.0], [-1.0]
+    conditioned = LinearDecisionRules.ConditionedDistribution([uniform, uniform], W, h)
+    @test lce(conditioned, [2, 3]) === nothing
+    @test lce(conditioned, [2, 2]) === true
+    return
+end
+
+# The bound needs linear conditional expectations of later stages given earlier ones: a law
+# spanning several stages without them, or not known to have them, gets a warning, and the bound is
+# not certified.
+function test_warns_when_a_law_spanning_stages_may_not_have_linear_conditional_expectations()
+    form = form_spanning_stages(SQUARE)
     mom = moments(form)
-    warning = (:warn, r"in the law of d\[1\], d\[2\] \(stages 2, 3\)\. Stagewise independence")
+    warning = (:warn, r"linear \(as for independent stages\), which fails for the law of d\[1\], d")
     result = @test_logs warning solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer)
     @test result.termination_status == MOI.OPTIMAL
     @test !result.certified
-    @test endswith(
-        result.raw_status,
-        "[not certified: uncertainties of different stages are correlated]",
-    )
-    # The value of the primal rule is exact: only bounds need stagewise independence.
+    reason = "[not certified: conditional expectations across stages are not linear]"
+    @test endswith(result.raw_status, reason)
+    # The value of the primal rule is exact: only bounds need linear conditional expectations.
     primal = @test_logs solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
     @test primal.certified && !occursin("not certified", primal.raw_status)
-    # Independent components in different stages, or correlated ones in one stage, are fine.
-    for (law, t) in (
+    # A conditioned law across stages is not known to have them.
+    uniforms = [Distributions.Uniform(80, 120), Distributions.Uniform(60, 100)]
+    conditioned = LinearDecisionRules.ConditionedDistribution(uniforms, [-1.0 1.0], [-30.0])
+    form = form_spanning_stages(conditioned)
+    warning = (:warn, r"which is not known for the law of d\[1\], d\[2\] \(stages 2, 3\)\.$")
+    result = @test_logs warning solve_formulation(form, DualLDR(), moments(form), HiGHS.Optimizer)
+    reason = "conditional expectations across stages are not known to be linear]"
+    @test !result.certified && endswith(result.raw_status, reason)
+    # Correlated laws with linear conditional expectations (the confidence-ellipsoid normal law, and
+    # a discrete law whose conditional mean is affine), independent components in different
+    # stages, or the uncorrelated but dependent law in one stage, are fine.
+    for (law, stages) in (
+        (ELLIPSOID, [2, 3]),
+        (Problems.CORRELATED, [2, 3]),
         (Distributions.product_distribution([Distributions.Uniform(80, 120) for _ in 1:2]), [2, 3]),
-        (Problems.CORRELATED, [2, 2]),
+        (SQUARE, [2, 2]),
     )
-        info = Problems.ModelInfo(;
-            uncertainties = [Problems.declare(law, p.model[:d]...; stages = t)],
-            decision_stages = p.info.decision_stages,
-        )
-        form = Problems.canonicalize(backend(p.model), info)
+        form = form_spanning_stages(law; stages)
         result = @test_logs solve_formulation(form, DualLDR(), moments(form), HiGHS.Optimizer)
+        @test result.termination_status == MOI.OPTIMAL
         @test result.certified
     end
     return
