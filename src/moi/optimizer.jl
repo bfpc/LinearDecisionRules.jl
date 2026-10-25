@@ -29,12 +29,16 @@ is a JuMP `Parameter`; any other product is an error of `optimize!` that names t
  * [`Formulations`](@ref)`()`: the formulations solved by `optimize!`, `[PrimalLDR(), DualLDR()]`
    by default.
  * `MOI.Silent` and `MOI.RawOptimizerAttribute` are kept and forwarded to the inner optimizers.
- * `MOI.TimeLimitSec` limits the whole `optimize!`: each formulation, built and solved in turn,
-   gets the time that remains, and a formulation reached after the limit has status `TIME_LIMIT`.
+ * `MOI.TimeLimitSec` limits the whole `optimize!`, rejection sampling included: each
+   formulation, built and solved in turn, gets the time that remains, and a formulation reached
+   after the limit has status `TIME_LIMIT`.
  * [`RejectionSamplingSeed`](@ref)`()`, [`RejectionSamplingTimeLimit`](@ref)`()` and
    [`RejectionSamplingMaxSamples`](@ref)`()`: the rejection sampling of the laws conditioned by
-   constraints tagged [`Truncate`](@ref), `1234`, `10.0` seconds and `10_000` draws by default.
-   Its estimates are kept from one `optimize!` to the next while their inputs do not change.
+   constraints tagged [`Truncate`](@ref), `1234` and `10_000` draws by default. Without
+   `RejectionSamplingTimeLimit()`, the sampling gets half of the time that remains of
+   `MOI.TimeLimitSec`, shared by the conditioned laws, or 10 seconds per law without
+   `MOI.TimeLimitSec`. Its estimates are kept from one `optimize!` to the next while their inputs
+   do not change.
 """
 mutable struct Optimizer <: MOI.AbstractOptimizer
     inner_factory::Any
@@ -64,7 +68,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             nothing,                          # time_limit
             Dict{String,Any}(),               # raw_attributes
             "",                               # name
-            _RejectionSampling(1234, 10.0, 10_000),
+            _RejectionSampling(1234, nothing, 10_000),
             _MomentsCache(),
             nothing,                          # form
             nothing,                          # moments
@@ -253,7 +257,7 @@ end
 
 MOI.get(o::Optimizer, ::RejectionSamplingTimeLimit) = o.rejection_sampling.time_limit
 
-function MOI.set(o::Optimizer, ::RejectionSamplingTimeLimit, limit::Real)
+function MOI.set(o::Optimizer, ::RejectionSamplingTimeLimit, limit::Union{Nothing,Real})
     s = o.rejection_sampling
     o.rejection_sampling = _RejectionSampling(s.seed, limit, s.max_samples)
     return
@@ -337,7 +341,13 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     info = _model_info(src)
     _check_bounded_support(src, info)
     form = canonicalize(src, info; conic_support = _conic_support(factory, info))
-    mom = _moments(form, dest.rejection_sampling, dest.moments_cache)
+    # Without `RejectionSamplingTimeLimit()`, the sampling gets half of what remains of
+    # `TimeLimitSec`, and the formulations the rest.
+    budget = nothing
+    if dest.time_limit !== nothing
+        budget = max(0.0, dest.time_limit - _seconds_since(start)) / 2
+    end
+    mom = _moments(form, dest.rejection_sampling, dest.moments_cache; budget)
     _check_convex_objective(form)
     _warn_singular_moments(form, mom)
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.

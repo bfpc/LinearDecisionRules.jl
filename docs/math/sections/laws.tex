@@ -50,8 +50,11 @@ Such a law is a \code{ConditionedDistribution},
 whose draws are obtained by rejection: draws of the product law are kept when they lie in $\mathcal{C}$.
 
 Its moments are those of the empirical law of the kept draws.
-Up to $N_{\max}$ draws are kept (\code{RejectionSamplingMaxSamples()}, $10\,000$ by default), within a time limit per conditioned law (\code{RejectionSamplingTimeLimit()}, 10 seconds),
-and with $n$ kept draws $\eta^1, \dots, \eta^n$ the package uses
+Up to $N_{\max}$ draws are kept (\code{RejectionSamplingMaxSamples()}, $10\,000$ by default), within a time limit:
+the one of each law when \code{RejectionSamplingTimeLimit()} is set;
+otherwise, when the whole solve has a time limit (\code{TimeLimitSec()}, which the sampling counts against), half of the time that remains of it, shared by the laws to sample (each gets an equal share of what the previous ones left), so that the formulations get the rest;
+and otherwise 10 seconds per law.
+With $n$ kept draws $\eta^1, \dots, \eta^n$ the package uses
 \[
 \hat\mu = \frac1n\sum_{s=1}^n \eta^s, \qquad \hat\Cv = \frac1n\sum_{s=1}^n (\eta^s - \hat\mu)(\eta^s - \hat\mu)^\T,
 \]
@@ -70,7 +73,7 @@ so that a new solve of a model whose laws and conditioning rows did not change d
 A law conditioned by rejection cannot be lifted yet.
 
 The Monte Carlo error of these moments is of order $n^{-1/2}$:
-the standard error of the mean of a coordinate is $\sqrt{\hat\Cv_{jj}/n}$, one percent of its standard deviation with $10\,000$ draws,
+the standard error of the mean of a coordinate is $\sqrt{\hat\Cv_{jj}/n}$, one percent of its standard deviation with $10\,000$ draws (the default) and about three percent with $1\,000$,
 and an acceptance rate $\pi$ costs about $n/\pi$ draws of the product law.
 What it means for the results:
 \begin{itemize}[nosep]

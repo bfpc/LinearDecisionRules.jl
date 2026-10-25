@@ -99,20 +99,55 @@ function _truncated_moments(d::_ContinuousTruncated)
     return mean, var
 end
 
-# The settings of the rejection sampling that estimates the moments of conditioned laws.
+# The settings of the rejection sampling that estimates the moments of conditioned laws. A time
+# limit of `nothing` is the default: see `_sampling_time_limit`.
 struct _RejectionSampling
     seed::Int
-    time_limit::Float64
+    time_limit::Union{Nothing,Float64}
     max_samples::Int
 
-    function _RejectionSampling(seed::Integer, time_limit::Real, max_samples::Integer)
-        if !(time_limit > 0)
+    function _RejectionSampling(
+        seed::Integer,
+        time_limit::Union{Nothing,Real},
+        max_samples::Integer,
+    )
+        if time_limit !== nothing && !(time_limit > 0)
             throw(ArgumentError("The time limit of rejection sampling must be positive."))
         elseif max_samples < 1
             throw(ArgumentError("The number of samples of rejection sampling must be positive."))
         end
-        return new(seed, time_limit, max_samples)
+        return new(seed, time_limit === nothing ? nothing : Float64(time_limit), max_samples)
     end
+end
+
+# The time limit of the rejection sampling of each conditioned law, by default and without a time
+# limit of the whole `optimize!`.
+const _DEFAULT_SAMPLING_TIME_LIMIT = 10.0
+
+# The time limit of the next law to sample, when `spent` seconds of `budget` are spent and `pending`
+# laws are left, `pending` included: the explicit limit of each law, or else an equal share of what
+# remains of `budget` (the part of `TimeLimitSec()` given to the sampling by `optimize!`), so that
+# the time that a law does not use goes to the next ones, or else the default.
+function _sampling_time_limit(s::_RejectionSampling, budget, spent::Float64, pending::Int)
+    if s.time_limit !== nothing
+        return s.time_limit
+    elseif budget !== nothing
+        return max(0.0, budget - spent) / pending
+    end
+    return _DEFAULT_SAMPLING_TIME_LIMIT
+end
+
+# Where the time limit of the sampling comes from, for the messages.
+function _sampling_time_limit_source(s::_RejectionSampling, budget)
+    if s.time_limit !== nothing
+        return "$(s.time_limit) seconds per law, `RejectionSamplingTimeLimit()`"
+    elseif budget !== nothing
+        total = round(budget; sigdigits = 3)
+        return "$total seconds shared by the laws, half of the time that remained of " *
+               "`TimeLimitSec()`; set `RejectionSamplingTimeLimit()` to choose it"
+    end
+    return "$_DEFAULT_SAMPLING_TIME_LIMIT seconds per law, the default of " *
+           "`RejectionSamplingTimeLimit()`"
 end
 
 # The estimates of the moments of a conditioned law.
@@ -139,23 +174,29 @@ _MomentsCache() = _MomentsCache(Dict{Tuple{ConditionedDistribution,UInt64,Int},_
 const _MIN_SAMPLES = 100
 
 # The moments of the empirical law of the draws of `d` kept by rejection, up to `max_samples`
-# draws or the time limit. The empirical law is supported in the conditioning set, so its mean is in
-# Ξ and its moments are consistent. Sums are shifted by the first draw for accuracy, and draws come
-# in batches sized by the acceptance rate. The sampling stops early when, even at the upper bound
-# (by the rule of three) of the acceptance rate, it cannot keep `_MIN_SAMPLES` draws in time.
-function _estimate(d::ConditionedDistribution, rng::Random.AbstractRNG, s::_RejectionSampling)
+# draws or `time_limit` seconds. The empirical law is supported in the conditioning set, so its
+# mean is in Ξ and its moments are consistent. Sums are shifted by the first draw for accuracy, and
+# draws come in batches sized by the acceptance rate. The sampling stops early when, even at the
+# upper bound (by the rule of three) of the acceptance rate, it cannot keep `_MIN_SAMPLES` draws in
+# time.
+function _estimate(
+    d::ConditionedDistribution,
+    rng::Random.AbstractRNG,
+    max_samples::Int,
+    time_limit::Float64,
+)
     k = length(d)
     n, attempts = 0, 0
     shift, s1, s2 = zeros(k), zeros(k), zeros(k, k)
-    least = min(s.max_samples, _MIN_SAMPLES)
+    least = min(max_samples, _MIN_SAMPLES)
     batch = 256
     start = time_ns()
     seconds = 0.0
-    while n < s.max_samples
+    while n < max_samples
         C = _draw_candidates!(rng, d, Matrix{Float64}(undef, k, batch))
         attempts += batch
         kept = findall(_in_set(d, C))
-        kept = kept[1:min(end, s.max_samples - n)]
+        kept = kept[1:min(end, max_samples - n)]
         if !isempty(kept)
             n == 0 && (shift .= view(C, :, first(kept)))
             D = C[:, kept] .- shift
@@ -164,19 +205,19 @@ function _estimate(d::ConditionedDistribution, rng::Random.AbstractRNG, s::_Reje
             n += length(kept)
         end
         seconds = _seconds_since(start)
-        if n >= s.max_samples || seconds >= s.time_limit || (n + 3) * s.time_limit < least * seconds
+        if n >= max_samples || seconds >= time_limit || (n + 3) * time_limit < least * seconds
             break
         end
         rate = max(n, 1) / attempts
-        batch = clamp(ceil(Int, 1.2 * (s.max_samples - n) / rate), 256, 65_536)
+        batch = clamp(ceil(Int, 1.2 * (max_samples - n) / rate), 256, 65_536)
     end
     m = s1 ./ max(n, 1)
     covariance = s2 ./ max(n, 1) .- m * m'
     return _Estimate(shift .+ m, (covariance + covariance') ./ 2, n, attempts, seconds)
 end
 
-function _check_estimate(estimate::_Estimate, d::ConditionedDistribution, names, s)
-    least = min(s.max_samples, _MIN_SAMPLES)
+function _check_estimate(estimate::_Estimate, d, names, max_samples, time_limit, source)
+    least = min(max_samples, _MIN_SAMPLES)
     estimate.num_samples >= least && return
     rate = round(estimate.num_samples / estimate.num_attempts; sigdigits = 3)
     seconds = round(estimate.seconds; sigdigits = 3)
@@ -184,27 +225,11 @@ function _check_estimate(estimate::_Estimate, d::ConditionedDistribution, names,
         "The law of the uncertainties $names, conditioned on the constraints " *
         "$(_constraint_names(d)) tagged `Truncate()`, cannot be estimated: rejection sampling " *
         "kept $(estimate.num_samples) of $(estimate.num_attempts) draws (acceptance rate " *
-        "$rate) in $seconds seconds, and needs $least within the time limit of " *
-        "$(s.time_limit) seconds (`RejectionSamplingTimeLimit()`). The conditioning set has a " *
-        "probability that is zero or too small: check these constraints.",
+        "$rate) in $seconds seconds, and needs $least within its time limit of " *
+        "$(round(time_limit; sigdigits = 3)) seconds ($source). The conditioning set has a " *
+        "probability that is zero or too small, or the time limit is too short: check these " *
+        "constraints and the time limits.",
     )
-end
-
-# The estimate of the conditioned law `d`, from `cache` if it has it.
-function _conditioned_estimate(d, seed::UInt64, s::_RejectionSampling, cache, names)
-    key = (d, seed, s.max_samples)
-    if cache !== nothing && haskey(cache.estimates, key)
-        return cache.estimates[key]
-    end
-    estimate = _estimate(d, Random.Xoshiro(seed), s)
-    _check_estimate(estimate, d, names, s)
-    if cache !== nothing
-        cache.num_estimates += 1
-        if estimate.num_samples == s.max_samples
-            cache.estimates[key] = estimate
-        end
-    end
-    return estimate
 end
 
 """
@@ -228,23 +253,36 @@ for the `K` conditioned laws, so that laws do not share their draws. Fewer than 
 within the time limit give a warning, listing every such law; fewer than `min(max_samples, 100)`
 are an error, which names the constraints. Their [`CovarianceBlock`](@ref) has the size of the
 sample in `num_samples`.
+
+The standard error of the estimated moments decreases as `1 / √max_samples`: with the default
+`10_000` draws, the standard error of a mean is 1% of the standard deviation, and 3% with `1_000`.
 """
 function moments(
     form::CanonicalForm;
     seed::Integer = 1234,
-    time_limit::Real = 10.0,
+    time_limit::Real = _DEFAULT_SAMPLING_TIME_LIMIT,
     max_samples::Integer = 10_000,
 )
     return _moments(form, _RejectionSampling(seed, time_limit, max_samples), nothing)
 end
 
-function _moments(form::CanonicalForm, s::_RejectionSampling, cache::Union{Nothing,_MomentsCache})
+# With `budget` seconds, the conditioned laws to sample share them (see `_sampling_time_limit`);
+# those found in `cache` cost nothing.
+function _moments(
+    form::CanonicalForm,
+    s::_RejectionSampling,
+    cache::Union{Nothing,_MomentsCache};
+    budget::Union{Nothing,Float64} = nothing,
+)
     μ = zeros(1 + length(form.uncertainties))
     μ[1] = 1.0
     blocks = CovarianceBlock[]
-    num_conditioned = count(law -> law.distribution isa ConditionedDistribution, form.laws)
-    seeds = rand(Random.Xoshiro(s.seed % UInt64), UInt64, num_conditioned)
-    used = Set{Tuple{ConditionedDistribution,UInt64,Int}}()
+    distributions = [law.distribution for law in form.laws]
+    conditioned = filter(d -> d isa ConditionedDistribution, distributions)
+    seeds = rand(Random.Xoshiro(s.seed % UInt64), UInt64, length(conditioned))
+    cache_keys = [(d, seed, s.max_samples) for (d, seed) in zip(conditioned, seeds)]
+    pending = count(key -> cache === nothing || !haskey(cache.estimates, key), cache_keys)
+    spent = 0.0
     k = 0
     small = String[]
     for law in form.laws
@@ -252,9 +290,22 @@ function _moments(form::CanonicalForm, s::_RejectionSampling, cache::Union{Nothi
         d = law.distribution
         if d isa ConditionedDistribution
             k += 1
-            seed = seeds[k]
-            push!(used, (d, seed, s.max_samples))
-            estimate = _conditioned_estimate(d, seed, s, cache, names)
+            key = cache_keys[k]
+            estimate = cache === nothing ? nothing : get(cache.estimates, key, nothing)
+            if estimate === nothing
+                limit = _sampling_time_limit(s, budget, spent, pending)
+                estimate = _estimate(d, Random.Xoshiro(key[2]), s.max_samples, limit)
+                source = _sampling_time_limit_source(s, budget)
+                _check_estimate(estimate, d, names, s.max_samples, limit, source)
+                spent += estimate.seconds
+                pending -= 1
+                if cache !== nothing
+                    cache.num_estimates += 1
+                    if estimate.num_samples == s.max_samples
+                        cache.estimates[key] = estimate
+                    end
+                end
+            end
             if estimate.num_samples < s.max_samples
                 push!(small, "$names ($(estimate.num_samples) draws)")
             end
@@ -269,13 +320,14 @@ function _moments(form::CanonicalForm, s::_RejectionSampling, cache::Union{Nothi
         push!(blocks, CovarianceBlock(copy(law.columns), cov, num_samples))
     end
     if cache !== nothing
+        used = Set(cache_keys)
         filter!(entry -> entry.first in used, cache.estimates)
     end
     if !isempty(small)
         @warn(
             "Rejection sampling kept fewer than $(s.max_samples) draws " *
-            "(`RejectionSamplingMaxSamples()`) within the time limit of $(s.time_limit) " *
-            "seconds (`RejectionSamplingTimeLimit()`) for the conditioned laws of " *
+            "(`RejectionSamplingMaxSamples()`) within its time limit " *
+            "($(_sampling_time_limit_source(s, budget))) for the conditioned laws of " *
             "$(join(small, "; ")): the estimates of their moments are less accurate.",
         )
     end

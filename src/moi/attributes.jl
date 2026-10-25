@@ -146,12 +146,27 @@ struct RejectionSamplingSeed <: MOI.AbstractOptimizerAttribute end
     RejectionSamplingTimeLimit()
 
 An optimizer attribute: the time limit in seconds, a `Float64`, of the rejection sampling of each
-law conditioned by constraints tagged [`Truncate`](@ref); `10.0` by default.
+law conditioned by constraints tagged [`Truncate`](@ref), or `nothing` (the default).
+
+With `nothing`, the time limit depends on `MOI.TimeLimitSec`, which limits the whole `optimize!`
+(sampling included): when it is set, the sampling gets half of the time that remains of it,
+shared by the conditioned laws to sample (a law gets an equal share of what the laws before it
+left), so that the formulations get the rest; when it is not, each law gets 10 seconds. A time
+limit set with this attribute wins: the sampling of each law can take that long, and the time
+that it takes still counts against `MOI.TimeLimitSec`.
 
 If fewer than [`RejectionSamplingMaxSamples`](@ref)`()` draws are kept within the limit, the
 moments are estimated from those, with a warning; fewer than `min(RejectionSamplingMaxSamples(),
 100)` are an error that names the conditioning constraints. The sampling stops with this error
-early when, even at an optimistic acceptance rate, too few draws can be kept in time.
+early when, even at an optimistic acceptance rate, too few draws can be kept in time. Laws whose
+estimates are kept from a previous `optimize!` take no time.
+
+## Example
+
+```julia
+set_time_limit_sec(model, 60.0)  # up to 30 seconds of sampling, by default
+set_attribute(model, RejectionSamplingTimeLimit(), 5.0)  # 5 seconds per conditioned law
+```
 """
 struct RejectionSamplingTimeLimit <: MOI.AbstractOptimizerAttribute end
 
@@ -159,8 +174,13 @@ struct RejectionSamplingTimeLimit <: MOI.AbstractOptimizerAttribute end
     RejectionSamplingMaxSamples()
 
 An optimizer attribute: the number of draws, an `Int`, kept by the rejection sampling of each law
-conditioned by constraints tagged [`Truncate`](@ref); `10_000` by default. The standard error of
-an estimated mean is about the standard deviation divided by its square root.
+conditioned by constraints tagged [`Truncate`](@ref); `10_000` by default.
+
+It trades accuracy for time: the standard error of the estimated moments is of order
+`1 / √RejectionSamplingMaxSamples()`, so that the standard error of a mean is 1% of the
+standard deviation with `10_000` draws, and about 3% with `1_000`; the time is proportional to
+it, divided by the acceptance rate of the conditioning constraints. The values that use estimated
+moments are not certified (see [`is_certified`](@ref)).
 
 It is the attribute `RejectionSamplingMaxIterations` of the previous versions (the number of draws
 kept, `1000` by default). Their `RejectionSamplingWarnAttempts` has no counterpart: the time limit

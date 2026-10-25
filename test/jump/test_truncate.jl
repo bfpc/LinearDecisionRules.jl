@@ -290,7 +290,8 @@ end
 function test_rejection_sampling_attributes()
     model = budget()
     @test get_attribute(model, RejectionSamplingSeed()) == 1234
-    @test get_attribute(model, RejectionSamplingTimeLimit()) == 10.0
+    # No time limit by default: it depends on `TimeLimitSec()`.
+    @test get_attribute(model, RejectionSamplingTimeLimit()) === nothing
     @test get_attribute(model, RejectionSamplingMaxSamples()) == 10_000
     set_attribute(model, RejectionSamplingSeed(), -5)
     set_attribute(model, RejectionSamplingTimeLimit(), 20)
@@ -305,6 +306,50 @@ function test_rejection_sampling_attributes()
     # The same settings give the same estimates as `moments`.
     expected = LDR.moments(form_of(model); seed = -5, max_samples = 2_000)
     @test moments_of(model).mean == expected.mean
+    set_attribute(model, RejectionSamplingTimeLimit(), nothing)
+    @test get_attribute(model, RejectionSamplingTimeLimit()) === nothing
+    return
+end
+
+# Rejection sampling counts against `TimeLimitSec()`: without `RejectionSamplingTimeLimit()`, it
+# gets half of the time that remains, shared by the conditioned laws, and the formulations the
+# rest; an explicit limit wins.
+function test_rejection_sampling_shares_the_time_limit()
+    model = budget()
+    set_attribute(model, RejectionSamplingMaxSamples(), 10^8)
+    set_time_limit_sec(model, 2.0)
+    shared = r"seconds shared by the laws, half of the time that remained of `TimeLimitSec\(\)`"
+    start = time()
+    @test_logs (:warn, shared) optimize!(model)
+    @test time() - start < 2.5
+    @test termination_status(model, DualLDR()) == MOI.OPTIMAL
+    @test 100 <= only(moments_of(model).blocks).num_samples < 10^8
+    # Without time left, the laws are estimated from one batch of draws, if it has enough.
+    set_time_limit_sec(model, 1e-6)
+    @test_logs (:warn, shared) optimize!(model)
+    @test termination_status(model, DualLDR()) == MOI.TIME_LIMIT
+    # A law with an acceptance rate of 3% has too few in one batch: an error that says why.
+    model = budget(; total = 90.0)
+    set_time_limit_sec(model, 1e-6)
+    message = try
+        optimize!(model)
+        ""
+    catch err
+        sprint(showerror, err)
+    end
+    @test occursin("needs 100 within its time limit of 0.0 seconds", message)
+    @test occursin("half of the time that remained of `TimeLimitSec()`", message)
+    # An explicit limit for each law wins, and its time counts against `TimeLimitSec()`.
+    model = budget()
+    set_attribute(model, RejectionSamplingMaxSamples(), 10^8)
+    set_attribute(model, RejectionSamplingTimeLimit(), 0.5)
+    set_time_limit_sec(model, 0.2)
+    explicit = r"within its time limit \(0.5 seconds per law, `RejectionSamplingTimeLimit\(\)`\)"
+    start = time()
+    @test_logs (:warn, explicit) optimize!(model)
+    @test time() - start >= 0.5
+    @test termination_status(model, PrimalLDR()) == MOI.TIME_LIMIT
+    @test termination_status(model, DualLDR()) == MOI.TIME_LIMIT
     return
 end
 

@@ -132,8 +132,8 @@ function test_discrete_boundary()
     return
 end
 
-# The moments of a declaration with a conditioned law.
-function moments_of(laws...; kwargs...)
+# The form of declarations of the laws `laws`, and their moments.
+function form_of(laws...)
     model = Model()
     @variable(model, x)
     decls = map(enumerate(laws)) do (k, dist)
@@ -141,8 +141,10 @@ function moments_of(laws...; kwargs...)
         return UncertaintyDeclaration(dist, index.(vars))
     end
     info = ModelInfo(; uncertainties = collect(decls), decision_stages = Dict(index(x) => 1))
-    return moments(canonicalize(backend(model), info); kwargs...)
+    return canonicalize(backend(model), info)
 end
+
+moments_of(laws...; kwargs...) = moments(form_of(laws...); kwargs...)
 
 function test_moments_by_rejection()
     mom = moments_of(budget())
@@ -173,9 +175,8 @@ function test_seeds()
     c = moments_of(budget(), budget(); seed = 8)
     @test c.mean != a.mean
     # The seed of the k-th conditioned law, from the global one.
-    s = LDR._RejectionSampling(7, 10.0, 10_000)
     seeds = rand(Random.Xoshiro(UInt64(7)), UInt64, 2)
-    first = LDR._estimate(budget(), Random.Xoshiro(seeds[1]), s)
+    first = LDR._estimate(budget(), Random.Xoshiro(seeds[1]), 10_000, 10.0)
     @test a.mean[2:3] == first.mean
     # A negative seed is a seed.
     @test moments_of(budget(); seed = -1).blocks[1].num_samples == 10_000
@@ -204,7 +205,7 @@ function test_impossible_conditioning()
     catch e
         e
     end)
-    @test occursin("needs 10 within the time limit of 0.05 seconds", msg)
+    @test occursin("needs 10 within its time limit of 0.05 seconds", msg)
     # Drawing one outcome fails too, after many attempts: it is not tested here (ten seconds).
     return
 end
@@ -227,6 +228,26 @@ end
 function test_settings()
     @test_throws ArgumentError moments_of(budget(); time_limit = 0)
     @test_throws ArgumentError moments_of(budget(); max_samples = 0)
+    return
+end
+
+# The time limit of each law: the explicit one, or an equal share of what remains of a budget
+# (what `optimize!` gives the sampling out of `TimeLimitSec()`), or 10 seconds.
+function test_sampling_time_limit()
+    s = LDR._RejectionSampling(1234, nothing, 10^8)
+    @test LDR._sampling_time_limit(s, 1.0, 0.25, 3) == 0.25
+    @test LDR._sampling_time_limit(s, 1.0, 1.5, 1) == 0.0
+    @test LDR._sampling_time_limit(s, nothing, 0.0, 2) == 10.0
+    explicit = LDR._RejectionSampling(1234, 3.0, 10^8)
+    @test LDR._sampling_time_limit(explicit, 1.0, 0.0, 2) == 3.0
+    # Two laws that cannot reach their sample size share the budget, in about its time.
+    form = form_of(budget(), budget())
+    LDR._moments(form, LDR._RejectionSampling(1, nothing, 100), nothing; budget = 1.0)
+    pattern = r"0.4 seconds shared by the laws, half of the time that remained of `TimeLimitSec"
+    start = time_ns()
+    mom = @test_logs (:warn, pattern) LDR._moments(form, s, nothing; budget = 0.4)
+    @test (time_ns() - start) / 1e9 < 0.4 + 0.2
+    @test all(100 <= block.num_samples < 10^8 for block in mom.blocks)
     return
 end
 
