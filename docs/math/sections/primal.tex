@@ -81,8 +81,13 @@ which a hand-written model expresses with one auxiliary variable $w_j \ge \pm s_
 (the reference model of \file{benchmark/timing.jl}).
 The generic form uses two multipliers and one equality per coefficient instead;
 presolve reduces both to the same problem (\cref{sec:computation}).
-A closed form for box blocks is planned (``box fast path'' in the roadmap of the design document);
-version 0.4 treats box blocks as any other block.
+The package uses the closed form on every block whose rows are only finite bounds of its coordinates (\code{\_add\_box\_counterpart!}, \file{src/formulations/primal.jl}), written with the endpoint $e_j \in \{\underline\eta_j, \overline\eta_j\}$ of smaller magnitude and one auxiliary $w_j \ge 0$:
+\[
+\min(\underline\eta_j s_j, \overline\eta_j s_j) = \max\bigl\{e_j s_j - (\overline\eta_j - \underline\eta_j) w_j : w_j \ge 0,\ w_j \ge \pm s_j\bigr\},
+\]
+with the sign $+$ for $e_j = \overline\eta_j$ and $-$ for $e_j = \underline\eta_j$;
+this has one variable fewer than the multipliers and as many rows, and one row fewer than $w_j \ge \pm s_j$ with $c_j s_j - \rho_j w_j$ in the coupling.
+A constant $s_j$ or a point $\underline\eta_j = \overline\eta_j$ needs no auxiliary, the other blocks of a row keep their multipliers in the same coupling inequality, and \code{PrimalLDR(; box\_closed\_form = false)} uses the multipliers on box blocks too.
 
 \subsection{What the structure saves}
 
@@ -95,5 +100,6 @@ On the $T$-period inventory problem of \file{benchmark/timing.jl}, with one scal
 $4T^2$ multipliers against $8T(T+1)$ for the dense one (\cref{app:sizes});
 at $T = 32$, the whole program has 5,744 variables, 2,734 constraints and 13,101 nonzeros,
 against 10,096, 5,408 and 21,807 for the dense program on the same canonical form (\file{test/formulations/test_size.jl}).
+The closed form on the boxes replaces the $4T^2$ multipliers by $2T^2$ auxiliaries: 3,696 variables, 2,734 constraints and 12,109 nonzeros at $T = 32$.
 The gain is smaller when one law couples all the stages:
 then every inequality of stage at least 2 touches the single block, and the structured primal is about as large as the dense one.

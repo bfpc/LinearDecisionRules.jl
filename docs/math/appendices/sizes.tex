@@ -29,6 +29,7 @@ there are $2\sum(\abs{\Jr} - 1) = 4T^2$ multipliers and $\sum\abs{\Jr} = 2T^2 + 
 \[
 \text{variables } \tfrac{11}{2}T^2 + \tfrac72T, \qquad \text{constraints } \tfrac52T^2 + \tfrac{11}{2}T - 2.
 \]
+With the closed form on the boxes (\cref{sec:primal}), each touched block costs one auxiliary and one row instead, so there are $\tfrac72T^2 + \tfrac72T$ variables (3,696 at $T = 32$, and 57,792 at $T = 128$, as in the hand-written model) and as many constraints.
 Dual: each inequality has $1 + \abs{\Jr}$ variables, $1 + \abs{\Jr}$ equalities and two cone rows per touched block, so
 \[
 \text{variables } \tfrac72T^2 + \tfrac{23}{2}T - 4, \qquad \text{constraints } \tfrac{13}{2}T^2 + \tfrac{19}{2}T - 4.
