@@ -240,7 +240,7 @@ print_row_two("MvDiscreteNonParametric", MvDiscreteNonParametric(scenarios, prob
 
 # ## What's next?
 
-# * Learn about advanced distribution modeling, with
+# * Learn about [advanced distribution modeling](@ref advanced_distributions_tutorial), with
 #   constraints that cut the support or condition the law.
 # * Explore [piecewise linear decision rules](@ref piecewise_linear_tutorial) for better
 #   approximations.
