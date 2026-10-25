@@ -268,6 +268,15 @@ function test_parameters()
     @test Matrix(form.A_l) == [5;;] && Matrix(form.B_l) == [1 0]
     @test Matrix(form.C) == [4 0]
     @test form.d == [3] && form.f == 9 + 6
+    # `p` alone (in c1 and in `2p`) is kept symbolic; its products are values.
+    terms = form.parameters
+    @test terms.parameters == [index(p)] && terms.values == [3]
+    @test terms.b_u == [0, 4] && Matrix(terms.Bp_u) == [1; 0;;]
+    @test terms.b_l == [1] && Matrix(terms.Bp_l) == [0;;]
+    @test isempty(terms.b_e) && size(terms.Bp_e) == (0, 1)
+    @test terms.f == 9 && terms.fp == [2]
+    @test form.B_u[:, 1] == terms.b_u + terms.Bp_u * terms.values
+    @test form.f == terms.f + terms.fp' * terms.values
     # A violated parameter-only row is an error.
     set_parameter_value(p, 1.0)
     @test occursin(

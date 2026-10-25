@@ -85,6 +85,60 @@ struct UncertaintyBlock
 end
 
 """
+    ParameterTerms
+
+The JuMP parameters (`VariableIndex`-in-`MOI.Parameter`) of a [`CanonicalForm`](@ref), kept
+symbolic where they enter affinely: in the constant column of `B_e`, `B_u` and `B_l` (a parameter
+alone in a row, such as `sell <= capacity`), and in the constant `f` of the objective. With `p`
+the vector of their values,
+
+```math
+B_e[:, 1] = b_e + B^p_e p, \\quad B_u[:, 1] = b_u + B^p_u p, \\quad B_l[:, 1] = b_l + B^p_l p,
+\\quad f = f_0 + f_p^\\top p,
+```
+
+so that a change of `p` changes nothing else, and the inner problems can carry the parameters
+(see [`solve_formulation`](@ref)). A parameter anywhere else (multiplied by a decision, an
+uncertainty or a parameter, or in a row tagged `ValidInequality()` or `Truncate()`) is replaced by
+its value in the other fields of the form.
+
+## Fields
+
+ * `parameters::Vector{MOI.VariableIndex}`: every parameter of the model, in the order of the
+   columns below.
+ * `values::Vector{Float64}`: their values `p`.
+ * `b_e::Vector{Float64}`, `Bp_e::SparseMatrixCSC{Float64,Int}` (one column per parameter),
+   and `b_u`, `Bp_u`, `b_l`, `Bp_l`.
+ * `f::Float64`, `fp::Vector{Float64}`: `f_0` and `f_p`.
+"""
+struct ParameterTerms
+    parameters::Vector{MOI.VariableIndex}
+    values::Vector{Float64}
+    b_e::Vector{Float64}
+    Bp_e::_SparseMatrix
+    b_u::Vector{Float64}
+    Bp_u::_SparseMatrix
+    b_l::Vector{Float64}
+    Bp_l::_SparseMatrix
+    f::Float64
+    fp::Vector{Float64}
+end
+
+function Base.:(==)(a::ParameterTerms, b::ParameterTerms)
+    return all(name -> getfield(a, name) == getfield(b, name), fieldnames(ParameterTerms))
+end
+
+function Base.hash(p::ParameterTerms, h::UInt)
+    return hash(p.parameters, hash(p.values, hash(:ParameterTerms, h)))
+end
+
+# Whether some constant of the form depends on a parameter.
+function _has_parameter_terms(p::ParameterTerms)
+    return SparseArrays.nnz(p.Bp_e) + SparseArrays.nnz(p.Bp_u) + SparseArrays.nnz(p.Bp_l) > 0 ||
+           any(!iszero, p.fp)
+end
+
+"""
     CanonicalForm
 
 The canonical form of a linear-decision-rule model, built by [`canonicalize`](@ref).
@@ -157,6 +211,12 @@ Lifting (see [`lift`](@ref)`(form, liftings)`):
    from the original uncertainties to the columns of ξ. The columns of a lifted form are the
    lifted coordinates: `uncertainties[j]` is the original uncertainty of column `1 + j`, and its
    name is followed by `[piece k]`.
+
+Parameters:
+
+ * `parameters::ParameterTerms`: the JuMP parameters of the model and how the constant columns of
+   `B_e`, `B_u`, `B_l` and the constant `f` depend on them (see [`ParameterTerms`](@ref)). The
+   matrices and `f` above hold their values at the current values of the parameters.
 """
 struct CanonicalForm
     decisions::Vector{MOI.VariableIndex}
@@ -192,6 +252,7 @@ struct CanonicalForm
     d::Vector{Float64}
     f::Float64
     lifting::Union{Nothing,LiftingMap}
+    parameters::ParameterTerms
 end
 
 # `form` with some fields replaced, such as `_replace(form; laws = laws)`.
@@ -337,10 +398,13 @@ struct _Columns
     decision::Dict{MOI.VariableIndex,Int}    # row of the decision rule
     uncertainty::Dict{MOI.VariableIndex,Int} # column of ξ, ≥ 2
     parameter::Dict{MOI.VariableIndex,Float64}
+    parameter_column::Dict{MOI.VariableIndex,Int} # column of `ParameterTerms`
+    parameter_values::Vector{Float64}
 end
 
 # A function is read into an accumulator, a `_Row` or the `_Objective`, term by term, by the role
-# of each variable: `_add_decision!`, `_add_uncertainty!` (by column of ξ), `_add_constant!`, and
+# of each variable: `_add_decision!`, `_add_uncertainty!` (by column of ξ), `_add_parameter!` (a
+# parameter alone, kept symbolic, by column of `ParameterTerms`), `_add_constant!`, and
 # `_add_bilinear!` for a product of two variables that are not parameters.
 
 function _add_term!(acc, cols::_Columns, coef::Float64, v::MOI.VariableIndex)
@@ -349,7 +413,7 @@ function _add_term!(acc, cols::_Columns, coef::Float64, v::MOI.VariableIndex)
     elseif haskey(cols.uncertainty, v)
         _add_uncertainty!(acc, cols.uncertainty[v], coef)
     else
-        _add_constant!(acc, coef * cols.parameter[v])
+        _add_parameter!(acc, cols.parameter_column[v], coef)
     end
     return
 end
@@ -362,7 +426,9 @@ function _add_product!(
     a::MOI.VariableIndex,
     b::MOI.VariableIndex,
 )
-    if haskey(cols.parameter, a)
+    if haskey(cols.parameter, a) && haskey(cols.parameter, b)
+        _add_constant!(acc, coef * cols.parameter[a] * cols.parameter[b])
+    elseif haskey(cols.parameter, a)
         _add_term!(acc, cols, coef * cols.parameter[a], b)
     elseif haskey(cols.parameter, b)
         _add_term!(acc, cols, coef * cols.parameter[b], a)
@@ -393,24 +459,43 @@ function _read!(acc, cols::_Columns, f::MOI.ScalarQuadraticFunction{Float64})
     return acc
 end
 
-# One constraint, read as `x-terms + ξ-terms + constant`.
+# One constraint, read as `x-terms + ξ-terms + parameter-terms + constant`.
 mutable struct _Row
     x::Dict{Int,Float64}
     ξ::Dict{Int,Float64}
+    parameters::Dict{Int,Float64} # by column of `ParameterTerms`
     constant::Float64
     recourse::Union{Nothing,Tuple{MOI.VariableIndex,MOI.VariableIndex}} # (decision, uncertainty)
     quadratic::Union{Nothing,Tuple{MOI.VariableIndex,MOI.VariableIndex}}
 end
 
-_Row() = _Row(Dict{Int,Float64}(), Dict{Int,Float64}(), 0.0, nothing, nothing)
+function _Row()
+    coefficients() = Dict{Int,Float64}()
+    return _Row(coefficients(), coefficients(), coefficients(), 0.0, nothing, nothing)
+end
 
 function _reset!(row::_Row)
     empty!(row.x)
     empty!(row.ξ)
+    empty!(row.parameters)
     row.constant = 0.0
     row.recourse = nothing
     row.quadratic = nothing
     return row
+end
+
+function _add_parameter!(row::_Row, k::Int, coef::Float64)
+    row.parameters[k] = get(row.parameters, k, 0.0) + coef
+    return
+end
+
+# The value of the parameter terms of `row`.
+function _parameter_value(row::_Row, cols::_Columns)
+    value = 0.0
+    for (k, c) in row.parameters
+        value += c * cols.parameter_values[k]
+    end
+    return value
 end
 
 function _add_decision!(row::_Row, i::Int, coef::Float64)
@@ -440,16 +525,24 @@ function _add_bilinear!(row::_Row, cols::_Columns, ::Float64, a, b)
     return
 end
 
-# The objective `x'Px + x'Cξ + η'Qη + d'η + f`, with `P` and `Q` symmetric.
+# The objective `x'Px + x'Cξ + η'Qη + d'η + f + fp'p`, with `P` and `Q` symmetric.
 mutable struct _Objective
     P::_Triplets
     C::_Triplets
     Q::_Triplets
     d::Vector{Float64}
     f::Float64
+    fp::Vector{Float64}
 end
 
-_Objective(m::Int) = _Objective(_Triplets(), _Triplets(), _Triplets(), zeros(m), 0.0)
+function _Objective(m::Int, num_parameters::Int)
+    return _Objective(_Triplets(), _Triplets(), _Triplets(), zeros(m), 0.0, zeros(num_parameters))
+end
+
+function _add_parameter!(obj::_Objective, k::Int, coef::Float64)
+    obj.fp[k] += coef
+    return
+end
 
 function _add_decision!(obj::_Objective, i::Int, coef::Float64)
     _push!(obj.C, i, 1, coef)
@@ -483,24 +576,37 @@ function _add_bilinear!(obj::_Objective, cols::_Columns, coef::Float64, a, b)
     return
 end
 
-# The rows `A x (=, ≤, ≥) B ξ` of one kind.
+# The rows `A x (=, ≤, ≥) B ξ` of one kind, with `B[:, 1] = b + Bp p` (see `ParameterTerms`).
 struct _RowBlock
     A::_Triplets
     B::_Triplets
     constraints::Vector{MOI.ConstraintIndex}
+    b::Vector{Float64}
+    Bp::_Triplets
 end
 
-_RowBlock() = _RowBlock(_Triplets(), _Triplets(), MOI.ConstraintIndex[])
+_RowBlock() = _RowBlock(_Triplets(), _Triplets(), MOI.ConstraintIndex[], Float64[], _Triplets())
 
-# Push `row.x ⋅ x + row.ξ ⋅ η (sense) rhs` as `A x (sense) B ξ`, with `B ξ = rhs − row.ξ ⋅ η`.
-function _push_row!(block::_RowBlock, row::_Row, rhs::Float64, ci::MOI.ConstraintIndex)
+# Push `row.x ⋅ x + row.ξ ⋅ η + row.parameters ⋅ p (sense) rhs` as `A x (sense) B ξ`, with
+# `B ξ = rhs − row.parameters ⋅ p − row.ξ ⋅ η`; `value` is `row.parameters ⋅ p`.
+function _push_row!(
+    block::_RowBlock,
+    row::_Row,
+    rhs::Float64,
+    value::Float64,
+    ci::MOI.ConstraintIndex,
+)
     r = length(block.constraints) + 1
     for (i, a) in row.x
         _push!(block.A, r, i, a)
     end
-    _push!(block.B, r, 1, rhs)
+    _push!(block.B, r, 1, rhs - value)
     for (j, b) in row.ξ
         _push!(block.B, r, j, -b)
+    end
+    push!(block.b, rhs)
+    for (k, c) in row.parameters
+        _push!(block.Bp, r, k, -c)
     end
     push!(block.constraints, ci)
     return
@@ -525,6 +631,7 @@ struct _Layout
     laws::Vector{UncertaintyBlock}
     num_stages::Int
     columns::_Columns
+    parameters::Vector{MOI.VariableIndex}
 end
 
 # What the constraints give, read by `_read_constraints`.
@@ -566,7 +673,10 @@ end
 Read the model `src` and its metadata `info` into a [`CanonicalForm`](@ref).
 
 `src` is only read, so it can be `JuMP.backend(model)` or any MOI model. JuMP parameters
-(`VariableIndex`-in-`Parameter`) are replaced by their values.
+(`VariableIndex`-in-`Parameter`) alone in a row or in the objective are kept symbolic in the
+constant column of `B` and in `f` (see [`ParameterTerms`](@ref)), and the inner problems carry
+them; elsewhere, multiplied by a variable or in a row tagged `ValidInequality()` or `Truncate()`,
+they are replaced by their values.
 
 The number of stages is `T = max(2, largest declared stage)`; unmarked variables are in stage `T`,
 and a single warning lists them when `T > 2`.
@@ -621,9 +731,10 @@ form = canonicalize(backend(model), info)
 """
 function canonicalize(src::MOI.ModelLike, info::ModelInfo; conic_support::Bool = true)
     variables = MOI.get(src, MOI.ListOfVariableIndices())
-    parameter = _parameter_values(src)
+    parameters, values = _parameter_list(src)
+    parameter = Dict(zip(parameters, values))
     entries = _check_declarations(src, info, variables, parameter)
-    layout = _layout(src, info, variables, parameter, entries)
+    layout = _layout(src, info, variables, parameters, values, entries)
     constraints = _read_constraints(src, info, layout)
     sense, objective = _read_objective(src, layout)
     form = _canonical_form(src, layout, constraints, sense, objective)
@@ -695,17 +806,20 @@ function _named_lifting_error(f::Function, name::String)
     end
 end
 
-function _parameter_values(src::MOI.ModelLike)
-    values = Dict{MOI.VariableIndex,Float64}()
+# The parameters of the model and their values, in the order of their constraints.
+function _parameter_list(src::MOI.ModelLike)
+    parameters, values = MOI.VariableIndex[], Float64[]
     S = MOI.Parameter{Float64}
     if (MOI.VariableIndex, S) in MOI.get(src, MOI.ListOfConstraintTypesPresent())
         for ci in MOI.get(src, MOI.ListOfConstraintIndices{MOI.VariableIndex,S}())
-            v = MOI.get(src, MOI.ConstraintFunction(), ci)
-            values[v] = MOI.get(src, MOI.ConstraintSet(), ci).value
+            push!(parameters, MOI.get(src, MOI.ConstraintFunction(), ci))
+            push!(values, MOI.get(src, MOI.ConstraintSet(), ci).value)
         end
     end
-    return values
+    return parameters, values
 end
+
+_parameter_values(src::MOI.ModelLike) = Dict(zip(_parameter_list(src)...))
 
 # Check the declarations of `info` against the model, and return the components of the
 # uncertainty declarations, in order, with their declared stage.
@@ -755,7 +869,8 @@ end
 
 # The columns of ξ are the uncertainties in declaration order, stably sorted by stage; the
 # decisions are the other variables, in the order of the model.
-function _layout(src, info::ModelInfo, variables, parameter, entries)
+function _layout(src, info::ModelInfo, variables, parameters, values, entries)
+    parameter = Dict(zip(parameters, values))
     T = 2
     for (v, s) in info.decision_stages
         haskey(parameter, v) || (T = max(T, s))
@@ -777,8 +892,19 @@ function _layout(src, info::ModelInfo, variables, parameter, entries)
     if T > 2
         _warn_unmarked(src, T, info, decisions, entries)
     end
-    cols = _Columns(Dict(v => i for (i, v) in enumerate(decisions)), ucol, parameter)
-    return _Layout(decisions, decision_stages, uncertainties, uncertainty_stages, laws, T, cols)
+    parameter_column = Dict(v => k for (k, v) in enumerate(parameters))
+    decision_row = Dict(v => i for (i, v) in enumerate(decisions))
+    cols = _Columns(decision_row, ucol, parameter, parameter_column, values)
+    return _Layout(
+        decisions,
+        decision_stages,
+        uncertainties,
+        uncertainty_stages,
+        laws,
+        T,
+        cols,
+        parameters,
+    )
 end
 
 function _warn_unmarked(src, T, info, decisions, entries)
@@ -869,7 +995,7 @@ function _read_constraints!(
             for (j, w) in row.ξ
                 _push!(W, k, j - 1, w)
             end
-            push!(h, -row.constant)
+            push!(h, -row.constant - _parameter_value(row, layout.columns))
         end
         name = _constraint_name(src, ci)
         if has_decisions
@@ -941,19 +1067,23 @@ end
 # Read the constraint `ci`, `f`-in-`set`, into the rows of its kind.
 function _read_row!(c::_Constraints, src, info::ModelInfo, layout::_Layout, ci, f, set)
     row = _read!(_reset!(c.buffer), layout.columns, f)
+    # `lo` and `hi` without the parameters; only the rows of `A` keep them symbolic.
     lo, hi = _bounds(set) .- row.constant
+    value = _parameter_value(row, layout.columns)
     _check_row(src, ci, row)
     filter!(t -> !iszero(t.second), row.x)
     filter!(t -> !iszero(t.second), row.ξ)
+    filter!(t -> !iszero(t.second), row.parameters)
     if ci in info.truncate_rows || ci in info.valid_rows
-        _push_valid_row!(c.valid, src, ci, row, lo, hi, ci in info.truncate_rows)
+        conditioning = ci in info.truncate_rows
+        _push_valid_row!(c.valid, src, ci, row, lo - value, hi - value, conditioning)
     elseif isempty(row.x)
-        _check_uncertainty_only_row(src, ci, row, layout.uncertainties, lo, hi)
+        _check_uncertainty_only_row(src, ci, row, layout.uncertainties, lo - value, hi - value)
     elseif lo == hi
-        _push_row!(c.e, row, lo, ci)
+        _push_row!(c.e, row, lo, value, ci)
     else
-        isfinite(hi) && _push_row!(c.u, row, hi, ci)
-        isfinite(lo) && _push_row!(c.l, row, lo, ci)
+        isfinite(hi) && _push_row!(c.u, row, hi, value, ci)
+        isfinite(lo) && _push_row!(c.l, row, lo, value, ci)
     end
     return
 end
@@ -1070,7 +1200,7 @@ function _check_valid_rows_at_mean(src, form::CanonicalForm)
 end
 
 function _read_objective(src::MOI.ModelLike, layout::_Layout)
-    objective = _Objective(length(layout.uncertainties))
+    objective = _Objective(length(layout.uncertainties), length(layout.parameters))
     sense = MOI.get(src, MOI.ObjectiveSense())
     if sense == MOI.FEASIBILITY_SENSE
         return sense, objective
@@ -1088,6 +1218,8 @@ function _canonical_form(src, layout::_Layout, c::_Constraints, sense, objective
     n, m = length(layout.decisions), length(layout.uncertainties)
     A(block) = _sparse(block.A, length(block.constraints), n)
     B(block) = _sparse(block.B, length(block.constraints), 1 + m)
+    values = layout.columns.parameter_values
+    Bp(block) = _sparse(block.Bp, length(block.constraints), length(values))
     return CanonicalForm(
         layout.decisions,
         String[_variable_name(src, v) for v in layout.decisions],
@@ -1120,8 +1252,20 @@ function _canonical_form(src, layout::_Layout, c::_Constraints, sense, objective
         _sparse(objective.C, n, 1 + m),
         _sparse(objective.Q, m, m),
         objective.d,
-        objective.f,
+        objective.f + LinearAlgebra.dot(objective.fp, values),
         nothing,
+        ParameterTerms(
+            layout.parameters,
+            values,
+            c.e.b,
+            Bp(c.e),
+            c.u.b,
+            Bp(c.u),
+            c.l.b,
+            Bp(c.l),
+            objective.f,
+            objective.fp,
+        ),
     )
 end
 

@@ -286,6 +286,35 @@ function solve_formulation(
     names::Bool = false,
 )
     start = time_ns()
+    inner = _build_inner(form, f, mom, optimizer_factory; silent, raw_attributes, names)
+    if time_limit !== nothing
+        # The limit covers the build too, which can take longer than the solve.
+        time_limit = max(0.0, time_limit - _seconds_since(start))
+    end
+    return _solve_inner!(inner, f, form, mom; time_limit)
+end
+
+# The inner problem of a formulation, which the optimizer keeps to solve it again when only the
+# values of the parameters change (see `ParameterTerms`).
+mutable struct _InnerProblem
+    model::JuMP.Model
+    # The rule variables of the decisions of the form (see `_rule_variables!`).
+    X::Vector{Vector{JuMP.VariableRef}}
+    # The parameter of `model` for each parameter of `form.parameters`, if it has one.
+    parameters::Vector{Union{Nothing,JuMP.VariableRef}}
+    # Whether a time limit was set on `model`, to be removed by a solve without one.
+    time_limited::Bool
+end
+
+function _build_inner(
+    form::CanonicalForm,
+    f::AbstractFormulation,
+    mom::Moments,
+    optimizer_factory;
+    silent::Bool = true,
+    raw_attributes = Dict{String,Any}(),
+    names::Bool = false,
+)
     model = JuMP.Model(optimizer_factory)
     JuMP.set_string_names_on_creation(model, names)
     if silent
@@ -297,14 +326,88 @@ function solve_formulation(
     for (name, value) in _formulation_attributes(f)
         JuMP.set_attribute(model, name, value)
     end
-    X = _build!(model, f, form, mom)
-    if time_limit !== nothing
-        # The limit covers the build too, which can take longer than the solve.
-        JuMP.set_time_limit_sec(model, max(0.0, time_limit - _seconds_since(start)))
+    extended, used = _with_parameter_decisions(form)
+    X = _build!(model, f, extended, mom)
+    n = length(form.decisions)
+    parameters = Vector{Union{Nothing,JuMP.VariableRef}}(nothing, length(form.parameters.values))
+    for (q, k) in enumerate(used)
+        parameters[k] = only(X[n+q])
+    end
+    return _InnerProblem(model, X[1:n], parameters, false)
+end
+
+# Set the parameters of `inner` to their values in `form` and solve it. A parameter whose value
+# does not change is not set, so that the solver keeps its solution when nothing changes.
+function _solve_inner!(
+    inner::_InnerProblem,
+    f::AbstractFormulation,
+    form::CanonicalForm,
+    mom::Moments;
+    time_limit::Union{Nothing,Real} = nothing,
+)
+    model = inner.model
+    for (p, value) in zip(inner.parameters, form.parameters.values)
+        if p !== nothing && JuMP.parameter_value(p) != value
+            JuMP.set_parameter_value(p, value)
+        end
+    end
+    if time_limit !== nothing || inner.time_limited
+        JuMP.set_time_limit_sec(model, time_limit)
+        inner.time_limited = time_limit !== nothing
     end
     solve_start = time_ns()
     JuMP.optimize!(model)
-    return _formulation_result(f, form, mom, model, X, _seconds_since(solve_start))
+    return _formulation_result(f, form, mom, model, inner.X, _seconds_since(solve_start))
+end
+
+# The form that the formulations build when constants depend on parameters (see `ParameterTerms`):
+# each such parameter becomes a decision of stage 0, which observes only the constant column and
+# is a parameter of the inner problem (see `_rule_variables!`). Its column in `A` is `-Bp`, so that
+# `A x - Bp p (=, ≤, ≥) b + (B ξ without its constant)`, and its cost in the constant column of `C`
+# is `fp`; `B[:, 1]` and `f` are those without the parameters. Returns the form and the columns of
+# `ParameterTerms` of the parameters added, in order.
+function _with_parameter_decisions(form::CanonicalForm)
+    terms = form.parameters
+    _has_parameter_terms(terms) || return form, Int[]
+    in_use(Bp) = [!isempty(SparseArrays.nzrange(Bp, k)) for k in axes(Bp, 2)]
+    in_rows = in_use(terms.Bp_e) .| in_use(terms.Bp_u) .| in_use(terms.Bp_l)
+    used = findall(in_rows .| (terms.fp .!= 0))
+    q = length(used)
+    extend(A, Bp) = hcat(A, -Bp[:, used])
+    cost = SparseArrays.sparse(1:q, ones(Int, q), terms.fp[used], q, size(form.C, 2))
+    names = ["p[$k]" for k in used]
+    extended = _replace(
+        form;
+        decisions = vcat(form.decisions, terms.parameters[used]),
+        decision_names = vcat(form.decision_names, names),
+        decision_stages = vcat(form.decision_stages, zeros(Int, q)),
+        integer = vcat(form.integer, falses(q)),
+        binary = vcat(form.binary, falses(q)),
+        lower = vcat(form.lower, fill(-Inf, q)),
+        upper = vcat(form.upper, fill(Inf, q)),
+        A_e = extend(form.A_e, terms.Bp_e),
+        B_e = _with_constant_column(form.B_e, terms.b_e),
+        A_u = extend(form.A_u, terms.Bp_u),
+        B_u = _with_constant_column(form.B_u, terms.b_u),
+        A_l = extend(form.A_l, terms.Bp_l),
+        B_l = _with_constant_column(form.B_l, terms.b_l),
+        P = SparseArrays.blockdiag(form.P, SparseArrays.spzeros(q, q)),
+        C = vcat(form.C, cost),
+        f = terms.f,
+    )
+    return extended, used
+end
+
+# `B` with its first column replaced by `b`.
+function _with_constant_column(B::_SparseMatrix, b::Vector{Float64})
+    I, J, V = SparseArrays.findnz(B[:, 2:end])
+    rows = findall(!iszero, b)
+    return SparseArrays.sparse(
+        [rows; I],
+        [ones(Int, length(rows)); J .+ 1],
+        [b[rows]; V],
+        size(B)...,
+    )
 end
 
 # Whether the values of `f` are exact for the laws of `form`, and if not, why (empty for a rule that
@@ -361,11 +464,21 @@ function _build! end
 
 # The rule variables: `X[i][j]` is the coefficient of decision `i` on column `j` of ξ, for its
 # observed columns only. A decision that observes only the constant column keeps its bounds as
-# variable bounds; the bounds of the other decisions are rows (see `_inequalities`).
+# variable bounds; the bounds of the other decisions are rows (see `_inequalities`). A decision
+# that is a parameter of the form (see `_with_parameter_decisions`) is a parameter of `model`.
 function _rule_variables!(model::JuMP.Model, form::CanonicalForm, info::InformationStructure)
     X = Vector{Vector{JuMP.VariableRef}}(undef, length(form.decisions))
     named = JuMP.set_string_names_on_creation(model)
+    terms = form.parameters
+    parameter_column = Dict(v => k for (k, v) in enumerate(terms.parameters))
     for i in eachindex(form.decisions)
+        k = get(parameter_column, form.decisions[i], 0)
+        if k > 0
+            name = named ? form.decision_names[i] : ""
+            set = JuMP.Parameter(terms.values[k])
+            X[i] = [JuMP.@variable(model, set = set, base_name = name)]
+            continue
+        end
         X[i] = map(visible_columns(info, i)) do j
             return JuMP.@variable(model, base_name = named ? "X[$i,$j]" : "")
         end

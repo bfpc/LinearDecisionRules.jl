@@ -126,6 +126,8 @@ function lift(form::CanonicalForm, liftings::AbstractDict{MOI.VariableIndex,<:Ab
         Vector(Rηt * form.d),
         form.f,
         lifting,
+        # The first column of `R` is the first unit vector, so `B[:, 1]` is unchanged.
+        form.parameters,
     )
 end
 
