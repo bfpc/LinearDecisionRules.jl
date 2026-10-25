@@ -39,6 +39,18 @@ is a JuMP `Parameter`; any other product is an error of `optimize!` that names t
    `MOI.TimeLimitSec`, shared by the conditioned laws, or 10 seconds per law without
    `MOI.TimeLimitSec`. Its estimates are kept from one `optimize!` to the next while their inputs
    do not change.
+
+## Re-solving with parameters
+
+The inner problems of the last `optimize!` are kept, and the next `optimize!` solves them again,
+from the solution of the inner solver, when nothing changed but the values of JuMP parameters
+alone in rows or in the objective, such as `buy <= capacity` or `inventory[1] == x0 - d[1]` with
+the parameters `capacity` and `x0` (see [`ParameterTerms`](@ref)): the inner problems carry these
+parameters, updated with `set_parameter_value`. Any other change (a coefficient, a bound, a
+constraint, a law, a formulation or its attributes, the inner optimizer or its attributes, a
+parameter multiplied by a variable) builds them again; the comparison reads the whole canonical
+form, which is rebuilt at every `optimize!`. Distributions are compared by value and treated as
+immutable: replace a law, rather than changing it in place.
 """
 mutable struct Optimizer <: MOI.AbstractOptimizer
     inner_factory::Any
@@ -50,6 +62,9 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     rejection_sampling::_RejectionSampling
     # The estimates of the moments of the conditioned laws, kept across `empty!`.
     moments_cache::_MomentsCache
+    # The inner problems of the last `optimize!`, kept across `empty!` and solved again when only
+    # the values of the parameters change.
+    inner_cache::_InnerCache
     # The state of the last `optimize!`, read by the results.
     form::Union{Nothing,CanonicalForm}
     moments::Union{Nothing,Moments}
@@ -70,6 +85,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             "",                               # name
             _RejectionSampling(1234, nothing, 10_000),
             _MomentsCache(),
+            _InnerCache(),
             nothing,                          # form
             nothing,                          # moments
             Dict{MOI.VariableIndex,Float64}(), # parameters
@@ -350,6 +366,9 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     mom = _moments(form, dest.rejection_sampling, dest.moments_cache; budget)
     _check_convex_objective(form)
     _warn_singular_moments(form, mom)
+    cache = dest.inner_cache
+    raw_attributes = copy(dest.raw_attributes)
+    _update!(cache, _Fingerprint(form, mom, factory, dest.silent, raw_attributes))
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
         remaining = nothing
@@ -357,16 +376,20 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
             remaining = dest.time_limit - _seconds_since(start)
             remaining <= 0 && return _time_limit_result(f, form, mom)
         end
-        return solve_formulation(
-            form,
-            f,
-            mom,
-            factory;
-            silent = dest.silent,
-            time_limit = remaining,
-            raw_attributes = dest.raw_attributes,
-        )
+        inner = _cached_problem(cache, f)
+        if inner === nothing
+            silent = dest.silent
+            inner = _build_inner(form, f, mom, factory; silent, raw_attributes)
+            push!(cache.problems, f => inner)
+            cache.num_builds += 1
+            if remaining !== nothing
+                remaining = max(0.0, dest.time_limit - _seconds_since(start))
+            end
+        end
+        return _solve_inner!(inner, f, form, mom; time_limit = remaining)
     end
+    # Keep the inner problems of these formulations only.
+    filter!(p -> any(f -> _same_value(f, p.first), dest.formulations), cache.problems)
     dest.form, dest.moments, dest.results = form, mom, results
     dest.parameters = _parameter_values(src)
     dest.decision_rows = Dict(v => i for (i, v) in enumerate(form.decisions))
