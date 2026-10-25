@@ -114,6 +114,8 @@ faster at T = 4 and 22 times at T = 8 with the same bound (to 1e-11). At T = 12 
 but HiGHS ends with status `OTHER_ERROR` and a bound 3e-5 (relative) above the simplex one
 (10.753370 against 10.753064; the dual LP has one optimal value, so the difference is the inaccuracy of the unfinished ipm run, which is not to be
 trusted); the T = 12 ipm row is a single run.
+That bound was invalid (above the optimum of a minimization): after this run the package was fixed so that an inner solve
+ending in an error gives no bound (`NaN`); only a time or iteration limit keeps the dual objective as a bound.
 
 The costs are in the units of the data (thousands of dollars, as in the SDDP.jl example).
 

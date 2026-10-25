@@ -599,7 +599,12 @@ function _objective_bound(form::CanonicalForm, model::JuMP.Model, objective_valu
         return _dual_objective_or(model, objective_value)
     elseif status in (MOI.OPTIMAL, MOI.LOCALLY_SOLVED)
         return objective_value
-    elseif JuMP.dual_status(model) == MOI.FEASIBLE_POINT
+    elseif status in (MOI.TIME_LIMIT, MOI.ITERATION_LIMIT) &&
+           JuMP.dual_status(model) == MOI.FEASIBLE_POINT
+        # A solver stopped by a limit keeps its dual feasible point (dual simplex), so its value
+        # is still a bound. After an error (e.g. HiGHS's interior point without crossover ending in
+        # OTHER_ERROR), the dual point is feasible only up to a tolerance and its value can lie on
+        # the wrong side of the optimum, so there is no bound.
         return JuMP.dual_objective_value(model)
     end
     return NaN

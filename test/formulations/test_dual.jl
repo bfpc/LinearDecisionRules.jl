@@ -115,6 +115,32 @@ function test_bound_is_the_dual_objective_of_an_lp()
     return
 end
 
+# After a solver error the dual point is feasible up to a tolerance only, so it gives no bound;
+# after a limit it does. Found on the hydro benchmark (T = 12), where HiGHS's interior point
+# without crossover ended in OTHER_ERROR with a dual objective above the optimum of a minimization.
+function test_no_bound_after_a_solver_error()
+    form = Problems.form(Problems.inventory(4))
+    for status in (MOI.OTHER_ERROR, MOI.TIME_LIMIT)
+        mock = () -> MOI.Utilities.MockOptimizer(MOI.Utilities.Model{Float64}())
+        model = Model(mock)
+        @variable(model, x >= 0)
+        @objective(model, Min, x)
+        optimize!(model)
+        inner = unsafe_backend(model)
+        MOI.set(inner, MOI.TerminationStatus(), status)
+        MOI.set(inner, MOI.PrimalStatus(), MOI.NO_SOLUTION)
+        MOI.set(inner, MOI.DualStatus(), MOI.FEASIBLE_POINT)
+        bound = LinearDecisionRules._objective_bound(form, model, NaN)
+        if status == MOI.OTHER_ERROR
+            @test isnan(bound)
+        else
+            # The mock computes the dual objective from its (zero) duals.
+            @test bound == dual_objective_value(model)
+        end
+    end
+    return
+end
+
 function test_interior_point_without_crossover()
     attributes = ["solver" => "ipm", "run_crossover" => "off"]
     for p in (Problems.inventory(4), Problems.inventory(8))
