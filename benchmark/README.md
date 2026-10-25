@@ -68,7 +68,7 @@ and warns if the objectives of the two variants differ.
 julia --project=benchmark benchmark/resolve.jl          # T = 64, N = 20
 ```
 
-Inventory T = 64, 20 re-solves, HiGHS 1.15, Julia 1.12.6, best of one run on an idle machine
+Inventory T = 64, 20 re-solves, HiGHS 1.15, Julia 1.12.6, one run on an idle machine
 (seconds over the 20 re-solves; `fingerprint` is one comparison):
 
 | Commit | Formulation | Variant | build | solver | total | fingerprint |
