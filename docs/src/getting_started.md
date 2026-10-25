@@ -127,6 +127,45 @@ s = simulate(model, 10_000; formulation = sampled, rng = Random.Xoshiro(1))
 s.violation_counts
 ```
 
+## Re-solving with parameters
+
+In model predictive control, the same model is solved many times, with a new initial state or a new
+right-hand side each time. Declare such data as a JuMP parameter: when nothing else changes, the
+next `optimize!` updates the parameter in the inner problems it kept, with `set_parameter_value`,
+and the inner solver starts from its previous solution instead of a new model being built.
+
+```@example resolve
+using JuMP, HiGHS, Distributions, LinearDecisionRules
+
+model = LDRModel(HiGHS.Optimizer)
+set_silent(model)
+@variable(model, stock in Parameter(0.0))
+@variable(model, d[t = 1:3] in Uncertainty(Uniform(60, 100)), Stage(t + 1))
+@variable(model, 0 <= x[t = 1:3] <= 150, Stage(t))
+@variable(model, I[t = 1:3], Stage(t + 1))
+@variable(model, y[t = 1:3], Stage(t + 1))
+@constraint(model, I[1] == stock + x[1] - d[1])
+@constraint(model, [t in 2:3], I[t] == I[t-1] + x[t] - d[t])
+@constraint(model, [t in 1:3], y[t] >= 0.5 * I[t])
+@constraint(model, [t in 1:3], y[t] >= -3 * I[t])
+@objective(model, Min, sum(x[t] + y[t] for t in 1:3))
+optimize!(model)
+map([0.0, 30.0, -20.0]) do value
+    set_parameter_value(stock, value)
+    optimize!(model)
+    return value => (objective_value(model), decision_rule(x[1]).constant)
+end
+```
+
+The inner problems are kept only while the parameters are all that changes. A parameter is kept
+symbolic where it appears alone, in a constraint or in the objective (see
+[`ParameterTerms`](@ref)); multiplied by a variable, it is replaced by its value, so a change of its
+value builds the inner problems again, as does any other change of the model, of its laws, or of
+the attributes of the optimizer or of the formulations. Each `optimize!` compares the whole
+canonical form of the model with the one of the previous solve, so the results never depend on
+whether the inner problems were kept. Distributions are treated as immutable values: to change a
+law, set a new one rather than modifying it in place.
+
 ## Correlated demands: an ellipsoidal support
 
 [`ConfidenceMvNormal`](@ref) is a normal law conditioned on its confidence ellipsoid. Two products
