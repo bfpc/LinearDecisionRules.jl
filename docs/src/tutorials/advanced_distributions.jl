@@ -330,4 +330,4 @@ model = discrete_with_truncate(160)
 # * Explore [piecewise linear decision rules](@ref piecewise_linear_tutorial) for better
 #   approximations.
 # * Use an ellipsoid as the support of a normal law with
-#   `ConfidenceMvNormal`.
+#   [`ConfidenceMvNormal`](@ref confidence_mvnormal_tutorial).

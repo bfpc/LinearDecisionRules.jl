@@ -13,7 +13,13 @@ import LinearDecisionRules
 import Literate
 
 # The tutorials, in the order of the manual (the names of the files in docs/src/tutorials).
-const TUTORIALS = ["piecewise_linear", "sampled", "distributions", "advanced_distributions"]
+const TUTORIALS = [
+    "piecewise_linear",
+    "sampled",
+    "distributions",
+    "advanced_distributions",
+    "confidence_mv_normal",
+]
 
 const TUTORIAL_DIR = joinpath(@__DIR__, "src", "tutorials")
 
