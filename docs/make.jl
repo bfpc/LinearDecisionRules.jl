@@ -19,6 +19,7 @@ const TUTORIALS = [
     "distributions",
     "advanced_distributions",
     "confidence_mv_normal",
+    "multistage",
 ]
 
 const TUTORIAL_DIR = joinpath(@__DIR__, "src", "tutorials")

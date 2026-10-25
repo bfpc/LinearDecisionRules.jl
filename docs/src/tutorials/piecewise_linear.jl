@@ -265,3 +265,5 @@ end
 # ## What's next?
 
 # * Learn about the other laws and supports of the uncertainties in [Distributions and liftings](@ref).
+# * The [multistage](@ref multistage_tutorial) tutorial puts breakpoints on an uncertainty of a later
+#   stage.
