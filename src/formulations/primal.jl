@@ -44,6 +44,81 @@ function _multipliers!(model::JuMP.Model, block::SupportBlock, r::Int, b::Int)
     return λ
 end
 
+# The bounds `(lower, upper)` of the coordinates of a box block, or `nothing` for any other block.
+# A box block has rows of role `:box` only, each the bound of one coordinate, and both bounds of
+# every coordinate are finite (an infinite bound has no row).
+function _box_bounds(block::SupportBlock)
+    if !all(==(:box), block.roles) || !all(cone -> cone isa MOI.Nonnegatives, block.cones)
+        return nothing
+    end
+    lower, upper = fill(-Inf, length(block.columns)), fill(Inf, length(block.columns))
+    W = block.W
+    rows, values = SparseArrays.rowvals(W), SparseArrays.nonzeros(W)
+    count = zeros(Int, size(W, 1))
+    for c in axes(W, 2), p in SparseArrays.nzrange(W, c)
+        w = values[p]
+        iszero(w) && continue
+        count[rows[p]] += 1
+        bound = block.h[rows[p]] / w
+        if w > 0
+            lower[c] = max(lower[c], bound)
+        else
+            upper[c] = min(upper[c], bound)
+        end
+    end
+    if !all(==(1), count) || !all(isfinite, lower) || !all(isfinite, upper)
+        return nothing
+    end
+    return lower, upper
+end
+
+# The closed form of the robust counterpart on a box block: with `s_j` the coefficient of the
+# slack on column `j`, whose coordinate ranges over `[lo, hi]`,
+#   min_{η_j ∈ [lo, hi]} s_j η_j = min(lo s_j, hi s_j) = hi s_j - (hi - lo) max(0, s_j)
+#                                                  = lo s_j - (hi - lo) max(0, -s_j),
+# so one auxiliary `w ≥ 0` with `w ≥ s_j` (or `w ≥ -s_j`) adds `hi s_j - (hi - lo) w` (or
+# `lo s_j - (hi - lo) w`) to the coupling: the coupling holds for some `w` iff it holds at the
+# smallest one, `max(0, ±s_j)`.
+# The endpoint of smaller magnitude multiplies `s_j`, so that a zero endpoint leaves it out of the
+# coupling. Against the two multipliers and one equality of the general form, this has one variable
+# fewer and as many rows; a constant `s_j` or a point `lo = hi` needs no auxiliary. The form
+# `c s_j - ρ t` with `t ≥ ±s_j` would need two rows and three copies of `s_j`, and
+# `z ≤ lo s_j`, `z ≤ hi s_j` two rows.
+function _add_box_counterpart!(
+    model::JuMP.Model,
+    coupling::JuMP.AffExpr,
+    X,
+    r::Int,
+    ineq::_Inequality,
+    block::SupportBlock,
+    lower::Vector{Float64},
+    upper::Vector{Float64},
+)
+    row, sign = ineq.row, ineq.sign
+    named = JuMP.set_string_names_on_creation(model)
+    for (c, j) in enumerate(block.columns)
+        lo, hi = lower[c], upper[c]
+        s = _add_row_column!(JuMP.AffExpr(sign * row.b[j]), X, row, j, -sign)
+        if isempty(s.terms)
+            JuMP.add_to_expression!(coupling, min(lo * s.constant, hi * s.constant))
+        elseif lo == hi
+            iszero(lo) || JuMP.add_to_expression!(coupling, lo, s)
+        else
+            w = JuMP.@variable(model, lower_bound = 0.0, base_name = named ? "w[$r,$j]" : "")
+            upper_endpoint = abs(hi) <= abs(lo)
+            endpoint = upper_endpoint ? hi : lo
+            if upper_endpoint
+                JuMP.@constraint(model, w - s >= 0)
+            else
+                JuMP.@constraint(model, w + s >= 0)
+            end
+            iszero(endpoint) || JuMP.add_to_expression!(coupling, endpoint, s)
+            JuMP.add_to_expression!(coupling, lo - hi, w)
+        end
+    end
+    return
+end
+
 # With Ξ = Π_b {η_b : W_b η_b - h_b ∈ K_b} and the slack `s(ξ) = s₁ + Σ_b s_b ⋅ η_b`, conic duality
 # gives
 #   min_{η_b ∈ Ξ_b} s_b ⋅ η_b = max {h_b ⋅ λ_b : W_b' λ_b = s_b, λ_b ∈ K_b*},
@@ -60,6 +135,7 @@ function _add_robust_counterpart!(
     r::Int,
     ineq::_Inequality,
     blocks::Vector{SupportBlock},
+    boxes::Vector,
     touched::Vector{Int},
 )
     row, sign = ineq.row, ineq.sign
@@ -67,6 +143,10 @@ function _add_robust_counterpart!(
     coupling = _add_row_column!(JuMP.AffExpr(sign * row.b[1]), X, row, 1, -sign)
     for b in touched
         block = blocks[b]
+        if boxes[b] !== nothing
+            _add_box_counterpart!(model, coupling, X, r, ineq, block, boxes[b]...)
+            continue
+        end
         λ = _multipliers!(model, block, r, b)
         for (k, h) in enumerate(block.h)
             iszero(h) || JuMP.add_to_expression!(coupling, h, λ[k])
@@ -85,19 +165,21 @@ function _add_robust_counterpart!(
     return
 end
 
-function _build!(model::JuMP.Model, ::PrimalLDR, form::CanonicalForm, mom::Moments)
+function _build!(model::JuMP.Model, f::PrimalLDR, form::CanonicalForm, mom::Moments)
     info = InformationStructure(form)
     X = _rule_variables!(model, form, info)
     _add_equalities!(model, form, info, X)
     blocks = support_blocks(form)
     block_of = _block_of_columns(blocks, 1 + length(form.uncertainties))
     first_columns = [first(block.columns) for block in blocks]
+    # The bounds of the box blocks, for their closed form; `nothing` for the general form.
+    boxes = Any[f.box_closed_form ? _box_bounds(block) : nothing for block in blocks]
     for (r, ineq) in enumerate(_inequalities(form, info))
         if _is_deterministic(ineq.row)
             _add_deterministic!(model, X, ineq)
         else
             touched = _touched_blocks(ineq.row, first_columns, block_of)
-            _add_robust_counterpart!(model, X, r, ineq, blocks, touched)
+            _add_robust_counterpart!(model, X, r, ineq, blocks, boxes, touched)
         end
     end
     _set_objective!(model, form, mom, X)

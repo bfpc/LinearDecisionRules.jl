@@ -71,17 +71,22 @@ function model_size(model::Model)
     return (variables = num_variables(model), constraints = constraints, nonzeros = nonzeros)
 end
 
-# Inventory, T = 32 (33 stages, one block per stage). Measured: the block primal has 5 744
-# variables, 2 734 constraints and 13 101 nonzeros against 10 096, 5 408 and 21 807 for the dense
-# one; the structured dual 3 948, 6 956 and 17 575 against 1 648, 9 376 and 215 855 (the dense
-# dual has no variables for the slacks nor for `u`).
+# Inventory, T = 32 (33 stages, one block per stage, each a box). Measured: the block primal has
+# 5 744 variables, 2 734 constraints and 13 101 nonzeros against 10 096, 5 408 and 21 807 for the
+# dense one; the closed form on the boxes has one auxiliary per (row, box) instead of two
+# multipliers, so 3 696 variables (as the hand-written model of `benchmark/timing.jl`), as many
+# constraints and 12 109 nonzeros (one fewer per bound of an order). The structured dual has
+# 3 948, 6 956 and 17 575 against 1 648, 9 376 and 215 855 (the dense dual has no variables for
+# the slacks nor for `u`).
 function test_inventory()
     form = Problems.form(Problems.inventory(32))
     mom = moments(form)
-    primal, dual = Model(), Model()
-    LDR._build!(primal, PrimalLDR(), form, mom)
+    closed, primal, dual = Model(), Model(), Model()
+    LDR._build!(closed, PrimalLDR(), form, mom)
+    LDR._build!(primal, PrimalLDR(; box_closed_form = false), form, mom)
     LDR._build!(dual, DualLDR(), form, mom)
-    primal, dual = model_size(primal), model_size(dual)
+    closed, primal, dual = model_size(closed), model_size(primal), model_size(dual)
+    @test closed == (variables = 3696, constraints = 2734, nonzeros = 12109)
     dense_primal = model_size(first(DenseOracle.build_primal(form, mom)))
     dense_dual = model_size(first(DenseOracle.build_dual(form, mom)))
     @test primal == (variables = 5744, constraints = 2734, nonzeros = 13101)

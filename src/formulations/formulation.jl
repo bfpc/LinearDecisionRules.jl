@@ -15,7 +15,7 @@ zero for the columns that decision `i` does not observe (see [`InformationStruct
 abstract type AbstractFormulation end
 
 """
-    PrimalLDR(; attributes = [])
+    PrimalLDR(; attributes = [], box_closed_form::Bool = true)
 
 The primal linear decision rule: every constraint holds for every outcome in the support Ξ.
 
@@ -24,7 +24,10 @@ bound of a minimization). Each inequality is replaced by its robust counterpart 
 [`SupportBlock`](@ref)s on which it depends (Kuhn, Wiesemann and Georghiou, 2011), with
 multipliers in the dual cone of each block: nonnegative for its linear rows, in a second-order
 cone for each of its second-order cone rows, so the inner problem is then a second-order cone
-program.
+program. On a block that is a box (finite bounds of its coordinates, no other row), the
+multipliers are replaced by the closed form `min(lo s_j, hi s_j)` of each coefficient `s_j` of the
+slack, with one auxiliary variable per coefficient; `box_closed_form = false` keeps the
+multipliers, to compare both forms.
 
 `attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
 of the optimizer, for this formulation only: `PrimalLDR(; attributes = ["solver" => "ipx"])`.
@@ -38,9 +41,12 @@ cost 3 to 16 times more on the larger inventory problem, or fail on the hydro on
 """
 struct PrimalLDR <: AbstractFormulation
     attributes::Vector{Pair{String,Any}}
+    box_closed_form::Bool
 end
 
-PrimalLDR(; attributes = Pair{String,Any}[]) = PrimalLDR(_attribute_pairs(attributes))
+function PrimalLDR(; attributes = Pair{String,Any}[], box_closed_form::Bool = true)
+    return PrimalLDR(_attribute_pairs(attributes), box_closed_form)
+end
 
 """
     DualLDR(; attributes = [])
@@ -101,12 +107,15 @@ Base.hash(::PrimalLDR, h::UInt) = hash(:PrimalLDR, h)
 Base.hash(::DualLDR, h::UInt) = hash(:DualLDR, h)
 
 function Base.show(io::IO, f::Union{PrimalLDR,DualLDR})
-    print(io, nameof(typeof(f)), "(")
+    settings = String[]
     if !isempty(f.attributes)
         pairs = ("$(repr(k)) => $(repr(v))" for (k, v) in f.attributes)
-        print(io, "attributes = [", join(pairs, ", "), "]")
+        push!(settings, "attributes = [$(join(pairs, ", "))]")
     end
-    print(io, ")")
+    if f isa PrimalLDR && !f.box_closed_form
+        push!(settings, "box_closed_form = false")
+    end
+    print(io, nameof(typeof(f)), "(", join(settings, ", "), ")")
     return
 end
 
@@ -254,7 +263,8 @@ outcomes.
 With `names = true`, the variables of the inner problem are named, so that `write_to_file` is
 readable: `X[i,j]` for the rule of decision `i` on column `j` of ξ, and by inequality `r`,
 `λ[r,b]` (the multipliers of the linear rows of support block `b`) and `λ[r,b,p]` (those of its
-`p`-th piece, a second-order cone), or `u[r]` and `S[r,j]` (the slack rule). Names slow the build
+`p`-th piece, a second-order cone), `w[r,j]` (the auxiliary of the closed form on a box, for column
+`j`), or `u[r]` and `S[r,j]` (the slack rule). Names slow the build
 down, so they are off by default.
 
 ## Example
