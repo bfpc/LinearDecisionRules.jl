@@ -78,6 +78,7 @@ function run_plain(build, args...)
         objective = objective_value(model),
         status = string(termination_status(model)),
         size = model_size(model),
+        oos = NO_OOS,
     )
 end
 
