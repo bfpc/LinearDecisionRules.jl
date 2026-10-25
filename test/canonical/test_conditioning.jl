@@ -12,6 +12,7 @@ using Test
 
 import Distributions
 import Distributions: Uniform
+import LinearAlgebra
 import LinearDecisionRules as LDR
 import LinearDecisionRules:
     AxisPiecewise,
@@ -22,6 +23,7 @@ import LinearDecisionRules:
     lift,
     moments,
     support_blocks
+import Random
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -149,6 +151,69 @@ function test_infinite_discrete_by_rejection()
     sd = sqrt(sum(((1:5) .- mean) .^ 2 .* p) / sum(p))
     mom = moments(form)
     @test abs(mom.mean[2] - mean) < 5 * sd / sqrt(10_000)
+    return
+end
+
+# A multivariate discrete law conditioned by a row on its components keeps its atoms that satisfy
+# the row, with their probabilities renormalized: its moments are exact, and the row stays in Ξ.
+function test_exact_conditioning_mv_discrete()
+    scenarios = [[60.0, 60], [60, 80], [80, 60], [80, 80], [100, 60], [60, 100], [100, 100]]
+    p = [0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.2]
+    law = LDR.MvDiscreteNonParametric(scenarios, p)
+    model, decls = model_with("d" => law)
+    d = model[:d]
+    form = form_of(model, decls; truncate = [@constraint(model, d[1] + d[2] <= 160)])
+    exact = only(form.laws).distribution
+    @test exact isa LDR.MvDiscreteNonParametric
+    @test exact.support == scenarios[1:6]
+    @test exact.p ≈ p[1:6] ./ 0.8
+    @test form.conditioning == [true]
+    @test :truncate in only(support_blocks(form)).roles
+    mean = sum(p[1:6] .* scenarios[1:6]) / 0.8
+    covariance = sum(q * (x - mean) * (x - mean)' for (q, x) in zip(p[1:6], scenarios[1:6])) / 0.8
+    mom = moments(form)
+    @test mom.mean[2:3] ≈ mean
+    @test only(mom.blocks).covariance ≈ covariance
+    @test only(mom.blocks).num_samples == 0
+    # Rejection sampling draws from the same law: its estimates agree within the Monte Carlo error.
+    rejection = ConditionedDistribution([law], [-1.0 -1.0], [-160.0])
+    n = 10_000
+    draws = rand(Random.Xoshiro(1), rejection, n)
+    sample_mean = vec(sum(draws; dims = 2)) ./ n
+    standard_error = sqrt.(LinearAlgebra.diag(covariance) ./ n)
+    @test all(abs.(sample_mean .- mean) .<= 4 .* standard_error)
+    centered = draws .- sample_mean
+    @test centered * centered' ./ n ≈ covariance rtol = 0.05
+    return
+end
+
+# Coupled discrete laws with finitely many atoms are conditioned exactly too, as are declared
+# conditioned laws of such laws; no atom in the set is an error that names the constraints.
+function test_exact_conditioning_coupled_discrete()
+    a = Distributions.DiscreteNonParametric([0.0, 1.0, 2.0], [0.2, 0.3, 0.5])
+    b = Distributions.Categorical([0.5, 0.5])
+    model, decls = model_with("a" => a, "b" => b)
+    row = @constraint(model, model[:a] + model[:b] <= 2)
+    form = form_of(model, decls; truncate = [row])
+    exact = only(form.laws).distribution
+    @test exact isa LDR.MvDiscreteNonParametric
+    @test exact.support == [[0.0, 1.0], [1.0, 1.0], [0.0, 2.0]]
+    @test exact.p ≈ [0.1, 0.15, 0.1] ./ 0.35
+    @test only(moments(form).blocks).num_samples == 0
+    declared = ConditionedDistribution([a, b], [-1.0 -1.0], [-2.0])
+    model, decls = model_with("c" => declared)
+    @test only(form_of(model, decls).laws).distribution == exact
+    model, decls = model_with("a" => a, "b" => b)
+    @constraint(model, impossible, model[:a] + model[:b] >= 5)
+    message = error_message(() -> form_of(model, decls; truncate = [impossible]))
+    @test occursin("The constraints impossible tagged `Truncate()`", message)
+    @test occursin("uncertainties a, b on a set that contains none of its atoms", message)
+    # Beyond a million atoms in the product, the law is estimated by rejection sampling.
+    laws = ["e$i" => Distributions.DiscreteUniform(0, 100) for i in 1:3]
+    model, decls = model_with(laws...)
+    row = @constraint(model, model[:e1] + model[:e2] + model[:e3] <= 150)
+    @test only(form_of(model, decls; truncate = [row]).laws).distribution isa
+          ConditionedDistribution
     return
 end
 

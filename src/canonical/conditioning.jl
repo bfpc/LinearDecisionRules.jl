@@ -6,10 +6,12 @@
 # The laws conditioned by the rows tagged `Truncate()` (see `canonicalize`): a univariate law whose
 # linear rows involve it alone is truncated exactly, and its rows are dropped; the other laws
 # coupled by such rows, or by conic rows tagged `Truncate()`, are merged, by union–find, into one
-# `ConditionedDistribution`, in the place of the first one.
+# `ConditionedDistribution`, in the place of the first one, or into the exact law of the atoms of
+# their product in the conditioning set when they all have finitely many atoms.
 function _condition(src::MOI.ModelLike, form::CanonicalForm)
     conic = findall(row -> row.conditioning, form.conic_rows)
-    any(form.conditioning) || !isempty(conic) || return form
+    declared = any(law -> law.distribution isa ConditionedDistribution, form.laws)
+    any(form.conditioning) || !isempty(conic) || declared || return form
     law_of = zeros(Int, length(form.uncertainties))
     for (l, law) in enumerate(form.laws), j in law.columns
         law_of[j-1] = l
@@ -74,7 +76,9 @@ function _condition(src::MOI.ModelLike, form::CanonicalForm)
     for l in eachindex(laws)
         root = _find_root!(parent, l)
         if !haskey(group_rows, root) && !haskey(group_conic, root)
-            push!(merged, laws[l])
+            # A declared `ConditionedDistribution` may be exact (see `_conditioned_block`).
+            single = laws[l].distribution isa ConditionedDistribution
+            push!(merged, single ? _conditioned_block(src, form, laws[l:l], [], [], Wt) : laws[l])
         elseif l == minimum(k for k in eachindex(laws) if _find_root!(parent, k) == root)
             group = filter(k -> _find_root!(parent, k) == root, eachindex(laws))
             linear, cones = get(group_rows, root, Int[]), get(group_conic, root, Int[])
@@ -99,7 +103,8 @@ end
 
 # The law of the declarations `laws` conditioned on the rows `rows` of `W_valid` and the conic rows
 # `conic` of `form`. A law that is already a `ConditionedDistribution` (declared so) gives its laws
-# and its rows.
+# and its rows. When every law has finitely many atoms, the conditioned law is exact (see
+# `_discrete_conditioned_law`); otherwise it is a `ConditionedDistribution`.
 function _conditioned_block(src, form::CanonicalForm, laws, rows, conic, Wt)
     components = Distributions.Distribution[]
     columns, stages = Int[], Int[]
@@ -142,7 +147,65 @@ function _conditioned_block(src, form::CanonicalForm, laws, rows, conic, Wt)
     end
     Wη = reduce(vcat, W)[:, columns.-1]
     d = ConditionedDistribution(components, Wη, h; cones, names)
-    return UncertaintyBlock(d, columns, stages)
+    discrete = _discrete_conditioned_law(d, join(form.uncertainty_names[columns.-1], ", "))
+    return UncertaintyBlock(something(discrete, d), columns, stages)
+end
+
+# The atoms of a law with finitely many outcomes, as the columns of a matrix, and their
+# probabilities, all positive; `nothing` for another law.
+_finite_atoms(::Distributions.Distribution) = nothing
+
+function _finite_atoms(d::Distributions.DiscreteUnivariateDistribution)
+    # `support` throws for the laws with an infinite support, such as `Poisson`.
+    (lo,), (hi,) = _support_box(d)
+    isfinite(lo) && isfinite(hi) || return nothing
+    atoms = try
+        Distributions.support(d)
+    catch err
+        err isa MethodError || rethrow()
+        nothing
+    end
+    atoms isa AbstractVector || return nothing
+    positive = [a for a in atoms if Distributions.pdf(d, a) > 0]
+    p = [Float64(Distributions.pdf(d, a)) for a in positive]
+    return reshape(Vector{Float64}(positive), 1, :), p
+end
+
+# Above this number of atoms of the product of its laws, a conditioned law is estimated by
+# rejection sampling rather than enumerated.
+const _MAX_PRODUCT_ATOMS = 10^6
+
+# The law `d` when its laws have finitely many atoms: the atoms of their product in the
+# conditioning set, with their probabilities renormalized, as a `MvDiscreteNonParametric`. It is
+# exact, and the law of the draws by rejection (with the same tolerance). `nothing` if a law has
+# infinitely many atoms, or if the product has more than `_MAX_PRODUCT_ATOMS`. No atom in the set
+# is an error that names the constraints and the uncertainties `names`.
+function _discrete_conditioned_law(d::ConditionedDistribution, names::String)
+    pieces = map(_finite_atoms, d.laws)
+    any(isnothing, pieces) && return nothing
+    prod(Float64(length(p)) for (_, p) in pieces) <= _MAX_PRODUCT_ATOMS || return nothing
+    grid = CartesianIndices(Tuple(length(p) for (_, p) in pieces))
+    atoms, probabilities = Vector{Float64}[], Float64[]
+    for chunk in Iterators.partition(grid, 2^14)
+        C = Matrix{Float64}(undef, length(d), length(chunk))
+        p = ones(length(chunk))
+        for (s, index) in enumerate(chunk), (l, (x, q)) in enumerate(pieces)
+            C[d.offsets[l]:d.offsets[l+1]-1, s] .= view(x, :, index[l])
+            p[s] *= q[index[l]]
+        end
+        for s in findall(_in_set(d, C))
+            push!(atoms, C[:, s])
+            push!(probabilities, p[s])
+        end
+    end
+    if isempty(atoms)
+        error(
+            "The constraints $(_constraint_names(d)) tagged `Truncate()` condition the law of " *
+            "the uncertainties $names on a set that contains none of its atoms, so its " *
+            "probability is zero.",
+        )
+    end
+    return MvDiscreteNonParametric(atoms, probabilities ./ sum(probabilities))
 end
 # The law `d` conditioned on `lo ≤ η ≤ hi`, exactly: `Distributions.truncated` for a continuous law,
 # or a `DiscreteNonParametric` law on the atoms in `[lo, hi]` for a discrete law with a finite
@@ -161,22 +224,13 @@ function _truncated_law(d::Distributions.UnivariateDistribution, lo, hi, name, c
         end
         return Distributions.truncated(d, lo, hi)
     elseif d isa Distributions.DiscreteUnivariateDistribution
-        # `support` throws for the laws with an infinite support, such as `Poisson`.
-        (dlo,), (dhi,) = _support_box(d)
-        isfinite(dlo) && isfinite(dhi) || return nothing
-        atoms = try
-            Distributions.support(d)
-        catch err
-            err isa MethodError || rethrow()
-            nothing
-        end
-        atoms isa AbstractVector || return nothing
+        atoms = _finite_atoms(d)
+        atoms === nothing && return nothing
+        x, p = vec(atoms[1]), atoms[2]
         # The tolerance of the rejection, so that both treat the atoms on the boundary alike.
-        inside(x) = lo - 1e-9 * (1 + abs(lo)) <= x <= hi + 1e-9 * (1 + abs(hi))
-        x = Float64[a for a in atoms if inside(a) && Distributions.pdf(d, a) > 0]
-        isempty(x) && empty_error()
-        p = [Distributions.pdf(d, a) for a in x]
-        return Distributions.DiscreteNonParametric(x, p ./ sum(p))
+        inside = findall(a -> lo - 1e-9 * (1 + abs(lo)) <= a <= hi + 1e-9 * (1 + abs(hi)), x)
+        isempty(inside) && empty_error()
+        return Distributions.DiscreteNonParametric(x[inside], p[inside] ./ sum(p[inside]))
     end
     return nothing
 end

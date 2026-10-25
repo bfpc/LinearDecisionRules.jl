@@ -8,7 +8,9 @@
 
 A multivariate discrete distribution with support points `support` and probabilities `p`.
 
-Use it for scenario-based uncertainty with joint realizations of several parameters.
+Use it for scenario-based uncertainty with joint realizations of several parameters. Constraints
+tagged [`Truncate`](@ref) condition it exactly: the scenarios that satisfy them are kept, with
+their probabilities renormalized.
 
 ## Example
 
@@ -122,3 +124,10 @@ function Distributions.var(d::MvDiscreteNonParametric)
 end
 
 Distributions.insupport(d::MvDiscreteNonParametric, x::AbstractVector) = any(==(x), d.support)
+
+# Its atoms of positive probability, for an exact conditioning (see `_discrete_conditioned_law`).
+function _finite_atoms(d::MvDiscreteNonParametric)
+    positive = findall(>(0), d.p)
+    atoms = reduce(hcat, [Vector{Float64}(d.support[i]) for i in positive])
+    return atoms, Vector{Float64}(d.p[positive])
+end

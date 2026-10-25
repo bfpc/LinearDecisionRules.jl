@@ -157,16 +157,17 @@ end
 # holds for every scenario, so that the law is not changed, and the support is the polytope under
 # it: the rule buys 100 and the value is 188.
 
-# `Truncate()` of the same constraint conditions the law on the set where it holds, which is all of
-# the scenarios, so the law is the same. But the law was not a box, and the conditioning is done
-# by **rejection sampling**: the moments are estimated from draws, and the values change a bit
-# (and are flagged as not certified, in the `raw_status` of the formulations):
+# `Truncate()` of the same constraint conditions the law on the set where it holds, which contains
+# all of the scenarios, so the law is the same. A discrete law is conditioned **exactly**: the
+# scenarios that satisfy the constraint are kept, with their probabilities renormalized. So the
+# values are those of `ValidInequality()`, and they are exact (no formulation is flagged as not
+# certified in its `raw_status`):
 
 raw_status(shared_stock(:truncate))
 
-# With `ValidInequality()`, the moments are exact (the law is the discrete one), and the
-# values are certified. Prefer `ValidInequality()` for a constraint that is already satisfied by
-# the law, and `Truncate()` for one that cuts it.
+# Prefer `ValidInequality()` for a constraint that is already satisfied by the law, and
+# `Truncate()` for one that cuts it: for a continuous law, `Truncate()` of a constraint on several
+# uncertainties is done by rejection sampling, as the next part shows.
 
 # ## Part 3: truncation of a multivariate law
 
@@ -270,7 +271,7 @@ model = reservoirs()
 # ## Part 5: discrete laws with constraints
 
 # `Truncate()` also conditions a discrete law: the scenarios that violate the constraint are
-# excluded and the others are renormalized (here by rejection sampling too). Seven scenarios of
+# excluded and the others are renormalized, exactly (no sampling is needed). Seven scenarios of
 # two demands, equally likely, one of which has both demands high:
 
 function discrete_with_truncate(total)
@@ -306,7 +307,8 @@ model = discrete_with_truncate(160)
 #    uncertainties on it.
 # 3. **Moments**: a univariate law with `Truncate()` constraints that are a box on it is truncated in
 #    closed form. The uncertainties that are coupled by `Truncate()` constraints share a
-#    conditioned law, whose moments are estimated by rejection sampling.
+#    conditioned law: exact when their laws are discrete with finitely many atoms, and otherwise
+#    with moments estimated by rejection sampling.
 # 4. **Certificates**: the values that use estimated moments are marked as not certified.
 
 # !!! warning
@@ -320,7 +322,7 @@ model = discrete_with_truncate(160)
 # | Feature | Description |
 # |---------|-------------|
 # | `@constraint(model, a <= d <= b, Truncate())` | the law of `d` truncated to `[a, b]`, exactly |
-# | `@constraint(model, a'ξ <= b, Truncate())` | the law conditioned on the constraint (rejection sampling) |
+# | `@constraint(model, a'ξ <= b, Truncate())` | the law conditioned on the constraint (exact for discrete laws, else rejection sampling) |
 # | `@constraint(model, a'ξ <= b, ValidInequality())` | a constraint that the law satisfies, which tightens the support |
 # | untagged constraint on uncertainties | an error that asks for one of the tags |
 # | `RejectionSamplingMaxSamples()`, `RejectionSamplingSeed()` | the accuracy and the seed of the estimates |

@@ -22,7 +22,9 @@ declarations coupled by constraints tagged [`Truncate`](@ref).
 
 Draws are by rejection: a draw of the product of the laws is kept if it is in `C` (up to a relative
 tolerance of `1e-9`). Its moments have no closed form: [`moments`](@ref) estimates them by
-rejection sampling. `minimum` and `maximum` are the boxes of the laws.
+rejection sampling. `minimum` and `maximum` are the boxes of the laws. When all the laws have
+finitely many atoms, [`canonicalize`](@ref) replaces it by the exact law of the atoms of their
+product in `C`, a [`MvDiscreteNonParametric`](@ref).
 
 ## Example
 

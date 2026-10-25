@@ -35,13 +35,19 @@ a discrete law with a finite support becomes the law of its atoms in the interva
 The rows are then dropped: the box of the truncated law replaces them.
 A truncation of probability zero is an error that names the constraints.
 
+Rows tagged \code{Truncate()} that couple several declarations, or that involve a multivariate law, are handled by merging the declarations they couple, by union--find, into one law:
+the product of their laws conditioned on $\mathcal{C} = \{\eta : W_{\mathcal{C}}\eta \ge h_{\mathcal{C}}\}$, which has one covariance block.
+When all these laws have finitely many atoms (\code{MvDiscreteNonParametric}, or univariate laws with a finite support), so does their product,
+and the conditioned law is exact: the atoms of the product that lie in $\mathcal{C}$, with their probabilities renormalized, an \code{MvDiscreteNonParametric} (\code{\_discrete\_conditioned\_law}).
+The rows stay in $\Xis$, and its moments are exact sums, so the values that use them are certified.
+The product is enumerated up to $10^6$ atoms; no atom in $\mathcal{C}$ is an error that names the constraints.
+
 \subsection{Conditioning by rejection sampling}
 \label{sec:rejection}
 
-Rows tagged \code{Truncate()} that couple several declarations, or that involve a multivariate law, have no closed form.
-The declarations coupled by such rows are merged by union--find into one law,
-the product of their laws conditioned on $\mathcal{C} = \{\eta : W_{\mathcal{C}}\eta \ge h_{\mathcal{C}}\}$ (\code{ConditionedDistribution}),
-which has one covariance block, and whose draws are obtained by rejection: draws of the product law are kept when they lie in $\mathcal{C}$.
+Other conditioned laws have no closed form.
+Such a law is a \code{ConditionedDistribution},
+whose draws are obtained by rejection: draws of the product law are kept when they lie in $\mathcal{C}$.
 
 Its moments are those of the empirical law of the kept draws.
 Up to $N_{\max}$ draws are kept (\code{RejectionSamplingMaxSamples()}, $10\,000$ by default), within a time limit per conditioned law (\code{RejectionSamplingTimeLimit()}, 10 seconds),

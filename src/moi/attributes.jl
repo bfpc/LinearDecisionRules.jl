@@ -37,10 +37,13 @@ tagged `Truncate()` hold, and `C` bounds the support Ξ.
 
 A univariate law conditioned by constraints on it alone, such as `100 <= d <= 110`, is truncated
 exactly (`Distributions.truncated`). Otherwise, the declarations coupled by such constraints share
-one law, a [`ConditionedDistribution`](@ref), whose moments are estimated by rejection sampling
-(see [`moments`](@ref)); the values that use them, such as the bound of [`DualLDR`](@ref), are then
-estimates. [`SampledLDR`](@ref) and [`simulate`](@ref) draw from the conditioned law. The
-constraint must not be an equality, since Ξ must be full-dimensional.
+one law. When all their laws have finitely many atoms (such as [`MvDiscreteNonParametric`](@ref)
+or `DiscreteNonParametric`), it is exact: the atoms of their product that satisfy the constraints,
+with their probabilities renormalized. Otherwise it is a [`ConditionedDistribution`](@ref), whose
+moments are estimated by rejection sampling (see [`moments`](@ref)); the values that use them,
+such as the bound of [`DualLDR`](@ref), are then estimates. [`SampledLDR`](@ref) and
+[`simulate`](@ref) draw from the conditioned law. The constraint must not be an equality, since Ξ
+must be full-dimensional.
 
 ## Example
 

@@ -136,7 +136,8 @@ rows of each lifting, whose constraint is `nothing`:
    `valid_constraints::Vector{Union{Nothing,MOI.ConstraintIndex}}`
  * `conditioning::BitVector`: whether each row is tagged `Truncate()`. Such a row bounds Ξ and
    conditions the law of its uncertainties: their laws are merged into one
-   [`ConditionedDistribution`](@ref) in `laws`. The rows tagged `Truncate()` that only bound a
+   [`ConditionedDistribution`](@ref) in `laws`, or into an exact `MvDiscreteNonParametric` when
+   they have finitely many atoms. The rows tagged `Truncate()` that only bound a
    univariate law are not rows: that law is truncated exactly instead (see [`canonicalize`](@ref)).
  * `conic_rows::Vector{ConicRow}`: the constraints in `MOI.SecondOrderCone` tagged
    `ValidInequality()` or `Truncate()`, as [`ConicRow`](@ref)s.
@@ -577,12 +578,16 @@ The rows tagged `Truncate()` condition the law on the set `C` where they hold, a
    `DiscreteNonParametric`, for a discrete law with a finite support. Its rows are then dropped,
    since the box of the truncated law replaces them;
  * otherwise, the declarations coupled by rows tagged `Truncate()` (connected components, by
-   union–find) share one [`ConditionedDistribution`](@ref), in the place of the first, whose
-   moments are estimated by rejection sampling (see [`moments`](@ref)).
+   union–find) share one law, in the place of the first. When all their laws have finitely many
+   atoms, and their product at most a million, it is exact: a [`MvDiscreteNonParametric`](@ref)
+   on the atoms of the product that satisfy the rows, with their probabilities renormalized (a
+   declared [`ConditionedDistribution`](@ref) of such laws is replaced in the same way). Otherwise
+   it is a `ConditionedDistribution`, whose moments are estimated by rejection sampling (see
+   [`moments`](@ref)). The rows stay in Ξ.
 
 Constraints in `MOI.SecondOrderCone` describe Ξ only: they must be over uncertainties and tagged
 `ValidInequality()` or `Truncate()`, and they become [`ConicRow`](@ref)s. A law conditioned by such
-a constraint is always estimated by rejection sampling.
+a constraint is estimated by rejection sampling, unless its laws have finitely many atoms.
 
 A law whose representation of the support is chosen automatically, such as a
 [`ConfidenceMvNormal`](@ref) with `support = :auto`, gets second-order cone rows (see

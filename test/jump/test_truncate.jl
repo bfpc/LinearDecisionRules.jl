@@ -273,8 +273,17 @@ function test_discrete_scenarios()
     @objective(model, Max, sum(-10buy[i] + 15sell[i] for i in 1:2))
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
-    # The six remaining scenarios are equally likely; the standard error is about 0.14.
-    @test isapprox(moments_of(model).mean[2:3], sum(scenarios[1:6]) / 6; atol = 0.6)
+    # The six remaining scenarios are equally likely, exactly: no sampling, and certified values.
+    mom = moments_of(model)
+    @test mom.mean[2:3] ≈ sum(scenarios[1:6]) / 6
+    @test only(mom.blocks).num_samples == 0
+    @test all(r.certified for r in results_of(model))
+    @test !occursin("not certified", raw_status(model))
+    # The law of the rejection sampling of the previous versions: the same within its error.
+    rejection = ConditionedDistribution([law], [-1.0 -1.0], [-160.0])
+    draws = rand(Random.Xoshiro(1), rejection, 10_000)
+    # The standard deviation of each demand is 14.9, so the standard error is 0.15.
+    @test isapprox(vec(sum(draws; dims = 2)) ./ 10_000, mom.mean[2:3]; atol = 0.6)
     return
 end
 
