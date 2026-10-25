@@ -3,6 +3,7 @@
 #
 #   ldr_primal  the monolithic LDR model, Formulations = [PrimalLDR()]
 #   ldr_dual    the same model, Formulations = [DualLDR()] (the value is a bound)
+#   ldr_dual_ipm  ldr_dual with the recommended dual mode, `DualLDR(; attributes = ["solver" => "ipm", "run_crossover" => "off"])`
 #   average     the deterministic model with the inflows at their means
 #   tree        a scenario tree, `branches` joint inflow vectors per stage
 #   ldr_primal_bp<k>, ldr_dual_bp<k>
@@ -131,6 +132,7 @@ function variants(data, T, branches, bps = Int[])
     list = [
         "ldr_primal" => () -> run_ldr(data, T, LDR.PrimalLDR()),
         "ldr_dual" => () -> run_ldr(data, T, LDR.DualLDR()),
+        "ldr_dual_ipm" => () -> run_ldr(data, T, LDR.DualLDR(; attributes = ["solver" => "ipm", "run_crossover" => "off"])),
         "average" => () -> run_plain(average_scenario_model, data, T),
         "tree" => () -> run_plain(scenario_tree_model, data, T, branches),
     ]
