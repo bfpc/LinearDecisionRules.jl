@@ -131,7 +131,7 @@ s.violation_counts
 
 In model predictive control, the same model is solved many times, with a new initial state or a new
 right-hand side each time. Declare such data as a JuMP parameter: when nothing else changes, the
-next `optimize!` updates the parameter in the inner problems it kept, with `set_parameter_value`,
+next `optimize!` updates the parameter in the inner problems it kept, a variable fixed to its value,
 and the inner solver starts from its previous solution instead of a new model being built.
 
 ```@example resolve

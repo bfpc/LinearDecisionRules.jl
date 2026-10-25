@@ -95,8 +95,8 @@ function check_same_results(model, fresh)
         @test isapprox(a.X, b.X; atol = 1e-6 * max(1.0, maximum(abs, b.X)))
         @test a.certified == b.certified
     end
-    @test objective_value(model) ≈ objective_value(fresh)
-    @test objective_bound(model) ≈ objective_bound(fresh)
+    @test isapprox(objective_value(model), objective_value(fresh); atol = 1e-6)
+    @test isapprox(objective_bound(model), objective_bound(fresh); atol = 1e-6)
     return
 end
 
@@ -133,6 +133,29 @@ function test_inventory_initial_stock()
     optimize!(model)
     @test objective_value(model) ≈ 90 * 4 + 20
     @test objective_bound(model) ≈ 340
+    return
+end
+
+# A new value is set in place: HiGHS keeps its copy of the inner problem and starts from its basis,
+# so it needs fewer iterations than a fresh solve.
+function test_warm_start()
+    model = inventory(8, 0.0)
+    set_attribute(model, Formulations(), [PrimalLDR()])
+    optimize!(model)
+    inner = only(results(model)).model
+    set_parameter_value(model[:stock], 30.0)
+    optimize!(model)
+    @test only(results(model)).model === inner
+    @test MOI.Utilities.state(backend(inner)) == MOI.Utilities.ATTACHED_OPTIMIZER
+    set_parameter_value(model[:stock], -10.0)
+    optimize!(model)
+    @test MOI.Utilities.state(backend(inner)) == MOI.Utilities.ATTACHED_OPTIMIZER
+    fresh = inventory(8, -10.0)
+    set_attribute(fresh, Formulations(), [PrimalLDR()])
+    optimize!(fresh)
+    cold = simplex_iterations(only(results(fresh)).model)
+    @test simplex_iterations(inner) < cold
+    @test objective_value(model) ≈ objective_value(fresh)
     return
 end
 

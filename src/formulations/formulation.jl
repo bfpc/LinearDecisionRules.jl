@@ -300,7 +300,7 @@ mutable struct _InnerProblem
     model::JuMP.Model
     # The rule variables of the decisions of the form (see `_rule_variables!`).
     X::Vector{Vector{JuMP.VariableRef}}
-    # The parameter of `model` for each parameter of `form.parameters`, if it has one.
+    # The variable of `model` fixed to each parameter of `form.parameters`, if it has one.
     parameters::Vector{Union{Nothing,JuMP.VariableRef}}
     # Whether a time limit was set on `model`, to be removed by a solve without one.
     time_limited::Bool
@@ -336,8 +336,8 @@ function _build_inner(
     return _InnerProblem(model, X[1:n], parameters, false)
 end
 
-# Set the parameters of `inner` to their values in `form` and solve it. A parameter whose value
-# does not change is not set, so that the solver keeps its solution when nothing changes.
+# Fix the parameters of `inner` to their values in `form` and solve it. A parameter whose value
+# does not change is not set again, so that the solver keeps its solution when nothing changes.
 function _solve_inner!(
     inner::_InnerProblem,
     f::AbstractFormulation,
@@ -347,8 +347,8 @@ function _solve_inner!(
 )
     model = inner.model
     for (p, value) in zip(inner.parameters, form.parameters.values)
-        if p !== nothing && JuMP.parameter_value(p) != value
-            JuMP.set_parameter_value(p, value)
+        if p !== nothing && JuMP.fix_value(p) != value
+            JuMP.fix(p, value)
         end
     end
     if time_limit !== nothing || inner.time_limited
@@ -362,10 +362,10 @@ end
 
 # The form that the formulations build when constants depend on parameters (see `ParameterTerms`):
 # each such parameter becomes a decision of stage 0, which observes only the constant column and
-# is a parameter of the inner problem (see `_rule_variables!`). Its column in `A` is `-Bp`, so that
-# `A x - Bp p (=, ≤, ≥) b + (B ξ without its constant)`, and its cost in the constant column of `C`
-# is `fp`; `B[:, 1]` and `f` are those without the parameters. Returns the form and the columns of
-# `ParameterTerms` of the parameters added, in order.
+# is a fixed variable of the inner problem (see `_rule_variables!`). Its column in `A` is `-Bp`, so
+# that `A x - Bp p (=, ≤, ≥) b + (B ξ without its constant)`, and its cost in the constant column
+# of `C` is `fp`; `B[:, 1]` and `f` are those without the parameters. Returns the form and the
+# columns of `ParameterTerms` of the parameters added, in order.
 function _with_parameter_decisions(form::CanonicalForm)
     terms = form.parameters
     _has_parameter_terms(terms) || return form, Int[]
@@ -465,7 +465,11 @@ function _build! end
 # The rule variables: `X[i][j]` is the coefficient of decision `i` on column `j` of ξ, for its
 # observed columns only. A decision that observes only the constant column keeps its bounds as
 # variable bounds; the bounds of the other decisions are rows (see `_inequalities`). A decision
-# that is a parameter of the form (see `_with_parameter_decisions`) is a parameter of `model`.
+# that is a parameter of the form (see `_with_parameter_decisions`) is a variable of `model` fixed
+# to its value. It is not a JuMP `Parameter`: MOI's bridge of parameters, used by solvers without
+# them (HiGHS), cannot change their value (MOI 1.54), so `set_parameter_value` drops the solver's
+# copy of the model and every re-solve starts from scratch, while `fix` changes a bound in place
+# and the solver keeps its basis (inventory, T = 64: 0 simplex iterations instead of 4999).
 function _rule_variables!(model::JuMP.Model, form::CanonicalForm, info::InformationStructure)
     X = Vector{Vector{JuMP.VariableRef}}(undef, length(form.decisions))
     named = JuMP.set_string_names_on_creation(model)
@@ -475,8 +479,8 @@ function _rule_variables!(model::JuMP.Model, form::CanonicalForm, info::Informat
         k = get(parameter_column, form.decisions[i], 0)
         if k > 0
             name = named ? form.decision_names[i] : ""
-            set = JuMP.Parameter(terms.values[k])
-            X[i] = [JuMP.@variable(model, set = set, base_name = name)]
+            X[i] = [JuMP.@variable(model, base_name = name)]
+            JuMP.fix(only(X[i]), terms.values[k])
             continue
         end
         X[i] = map(visible_columns(info, i)) do j

@@ -46,10 +46,10 @@ The inner problems of the last `optimize!` are kept, and the next `optimize!` so
 from the solution of the inner solver, when nothing changed but the values of JuMP parameters
 alone in rows or in the objective, such as `buy <= capacity` or `inventory[1] == x0 - d[1]` with
 the parameters `capacity` and `x0` (see [`ParameterTerms`](@ref)): the inner problems carry these
-parameters, updated with `set_parameter_value`. Any other change (a coefficient, a bound, a
-constraint, a law, a formulation or its attributes, the inner optimizer or its attributes, a
-parameter multiplied by a variable) builds them again; the comparison reads the whole canonical
-form, which is rebuilt at every `optimize!`. Distributions are compared by value and treated as
+parameters as fixed variables, fixed again to the new values. Any other change (a coefficient, a
+bound, a constraint, a law, a formulation or its attributes, the inner optimizer or its
+attributes, a parameter multiplied by a variable) builds them again; the comparison reads the
+whole canonical form, which is rebuilt at every `optimize!`. Distributions are compared by value and treated as
 immutable: replace a law, rather than changing it in place.
 """
 mutable struct Optimizer <: MOI.AbstractOptimizer

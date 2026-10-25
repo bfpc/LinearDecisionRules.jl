@@ -3,14 +3,14 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# The optimizer keeps the inner problems of its last `optimize!` and solves them again, with
-# `set_parameter_value`, when nothing but the values of the parameters changed (model predictive
-# control: solve, change an initial state, solve again). Everything else that an inner problem
-# depends on is its fingerprint, compared at each `optimize!`: the canonical form without the
-# values of the parameters, the moments, the inner optimizer and its attributes, and the
-# formulation with its own attributes. The canonical form is rebuilt at every `optimize!` (it is
-# cheap), so a change made anywhere in the model, including one that the form only shows as a
-# different value (a parameter multiplied by a decision, a coefficient), rebuilds the problems.
+# The optimizer keeps the inner problems of its last `optimize!` and solves them again, with their
+# parameter variables fixed to the new values, when nothing but the values of the parameters
+# changed (model predictive control: solve, change an initial state, solve again). Everything else
+# that an inner problem depends on is its fingerprint, compared at each `optimize!`: the canonical
+# form without the values of the parameters, the moments, the inner optimizer and its attributes,
+# and the formulation with its own attributes. The canonical form is rebuilt at every `optimize!`
+# (it is cheap), so a change made anywhere in the model, including one that the form only shows as
+# a different value (a parameter multiplied by a decision, a coefficient), rebuilds the problems.
 
 # Structural equality: values of the same type whose fields, or elements, are equal recursively.
 # Objects that are not plain data (modules, pointers) compare by identity; a false `false` only
