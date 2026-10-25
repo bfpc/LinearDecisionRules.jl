@@ -94,6 +94,8 @@ function test_newsvendor()
     @test R[2, 2] ≈ 1
     text = sprint(show, R)
     @test occursin("constant", text) && occursin("sell", text)
+    negative_zero = RuleMatrix([-0.0 1.0], [buy], [:constant, d], PrimalLDR())
+    @test !occursin("-0.0", sprint(show, negative_zero))
     return
 end
 

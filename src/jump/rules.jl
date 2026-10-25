@@ -279,7 +279,8 @@ function Base.show(io::IO, R::RuleMatrix)
     label(c) = JuMP.name(c)
     cols = [label(c) for c in R.columns]
     println(io, "RuleMatrix of ", R.formulation, ": ", join(size(R.matrix), " × "))
-    cells = [string(round(v; sigdigits = 6)) for v in R.matrix]
+    # Adding 0.0 turns a -0.0 coefficient (e.g. from a negated zero) into 0.0 for display.
+    cells = [string(round(v; sigdigits = 6) + 0.0) for v in R.matrix]
     widths = [maximum(length, [cols[j]; cells[:, j]]) for j in eachindex(cols)]
     pad = maximum(length, rows; init = 0)
     print(io, " "^pad)
