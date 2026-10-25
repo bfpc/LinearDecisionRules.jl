@@ -40,9 +40,9 @@ Suppose \cref{ass:support} and the following conditions hold.
 $\E[\xi \mid \xi_{1:\nvis(t)}] = N_t\, \xi_{1:\nvis(t)}$ almost surely.
 \item\label{it:convex} $P \succeq 0$ if $\opt = \min$, and $P \preceq 0$ if $\opt = \max$.
 \end{enumerate}
-Then for every feasible policy $x$ of \eqref{eq:P} with square-integrable components, the matrix $X = \E[x(\xi)\xi^\T]\Mom^{-1}$ is feasible in \eqref{eq:DLDR},
+Then for every feasible policy $x$ of \eqref{eq:SP} with square-integrable components, the matrix $X = \E[x(\xi)\xi^\T]\Mom^{-1}$ is feasible in \eqref{eq:DLDR},
 and its objective is at least as good as that of $x$.
-Consequently, for a minimization, $\val\eqref{eq:DLDR} \le \val\eqref{eq:P} \le \val\eqref{eq:PLDR}$, and the reverse for a maximization.
+Consequently, for a minimization, $\val\eqref{eq:DLDR} \le \val\eqref{eq:SP} \le \val\eqref{eq:PLDR}$, and the reverse for a maximization.
 \end{theorem}
 
 \begin{proof}[Proof sketch]
@@ -165,7 +165,7 @@ The rule $X$ of \eqref{eq:DLDR} is not a policy: it need not be feasible for any
 The package reports only its value, as the objective bound of the model, and the relative gap between it and the primal value.
 With integer decisions, the inner problem is a mixed-integer program, and the bound is the inner solver's bound, which needs no incumbent;
 for a linear program, it is the optimal value, or the dual objective value of the inner solver if the solve stopped early.
-Since \eqref{eq:DLDR} is a relaxation, its infeasibility proves the infeasibility of \eqref{eq:P} (under the conditions of \cref{thm:dual-bound}),
+Since \eqref{eq:DLDR} is a relaxation, its infeasibility proves the infeasibility of \eqref{eq:SP} (under the conditions of \cref{thm:dual-bound}),
 while an infeasible primal approximation only shows that no linear rule is feasible:
 the package reports \code{INFEASIBLE} only on the evidence of the dual, and \code{LOCALLY\_INFEASIBLE} otherwise.
 The bound is \emph{certified} when the moments are exact, $\Mom \succ 0$, and every law spanning several stages is known to satisfy condition~\ref{it:lce} (\cref{rem:lce});

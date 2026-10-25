@@ -22,7 +22,7 @@ so $Y_h\Mom_{hf} = Y_h\Mom_{hh}N_f^\T = \E[y\xi_h^\T]N_f^\T = \E[y\xi_f^\T]$.
 \end{proof}
 
 \begin{proof}[Proof of \cref{thm:dual-bound}]
-Let $x$ be a feasible policy of \eqref{eq:P}: $x_i$ is a square-integrable function of $\xi_{1:\nvis_i}$, integer for the integer decisions, and the constraints hold almost surely.
+Let $x$ be a feasible policy of \eqref{eq:SP}: $x_i$ is a square-integrable function of $\xi_{1:\nvis_i}$, integer for the integer decisions, and the constraints hold almost surely.
 Let $X = \E[x\xi^\T]\Mom^{-1}$, row by row $X_i = \E[x_i\xi^\T]\Mom^{-1}$.
 
 \emph{Information structure.}
@@ -53,13 +53,13 @@ Then $\E[\varepsilon^\T P X\xi] = \tr(PX\E[\xi\varepsilon^\T]) = 0$, and
 where the last term is nonnegative if $P \succeq 0$ and nonpositive if $P \preceq 0$.
 So, for a minimization with $P \succeq 0$, the objective of $X$ in \eqref{eq:DLDR} is at most that of $x$, and symmetrically for a maximization.
 
-Taking the infimum over feasible policies gives $\val\eqref{eq:DLDR} \le \val\eqref{eq:P}$ for a minimization;
-$\val\eqref{eq:P} \le \val\eqref{eq:PLDR}$ holds because a feasible rule of \eqref{eq:PLDR} is a feasible policy of \eqref{eq:P}, by $\supp\law\subseteq\Xis$.
+Taking the infimum over feasible policies gives $\val\eqref{eq:DLDR} \le \val\eqref{eq:SP}$ for a minimization;
+$\val\eqref{eq:SP} \le \val\eqref{eq:PLDR}$ holds because a feasible rule of \eqref{eq:PLDR} is a feasible policy of \eqref{eq:SP}, by $\supp\law\subseteq\Xis$.
 \end{proof}
 
 \begin{remark}
 The proof uses condition~\ref{it:lce} only through \cref{lem:projection}, at the prefixes $\nvis_i$ of the decisions.
-It does not need the strict feasibility of \citet[Proposition~4]{KWG2011}, which serves to show that \eqref{eq:DLDR} has the same value as their relaxed problem (MSP$^l$), not that it bounds \eqref{eq:P}.
+It does not need the strict feasibility of \citet[Proposition~4]{KWG2011}, which serves to show that \eqref{eq:DLDR} has the same value as their relaxed problem (MSP$^l$), not that it bounds \eqref{eq:SP}.
 \end{remark}
 
 \paragraph{The structured identity, row by row.}

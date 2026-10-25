@@ -12,7 +12,7 @@ and solve
 \text{s.t.} \quad & A_e X = B_e, \qquad S_r \xi^s \ge 0, \quad r \in \Rows,\ s = 1, \dots, N.
 \end{aligned}
 \end{equation}
-The objective is the sample average of the objective of \eqref{eq:P};
+The objective is the sample average of the objective of \eqref{eq:SP};
 since it is quadratic in $\xi$, it is the objective of \cref{prop:objective} with the empirical moments
 $\hat\mub = \frac1N\sum_s\xi^s$ and $\hat\Mom = \frac1N\sum_s \xi^s(\xi^s)^\T$,
 which the package computes with a single covariance block, the empirical covariance of separate declarations not being zero.
@@ -22,7 +22,7 @@ Without random recourse, coefficient matching is exact and needs no scenario,
 while $N$ copies of the equalities $(A_eX - B_e)\xi^s = 0$ would describe the same affine subspace (when the outcomes span $\R^k$) with many linearly dependent rows,
 which leaves interior-point solvers with too few degrees of freedom.
 
-Problem \eqref{eq:SLDR} is the sample average approximation \citep[Chapter~5]{ShapiroDentchevaRuszczynski2014} of the problem already restricted to linear rules, not of \eqref{eq:P}:
+Problem \eqref{eq:SLDR} is the sample average approximation \citep[Chapter~5]{ShapiroDentchevaRuszczynski2014} of the problem already restricted to linear rules, not of \eqref{eq:SP}:
 \begin{itemize}[nosep]
 \item there is one rule $X$ for all outcomes, not one recourse decision per scenario;
 \item nonanticipativity is the pattern of $\Rules$, so the outcomes are independent paths and no scenario tree is needed;
@@ -30,7 +30,7 @@ Problem \eqref{eq:SLDR} is the sample average approximation \citep[Chapter~5]{Sh
 \end{itemize}
 Its value is not a bound.
 Its constraints are a relaxation of those of \eqref{eq:PLDR}, but its objective is a sample average,
-so it is an in-sample estimate, neither above nor below $\val\eqref{eq:PLDR}$ or $\val\eqref{eq:P}$ in general.
+so it is an in-sample estimate, neither above nor below $\val\eqref{eq:PLDR}$ or $\val\eqref{eq:SP}$ in general.
 As $N$ grows, one expects it to approach, under the usual regularity conditions, the value of the linear rules feasible on the support of $\law$,
 which is $\val\eqref{eq:PLDR}$ when $\Xis$ is the convex hull of the support.
 For a given $N$, the scenario approach of \citet{CalafioreCampi2006} bounds the probability that the rule violates some constraint at a new outcome,

@@ -11,7 +11,7 @@ and whose components are linearly independent almost surely (axioms (A1)--(A4) o
 In the multistage case, \citet[axiom (A5)]{GWK2015} also ask that $\Lift$ and $\Retr$ act stage by stage.
 A rule that is linear in the lifted vector, $x(\xi) = \lX\Lift(\xi)$, is nonlinear in $\xi$:
 the components of $\Lift$ are basis functions.
-Since the data of \eqref{eq:P} are linear in $\xi = \Retr\lxi$, the problem can be written in the lifted variable,
+Since the data of \eqref{eq:SP} are linear in $\xi = \Retr\lxi$, the problem can be written in the lifted variable,
 with the law of $\lxi = \Lift(\xi)$, the support $\Lift(\Xis)$, and the data
 \begin{equation}
 \label{eq:lifted-data}
@@ -19,10 +19,10 @@ B \leftarrow B\Retr, \qquad C \leftarrow C\Retr, \qquad W \leftarrow W\Retr_\eta
 \end{equation}
 with $P$ and $f$ unchanged, where $\Retr_\eta$ is the block of $\Retr$ that maps the lifted uncertainties to $\eta$.
 (In the package $\Retr = \blockdiag(1, \Retr_\eta)$, see below.)
-This lifted problem is equivalent to \eqref{eq:P}: feasible policies correspond one to one, with the same objective \citep[Propositions~3.4 and~6.3]{GWK2015}.
-Its primal approximation restricts the policies of \eqref{eq:P} to the rules $\lX\Lift(\xi)$,
+This lifted problem is equivalent to \eqref{eq:SP}: feasible policies correspond one to one, with the same objective \citep[Propositions~3.4 and~6.3]{GWK2015}.
+Its primal approximation restricts the policies of \eqref{eq:SP} to the rules $\lX\Lift(\xi)$,
 and its dual approximation restricts the dual multipliers to linear combinations of the components of $\Lift$ \citep[Proposition~3.6]{GWK2015};
-so they bound $\val\eqref{eq:P}$ from both sides, at least as tightly as the linear rules do \citep[Theorem~3.8]{GWK2015}.
+so they bound $\val\eqref{eq:SP}$ from both sides, at least as tightly as the linear rules do \citep[Theorem~3.8]{GWK2015}.
 
 To build them, the approximations need a description of the convex hull of the lifted support $\Lift(\Xis)$, which is not convex,
 or a polyhedron $\lXi \supseteq \conv\Lift(\Xis)$ \citep[conditions (S4) and its relaxation]{GWK2015}.
@@ -35,15 +35,15 @@ and that $\lM = \E[\lxi\lxi^\T] \succ 0$, which is the axiom (A4) of linear inde
 \label{prop:lifted}
 Let $\lXi \supseteq \Lift(\Xis)$ be a polyhedron, and let the stage of a lifted coordinate be the largest stage of the coordinates of $\xi$ that it depends on.
 Suppose that the retraction writes each coordinate of $\xi$ as a combination of lifted coordinates whose stages are at most its own.
-Then the primal approximation of the lifted problem gives the feasible policy $x(\xi) = \lX\Lift(\xi)$ of \eqref{eq:P}, with the same value.
-If moreover the lifted law satisfies the conditions of \cref{thm:dual-bound}, the dual approximation of the lifted problem bounds $\val\eqref{eq:P}$.
+Then the primal approximation of the lifted problem gives the feasible policy $x(\xi) = \lX\Lift(\xi)$ of \eqref{eq:SP}, with the same value.
+If moreover the lifted law satisfies the conditions of \cref{thm:dual-bound}, the dual approximation of the lifted problem bounds $\val\eqref{eq:SP}$.
 \end{proposition}
 
 \begin{proof}[Proof sketch]
-For the primal: if the lifted constraints hold on $\lXi$, they hold on $\Lift(\Xis)$, that is, the constraints of \eqref{eq:P} hold for $x(\xi) = \lX\Lift(\xi)$ on $\Xis$;
+For the primal: if the lifted constraints hold on $\lXi$, they hold on $\Lift(\Xis)$, that is, the constraints of \eqref{eq:SP} hold for $x(\xi) = \lX\Lift(\xi)$ on $\Xis$;
 the rule only uses lifted coordinates of stages up to that of the decision, which depend only on observed coordinates;
 and the objectives agree by \eqref{eq:lifted-data}, since $\xi = \Retr\lxi$.
-For the dual: a feasible policy $x$ of \eqref{eq:P} gives the policy $\tilde x(\lxi) = x(\Retr\lxi)$ of the lifted problem, with the same objective;
+For the dual: a feasible policy $x$ of \eqref{eq:SP} gives the policy $\tilde x(\lxi) = x(\Retr\lxi)$ of the lifted problem, with the same objective;
 by the hypothesis on $\Retr$ it respects the lifted information structure, and \cref{thm:dual-bound} applied to the lifted problem concludes.
 \end{proof}
 

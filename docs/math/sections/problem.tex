@@ -39,8 +39,8 @@ A decision without a stage tag is in the last stage $T = \max(2, \text{largest d
 Some decisions may be integer or binary; they must be in stage 1.
 The problem read by the package is
 \begin{equation}
-\label{eq:P}
-\tag{P}
+\label{eq:SP}
+\tag{SP}
 \begin{aligned}
 \opt \quad & \E\bigl[ x(\xi)^\T P x(\xi) + x(\xi)^\T C \xi + \eta^\T Q \eta + d^\T \eta + f \bigr] \\
 \text{s.t.} \quad & A_e x(\xi) = B_e \xi, \quad A_u x(\xi) \le B_u \xi, \quad A_l x(\xi) \ge B_l \xi, \quad \ell \le x(\xi) \le u, \quad \law\text{-a.s.}, \\
@@ -60,17 +60,20 @@ and an equality one row in $(A_e, B_e)$;
 the constant of the right-hand side is the first column of $B$.
 Parameters of JuMP are replaced by their values.
 
-The data of \eqref{eq:P} are those of \citet[(MSP)]{KWG2011} with three extensions:
+The data of \eqref{eq:SP} are those of \citet[(MSP)]{KWG2011} with three extensions:
 the objective may be quadratic in the decisions ($P$) and in the uncertainties ($Q$, which only adds a constant to the expected value),
 some first-stage decisions may be integer,
 and equalities and two-sided rows are kept as such.
 Like the papers, the package requires \emph{fixed recourse}:
 uncertainties may multiply decisions in the objective (the columns $2, \dots, k$ of $C$),
 but not in the constraints, where a product of a decision and an uncertainty is an error (\cref{sec:outlook}).
-The constraints of \eqref{eq:P} hold pointwise;
+The constraints of \eqref{eq:SP} hold pointwise;
 the expected-value constraints of \citet[(MSP)]{KWG2011} have no counterpart yet.
-A row may involve decisions of several stages;
-it is satisfied when all of them are taken, and no stage is attached to it.
+A row may involve decisions and uncertainties of several stages.
+It is a pointwise constraint, required almost surely:
+in effect it is checked once all its decisions are taken and all the uncertainties that affect them are revealed,
+so its effective stage is the latest stage among its decisions and the uncertainties that appear in it.
+The package attaches no other stage to a row.
 
 \subsection{The information structure}
 \label{sec:information}

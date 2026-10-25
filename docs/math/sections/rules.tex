@@ -11,7 +11,7 @@ It respects the information structure if row $i$ of $X$ vanishes beyond the obse
 Nonanticipativity is thus a sparsity pattern, and the package only creates the variables $X_{ij}$, $j \le \nvis_i$ (\code{\_rule\_variables!}, \file{src/formulations/formulation.jl}):
 $\sum_i \nvis_i$ variables, instead of $nk$.
 For an integer decision, $X_{i1}$ is an integer variable.
-Restricting \eqref{eq:P} to these rules, and asking the constraints to hold on $\Xis$, gives the semi-infinite problem
+Restricting \eqref{eq:SP} to these rules, and asking the constraints to hold on $\Xis$, gives the semi-infinite problem
 \begin{equation}
 \label{eq:PLDR}
 \tag{P-LDR}
