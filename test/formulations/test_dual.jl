@@ -154,7 +154,8 @@ function test_formulation_attributes()
     @test PrimalLDR(; attributes = ["solver" => "ipx"]) == PrimalLDR()
     @test f != PrimalLDR()
     @test sprint(show, DualLDR()) == "DualLDR()"
-    @test sprint(show, f) == "DualLDR(attributes = [\"solver\" => \"ipm\", \"run_crossover\" => \"off\"])"
+    @test sprint(show, f) ==
+          "DualLDR(attributes = [\"solver\" => \"ipm\", \"run_crossover\" => \"off\"])"
     form = Problems.form(Problems.newsvendor())
     mom = moments(form)
     raw = ["solver" => "simplex", "presolve" => "off"]

@@ -129,7 +129,7 @@ function test_insupport_and_box()
         # The point of the boundary in the direction `L' e_k` attains the upper bound.
         e = [k == j ? 1.0 : 0.0 for j in 1:2]
         z = d.ρ * (d.L' * e) / LinearAlgebra.norm(d.L' * e)
-        @test (d.μ .+ d.L * z)[k] ≈ maximum(d)[k]
+        @test (d.μ.+d.L*z)[k] ≈ maximum(d)[k]
     end
     return
 end

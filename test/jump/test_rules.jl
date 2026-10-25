@@ -147,8 +147,9 @@ function test_expected_value_of_affine_expressions()
     @test expected_value(-10buy + 8ret + 15sell) ≈ 460
     @test expected_value(2buy + 1) ≈ 241
     @test expected_value(model[:buy] + model[:sell]; formulation = DualLDR()) ≈
-          320 / 3 + decision_rule(sell; formulation = DualLDR()).constant + 100 *
-          decision_rule(sell; formulation = DualLDR()).coefficients[d]
+          320 / 3 +
+          decision_rule(sell; formulation = DualLDR()).constant +
+          100 * decision_rule(sell; formulation = DualLDR()).coefficients[d]
     @test expected_value(3.0) == 3.0
     @test expected_value(3) == 3.0
     @test expected_value(AffExpr(5.0)) == 5.0
@@ -171,8 +172,12 @@ function test_expected_value_of_products()
     @test abs(expected_value(p * sell) - value(p * sell)) ≈ abs(b * variance)
     # The second moment of the rule.
     @test expected_value(sell^2) ≈
-          c^2 + a^2 * (Distributions.var(Uniform(80, 120)) + 100^2) + b^2 * (variance + 15^2) +
-          2c * a * 100 + 2c * b * 15 + 2a * b * 100 * 15
+          c^2 +
+          a^2 * (Distributions.var(Uniform(80, 120)) + 100^2) +
+          b^2 * (variance + 15^2) +
+          2c * a * 100 +
+          2c * b * 15 +
+          2a * b * 100 * 15
     @test expected_value(p^2) ≈ variance + 15^2
     @test expected_value(2p * sell - 3sell + 4p + 5) ≈
           2expected_value(p * sell) - 3expected_value(sell) + 4 * 15 + 5

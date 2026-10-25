@@ -115,9 +115,7 @@ function library_values(p)
     return primal.objective_value, dual.objective_value
 end
 
-const GOLDEN = [
-    "newsvendor_breakpoints_$k" => Problems.NEWSVENDOR_BREAKPOINTS[k][1] for k in 1:4
-]
+const GOLDEN = ["newsvendor_breakpoints_$k" => Problems.NEWSVENDOR_BREAKPOINTS[k][1] for k in 1:4]
 
 # The previous version's primal and dual values and primal rules, per piece; the primal values
 # increase and the dual values decrease over the nested breakpoints.
@@ -168,10 +166,7 @@ function test_critical_breakpoint()
     @test rule(Dict(demand => 115.0)) ≈ 760 / 7
     @test term(115.0) ≈ 760 / 7
     @test decision_rule(ret)(demand => 90.0) ≈ 760 / 7 - 90
-    @test occursin(
-        "⋅ lift(AxisPiecewise([108.57142857142857]), demand)",
-        sprint(show, rule),
-    )
+    @test occursin("⋅ lift(AxisPiecewise([108.57142857142857]), demand)", sprint(show, rule))
     # The rule of an uncertainty is itself, even lifted.
     @test decision_rule(demand).coefficients == Dict(demand => 1.0)
     @test isempty(decision_rule(demand).lifted)

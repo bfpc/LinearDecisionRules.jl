@@ -109,7 +109,10 @@ function test_singular_law_warns()
     @test termination_status(model) == MOI.OPTIMAL
     # The primal is exact, and the bound is not certified.
     @test [r.certified for r in unsafe_backend(model).results] == [true, false]
-    @test endswith(raw_status(model, DualLDR()), "[not certified: the second-moment matrix is singular]")
+    @test endswith(
+        raw_status(model, DualLDR()),
+        "[not certified: the second-moment matrix is singular]",
+    )
     return
 end
 
@@ -130,7 +133,10 @@ function test_constant_coordinate_is_singular()
     # Independent of the units of the uncertainties.
     for scale in (1e-6, 1.0, 1e6)
         C = scale^2 .* [1.0 0.5; 0.5 1.0]
-        mom = LinearDecisionRules.Moments([1.0, 0.0, 0.0], [LinearDecisionRules.CovarianceBlock([2, 3], C)])
+        mom = LinearDecisionRules.Moments(
+            [1.0, 0.0, 0.0],
+            [LinearDecisionRules.CovarianceBlock([2, 3], C)],
+        )
         @test isempty(LinearDecisionRules._singular_blocks(mom))
     end
     return

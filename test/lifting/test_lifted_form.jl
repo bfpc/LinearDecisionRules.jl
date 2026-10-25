@@ -94,8 +94,10 @@ function test_retraction()
         lifted = Problems.form(p)
         lifted.lifting === nothing && continue
         @testset "$(p.name)" begin
-            form = canonicalize(backend(p.model), ModelInfo(; p.info.uncertainties,
-                p.info.decision_stages, p.info.valid_rows))
+            form = canonicalize(
+                backend(p.model),
+                ModelInfo(; p.info.uncertainties, p.info.decision_stages, p.info.valid_rows),
+            )
             R = retraction(lifted.lifting)
             @test size(R) == (1 + length(form.uncertainties), 1 + length(lifted.uncertainties))
             M, M̃ = second_moment(moments(form)), second_moment(moments(lifted))
@@ -158,8 +160,11 @@ function test_breakpoint_count()
     p = Problems.newsvendor()
     demand = index(variable_by_name(p.model, "demand"))
     function lifted(points)
-        info = ModelInfo(; p.info.uncertainties, p.info.decision_stages,
-            breakpoints = Dict(demand => points))
+        info = ModelInfo(;
+            p.info.uncertainties,
+            p.info.decision_stages,
+            breakpoints = Dict(demand => points),
+        )
         return canonicalize(backend(p.model), info)
     end
     @test only(lifted(3).lifting.blocks).lifting == AxisPiecewise([90, 100, 110])
@@ -186,8 +191,13 @@ function test_errors()
         @test occursin("The lifting of the uncertainty demand is invalid", msg)
         @test occursin("strictly inside the support [80.0, 120.0]", msg)
     end
-    info(points) = ModelInfo(; p.info.uncertainties, p.info.decision_stages,
-        breakpoints = Dict(demand => points))
+    function info(points)
+        return ModelInfo(;
+            p.info.uncertainties,
+            p.info.decision_stages,
+            breakpoints = Dict(demand => points),
+        )
+    end
     msg = error_message(() -> canonicalize(backend(p.model), info([100.0, 100.0])))
     @test occursin("The lifting of the uncertainty demand is invalid", msg)
     @test occursin("must be distinct", msg)

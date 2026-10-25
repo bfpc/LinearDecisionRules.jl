@@ -56,8 +56,8 @@ function test_uniform_exact()
     @test Distributions.var(d) ≈ [125 / 3, 125 / 3]
     @test minimum(d) == [80, 0] && maximum(d) == [100, 20]
     @test Distributions.params(d) == (Distributions.Uniform(80, 120), AxisPiecewise([100]))
-    @test sprint(show, d) == "LiftedDistribution($(Distributions.Uniform(80, 120)), " *
-                             "AxisPiecewise([100.0]))"
+    @test sprint(show, d) ==
+          "LiftedDistribution($(Distributions.Uniform(80, 120)), " * "AxisPiecewise([100.0]))"
     return
 end
 

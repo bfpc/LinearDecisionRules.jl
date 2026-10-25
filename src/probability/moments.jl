@@ -56,7 +56,8 @@ _law_mean(d::Distributions.MultivariateDistribution) = Vector{Float64}(Distribut
 _law_covariance(d::Distributions.UnivariateDistribution) = fill(Float64(Distributions.var(d)), 1, 1)
 _law_covariance(d::Distributions.MultivariateDistribution) = Matrix{Float64}(Distributions.cov(d))
 
-const _ContinuousTruncated = Distributions.Truncated{<:Distributions.ContinuousUnivariateDistribution}
+const _ContinuousTruncated =
+    Distributions.Truncated{<:Distributions.ContinuousUnivariateDistribution}
 
 _law_mean(d::_ContinuousTruncated) = [_truncated_moments(d)[1]]
 

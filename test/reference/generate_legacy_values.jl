@@ -58,13 +58,16 @@ function _newsvendor(m; integer = false)
     return (; buy, sell, ret, demand)
 end
 
-_nv_rules(v) = Dict{String,Any}(
-    "buy" => (v.buy, [("demand", v.demand)]),
-    "sell" => (v.sell, [("demand", v.demand)]),
-    "ret" => (v.ret, [("demand", v.demand)]),
-)
+function _nv_rules(v)
+    return Dict{String,Any}(
+        "buy" => (v.buy, [("demand", v.demand)]),
+        "sell" => (v.sell, [("demand", v.demand)]),
+        "ret" => (v.ret, [("demand", v.demand)]),
+    )
+end
 
-const NV = "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, " *
+const NV =
+    "Newsvendor: first-stage variable buy >= 0, recourse sell >= 0 and ret >= 0, " *
     "uncertainty demand ~ Uniform(80, 120). Constraints sell + ret <= buy and sell <= demand. " *
     "Maximize -10 buy + 8 ret + 15 sell. All decisions except buy may depend on demand " *
     "(single stage after buy)."
@@ -92,7 +95,8 @@ function problem_newsvendor_random_price()
     @constraint(m, sell + ret <= buy)
     @constraint(m, sell <= demand)
     @objective(m, Max, -10 * buy + 8 * ret + price * sell)
-    d = "Newsvendor with random sell price: buy >= 0 first stage, sell >= 0, ret >= 0; " *
+    d =
+        "Newsvendor with random sell price: buy >= 0 first stage, sell >= 0, ret >= 0; " *
         "independent uncertainties demand ~ Uniform(80, 120) and price ~ Uniform(13, 17), each " *
         "declared in its own @variable call. Constraints sell + ret <= buy, sell <= demand. " *
         "Maximize -10 buy + 8 ret + price * sell (the product price * sell is quadratic in the " *
@@ -114,7 +118,8 @@ function problem_newsvendor_two_products()
     @constraint(m, [i = 1:2], sell[i] + ret[i] <= buy[i])
     @constraint(m, [i = 1:2], sell[i] <= demand[i])
     @objective(m, Max, sum(-10 * buy[i] + 8 * ret[i] + 15 * sell[i] for i in 1:2))
-    d = "Two independent newsvendors (test_core.jl test_double_newsvendor): buy[1:2] >= 0 first " *
+    d =
+        "Two independent newsvendors (test_core.jl test_double_newsvendor): buy[1:2] >= 0 first " *
         "stage, sell[1:2] >= 0, ret[1:2] >= 0; demand[1:2] one vector uncertainty, product of " *
         "two independent Uniform(80, 120). Constraints sell[i] + ret[i] <= buy[i], sell[i] <= " *
         "demand[i]. Maximize sum_i (-10 buy[i] + 8 ret[i] + 15 sell[i]). Value is twice the " *
@@ -135,18 +140,19 @@ function problem_newsvendor_three_stages()
     @variable(m, buy >= 0, S(1))
     @variable(m, sell2 >= 0, S(2))
     @variable(m, ret2 >= 0, S(2))
-    @variable(m, demand2 in U(distribution = dem, stage = 2))
+    @variable(m, demand2 in U(; distribution = dem, stage = 2))
     @variable(m, buy2 >= 0, S(2))
-    @variable(m, buy_cost2 in U(distribution = cost2, stage = 2))
+    @variable(m, buy_cost2 in U(; distribution = cost2, stage = 2))
     @variable(m, sell3 >= 0, S(3))
     @variable(m, ret3 >= 0, S(3))
-    @variable(m, demand3 in U(distribution = dem, stage = 3))
+    @variable(m, demand3 in U(; distribution = dem, stage = 3))
     @constraint(m, sell2 + ret2 <= buy + buy2)
     @constraint(m, sell2 <= demand2)
     @constraint(m, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
     @constraint(m, sell3 <= demand3)
     @objective(m, Max, -10 * buy - buy_cost2 * buy2 + 8 * ret2 + 15 * sell2 + 8 * ret3 + 15 * sell3)
-    d = "Three-stage newsvendor (test_stages.jl). Stage 1: buy >= 0. Stage 2: sell2, ret2, buy2 " *
+    d =
+        "Three-stage newsvendor (test_stages.jl). Stage 1: buy >= 0. Stage 2: sell2, ret2, buy2 " *
         ">= 0, after observing demand2 ~ Uniform(80, 120) and buy_cost2 ~ Uniform(8, 14) " *
         "(both uncertainties of stage 2). Stage 3: sell3, ret3 >= 0 after demand3 ~ Uniform(80, " *
         "120) (stage 3). All uncertainties independent, each in its own @variable call. " *
@@ -156,7 +162,8 @@ function problem_newsvendor_three_stages()
         "<= t only."
     rules = Dict{String,Any}(
         "buy" => (buy, [("demand2", demand2), ("demand3", demand3)]),
-        "sell2" => (sell2, [("demand2", demand2), ("buy_cost2", buy_cost2), ("demand3", demand3)]),
+        "sell2" =>
+            (sell2, [("demand2", demand2), ("buy_cost2", buy_cost2), ("demand3", demand3)]),
         "sell3" => (sell3, [("demand2", demand2), ("demand3", demand3)]),
     )
     return Problem(d, m, rules, false, 0)
@@ -176,7 +183,8 @@ function problem_inventory(T)
     @constraint(m, [t = 1:T], y[t] >= h * I[t])
     @constraint(m, [t = 1:T], y[t] >= -b * I[t])
     @objective(m, Min, sum(c * x[t] + y[t] for t in 1:T))
-    desc = "Inventory with backlog, T = $T periods (benchmark/timing.jl). Uncertainties d[t], " *
+    desc =
+        "Inventory with backlog, T = $T periods (benchmark/timing.jl). Uncertainties d[t], " *
         "t = 1..T, independent Uniform(60, 100), d[t] of stage t + 1 (one @variable call with " *
         "stage = t + 1). Decisions: order x[t] in [0, 150] of stage t; inventory I[t] and cost " *
         "y[t] (both free) of stage t + 1. Constraints I[1] == 0 + x[1] - d[1]; I[t] == I[t-1] + " *
@@ -203,7 +211,8 @@ function problem_hydro_toy_fixed_volume()
     @constraint(m, vf == vi - gh + sum(inflow[i] for i in 1:3))
     @constraint(m, gt + gh == 0.3)
     @objective(m, Min, gt^2 + vf^2 / 2 - vf)
-    d = "Hydro toy, one reservoir, quadratic objective (test_core.jl test_recursion, the second " *
+    d =
+        "Hydro toy, one reservoir, quadratic objective (test_core.jl test_recursion, the second " *
         "model with the cost-to-go vf^2/2 - vf added). Fixed initial volume vi == 0.5 (a fixed " *
         "variable, not random). Decisions vf in [0, 1], gh >= 0, gt >= 0. Uncertainties " *
         "inflow[i] ~ Uniform(0, 0.1 i), i = 1..3, independent. Constraints vf == vi - gh + " *
@@ -251,7 +260,8 @@ function problem_newsvendor_discrete_demand()
     values = [80.0, 90.0, 100.0, 110.0, 120.0]
     dist = Distributions.DiscreteNonParametric(values, [0.1, 0.2, 0.4, 0.2, 0.1])
     rules = _tutorial_inventory(m, dist)
-    d = "Tutorial newsvendor (docs distributions.jl): buy >= 0 first stage, sell >= 0, salvage " *
+    d =
+        "Tutorial newsvendor (docs distributions.jl): buy >= 0 first stage, sell >= 0, salvage " *
         ">= 0; demand ~ DiscreteNonParametric on [80, 90, 100, 110, 120] with probabilities " *
         "[0.1, 0.2, 0.4, 0.2, 0.1]. Constraints sell + salvage <= buy, sell <= demand. Maximize " *
         "-10 buy + 15 sell + 5 salvage. Note: salvage value 5, not the return value 8."
@@ -263,7 +273,8 @@ function problem_newsvendor_mv_discrete()
     scen = [[80.0, 60.0], [100.0, 80.0], [120.0, 100.0], [80.0, 100.0], [120.0, 60.0]]
     dist = LDR.MvDiscreteNonParametric(scen, [0.2, 0.3, 0.2, 0.15, 0.15])
     rules = _tutorial_inventory(m, dist; products = 2)
-    d = "Two-product tutorial newsvendor (docs distributions.jl): buy[1:2] >= 0 first stage, " *
+    d =
+        "Two-product tutorial newsvendor (docs distributions.jl): buy[1:2] >= 0 first stage, " *
         "sell[1:2] >= 0, salvage[1:2] >= 0; demand[1:2] one multivariate discrete distribution " *
         "with scenarios (demand1, demand2) = (80,60), (100,80), (120,100), (80,100), (120,60) " *
         "and probabilities 0.2, 0.3, 0.2, 0.15, 0.15 (correlated). Constraints sell[i] + " *
@@ -284,7 +295,9 @@ function problem_newsvendor_breakpoints(k)
     m = _model()
     v = _newsvendor(m)
     set_attribute(v.demand, LDR.BreakPoints(), BREAKPOINTS[k])
-    d = NV * " Piecewise-linear lifting of demand with $(length(BREAKPOINTS[k])) breakpoints at " *
+    d =
+        NV *
+        " Piecewise-linear lifting of demand with $(length(BREAKPOINTS[k])) breakpoints at " *
         "$(BREAKPOINTS[k]) (nested: set 1 inside 2 inside 3 inside 4; the intervals are " *
         "[80, b1], ..., [bn, 120]). Decision rules are piecewise affine in demand."
     return Problem(d, m, _nv_rules(v), false, length(BREAKPOINTS[k]) + 1)
@@ -294,7 +307,9 @@ function problem_newsvendor_breakpoint_critical()
     m = _model()
     v = _newsvendor(m)
     set_attribute(v.demand, LDR.BreakPoints(), [760 / 7])
-    d = NV * " Piecewise-linear lifting of demand with a single breakpoint at 760/7 = " *
+    d =
+        NV *
+        " Piecewise-linear lifting of demand with a single breakpoint at 760/7 = " *
         "108.571428..., the critical quantile of the optimal buy; expected primal 3300/7."
     return Problem(d, m, _nv_rules(v), false, 2)
 end
@@ -302,7 +317,9 @@ end
 function problem_sampled_newsvendor()
     m = _model(; sampled = true, scenarios = 1000)
     v = _newsvendor(m)
-    d = NV * " Besides primal and dual, the sampled LDR with 1000 scenarios drawn by the legacy " *
+    d =
+        NV *
+        " Besides primal and dual, the sampled LDR with 1000 scenarios drawn by the legacy " *
         "package (Random.Xoshiro(1234), its default seed); the sampled value depends on the " *
         "generator and is only reproducible with the legacy sampler."
     return Problem(d, m, _nv_rules(v), true, 0)
@@ -328,9 +345,10 @@ const PROBLEMS = [
 # uncertainty).
 function _rules(m, rules, dual, pieces)
     out = Dict{String,Any}()
-    coefficient(var, uv) =
-        pieces == 0 ? LDR.get_decision(m, var, uv; dual) :
-        [LDR.get_decision(m, var, uv; dual, piece = k) for k in 1:pieces]
+    function coefficient(var, uv)
+        return pieces == 0 ? LDR.get_decision(m, var, uv; dual) :
+               [LDR.get_decision(m, var, uv; dual, piece = k) for k in 1:pieces]
+    end
     for (name, (var, uncs)) in rules
         coefficients = Dict{String,Any}(u => coefficient(var, uv) for (u, uv) in uncs)
         out[name] = Dict{String,Any}(
@@ -370,11 +388,16 @@ function main()
         entry = solve(build())
         result[key] = entry
         println(
-            rpad(key, 36), entry["primal"], "  ", entry["dual"], "  ", get(entry, "sampled", "-"),
+            rpad(key, 36),
+            entry["primal"],
+            "  ",
+            entry["dual"],
+            "  ",
+            get(entry, "sampled", "-"),
         )
     end
     open(OUT, "w") do io
-        TOML.print(io, result; sorted = true)
+        return TOML.print(io, result; sorted = true)
     end
     println("wrote ", OUT)
     return

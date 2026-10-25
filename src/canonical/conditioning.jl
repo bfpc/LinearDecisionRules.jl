@@ -19,8 +19,7 @@ function _condition(src::MOI.ModelLike, form::CanonicalForm)
     # The η columns of each conditioning row, and the laws that they belong to.
     columns_of = Dict(r => SparseArrays.rowvals(Wt)[SparseArrays.nzrange(Wt, r)] for r in rows)
     laws_of = Dict(r => unique(law_of[columns_of[r]]) for r in rows)
-    conic_laws_of =
-        Dict(c => unique(law_of[_nonzero_columns(form.conic_rows[c].W)]) for c in conic)
+    conic_laws_of = Dict(c => unique(law_of[_nonzero_columns(form.conic_rows[c].W)]) for c in conic)
     # A conic row is not an interval, so the laws that it conditions are estimated by rejection.
     in_conic = Set(l for c in conic for l in conic_laws_of[c])
     laws = copy(form.laws)

@@ -42,13 +42,24 @@ function test_construction()
     @test length(d) == 2
     @test eltype(d) == Float64
     @test minimum(d) == [40, 40] && maximum(d) == [80, 80]
-    @test sprint(show, d) == "ConditionedDistribution(" * string(Distributions.Uniform(40, 80)) *
-                             ", " * string(Distributions.Uniform(40, 80)) * "; 1 rows)"
+    @test sprint(show, d) ==
+          "ConditionedDistribution(" *
+          string(Distributions.Uniform(40, 80)) *
+          ", " *
+          string(Distributions.Uniform(40, 80)) *
+          "; 1 rows)"
     # A multivariate law and a univariate one: three components.
-    mv = Distributions.product_distribution([Distributions.Uniform(0, 1), Distributions.Uniform(0, 2)])
+    mv = Distributions.product_distribution([
+        Distributions.Uniform(0, 1),
+        Distributions.Uniform(0, 2),
+    ])
     e = ConditionedDistribution([mv, Distributions.Uniform(0, 3)], [1.0 1.0 1.0], [1.0])
     @test length(e) == 3 && minimum(e) == [0, 0, 0] && maximum(e) == [1, 2, 3]
-    @test_throws ArgumentError ConditionedDistribution([Distributions.Uniform(0, 1)], [1.0 1.0], [0])
+    @test_throws ArgumentError ConditionedDistribution(
+        [Distributions.Uniform(0, 1)],
+        [1.0 1.0],
+        [0],
+    )
     @test_throws ArgumentError ConditionedDistribution(
         [Distributions.Uniform(0, 1)],
         [1.0;;],

@@ -15,14 +15,7 @@ import Clarabel
 import Distributions
 import HiGHS
 import LinearDecisionRules:
-    ConfidenceMvNormal,
-    DualLDR,
-    FirstStage,
-    LDRModel,
-    PrimalLDR,
-    Uncertainty,
-    evaluate,
-    simulate
+    ConfidenceMvNormal, DualLDR, FirstStage, LDRModel, PrimalLDR, Uncertainty, evaluate, simulate
 import Random
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))

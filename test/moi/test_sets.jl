@@ -98,12 +98,21 @@ function test_sets_in_a_jump_model()
     @variable(model, x)
     @constraint(model, x in Stage(2))
     text = sprint(print, model)
-    @test occursin(" d in Uncertainty(Distributions.Uniform{Float64}(a=80.0, b=120.0))
-", text)
-    @test occursin(" [e[1], e[2]] in Uncertainty(ProductDistribution of dimension 2)
-", text)
-    @test occursin(" x in Stage(2)
-", text)
+    @test occursin(
+        " d in Uncertainty(Distributions.Uniform{Float64}(a=80.0, b=120.0))
+",
+        text,
+    )
+    @test occursin(
+        " [e[1], e[2]] in Uncertainty(ProductDistribution of dimension 2)
+",
+        text,
+    )
+    @test occursin(
+        " x in Stage(2)
+",
+        text,
+    )
     src = backend(model)
     S = LinearDecisionRules.UnivariateUncertainty{Distributions.Uniform{Float64}}
     cis = MOI.get(src, MOI.ListOfConstraintIndices{MOI.VariableIndex,S}())

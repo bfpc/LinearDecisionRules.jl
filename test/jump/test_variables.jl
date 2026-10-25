@@ -36,9 +36,15 @@ function test_stage_tag()
     @test lower_bound(y) == 0
     @test num_constraints(model, VariableRef, Stage) == 2
     text = sprint(print, model)
-    @test occursin(" x in Stage(1)
-", text) && occursin(" y in Stage(2)
-", text)
+    @test occursin(
+        " x in Stage(1)
+",
+        text,
+    ) && occursin(
+        " y in Stage(2)
+",
+        text,
+    )
     return
 end
 

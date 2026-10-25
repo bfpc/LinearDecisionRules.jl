@@ -457,9 +457,8 @@ function evaluate(
     batch = _assess(sim, ξ, Float64(tolerance))
     reason = only(_support_reasons(model, sim, ξ, batch, Float64(tolerance)))
     reason === nothing || _outside_support(outside_support, reason, "")
-    decisions = Dict(
-        JuMP.VariableRef(model, v) => batch.decisions[i, 1] for (v, i) in sim.decision_index
-    )
+    decisions =
+        Dict(JuMP.VariableRef(model, v) => batch.decisions[i, 1] for (v, i) in sim.decision_index)
     given = Dict(JuMP.VariableRef(model, v) => ξ[j] for (v, j) in sim.column)
     violated = findall(batch.flagged[:, 1])
     violations = [_group_name(model, sim, g) => batch.excess[g, 1] for g in violated]

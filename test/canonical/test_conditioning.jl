@@ -49,7 +49,8 @@ function model_with(laws::Pair...)
     @variable(model, x)
     decls = map(laws) do (name, law)
         n = LDR._dimension(law)
-        v = n == 1 ? @variable(model, base_name = name) : @variable(model, [1:n], base_name = name)
+        v =
+            n == 1 ? @variable(model, base_name = name) : @variable(model, [1:n], base_name = name)
         model[Symbol(name)] = v
         return UncertaintyDeclaration(law, n == 1 ? [index(v)] : index.(v))
     end
@@ -277,10 +278,14 @@ function test_lifting()
     model, decls = model_with("d" => Uniform(80, 120), "e" => Uniform(0, 1))
     cut = @constraint(model, cut, model[:d] + model[:e] <= 110)
     msg = error_message(
-        () -> form_of(model, decls; truncate = [cut], breakpoints = Dict(index(model[:d]) => 1)),
+        () ->
+            form_of(model, decls; truncate = [cut], breakpoints = Dict(index(model[:d]) => 1)),
     )
-    @test occursin("The uncertainty d has a lifting, but its law is conditioned by the " *
-                   "constraints cut and estimated by rejection sampling", msg)
+    @test occursin(
+        "The uncertainty d has a lifting, but its law is conditioned by the " *
+        "constraints cut and estimated by rejection sampling",
+        msg,
+    )
     # A lifted form keeps the conditioning rows.
     model, decls = model_with("d" => Uniform(80, 120), "e" => Uniform(0, 1), "g" => Uniform(0, 1))
     cut = @constraint(model, cut, model[:e] + model[:g] <= 1)
