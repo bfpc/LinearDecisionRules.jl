@@ -380,6 +380,9 @@ JuMP.value(r::Evaluation, expr::JuMP.AbstractJuMPScalar) = JuMP.value(x -> _look
 
 Base.getindex(r::Evaluation, x::JuMP.VariableRef) = _lookup(r, x)
 
+# So that `value.(result, [x, y])` treats the evaluation as a scalar.
+Base.broadcastable(r::Evaluation) = Ref(r)
+
 """
     JuMP.objective_value(result::Evaluation) -> Float64
 

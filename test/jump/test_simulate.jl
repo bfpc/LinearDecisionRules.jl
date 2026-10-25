@@ -100,6 +100,7 @@ function test_evaluate_newsvendor()
     @test value(r, buy) ≈ 120
     @test r[sell] ≈ 90
     @test r[ret] ≈ 30
+    @test value.(r, [sell, ret]) ≈ [90, 30]
     @test value(r, d) == 90
     @test value(r, 2sell + d - 1) ≈ 269
     # -10 * 120 + 8 * 30 + 15 * 90
