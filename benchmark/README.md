@@ -55,3 +55,15 @@ new/old; differences below about 5% are noise, and the sub-10 ms rows are domina
 | 128 | 2.032, 2.077 (1.02) | 1.154, 1.137 (0.99) | 7.449, 7.346 (0.99) |
 
 The build time of the LDR models is below 0.5 ms at T = 128 in both recordings.
+
+## Re-solves with a parameter (`resolve.jl`)
+
+`resolve.jl` solves the inventory with its initial stock as a JuMP parameter, then re-solves it
+`N` times with new values, keeping the inner problem (`cached`, the default) or emptying the cache
+before each `optimize!` (`rebuild`, what every re-solve did before). It appends one row per
+formulation and variant to `results/resolve.csv` (commit, dirty flag, Julia version, as above),
+and warns if the objectives of the two variants differ.
+
+```
+julia --project=benchmark benchmark/resolve.jl          # T = 64, N = 20
+```
