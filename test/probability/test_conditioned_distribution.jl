@@ -246,7 +246,9 @@ function test_sampling_time_limit()
     pattern = r"0.4 seconds shared by the laws, half of the time that remained of `TimeLimitSec"
     start = time_ns()
     mom = @test_logs (:warn, pattern) LDR._moments(form, s, nothing; budget = 0.4)
-    @test (time_ns() - start) / 1e9 < 0.4 + 0.2
+    # The budget is respected: 10^8 draws would take minutes. The slack is wide because other
+    # processes may share the machine (0.2 s failed under the load of a parallel test suite).
+    @test (time_ns() - start) / 1e9 < 0.4 + 2.0
     @test all(100 <= block.num_samples < 10^8 for block in mom.blocks)
     return
 end
