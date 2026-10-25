@@ -49,6 +49,14 @@ struct Law
     covariance::Matrix{Float64}
 end
 
+# The error raised when a lifting is set on a component of a joint law.
+function joint_law_message(name, names)
+    return "The uncertainty $name has a lifting, but it is a component of the joint law of " *
+           "$names (declared together, or merged by `Truncate()` constraints that couple them). " *
+           "Liftings apply to an uncertainty whose law is univariate and not coupled to others " *
+           "by `Truncate()` constraints."
+end
+
 function atom_moments(atoms, p)
     mean = sum(q * a for (a, q) in zip(atoms, p))
     covariance = sum(q * (a - mean) * (a - mean)' for (a, q) in zip(atoms, p))

@@ -40,6 +40,7 @@ import .StageOrderModels:
     Staged,
     by_hand,
     change_stage!,
+    joint_law_message,
     check_columns,
     check_moments,
     delete_uncertainty!,
@@ -181,9 +182,7 @@ function test_breakpoints_one_then_the_other()
     @test pieces == [(u3, 1), (u3, 2), (u3, 3), (v, 1), (v, 2), (v, 3)]
     # A component of a law over several stages cannot be lifted, by design.
     set_attribute(w[4], BreakPoints(), [12.0])
-    msg =
-        "The uncertainty w[4] has a lifting, but it is a component of the law of w[2], w[3], " *
-        "w[4], w[5]. Liftings apply to uncertainties declared alone, with a univariate law."
+    msg = joint_law_message("w[4]", "w[2], w[3], w[4], w[5]")
     @test_logs (:warn, r"without a stage") match_mode = :any begin
         @test_throws ErrorException(msg) optimize!(s.model)
     end
@@ -210,15 +209,13 @@ function test_rows_across_stages()
         set_breakpoints!(s, s.model[:v], [2.0, 3.5])
         check_solve(s)
     end
-    # A law conditioned by a row across stages cannot be lifted: it is no longer declared alone.
+    # A law merged with another by a `Truncate()` row cannot be lifted, though declared alone.
     @testset "truncate scalars" begin
         s = staged(; truncate = :scalars, discrete = true)
         set_breakpoints!(s, s.model[:v], [2.0, 3.5])
         check_solve(s)
         set_attribute(s.model[:u3], BreakPoints(), [2.0])
-        msg =
-            "The uncertainty u3 has a lifting, but it is a component of the law of u3, z. " *
-            "Liftings apply to uncertainties declared alone, with a univariate law."
+        msg = joint_law_message("u3", "u3, z")
         @test_logs (:warn, r"without a stage") match_mode = :any begin
             @test_throws ErrorException(msg) optimize!(s.model)
         end

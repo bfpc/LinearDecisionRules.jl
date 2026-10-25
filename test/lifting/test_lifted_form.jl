@@ -205,7 +205,7 @@ function test_errors()
     two = Problems.newsvendor_two_products()
     d1 = index(variable_by_name(two.model, "demand[1]"))
     msg = error_message(() -> lift(Problems.form(two), Dict(d1 => l)))
-    @test occursin("demand[1] has a lifting, but it is a component of the law of", msg)
+    @test occursin("demand[1] has a lifting, but it is a component of the joint law of", msg)
     # An unbounded law.
     unbounded = Problems.unbounded_support()
     η = index(variable_by_name(unbounded.model, "η"))

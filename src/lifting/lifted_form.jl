@@ -150,8 +150,10 @@ function _liftings_by_column(form::CanonicalForm, liftings)
         elseif !(law.distribution isa Distributions.UnivariateDistribution)
             names = join((form.uncertainty_names[c-1] for c in law.columns), ", ")
             error(
-                "The uncertainty $name has a lifting, but it is a component of the law of " *
-                "$names. Liftings apply to uncertainties declared alone, with a univariate law.",
+                "The uncertainty $name has a lifting, but it is a component of the joint law of " *
+                "$names (declared together, or merged by `Truncate()` constraints that couple " *
+                "them). Liftings apply to an uncertainty whose law is univariate and not coupled " *
+                "to others by `Truncate()` constraints.",
             )
         elseif _num_inputs(l) != 1
             error("The lifting $l of the uncertainty $name must have one input.")

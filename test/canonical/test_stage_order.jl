@@ -35,6 +35,7 @@ import .StageOrderModels:
     Staged,
     change_stage!,
     check_columns,
+    joint_law_message,
     check_lifting,
     check_moments,
     check_support,
@@ -142,9 +143,7 @@ function test_breakpoints_on_a_component()
     s = inventory(; optimizer = HiGHS.Optimizer)
     w = s.model[:w]
     base = form_of(s)
-    msg =
-        "The uncertainty w[3] has a lifting, but it is a component of the law of w[2], w[3], " *
-        "w[4], w[5]. Liftings apply to uncertainties declared alone, with a univariate law."
+    msg = joint_law_message("w[3]", "w[2], w[3], w[4], w[5]")
     @test_throws ErrorException(msg) lift(base, Dict(index(w[3]) => AxisPiecewise([12.0])))
     set_attribute(w[3], BreakPoints(), [12.0])
     src = backend(s.model)
