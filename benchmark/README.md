@@ -67,3 +67,23 @@ and warns if the objectives of the two variants differ.
 ```
 julia --project=benchmark benchmark/resolve.jl          # T = 64, N = 20
 ```
+
+Inventory T = 64, 20 re-solves, HiGHS 1.15, Julia 1.12.6, best of one run on an idle machine
+(seconds over the 20 re-solves; `fingerprint` is one comparison):
+
+| Commit | Formulation | Variant | build | solver | total | fingerprint |
+|---|---|---|---:|---:|---:|---:|
+| f204dc1 | `PrimalLDR` | cached | 0.079 | 0.051 | 0.130 | 3.0e-5 |
+| f204dc1 | `PrimalLDR` | rebuild | 0.380 | 3.419 | 3.799 | |
+| f204dc1 | `DualLDR` | cached | 0.046 | 0.063 | 0.109 | 3.2e-5 |
+| f204dc1 | `DualLDR` | rebuild | 0.506 | 14.651 | 15.156 | |
+| 354a8de | `PrimalLDR` | cached | 0.072 | 3.473 | 3.545 | 3.0e-5 |
+| 354a8de | `DualLDR` | cached | 0.112 | 14.701 | 14.813 | 3.2e-5 |
+
+The re-solves are 29 times faster for the primal and 139 times for the dual: HiGHS starts from its
+basis, which stays optimal after a change of the initial stock (0 simplex iterations, against 4999
+and 15790 from scratch), and nothing is built. At 354a8de the inner problems held JuMP
+`Parameter`s, which MOI bridges for HiGHS without support for changing their value, so JuMP copied
+the model to HiGHS again at every re-solve and the solver time did not improve; f204dc1 fixes
+variables instead. The fingerprint costs 30 µs per `optimize!`, under 1% of the 4 ms that a cached
+re-solve spends outside the solver (canonical form and moments).
