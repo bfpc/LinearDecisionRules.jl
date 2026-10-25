@@ -102,6 +102,36 @@ Measured at main #119 46c6473:
 | 12 | average scenario | 1,776 | 108 | 2,048 | 10.386167 | 0.0059 | 0.0032 | 0.0036 | 3 |
 | 12 | tree, 2 branches | 606,060 | 36,855 | 700,241 | 13.695625 | 3.44 | 55.7 | 64.6 | 1 |
 
+Measured at main #144 2509dbb (`commit` 901bd78 in `results/hydro.csv`, the same `src/`), `run.jl 4 8 12
+only=ldr_primal,ldr_dual,ldr_dual_ipm`; the average and tree rows are unchanged code and not repeated.
+The primal has fewer variables (box closed form); the dual's sizes and all objectives are identical.
+In parentheses, the values measured at main #119 46c6473 (above):
+
+| T | Model | Variables | Constraints | Nonzeros | Objective | Build | Solve | Runs |
+|--:|---|--:|--:|--:|--:|--:|--:|--:|
+| 4 | LDR primal (value) | 11,152 (18,160) | 8,136 | 33,644 (40,652) | 3.759985 | 0.010 (0.0104) | 0.270 (0.57) | 3 |
+| 4 | LDR dual (bound) | 12,904 | 23,028 | 99,344 | 0.980316 | 0.016 (0.0182) | 3.385 (3.45) | 3 |
+| 4 | LDR dual, ipm | 12,904 | 23,028 | 99,344 | 0.980316 | 0.023 (0.0176) | 0.552 (0.56) | 3 |
+| 8 | LDR primal (value) | 50,464 (83,168) | 35,828 | 153,264 (185,968) | 94.874564 | 0.044 (0.19) | 10.9 (13.6) | 1 |
+| 8 | LDR dual (bound) | 54,552 | 103,280 | 453,732 | 1.960632 | 0.076 (0.12) | 115.7 (116.9) | 1 |
+| 8 | LDR dual, ipm | 54,552 | 103,280 | 453,732 | 1.960632 | 0.092 (0.098) | 5.34 (5.4) | 3 |
+| 12 | LDR primal (value) | 117,936 (195,024) | 82,784 | 358,580 (435,668) | 468.156822 | 0.100 (0.135) | 91.6 (128.2) | 1 |
+| 12 | LDR dual (bound) | 124,360 | 240,172 | 1,062,008 | 10.753064 | 0.226 (0.23) | 142.1 (147.8) | 1 |
+| 12 | LDR dual, ipm | 124,360 | 240,172 | 1,062,008 | NaN (status OTHER_ERROR) | 0.219 (0.24) | 25.6 (25.8) | 1 |
+
+Here the smaller primal solves faster: 2.1 times at T = 4, 1.25 at T = 8 and 1.4 at T = 12 (the last two
+are single runs), with 61%, 61% and 60% of the variables and 83%, 82% and 82% of the nonzeros. (In the
+inventory benchmark the primal also loses 36% of its variables at T = 128 and the solve is 16% slower, so
+the size does not predict the HiGHS time.) The dual solve times are within 4% of #119. The T = 12 ipm run
+ends with status `OTHER_ERROR`, as at #119, and since the fix of the invalid bound its value is `NaN`
+instead of a bound 3e-5 too high.
+
+Breakpoints (k = 1), measured at main #144: the sizes and values do not change, since breakpoint blocks
+are not boxes and the closed form does not apply (primal 42,736 and 197,856 variables at T = 4 and 8).
+Primal solve 2.20 s (2.2) at T = 4 and 124.4 s (127) at T = 8; dual solve 6.03 s (6.0) and 64.0 s (68);
+values 1.888805 and 37.295662, bounds 0.989138 and 1.970324, out-of-sample means 1.8875 +- 0.0150 and
+37.717 +- 0.548, no violated scenario.
+
 Previous recording (commit 6307590) builds: T = 4: 0.0096, 0.0184, 0.0028, 0.0194; T = 8: 0.037, 0.077,
 0.0045, 0.14; T = 12: 0.13, 0.44, 0.0064, 3.84 (primal, dual, average, tree). Solve times agree within
 2% for the LPs that were solved to optimality in about the same way (the runs with `Runs = 1` vary by

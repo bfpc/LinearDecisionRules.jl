@@ -38,6 +38,28 @@ smaller 0.4 primal model (1.10 s against 0.60 s). The dual has about as many non
 and is the slowest variant, with a solve time that grows faster with T than the primal's
 (0.83 s at T = 64, 7.30 s at T = 128).
 
+## Refresh at main #144 (2509dbb), after the box closed form
+
+`timing.jl 4 8 16 32 64 128` (rows tagged 2509dbb), same protocol, Julia 1.12.6, idle machine. `PrimalLDR` now
+eliminates box support blocks in closed form (`box_closed_form = true`): the primal has the hand LP's
+number of variables (57,792 at T = 128, against 90,560 at 46c6473), 41,662 constraints (unchanged) and
+189,757 nonzeros (206,013). The objectives are identical in all 12 LDR rows (90T + 20 for the primal);
+the dual's sizes, nonzeros and bounds are identical. Times at T = 128 in seconds, 46c6473 then #144:
+
+| Model | Variables | Nonzeros | build | optimize | solver | solver ratio |
+|---|---|---|---|---|---|---:|
+| hand | 57,792 | 271,807 | 0.085, 0.047 | 2.077, 2.105 | 1.952, 1.977 | 1.01 |
+| `PrimalLDR` | 90,560, 57,792 | 206,013, 189,757 | 0.0004, 0.0004 | 1.137, 1.313 | 1.095, 1.274 | 1.16 |
+| `DualLDR` | 58,812 | 273,079 | 0.0003, 0.0003 | 7.346, 7.442 | 7.295, 7.391 | 1.01 |
+
+Primal variables at T = 4, 8, 16, 32, 64: 70, 252, 952, 3,696, 14,560 (were 102, 380, 1,464, 5,744,
+22,752), all equal to the hand LP's. Primal solver times, 46c6473 then #144, in ms: T = 4 0.76, 0.70;
+T = 8 1.75, 1.70; T = 16 6.9, 5.3; T = 32 27.8, 26.9; T = 64 143, 146; T = 128 1095, 1274. So the smaller primal
+is not faster: it is equal or slightly faster up to T = 64 and 16% slower at T = 128 (the hand LP, with the
+same variable count, takes 1.98 s), although it also has 8% fewer nonzeros. The saving is in memory and
+in the reformulation, not in the HiGHS time (the run-to-run spread of the other rows is 1 to 2%).
+The build time of the LDR models is below 0.5 ms.
+
 ## Refresh at main #119 (46c6473) against the first recording (eb80cdf)
 
 `timing.jl 4 8 16 32 64 128`, same protocol (best of 3), Julia 1.12.6. The quadratic-objective, dual-bound
@@ -79,8 +101,18 @@ Inventory T = 64, 20 re-solves, HiGHS 1.15, Julia 1.12.6, one run on an idle mac
 | f204dc1 | `DualLDR` | rebuild | 0.506 | 14.651 | 15.156 | |
 | 354a8de | `PrimalLDR` | cached | 0.072 | 3.473 | 3.545 | 3.0e-5 |
 | 354a8de | `DualLDR` | cached | 0.112 | 14.701 | 14.813 | 3.2e-5 |
+| bf91f9c (main #144) | `PrimalLDR` | cached | 0.236 | 0.037 | 0.273 | 3.1e-5 |
+| bf91f9c (main #144) | `PrimalLDR` | rebuild | 0.289 | 3.124 | 3.413 | |
+| bf91f9c (main #144) | `DualLDR` | cached | 0.218 | 0.061 | 0.278 | 3.1e-5 |
+| bf91f9c (main #144) | `DualLDR` | rebuild | 0.405 | 14.144 | 14.549 | |
 
-The re-solves are 29 times faster for the primal and 139 times for the dual: HiGHS starts from its
+The bf91f9c rows (`src/` of main #144 2509dbb) are a re-run on an idle machine: the solver time of the
+cached re-solves is unchanged and the rebuilds are 9% (primal) and 3% (dual) faster in the solver. The
+cached `build` is now 0.22 to 0.24 s (0.05 to 0.08 s at f204dc1); this column includes the first,
+from-scratch construction of the inner problem, so it is not a per-re-solve cost. The cached total is 0.27 s
+against 3.4 s (primal, 12.5 times) and 14.5 s (dual, 52 times) for the rebuilds.
+
+The f204dc1 re-solves are 29 times faster for the primal and 139 times for the dual: HiGHS starts from its
 basis, which stays optimal after a change of the initial stock (0 simplex iterations, against 4999
 and 15790 from scratch), and nothing is built. At 354a8de the inner problems held JuMP
 `Parameter`s, which MOI bridges for HiGHS without support for changing their value, so JuMP copied
