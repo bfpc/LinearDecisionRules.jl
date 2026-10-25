@@ -13,14 +13,21 @@ import Distributions: Uniform
 import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules:
+    Certified,
     DualLDR,
     FirstStage,
     Formulations,
     FormulationAttribute,
     LDRModel,
+    MvDiscreteNonParametric,
     PrimalLDR,
+    RejectionSamplingMaxSamples,
     SampledLDR,
-    Uncertainty
+    Stage,
+    Truncate,
+    Uncertainty,
+    is_certified,
+    set_stage
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -361,6 +368,64 @@ function test_feasibility_problem()
     @test termination_status(model) == MOI.OPTIMAL
     @test objective_value(model) == 0
     @test value(x) <= 3
+    return
+end
+
+# `is_certified` and `Certified()`: exact values are certified; values that use moments estimated by
+# rejection sampling are not, nor is a bound whose law spans stages without linear conditional
+# expectations, and the raw status gives the reason.
+function test_is_certified()
+    @test_logs (:warn,) @test_throws OptimizeNotCalled is_certified(newsvendor())
+    model = newsvendor(; formulations = [PrimalLDR(), DualLDR(), SampledLDR(20)])
+    optimize!(model)
+    @test is_certified(model) === true
+    @test is_certified(model, PrimalLDR()) === true
+    @test get_attribute(model, FormulationAttribute(DualLDR(), Certified())) === true
+    # Estimates by construction, with no reason.
+    @test is_certified(model, SampledLDR(20)) === false
+    @test raw_status(model, SampledLDR(20)) == "kHighsModelStatusOptimal"
+    # The attribute is read for one formulation, which must have been solved.
+    @test error_of(() -> get_attribute(model, Certified())) isa MOI.GetAttributeNotAllowed
+    model = newsvendor()
+    optimize!(model)
+    err = error_of(() -> is_certified(model, SampledLDR(20)))
+    @test err isa MOI.GetAttributeNotAllowed
+    @test occursin("add it to `Formulations()`", sprint(showerror, err))
+    # Two demands conditioned on their total: moments estimated by rejection sampling.
+    model = LDRModel(HiGHS.Optimizer)
+    set_silent(model)
+    set_attribute(model, RejectionSamplingMaxSamples(), 1_000)
+    @variable(model, buy >= 0, FirstStage)
+    @variable(model, sell[1:2] >= 0)
+    @variable(model, d[1:2] in Uncertainty(Uniform(80, 120)))
+    @constraint(model, d[1] + d[2] <= 200, Truncate())
+    @constraint(model, sum(sell) <= buy)
+    @constraint(model, sell .<= d)
+    @objective(model, Max, -10buy + 15sum(sell))
+    optimize!(model)
+    reason = "[not certified: moments of conditioned laws estimated by rejection sampling]"
+    for f in (PrimalLDR(), DualLDR())
+        @test is_certified(model, f) === false
+        @test endswith(raw_status(model, f), reason)
+    end
+    # A law over stages 2 and 3, uncorrelated, whose second component is a function of the first.
+    law = MvDiscreteNonParametric([[79.0, 61.0], [80.0, 60.0], [81.0, 61.0]], fill(1 / 3, 3))
+    model = LDRModel(HiGHS.Optimizer)
+    set_silent(model)
+    @variable(model, buy >= 0, FirstStage)
+    @variable(model, early >= 0, Stage(2))
+    @variable(model, late >= 0, Stage(3))
+    @variable(model, d[1:2] in Uncertainty(law))
+    set_stage.(d, [2, 3])
+    @constraint(model, early + late <= buy)
+    @constraint(model, early <= d[1])
+    @constraint(model, late <= d[2])
+    @objective(model, Max, -10buy + 15early + 12late)
+    @test_logs (:warn, r"not certified") optimize!(model)
+    @test is_certified(model, PrimalLDR()) === true
+    @test is_certified(model) === false
+    reason = "[not certified: conditional expectations across stages are not linear]"
+    @test endswith(raw_status(model, DualLDR()), reason)
     return
 end
 

@@ -182,10 +182,11 @@ A model attribute: the `attribute` of one formulation, for example
 `FormulationAttribute(DualLDR(), MOI.TerminationStatus())`.
 
 `attribute` is one of `MOI.TerminationStatus()`, `MOI.PrimalStatus()`, `MOI.ObjectiveValue()`,
-`MOI.ObjectiveBound()`, `MOI.RawStatusString()` and `MOI.SolveTimeSec()`. The objective value of a
-formulation whose rule is not a policy, [`DualLDR`](@ref), is its bound.
+`MOI.ObjectiveBound()`, `MOI.RawStatusString()`, `MOI.SolveTimeSec()` and [`Certified`](@ref)`()`.
+The objective value of a formulation whose rule is not a policy, [`DualLDR`](@ref), is its bound.
 
-See also `JuMP.termination_status(model, formulation)` and the other short helpers.
+See also `JuMP.termination_status(model, formulation)`, [`is_certified`](@ref) and the other short
+helpers.
 """
 struct FormulationAttribute{A<:MOI.AbstractModelAttribute} <: MOI.AbstractModelAttribute
     formulation::AbstractFormulation
@@ -193,6 +194,23 @@ struct FormulationAttribute{A<:MOI.AbstractModelAttribute} <: MOI.AbstractModelA
 end
 
 MOI.is_set_by_optimize(::FormulationAttribute) = true
+
+"""
+    Certified()
+
+A model attribute of one formulation, read through [`FormulationAttribute`](@ref): whether its
+objective value and bound are exact for the laws of the model, as a `Bool` (the field `certified`
+of [`FormulationResult`](@ref)). See [`is_certified`](@ref), its short helper.
+
+## Example
+
+```julia
+get_attribute(model, FormulationAttribute(DualLDR(), Certified()))  # is_certified(model)
+```
+"""
+struct Certified <: MOI.AbstractModelAttribute end
+
+MOI.is_set_by_optimize(::Certified) = true
 
 # The attributes below are internal: the JuMP functions of `jump/rules.jl` read them. The
 # columns ξ are those of the canonical form, so the lifted coordinates when there are breakpoints.
@@ -245,6 +263,7 @@ const _AttributesWithoutIndices = Union{
     RejectionSamplingTimeLimit,
     RejectionSamplingMaxSamples,
     FormulationAttribute,
+    Certified,
     RuleCoefficients,
     UncertaintyVariables,
     DecisionVariables,

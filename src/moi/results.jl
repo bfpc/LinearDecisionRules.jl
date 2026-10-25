@@ -199,6 +199,16 @@ function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.SolveTimeSec})
     return _require_result(o, attr).solve_time
 end
 
+function MOI.get(o::Optimizer, attr::FormulationAttribute{Certified})
+    return _require_result(o, attr).certified
+end
+
+# Formulations differ in what they certify, so the attribute is read for one of them.
+function MOI.get(::Optimizer, attr::Certified)
+    msg = "Read it for one formulation: `FormulationAttribute(DualLDR(), Certified())`."
+    return throw(MOI.GetAttributeNotAllowed(attr, msg))
+end
+
 # Internal attributes, for `decision_rule` and `expected_value`.
 function MOI.get(o::Optimizer, attr::RuleCoefficients, vi::MOI.VariableIndex)
     r = _require_result(o, FormulationAttribute(attr.formulation, MOI.PrimalStatus()))

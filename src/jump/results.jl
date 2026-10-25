@@ -83,3 +83,32 @@ The wall-clock seconds of the inner `optimize!` of `formulation`.
 function JuMP.solve_time(model::JuMP.GenericModel, f::AbstractFormulation)
     return _formulation_attribute(model, f, MOI.SolveTimeSec())
 end
+
+"""
+    is_certified(model::JuMP.Model, formulation::AbstractFormulation = DualLDR()) -> Bool
+
+Whether the values of `formulation` are exact for the laws of the model: for [`DualLDR`](@ref),
+whether `objective_bound(model)` is a bound on the optimal value; for [`PrimalLDR`](@ref), whether
+its objective value is the expected value of its rule. It is the attribute
+`FormulationAttribute(formulation, Certified())` (see [`Certified`](@ref)).
+
+The values are not certified when they use moments estimated by rejection sampling (a law
+conditioned by constraints tagged [`Truncate`](@ref) that is not exact), and, for the bound of
+`DualLDR`, when the second-moment matrix is singular or a law spanning several stages is not known
+to have linear conditional expectations (see [`DualLDR`](@ref)). `raw_status(model, formulation)`
+then ends with the reason, `[not certified: <reason>]`. The values of [`SampledLDR`](@ref) are
+estimates by construction: they are never certified, and have no such reason.
+
+It is an error if `formulation` was not solved, or before `optimize!`.
+
+## Example
+
+```julia
+optimize!(model)
+is_certified(model)               # the bound of DualLDR()
+is_certified(model, PrimalLDR())
+```
+"""
+function is_certified(model::JuMP.GenericModel, f::AbstractFormulation = DualLDR())
+    return _formulation_attribute(model, f, Certified())
+end
