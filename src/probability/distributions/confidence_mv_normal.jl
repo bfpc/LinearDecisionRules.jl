@@ -21,9 +21,14 @@ of `‖z‖`, and `x f_d(x) = d f_{d+2}(x)` for the densities `f_k` of `χ²(k)`
 `E[z zᵀ | ‖z‖² ≤ ρ²] = E[‖z‖² | ‖z‖² ≤ ρ²] / d ⋅ I = cdf(Chisq(d + 2), ρ²) / α ⋅ I`.
 Its components can be in different stages: the conditional expectation of some given the others
 is affine, as for the normal law, so the bound of [`DualLDR`](@ref) is certified.
-`minimum` and `maximum` are the bounding box of `E`, `μ ± ρ √diag(Σ)`. Draws are by rejection in
-the standardized space: `z ~ N(0, I)` until `‖z‖ ≤ ρ`, then `η = μ + L z`, with `1 / α` attempts
-per draw on average.
+`minimum` and `maximum` are the bounding box of `E`, `μ ± ρ √diag(Σ)`.
+
+Draws are by rejection in the standardized space: `z ~ N(0, I)` until `‖z‖ ≤ ρ`, then
+`η = μ + L z`. A candidate is accepted if and only if `‖z‖² ≤ ρ² = quantile(Chisq(d), α)`, and
+`‖z‖²` follows `χ²(d)`, so the acceptance rate is exactly `α`, in any dimension `d`: `1 / α`
+attempts per draw on average (about 1.05 for `α = 0.95`), so only a small `α` is costly. This is
+cheaper, for the usual levels, than the exact radial method, which needs a quantile of `χ²(d)`
+per draw.
 
 `support` chooses how [`support_constraints`](@ref) describes `E` beyond its bounding box, so that
 the formulations see it:

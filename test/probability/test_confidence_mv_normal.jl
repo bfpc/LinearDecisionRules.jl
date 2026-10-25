@@ -106,6 +106,12 @@ function test_probability_outside()
         # Within 5 standard errors.
         @test abs(outside - (1 - α)) <= 5 * sqrt(α * (1 - α) / n)
     end
+    # So the acceptance rate of the rejection is α, in any dimension.
+    m, S, α, n = zeros(30), 0.5 * (LinearAlgebra.I(30) + ones(30, 30)), 0.95, 100_000
+    d = ConfidenceMvNormal(m, S, α)
+    draws = rand(Random.Xoshiro(42), Distributions.MvNormal(m, S), n)
+    inside = count(x -> Distributions.insupport(d, x), eachcol(draws)) / n
+    @test abs(inside - α) <= 5 * sqrt(α * (1 - α) / n)
     return
 end
 

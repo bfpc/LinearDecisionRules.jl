@@ -128,7 +128,8 @@ So a \code{ConfidenceMvNormal} whose components are in several stages satisfies 
 even though its components are correlated and dependent across stages (\cref{rem:lce}).
 
 Draws are by rejection in the standardized space: draw $z \sim \mathcal{N}(0, I_d)$ until $\norm{z} \le \rho$, and return $\mu + Lz$,
-with acceptance probability $\alpha$.
+with acceptance probability exactly $\alpha$ in any dimension, since $\norm{z}^2 \sim \chi^2_d$ and $\Prob(\norm{z}^2 \le \rho^2) = \Fchi{d}(\rho^2) = \alpha$:
+$1/\alpha$ attempts per draw on average, so that only a small $\alpha$ is costly.
 An exact alternative without rejection draws a direction uniformly on the sphere and a radius $r$ with $r^2 = \Fchi{d}^{-1}(\alpha U)$, $U$ uniform on $(0,1)$.
 
 \paragraph{Two representations of the support.}
