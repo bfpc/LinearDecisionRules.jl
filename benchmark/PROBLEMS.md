@@ -2,7 +2,8 @@
 
 Written 2026-10-26 at main `c592575` (0.4.0-DEV). A catalogue, not a benchmark: it says which problems exist
 in which place, how they differ, which solvers were tried on them, and which ones are worth bringing into
-`test/` or `benchmark/`. Nothing here is asserted by the test suite.
+`test/` or `benchmark/`. Nothing here is asserted by the test suite. Extended the same day with a
+classification of the families (section 1.1).
 
 Abbreviations for the sources:
 
@@ -49,6 +50,82 @@ the dual LDR); "bp k" is `BreakPoints() = k` (k equispaced interior breakpoints)
 | F13 | Unit commitment, 30 buses, 36 h, deterministic / SAA / LDR with first-stage integer commitment and uncertain extra demand | LEG `examples/unit_commitment/uc-ldr.ipynb`, `30_2017-01-01.json` (UnitCommitment.jl data) | 2 | 36 (`demand_extra[t]`) | linear with binaries (MILP) | none recorded | not ported |
 | F14 | Structural and edge models: `deterministic`, `unbounded_support`, `infeasible`, `unbounded`, `stage_one_uncertainty`, `objective_only_uncertainty` (QP), `valid_row_across_declarations`, `quadratic_inventory` (T = 16, `0.01 sum I^2 + 0.001 (sum I)^2`) | PT `edge_cases()`, `test_size.jl` | 1 to 3 | 1 to 4 | linear and quadratic | dense oracle (`test/oracles/dense.jl`) is the reference | tests (package only) |
 | F15 | EVPI study of `hydro2.jl`: 25-point discretized N(60, 20) inflow, grid dynamic program, about 20 variants (spread, fleet, shape, future-cost steepness) | CL `EVPI/` (`results/*.md`, `math/evpi_bounds.tex`) | 2 | 1 | linear | base: EV 90500.00, WS 92071.07, Z* = EEV = 92246.31, EVPI 175.25 (0.19 %), VSS 0 | not ported; analysis, not an LDR problem |
+
+### 1.1 Classification
+
+Axes: **data** (toy, stylized = made-up but shaped like a real problem, real = real data or a realistic
+instance); **horizon** (fixed, or a parameter `T` with per-stage data that are generated or repeated);
+**where the uncertainty enters** (RHS = right-hand side; obj = cost / price coefficients of decisions;
+tech = coefficient of a first-stage decision; rec = coefficient of a later-stage decision, i.e. random
+recourse; supp = constraints on the uncertainty only, `Truncate` / `ValidInequality` / cones);
+**objective / constraints**; **integers**; **dimensions** (decisions / uncertainties per stage); and the
+**law across stages** (SWI = stagewise independent).
+
+What 0.4 accepts, from the canonical form (`src/canonical/form.jl`, docstring of `canonicalize`): RHS,
+obj (products of an uncertainty and a decision in the objective become a quadratic objective), supp,
+linear and quadratic objectives, SOC rows on uncertainties only, integers in stage 1 only. **Any product
+of an uncertainty and a decision in a constraint is rejected as random recourse, also when the decision
+is a first-stage one** (run: `y <= xi * x` with `x` in `Stage(1)` errors with "multiplies the decision x
+by the uncertainty xi (random recourse)"), so "tech" is not supported today either, although with a
+deterministic `x` the robust counterpart would still be linear (inferred). A law spanning several stages
+is accepted; the dual bound is certified only if its conditional expectations are linear
+(`src/formulations/dual.jl`).
+
+| # | Data | Horizon | Uncertainty enters | Objective / constraints | Integers | Decisions / uncertainties per stage | Across stages |
+|---|---|---|---|---|---|---|---|
+| F1 | toy | fixed (2) | RHS | linear / linear | none | 3 (buy; sell, return) / 1 | single stage of uncertainty |
+| F2 | toy | fixed (2 or 3) | RHS; obj (random sell price, random `buy_cost2`) | linear, bilinear `price x sell` / linear | `buy` in stage 1 (one variant) | 2 to 6 / 1 to 2 | SWI; joint discrete law within a stage |
+| F3 | toy | `T` (data repeated) | RHS | linear / linear | none | 3 (`x`, `I`, `y`) / 1 | SWI |
+| F4 | stylized (seasonal formula) | `T` = 1..72 (formula) | RHS | linear (expected or worst case) / linear, one cumulative row per factory couples all stages | none | 3 / 1 | SWI |
+| F5 | stylized (25 random instances) | `T` up to 30 (formula) | RHS (demand) and obj (prices) | bilinear in rule x price / linear | none | about 4P = 16 / 4 factors | SWI; factor model inside a stage |
+| F6 | toy | fixed (1 recourse stage) | RHS | linear / linear | none | 1 / 2 | - |
+| F7 | toy | fixed (2 or 3) | RHS, supp (box cuts, discs, ellipsoid) | linear / linear + SOC on the support | none | 2 to 4 / 2 to 3 | correlated within a stage; `law_spanning_stages` spans 2 stages |
+| F8 | toy | fixed (single stage) | RHS | convex quadratic / linear | none | about 5 / 3 | - |
+| F9 | toy (stylized cuts) | fixed 2, 3; extensible (inferred: the stage data are constant, only the cuts sit at the end) | RHS | linear / linear | none | about 7 (3 thermal, hydro, spill, storage, + cost-to-go) / 1 | SWI truncated normal |
+| F10 | toy | fixed (2) | RHS | convex quadratic, piecewise quadratic / linear | none | as F9 / 1 | - |
+| F11 | **real** (Brazilian system, 82 historical inflow records per month) | `T` (12 monthly data sets cycled; 120 stages in SDDP.jl's copy) | RHS (water balance) | linear / linear | none | 148 (95 thermal, 4 hydro, 4 spill, 4 storage, 25 exchange, 16 deficit) / 4 | SWI in the benchmark; the data are serially correlated (note below) |
+| F12 | real (F11 data) | `T` (4 to 24) | RHS | linear / linear | none | as F11 / 4 | SWI |
+| F13 | real (UnitCommitment.jl 30-bus instance) | fixed (36 h, two-stage) | RHS (`demand_extra[t]`, all revealed at once) | linear / linear (MILP) | binary commitment, stage 1 only (supported) | thousands (inferred from 30 buses x 36 h) / 36 | one stage |
+| F14 | synthetic | fixed (1 to 3; `quadratic_inventory` T = 16) | RHS, obj, supp | linear, quadratic / linear | none | 1 to 4 / 1 to 4 | SWI, one law spanning stages |
+| F15 | toy | fixed (2) | RHS | linear / linear | none | as F9 / 1 (25 atoms) | - |
+
+Highlights: only F11, F12 and F13 have real data; F3, F4, F5, F11 (and F9 by construction) scale in
+`T`; random prices (obj) appear only in F2 and F5; nothing in the package or CL has a random technology
+matrix; the only integer instances are F2 (`buy`) and F13, both in stage 1; F7 is the only family with
+support constraints and cones; F8, F10 and F14 are the convex QPs.
+
+**Inflows of F11, historical scenarios against a fitted law.** The 82 vectors per month in
+`benchmark/hydro/data.jl` (from MSPPy) are historical records: Dowson, Morton and Pagnoncelli (Ann. Oper.
+Res. 2022, preprint in SDDP.jl `papers/entropic/preprint.pdf`) describe the MSPPy data as "historical
+data", and the scenario index is a year: (run, `corr.jl` in section 8) the correlation across the 82
+indices between month m and m + 1 of the same reservoir is 0.44 to 0.98 for m = 1..11 and -0.10 to 0.08
+from December back to January of the same index; across reservoirs, in months 1 and 6, it ranges from
+-0.34 to 0.66; the coefficient of variation is 0.22 to 0.63, with mean > median (right skew). The
+benchmark uses them in two ways: `inflow_law` makes each month an `MvDiscreteNonParametric` of the 82
+joint vectors (equiprobable), independent across stages; with breakpoints, `marginal_law` keeps only the
+four marginals as independent `DiscreteNonParametric` laws (cross-reservoir correlation dropped) and puts
+breakpoints at their quantiles. Either way the serial correlation of the record is discarded, as in the
+MSPPy / SDDP.jl models ("82 stagewise-independent realizations of inflow in each stage", SDDP.jl
+`papers/biobjective_sddp/preprint.pdf`). A fitted law would change, in order of importance
+(inferences from the package's semantics, not runs):
+
+1. **Serial correlation.** A periodic AR(1) per reservoir, `inflow_t = mu_m + phi_m (inflow_{t-1} -
+   mu_{m-1}) + sigma_m eps_t` with independent noises `eps_t`, writes each inflow as an affine
+   expression of the noises; the model declares `eps_t` as `Uncertainty` in `Stage(t)` and keeps the
+   water balance linear. Conditional expectations stay linear, so `DualLDR` remains certified. A
+   log-normal PAR (a common choice for inflows) is not affine in the noises and would need the inflows
+   themselves as a law spanning stages, whose bound is then not certified.
+2. **Support.** `PrimalLDR` must be feasible on the whole support; a fitted normal is unbounded and has
+   to be truncated (`Truncate`, `ConfidenceMvNormal` boxes or ellipsoid), and a support wider than the
+   convex hull of the 82 records makes the primal more conservative, while a narrower one (e.g. 95 %)
+   makes it optimistic out of sample.
+3. **Breakpoints and moments.** With a continuous marginal the quantile breakpoints are no longer tied to
+   82 atoms, and a joint law (e.g. `MvNormal` or a Gaussian copula per month) keeps the cross-reservoir
+   correlation that `marginal_law` drops; the bound and the value depend only on the support and the
+   (piecewise) moments, so a fit that matches the first two moments changes little at `k = 0` but
+   changes the lifted problems.
+4. **Evaluation.** Out-of-sample scores should then be computed both on the fitted law and on the
+   historical years (as SDDP.jl's `CyclicHistorical` sampling in `papers/entropic/paper_code.jl` does).
 
 ## 2. Variants
 
@@ -330,6 +407,22 @@ for bp 0..3 and the values compared with `results_20_small.txt` and `res_ipopt.t
 (section 4) rows marked "run" come from the same models with `HiGHS` (default, `qpasm`, `ipm`; 20 s limit),
 `Ipopt` (20 s) and `Clarabel` (20 s), and from the cost-scale test (all costs and cuts times `1e-3`).
 The CL scripts themselves were not run: their environment depends on the legacy package by relative path.
+
+Section 1.1 (same environment):
+
+```julia
+# corr.jl: serial and cross-reservoir correlation of the F11 inflow records
+include("benchmark/hydro/data.jl"); X = hydro_thermal_data().inflow_scenarios
+[cor(X[i][m], X[i][m % 12 + 1]) for i in 1:4, m in 1:12]   # same index = same year
+[cor(X[i][m], X[j][m]) for i in 1:4, j in 1:4]               # m = 1, 6
+
+# tech.jl: an uncertainty times a first-stage decision in a constraint is rejected
+m = LDRModel(HiGHS.Optimizer)
+@variable(m, xi in Uncertainty(Uniform(2, 3)), Stage(2))
+@variable(m, 0 <= x <= 10, Stage(1)); @variable(m, y >= 0, Stage(2))
+@constraint(m, y <= xi * x); @objective(m, Max, 3y - 2x)
+optimize!(m)   # error: "... multiplies the decision x by the uncertainty xi (random recourse) ..."
+```
 
 ## 9. Candidates to port, and solver comparisons worth running
 
