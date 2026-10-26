@@ -1,5 +1,8 @@
 # Benchmarks
 
+[`PROBLEMS.md`](PROBLEMS.md) is the catalogue of the LDR test problems found in this package, the legacy
+repository, `CasosLDR` and the papers (data, known values, solver notes, candidates to port).
+
 `timing.jl` times the T-period inventory problem (see the header of the script) for the primal LDR,
 the dual LDR and a hand-written robust LP, and appends one row per T and variant to
 `results/timings.csv`, tagged with the commit, a flag for uncommitted changes in `src/`, and the
