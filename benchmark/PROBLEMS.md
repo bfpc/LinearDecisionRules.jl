@@ -3,7 +3,8 @@
 Written 2026-10-26 at main `c592575` (0.4.0-DEV). A catalogue, not a benchmark: it says which problems exist
 in which place, how they differ, which solvers were tried on them, and which ones are worth bringing into
 `test/` or `benchmark/`. Nothing here is asserted by the test suite. Extended the same day with a
-classification of the families (section 1.1) and the SDDP.jl examples (section 9).
+classification of the families (section 1.1), the SDDP.jl examples (section 9) and LDR test problems from
+the literature (section 10).
 
 Abbreviations for the sources:
 
@@ -424,6 +425,18 @@ m = LDRModel(HiGHS.Optimizer)
 optimize!(m)   # error: "... multiplies the decision x by the uncertainty xi (random recourse) ..."
 ```
 
+Section 10 (same environment): `kwg` above with three switches, `lag` (the demand of period `t` and the
+decisions of period `t` go to `Stage(t + lag)`, so with `lag = 1` the decisions of `t` see only the
+demands of `1..t-1`), `cumulative` (the per-factory rows) and `robust` (an epigraph variable `z` in
+`Stage(1)`, the row `cost <= z`, minimize `z`):
+
+```julia
+# L1(a): kwg(T, 0.3; cumulative = false) -> dual 1972.41, 8664.40, 22764.78 (T = 2, 5, 10)
+# L2 / L3: T = 24, theta in (0.025, 0.05, 0.1, 0.2), x0 = 500, lag = 1
+#   robust = true  -> 35081.0, 36342.1, 38889.0, 44198.6
+#   robust = false -> 33834.7, 33867.3, 34039.8, 34582.6 (dual 33824.7 to 33849.4)
+```
+
 ## 9. SDDP.jl examples
 
 Local clone `Packages/SDDP.jl` at `6b58ba9c`: every file of `docs/src/examples/` and `docs/src/tutorial/`
@@ -505,7 +518,57 @@ Notes:
   cyclic graphs (`belief`, `markov_uncertainty`, `objective_states`, `example_milk_producer`, the
   infinite-horizon examples, `Hydro_thermal*`, `pglib_opf`), nonconvex AC OPF.
 
-## 10. Candidates to port, and solver comparisons worth running
+## 10. LDR test problems in the literature
+
+Only pages that were opened are cited ("opened" column; crossref = the `api.crossref.org/works/<doi>`
+record, for the bibliographic data). Where only an abstract was available the row says so. KWG 2011 and
+GWK 2015 are F4 to F6 (section 6). L-numbers are used in section 11.
+
+| # | Paper | Problem | Horizon | Uncertainty (dim / stage; where) | Obj / cons; integers | Data | Reported results | Opened |
+|---|---|---|---|---|---|---|---|---|
+| L1 | Bodur, Luedtke, "Two-stage linear decision rules for multi-stage stochastic programming", Math. Program. 191 (2022) 347-380, doi:10.1007/s10107-018-1339-4 | (a) KWG / Ben-Tal inventory **without the cumulative capacity rows** (3 factories, `500 <= s_t <= 2000`, `x <= 567`) | T = 2..10 (formula) | 1; RHS (demand), uniform, seasonal | LP; none | in the paper (F4 data) | static LDR lb / ub: T = 2: 1972.4 / 2026.0; T = 5: 8664.4 / 9021.3; T = 10: 22764.8 / 23738.3 (< 0.02 s); two-stage LDR gap 0.93 to 1.23 % (SAA 250, eval 1e5) | [ar5iv](https://ar5iv.arxiv.org/html/1701.04102), [Opt. Online](https://optimization-online.org/?p=15100), crossref |
+| L1 | (same) | (b) capacity expansion of the German system (data of de Maere d'Aertrycke, Shapiro, Smeers 2013): coal, CCGT, OCGT; 8 load periods x 5 wind regimes | T = 5, 10, 15, 20; caps C = 50, 100 | 2 (lognormal demand and wind growth, products over time); RHS through `max{d0 prod xi^g - eta K prod xi^w, 0}` | LP; none | **full data in appendix A** (Tables 6-8: costs, 8 demand levels and hours, 5 wind regimes) | normalized to 2S-LDR lb = 100: static ub 138.0 to 232.9 (T = 5, 10) against 2S 100.8 to 114.6; SDDP lb (same time) -21.4 % to +7.1 % from the 2S-LDR lb; 2S-LDR lb time 171 to 3827 s | (same) |
+| L2 | Ben-Tal, Goryashko, Guslitzer, Nemirovski, "Adjustable robust solutions of uncertain linear programs", Math. Program. 99 (2004) 351-376, doi:10.1007/s10107-003-0454-y | production-inventory, 3 factories, one warehouse; the origin of F4 | 24 semimonthly periods | 1; RHS demand in a box, levels 2.5, 5, 10, 20 % | LP (affinely adjustable robust counterpart, worst case); none | pp. 369-370 of the paper (not seen) | worst-case costs (from L3): 35105, 36389, 38990, 44273 | [IAOR abstract](https://www.iaorifors.com/paper/46581), crossref |
+| L3 | de Ruiter, Brekelmans, den Hertog, "The impact of the existence of multiple adjustable robust solutions", Math. Program. 160 (2016) 531-545, doi:10.1007/s10107-016-0978-6 | L2's instance re-solved (Gurobi 6.0) | 24 | as L2 | LP | as L2 | multiple robust optima: mean cost differs up to 21.9 %, 59.4 % per realization; LDR minimizing the mean with hard constraints (Table 3): mean 33919, 34031, 34311, 35066 (worst case 35108, 36412, 39040, 44298) | [preprint PDF](https://optimization-online.org/wp-content/uploads/2015/09/5105.pdf), crossref |
+| L4 | Ben-Tal, Golany, Nemirovski, Vial, "Retailer-supplier flexible commitments contracts: a robust optimization approach", MSOM 7(3) (2005) 248-271 | single-item inventory with commitments fixed up front and orders affine in past demands | T = 12 (24 also reported; extensible) | 1; RHS demand, box or ellipsoid | LP (box) / one conic row (ellipsoid); none | data appendix referenced, not in the working paper read | T = 12: 1656 variables, 2231 rows; box worst case 53610 against DP 53660 on a relaxed model; > 1000 solves in 10-20 s | (literature subagent) [IAOR](https://www.iaorifors.com/paper/49685), 2003 working paper from the Geneva open archive |
+| L5 | Chen, Sim, Sun, "A robust optimization perspective on stochastic programming", Oper. Res. 55(6) (2007) 1058-1071; Chen, Sim, Sun, Zhang, "A linear decision-based approximation approach to stochastic programming", Oper. Res. 56(2) (2008) 344-357 | 2007: project management with uncertain activity times, chance constraints; 2008: a two-stage problem with complete recourse (deflected LDRs) | 2007 multistage; 2008 two-stage | partial distributional information (mean, support, covariance) | SOCP; none | abstracts only seen | not seen | [Duke 2007](https://scholars.duke.edu/publication/801223), [Duke 2008](https://scholars.duke.edu/publication/801220) |
+| L6 | Goh, Sim, "Robust optimization made easy with ROME", Oper. Res. 59(4) (2011) 973-985 | service-constrained inventory (fill-rate constraints), deflected rules (BDLDR) | T = 10 | 1; RHS demand, mean known, covariance `sigma L(alpha) L(alpha)'` (AR with one parameter `alpha`, `sigma = 20`), support `[0, zmax]^T` | distributionally robust; SOCP; none | parameters in the paper (c = 1, h, mu, zmax, beta varied; Tables B.1-B.4); MATLAB code said to be at robustopt.com/examples.html (not opened) | basic LDR infeasible at `zmax = 200` even with fill rate 0.5; BDLDR uniformly better | [Opt. Online](https://optimization-online.org/2009/07/2353/), [PDF](https://optimization-online.org/wp-content/uploads/2009/07/2353.pdf) |
+| L7 | Bertsimas, Georghiou, "Design of near optimal decision rules in multistage adaptive mixed-integer optimization", Oper. Res. 63(3) (2015) 610-627, doi:10.1287/opre.2015.1365 | (a) inventory with advance (`c_x`) and instant (`c_z`) orders, backlog, cumulative order budget; (b) the same with N binary order blocks | (a) T up to 30; (b) up to 10 | 1; RHS demand; non-box polyhedral set | worst case (epigraph); (a) LP, (b) **binary decisions in later stages** | 25 random instances, ranges in the paper | (a) average gap LDR 23.6 to 52.5 %, two-piece rule 0.4 to 2.9 % (T = 5..30), LDR < 10 s | [Opt. Online](https://optimization-online.org/2013/09/4027/), [PDF](https://optimization-online.org/wp-content/uploads/2013/09/4027.pdf), crossref |
+| L8 | Georghiou, Kuhn, Wiesemann, "The decision rule approach to optimization under uncertainty: methodology and applications", Comput. Manag. Sci. 16 (2019) 545-576, doi:10.1007/s10287-018-0338-5 | (a) production planning: 5 products, one machine (R = 168 h/week), backlog, inventory, maximize expected profit; optional sequence-dependent changeovers (binaries) | T flexible ("52 weeks and more"); backtest 52 weeks, rolling T = 4 | 5; RHS demand, independent uniform on `[(1 - theta) d_ti, (1 + theta) d_ti]`, `d_ti = (1 + sin(pi (t - 2) / 26) / 2) d_i` | LP; changeovers are **binaries in stage 1** (supported) | **full data in Tables 1-2** (prices, backlog costs, rates, mean demands, changeover costs and times; the row labels of Table 1 are scrambled in the text extraction) | primal-dual gap < 15 % (LDR), about 5 % (one breakpoint) at theta = 0.2 (figure only) | [preprint PDF (2011)](https://optimization-online.org/wp-content/uploads/2011/12/3290.pdf), crossref |
+| L8 | (same) | (b) supply-chain design: London plant, warehouses in the 10 most populous of 40 European capitals (K = 5, c = 40, C = 100), 40 distribution centres | two-stage | 40; RHS demand, uniform on a polytope (sum = 100, each within `(1 +- theta) 100 mu_j`) | LP + **binary location in stage 1** | populations and geodesic distances (derivable, not tabulated; inferred) | installed capacities for theta = 0, 0.5, 1 (Table 3) | (same) |
+| L9 | Gauvin, Delage, Gendreau, "Decision rule approximations for the risk averse reservoir management problem", EJOR 261(1) (2017) 317-336, doi:10.1016/j.ejor.2017.01.044 | Gatineau river (Hydro-Quebec): 5 reservoirs, 3 run-of-river plants, delays, spill curves, flow-variation limits | T = 30 days; rolling horizon with 7-day look-ahead | 1 (perfect spatial correlation); RHS inflows, box `mu_t +- 3 sigma_t` | LP, CVaR of flood / drought violations; none | **real, proprietary** historical inflows 1999-2004 (inferred) | affine-rule bounds 2.78e3, 5.57e3, 9.77e3 in 11.7, 68.6, 537 s (CPLEX 12.4); lifted rules up to 88 % better, up to 67 h | (literature subagent) thesis chapter 4, [PolyPublie](https://publications.polymtl.ca/2535/1/2017_CharlesGauvin.pdf) |
+| L10 | Gauvin, Delage, Gendreau, "A stochastic program with time series and affine decision rules for the reservoir management problem", EJOR 267(2) (2018) 716-732, doi:10.1016/j.ejor.2017.12.007 | same river, freshet | T = 59 days, rolling L = 30 (first 7 uncertain) | ARMA(1,1)-GARCH(1,1) inflows, affine in independent shocks | convex quadratic flood penalty, SOCP | real, proprietary (in-sample 1999-2004, out-of-sample 2008-2013) | not extracted | (literature subagent) thesis chapter 5 (same PDF) |
+| L11 | Rocha, Kuhn, "Multistage stochastic portfolio optimisation in deregulated electricity markets using linear decision rules", EJOR 216(2) (2012) 397-408, doi:10.1016/j.ejor.2011.08.001 | electricity retailer: derivatives portfolio + spot purchases, mean-variance, stage aggregation | not seen | prices and demand (not seen) | convex QP | not seen (abstract only) | not seen | (literature subagent) [IDEAS](https://ideas.repec.org/a/eee/ejores/v216y2012i2p397-408.html) |
+| L12 | Lorca, Sun, Litvinov, Zheng, "Multistage adaptive robust optimization for the unit commitment problem", Oper. Res. 64(1) (2016) 32-51, doi:10.1287/opre.2015.1456 | unit commitment with simplified affine dispatch policies | T = 24 h | nodal net load (99 loads on the 118-bus; budget set, deviation 0.1 d); RHS | MILP: **commitment binaries in stage 1** (supported), affine dispatch | **public**: IEEE 118-bus and Polish 2736-bus (MATPOWER) | gap to fully adaptive <= 0.94 %; 47-178 s (118-bus), 0.4-3.6 h (2736-bus) | (literature subagent) [preprint PDF](https://optimization-online.org/wp-content/uploads/2014/09/4527.pdf) |
+| L13 | Warrington, Goulart, Mariethoz, Morari, "Policy-based reserves for power systems", IEEE Trans. Power Syst. 28(4) (2013) 4427-4437 (volume and pages not verified) | reserves as affine policies of forecast errors; modified 39-bus network, 7 generators, 2 storage units, 3 wind farms | T = 8 x 15 min, receding over 288 steps | 2 correlated wind errors / step; RHS (power balance) | expected quadratic cost, robust linear constraints (convex QP); none (commitment fixed) | **parameters in Table 1**; load profile from UK national demand data | reserve cost -38.4 % (full policy) against no time coupling; 4.4 s per solve (CPLEX) | (literature subagent) [arXiv 1212.2119](https://arxiv.org/abs/1212.2119v2) |
+
+Notes:
+
+- **Reproductions (run, `bental.jl` in section 8).** L1(a): the package's `PrimalLDR` / `DualLDR` on F4
+  without the cumulative rows give dual 1972.41, 8664.40, 22764.78 for T = 2, 5, 10: L1's static lower
+  bounds to the printed digit; the primal values 2032.15, 9062.32, 23865.16 are 0.3 to 0.5 % above L1's
+  static upper bounds (reason not identified; L1 may report a simulated value of a differently computed
+  rule). L2 / L3: with F4's data (x0 = 1000, demand seen in its own stage) the worst-case costs at T = 24
+  are 33827 to 42288, far from L2; with **x0 = 500 and the demand of period t seen only by the decisions
+  of t + 1** they are 35081, 36342, 38889, 44199 against 35105, 36389, 38990, 44273 (0.07 to 0.26 %), and
+  the mean-cost LDR gives 33835, 33867, 34040, 34583 against L3's 33919, 34031, 34311, 35066 (all
+  `OPTIMAL`, 1.3 to 3 s): close, not exact, so L2's data (pp. 369-370) differ in a detail that was not
+  recovered.
+- **Public or in-paper data:** L1 (both problems), L6 (parameters), L7 (ranges, random), L8 (production
+  planning fully; supply chain derivable), L12 (MATPOWER cases), L13 (Table 1), and F4 to F6. Proprietary:
+  L9, L10 (Hydro-Quebec). Not seen: L2's tables, L4's appendix, L5, L11.
+- **Long horizon / real world:** L1(b) (T = 20, real German data), L8(a) (T = 52), L12 (24 h, real grids),
+  L9 / L10 (real river), L13 (receding horizon, real load profile).
+- **Fit with 0.4:** L1(a), L2, L3, L4 (box), L8(a) and L8(b) are LPs with RHS uncertainty and at most
+  first-stage binaries; L2 / L3 / L7 minimize the worst case, which a primal LDR expresses with an
+  epigraph variable `z` in stage 1 and the row `cost <= z` (run above), and whose bound needs a point
+  mass or is not available; L6 and L5 are distributionally robust (a fixed law gives a different
+  problem); L7(b) has later-stage binaries; L1(b) has unbounded lognormal laws and a `max{., 0}` in the
+  RHS (needs truncation and an approximation; the cumulative products have linear conditional
+  expectations, so the dual can stay certified, inferred); L13 is a QP with robust constraints.
+  Gauvin's ARMA-GARCH (L10) is the "fitted law" route of section 1.1 applied to real inflows.
+
+## 11. Candidates to port, and solver comparisons worth running
 
 1. **KWG 2011 inventory (F4), T = 1..10 as tests, T = 24, 48, 72 as a benchmark.** Published lb / ub for T = 1..10
    that the package reproduces to 0.1 at 0.05 s; the benchmark adds a multi-constraint multistage LP with
