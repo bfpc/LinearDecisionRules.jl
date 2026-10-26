@@ -619,13 +619,28 @@ hydros of CL (F10) stay a solver benchmark (item 4 below), not a modelling one.
 6. **CL newsvendor with sell = 20 (F1).** Primal 960 / 960 / 960 / 965 against an exact optimum of 966.67, with
    dual bounds 986.67 / 973.33 / 968.89 / 970: a second price set where the primal is not monotone in the
    number of breakpoints (the first set is already in PT); five numbers, instant.
-7. **GWK section 7 inventory (F5), T = 2..30, as a benchmark.** Random prices make the objective bilinear in
-   the rules (random objective coefficients, not random recourse), exercises the quadratic reformulation at scale, and the paper gives the gap
-   of LDR and AS5 (28 % to 43 % and 24 % to 29 %); only statistical agreement is possible (25 random
-   instances of `alpha`), and the layout of (16) needs to be fixed first.
+7. **GWK section 7 inventory (F5), T = 2..30, as a benchmark.** Random prices make the objective bilinear
+   in the rules (random objective coefficients, not random recourse), exercise the quadratic
+   reformulation at scale, and the paper gives the gap of LDR and AS5 (28 % to 43 % and 24 % to 29 %);
+   only statistical agreement is possible (25 random instances of `alpha`), and the layout of (16) needs
+   to be fixed first.
 8. **LEG unit commitment (F13) as an integer first-stage benchmark.** The only MILP-with-LDR instance outside
    `newsvendor(integer = true)`; HiGHS with `mip_rel_gap` 0.01; no known value, so it is a timing and gap
-   problem.
+   problem. L12's IEEE 118-bus case (24 h, 99 loads) is the next size, with public data.
+9. **L1(a) as tests next to F4.** Three dual values (1972.41, 8664.40, 22764.78) equal to the paper; the
+   variant is F4 with `cumulative = false`, so it costs one keyword. The worst-case version of L2 / L3
+   needs the 2004 data (pp. 369-370) before its values can be asserted: x0 = 500 with one period of
+   delay is within 0.26 %, not exact.
+10. **L8(a) production planning.** Read Tables 1-2 from the published version (the preprint's extraction
+    scrambles the row labels of Table 1); `T` and `theta` free; compare the LDR and one-breakpoint gaps
+    with the figure (< 15 %, about 5 % at theta = 0.2). The changeover version adds `O(T |I|^2)` stage-1
+    binaries and big-M rows: a MILP benchmark with RHS uncertainty only.
+11. **F11 with a fitted law.** Per month and reservoir, fit `mu_m`, `sigma_m`, `phi_m` on the 82 records
+    (indices are years); declare independent standardized noises per stage (truncated normal, or the 82
+    empirical residuals as a discrete law) and write the inflows as affine expressions; compare value,
+    bound and out-of-sample cost on the historical years against the current stagewise-independent model.
+12. **SDDP.jl `Inner.jl` toy.** Three horizons with known optima from a 3-atom joint law: a cheap test that
+    `objective_bound <= optimum <= objective_value` for `T = 2, 4, 20`, with and without breakpoints.
 
 Solver comparisons worth running (none run here beyond the sanity runs above): (a) HiGHS `qpasm`, `ipm`,
 Ipopt, Clarabel scaled and unscaled on the two QP hydros, primal and dual, bp 0..3, recording status, relative
