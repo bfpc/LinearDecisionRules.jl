@@ -4,7 +4,7 @@ Written 2026-10-26 at main `c592575` (0.4.0-DEV). A catalogue, not a benchmark: 
 in which place, how they differ, which solvers were tried on them, and which ones are worth bringing into
 `test/` or `benchmark/`. Nothing here is asserted by the test suite. Extended the same day with a
 classification of the families (section 1.1), the SDDP.jl examples (section 9) and LDR test problems from
-the literature (section 10).
+the literature (section 10), and a proposed benchmark set (section 11.1).
 
 Abbreviations for the sources:
 
@@ -570,6 +570,35 @@ Notes:
 
 ## 11. Candidates to port, and solver comparisons worth running
 
+### 11.1 Proposed benchmark set
+
+Balanced between toys with exact values (tests), problems that scale in `T` (timing and gap as the
+horizon grows) and real-world instances. "Exact" means an optimum or a published bound to check
+`dual <= optimum <= primal` or equality against.
+
+| Role | Problem | Source | Reason (one line) |
+|---|---|---|---|
+| toy, exact | Newsvendor (10, 8, 15) and sell = 20, bp 0..3 and the critical breakpoint | F1 (PT, CL) | closed-form optima 3300/7 and 966.67; already in PT except the second price set |
+| toy, exact | GWK Examples 4.5 and 5.1 | F6 | published optimum and axial bounds (-0.377 at 10 segments), and a documented limit (no general segmentation) |
+| toy, exact | One-reservoir hydro with 25-atom inflow, and `HydroToy2` / `HydroToy3` | F15, F9 (CL) | optimum 92246.31 from two independent codes; all 8 LDR (value, bound) pairs reproduced by 0.4 |
+| toy, exact, several `T` | One-reservoir toy of SDDP.jl `test/Inner.jl` (3 joint (inflow, demand) atoms) | section 9 | optimum known at T = 2, 4, 20 (21.39, 45.833, 241.3833): the only toy with exact values along the horizon |
+| toy, exact, multi-dimensional | StructDualDynProg prob 5.2, 2 and 3 stages | section 9 | deterministic-equivalent optima 340315.52 / 406712.49 with 3 demand components and 17 controls per stage |
+| scalable | KWG / Ben-Tal inventory, T = 1..72, with the variants without cumulative rows (L1(a)) and worst case (L2 / L3) | F4, L1, L2, L3 | published bounds at T <= 10 reproduced, L1's static bounds reproduced, L3's worst case within 0.26 %; one model, three literatures |
+| scalable | GKW production planning, 5 products, T up to 52; changeover variant with stage-1 binaries | L8(a) | full data in the paper; 5 uncertainties per stage at T = 52 is the largest published LDR LP with in-paper data, and the changeover version is a MILP the package accepts |
+| scalable | GWK multi-product inventory with random prices | F5 | random objective coefficients at scale (the quadratic reformulation); only statistical agreement possible |
+| scalable | Inventory with backlog (timing, re-solve) | F3 (PB) | already the timing benchmark; keeps continuity of the timing tables |
+| real-world | Brazilian 4-reservoir hydrothermal: historical `MvDiscreteNonParametric` (current), and a fitted periodic AR(1) on the noises | F11, section 1.1 | real data, `T` up to 120 with SDDP.jl comparisons; the fitted variant keeps the serial correlation (0.44 to 0.98) and a certified dual |
+| real-world | Capacity expansion of the German system | L1(b) | real data in the paper, T up to 20, and published two-stage-LDR and SDDP bounds; needs a truncated law and a treatment of `max{., 0}` |
+| real-world, integer | Unit commitment: LEG 30-bus 36 h, then IEEE 118-bus 24 h | F13, L12 | stage-1 binaries with RHS load uncertainty; public MATPOWER data and a published affine-policy gap (<= 0.94 %) for the larger one |
+| real-world, QP | Policy-based reserves, 39-bus | L13 | convex QP with robust linear constraints and all parameters in the paper; the only real-world QP |
+
+Left out on purpose: SDDP.jl's farmer and McCardle farm (random technology coefficients, rejected by 0.4;
+the first test problems once "tech" is supported), the integer-recourse and Markov / belief / objective-state
+examples (section 9), the distributionally robust L5 / L6 and the proprietary L9 / L10 (no data). The QP
+hydros of CL (F10) stay a solver benchmark (item 4 below), not a modelling one.
+
+### 11.2 Porting notes
+
 1. **KWG 2011 inventory (F4), T = 1..10 as tests, T = 24, 48, 72 as a benchmark.** Published lb / ub for T = 1..10
    that the package reproduces to 0.1 at 0.05 s; the benchmark adds a multi-constraint multistage LP with
    box support at a size (72 stages) that the paper solved in 3,519 s, to compare primal against dual and
@@ -591,7 +620,7 @@ Notes:
    dual bounds 986.67 / 973.33 / 968.89 / 970: a second price set where the primal is not monotone in the
    number of breakpoints (the first set is already in PT); five numbers, instant.
 7. **GWK section 7 inventory (F5), T = 2..30, as a benchmark.** Random prices make the objective bilinear in
-   the rules (random recourse), exercises the quadratic reformulation at scale, and the paper gives the gap
+   the rules (random objective coefficients, not random recourse), exercises the quadratic reformulation at scale, and the paper gives the gap
    of LDR and AS5 (28 % to 43 % and 24 % to 29 %); only statistical agreement is possible (25 random
    instances of `alpha`), and the layout of (16) needs to be fixed first.
 8. **LEG unit commitment (F13) as an integer first-stage benchmark.** The only MILP-with-LDR instance outside
