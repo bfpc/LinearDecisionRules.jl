@@ -3,7 +3,7 @@
 Written 2026-10-26 at main `c592575` (0.4.0-DEV). A catalogue, not a benchmark: it says which problems exist
 in which place, how they differ, which solvers were tried on them, and which ones are worth bringing into
 `test/` or `benchmark/`. Nothing here is asserted by the test suite. Extended the same day with a
-classification of the families (section 1.1).
+classification of the families (section 1.1) and the SDDP.jl examples (section 9).
 
 Abbreviations for the sources:
 
@@ -424,7 +424,88 @@ m = LDRModel(HiGHS.Optimizer)
 optimize!(m)   # error: "... multiplies the decision x by the uncertainty xi (random recourse) ..."
 ```
 
-## 9. Candidates to port, and solver comparisons worth running
+## 9. SDDP.jl examples
+
+Local clone `Packages/SDDP.jl` at `6b58ba9c`: every file of `docs/src/examples/` and `docs/src/tutorial/`
+read, plus the test files that build concrete models. Columns as in section 1.1; x / u / xi = state
+variables / controls / noise components per stage; all problems are LPs unless said; "LDR-suitable?"
+means: continuous (or integer in stage 1 only), convex, fixed recourse, no random coefficient on a
+decision in a constraint (section 1.1), finite or fittable law, linear policy graph. Values are the
+`@test` / `@assert` lines of the file (SDDP bounds with the file's tolerance).
+
+| File | Problem (source) | Data | Horizon / graph | Uncertainty enters (law) | Obj / cons | Integers | x / u / xi | LDR-suitable? | Same as | Known values |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `examples/FAST_hydro_thermal.jl` | 2-stage hydro, max (FAST) | toy | 2, linear | RHS rainfall (2 atoms) | lin / lin | - | 1/2/1 | yes | - | -10 (det. eq. and bound, :42, :44) |
+| `examples/FAST_production_management.jl` | 2-product production / sales (FAST) | toy | 3 (`H` parameter), linear | RHS demand {2, 10} | lin / lin | - | 2/2/1 | yes | - | -23.96 (:40) |
+| `examples/FAST_quickstart.jl` | 2-stage buy / sell (FAST) | toy | 2, linear | RHS (bound of `s` in {2, 3}) | lin / lin | - | 1/1/1 | yes | - | -2 (:36, :39) |
+| `examples/Hydro_thermal 2seasons.jl` | weekly hydrothermal, 2 seasons | toy | 2 nodes, cyclic | RHS (inflow, demand), 3 joint atoms | quadratic `g^2` (Ipopt) / lin | - | 1/3/2 | with changes: unroll to 52 weeks | one-reservoir toy (QP) | - |
+| `examples/Hydro_thermal.jl` | one-reservoir hydrothermal (not the Brazilian one) | toy | 3 nodes, unicyclic (0.95) | RHS (inflow, demand), 3 atoms | lin / lin | - | 1/3/2 | with changes: truncate the cycle to `T` | one-reservoir toy | - |
+| `examples/StochDynamicProgramming.jl_multistock.jl` | 3-stock control (StochDynamicProgramming.jl) | toy | 5, linear | RHS, 27 joint atoms | lin / lin | - | 3/3/3 | yes | - | -4.349 (:51) |
+| `examples/StochDynamicProgramming.jl_stock.jl` | single stock | toy | 5 (extensible), linear | RHS, 10 atoms | lin / lin | - | 1/1/1 | yes | - | -1.471 (:30, :37) |
+| `examples/StructDualDynProg.jl_prob5.2_2stages.jl` | capacity expansion, 4 technologies x 3 demand modes ("prob 5.2") | toy | 2, linear | RHS demand vector, 2 atoms (0.9 / 0.1) | lin / lin | - | 4/17/3 | yes | - | 340315.52 (:62) |
+| `examples/StructDualDynProg.jl_prob5.2_3stages.jl` | same, 3 stages | toy | 3, linear | same | lin / lin | - | 4/17/3 | yes | - | 406712.49 (det. eq. and bound, :54, :57) |
+| `examples/agriculture_mccardle_farm.jl` | hay farm (McCardle thesis) | thesis data | 4, Markovian with identical rows (= SWI) | **tech**: yield x `acres.in` (a state) | lin / lin | - | 4/15/1 | no in 0.4 (random coefficient on a decision); with acres fixed after stage 1 it is "tech" | - | 4074.1391 (:138) |
+| `examples/air_conditioning.jl` | air-conditioner production / storage (Birge & Louveaux 1997) | textbook | 3, linear | RHS demand {100, 300} | lin / lin | **Int, all stages** | 1/3/1 | with changes: drop integrality (the LP has the same value, next row) | close to F3 (overtime instead of backlog) | 62500 (:61) |
+| `examples/air_conditioning_forward.jl` | same, convex and integer copies | textbook | 3, linear | same | lin / lin | optional | 1/2/1 | yes (convex copy) | as above | 62500 both (:42, :43) |
+| `examples/all_blacks.jl` | deterministic seat selling | toy | 3 | none | lin / lin | Bin, all stages | 2/1/0 | no: deterministic, binary | - | 9.0 (:37) |
+| `examples/asset_management_simple.jl` | asset management (Birge & Louveaux) | textbook | 4, Markovian | **rec**: returns x holdings | lin / lin | - | 2/2/1 | no: random recourse | - | 1.514 (:56) |
+| `examples/asset_management_stagewise.jl` | same + RHS, objective noise, EAVaR | textbook | 4, Markovian | rec, RHS, obj | lin + risk measure | - | 2/2/2 | no: random recourse, Markov | - | 1.278 (:71) |
+| `examples/belief.jl` | partially observable inventory | toy | infinite, belief | RHS, hidden-state probabilities | lin / lin | - | 1/2/1 | no: belief state | - | bound vs simulation (:70) |
+| `examples/biobjective_hydro.jl` | cost vs shortage hydro | toy | 3, linear | RHS inflow, 11 atoms | two linear objectives (weighted) | - | 1/5/1 | with changes: one weight = one LP | one-reservoir toy | 10 Pareto points (:49) |
+| `examples/booking_management.jl` | hotel booking acceptance | toy | `num_requests` | RHS binary requests | lin / lin | **Bin, all stages** | - | no: binary recourse is the problem | - | 7.25 (:95), 6.13 (:103) |
+| `examples/generation_expansion.jl` | 5-unit generation expansion | toy | 5, linear | RHS demand, 8 atoms | lin, penalty 5e5 | **Int investment, all stages** | 5/3/1 | with changes: LP relaxation, or invest in stage 1 only | - | 2.078860e6 (:89) |
+| `examples/hydro_valley.jl` | 2-reservoir cascade, piecewise-linear turbines | toy | 3, Markovian price or linear | RHS inflow (3 atoms); **obj** price (Markov) | lin / lin (convex PWL) | - | 2/13/3 | yes without the Markov price; with changes otherwise (joint price law) | - | 835.0 det. (:229), 838.33 stagewise (:234), 851.8 Markov (:239); risk / DRO variants |
+| `examples/infinite_horizon_*.jl`, `no_strong_duality.jl` | trivial cyclic models; one-reservoir self-loop | toy | infinite | none / RHS | lin | - | 1/0-3/0-2 | no (cyclic; trivial) | one-reservoir toy (hydro thermal) | 119.167, 20, 20, 2.0 |
+| `examples/inner_hydro_1d.jl` | 1 reservoir, 2 thermal, deficit; inner approximation | toy (10 normal samples, seed 2) | 4 (`stages`), linear | RHS inflow, 10 atoms | lin + EAVaR | - | 1/5/1 | yes risk-neutral | one-reservoir toy | lb <= ub only (:75) |
+| `examples/objective_state_newsvendor.jl` | newsvendor with AR(1) price | toy | 3, objective state | RHS (11 atoms) x price noise (4) = 44 joint; **obj** price | lin (max) / lin | - | 1/1/2 | with changes: price is affine in past noises, so a random-price model under a joint law | not F1 (other data) | 4.04 (:73, :77) |
+| `examples/sldp_example_one.jl` | SLDP example 1 (Ahmed, Cabral, da Costa 2019) | toy | 8, linear | RHS, 10 atoms | lin (abs value) | Bin, all stages | 1/3/1 | with changes: relax `u` | - | <= 1.1675 (:45) |
+| `examples/sldp_example_two.jl` | SLDP example 2 (same paper) | toy | 2, linear | RHS, N^2 atoms in R^2 | lin / lin | Int stage 1 (ok), **Bin stage 2** | 2/4/2 | with changes: relax `y` | - | <= -57.0, -59.33, -61.22 (:64-68) |
+| `examples/stochastic_all_blacks.jl` | stochastic seat offers | toy | 3 | RHS, 3 atoms | lin / lin | Bin, all stages | 2/2/2 | no: binary recourse | - | 8.0 (:53) |
+| `examples/the_farmers_problem.jl` | farmer's problem (Birge & Louveaux 2011, 1.1) | textbook | 2, linear | **tech**: yield x first-stage area (3 atoms) | lin / lin | - | 3/12/1 | not in 0.4 (tech rejected, section 1.1); yes once supported | - | 108390 (`@assert`, :259) |
+| `examples/vehicle_location.jl` | ambulance dispatch | toy | 10 | obj (request location), 11 atoms | lin / lin | Bin, all stages | 18/126/1 | no: binary recourse | - | test commented out |
+| `tutorial/arma.jl` | hydrothermal with AR(1) / VAR(1) inflows; Markov fit | toy | 3 | RHS noises, 3 or 9 atoms | lin / lin | - | 2-3/3/1-2 | yes for AR / VAR (affine in noises); Markov version with changes | one-reservoir toy | - |
+| `tutorial/batteries.jl` | thermal unit + battery, 24 h (Philpott, Kvitfjell 2025) | toy (duck-curve load) | 24, linear | RHS load noise, 5 atoms | lin / lin (ramping) | - | 2/4/1 | yes; 24 stages | - | - |
+| `tutorial/decision_hazard.jl` | here-and-now vs wait-and-see hydrothermal | toy | 4-5 | RHS inflow {2, 3} | lin / lin | - | 1-2/3/1 | yes | one-reservoir toy | text only |
+| `tutorial/duality_handlers.jl`, `mdps.jl`, `warnings.jl`, `plotting.jl` | tiny MIPs, MDPs, warnings; plotting reuses `markov_uncertainty` | toy | 2-inf | none / Markov | lin; `mdps` (a) QP | Bin / Int in later stages (some) | - | no (demos) | - | 25/3 (mdps (a), printed) |
+| `tutorial/example_milk_producer.jl` | milk spot sales and forward contracts | toy (log-AR(1) price simulator) | 12, Markovian (fitted) | RHS production (5 atoms); **obj** price | lin (max) + 0.5 E + 0.5 AVaR | - | 5/3/2 | with changes: price paths as a joint law, risk-neutral | - | - |
+| `tutorial/example_newsvendor.jl` | 2-stage newsvendor + hand-written Kelley / L-shaped | toy: make 2, sell 5, hold 0.1, Triangular(150, 250, 200), 100 draws (no seed) | 2 | RHS | lin; CVaR / entropic variants | - | 1/1/1 | yes | **F1 family, other data** | - |
+| `tutorial/example_reservoir.jl` | weekly one-reservoir hydrothermal | toy CSV inline (52 weeks) | 52 (rows; truncatable), linear or unicyclic | RHS inflow noise, 3 atoms | lin / lin | - | 1/3/1 | yes; 52 stages | one-reservoir toy (52 stages) | - |
+| `tutorial/first_steps.jl` | introductory hydrothermal | toy | 3, linear | RHS inflow {0, 50, 100} | lin / lin | - | 1/3/1 | yes | one-reservoir toy; same data as `test/hydro_thermal.problem.json` | 8333.33 (`test/MSPFormat.jl`:85) |
+| `tutorial/inventory.jl` | periodic-review inventory with backlog (Hillier & Lieberman; Porteus) | textbook: c 35, h 1, p 15, x0 10, U(0, 800) as 20 points | `T` + 1 (`T` = 10 parameter); also infinite | RHS demand | lin / lin | - | 3/2/1 | yes (finite version) | **F3 family, other data** | order-up-to 662 (comment, not asserted) |
+| `tutorial/markov_uncertainty.jl` | wet / dry climate hydrothermal | toy | 3, Markovian (2 states) | RHS inflow, obj fuel multiplier | lin / lin | - | 1/3/2 | with changes: joint law over the climate | one-reservoir toy | - |
+| `tutorial/objective_states.jl` | AR fuel price hydrothermal (Downward, Dowson, Baucke) | toy | 3, objective state | RHS inflow, **obj** price, 12 joint atoms | lin / lin | - | 1/3/2 | with changes: price affine in noises | one-reservoir toy | - |
+| `tutorial/objective_uncertainty.jl` | random fuel multiplier hydrothermal | toy | 3, linear | RHS inflow and **obj** multiplier (3 joint atoms) | lin / lin | - | 1/3/2 | yes (random cost) | one-reservoir toy | - |
+| `tutorial/pglib_opf.jl` | OPF on PGLib `case5_pjm` + one hydro unit | benchmark grid data (file included) | infinite, unicyclic | RHS inflow {0, 2, 5} | DC: lin; AC: **nonconvex** | - | 1/many/1 | with changes: DC version, finite horizon | - | - |
+| `test/MSPFormat.jl` + `hydro_thermal.*.json` | "Simple Hydrothermal Scheduling" (MSPFormat) | toy | 3, lattice with uniform transitions (= SWI) | RHS {0, 50, 100} | lin / lin | - | 1/3/1 | yes | `first_steps` | 8333.3333 (:85, :97) |
+| `test/MSPFormat.jl` + `electric.*.json` | 2-stage capacity planning, 4 technologies, demand {3, 5, 7} | toy | 2 | RHS | lin / lin | - | - | yes | - | 381.8533 (:135) |
+| `test/Inner.jl`, `test/plugins/bellman_functions.jl` | one-reservoir toy: volume 5..15, x0 = 10, (inflow, demand) in {(0, 7.5), (5, 5), (10, 2.5)} | toy | `T` parameter (2, 4, 20), linear; cyclic copy | RHS, 3 joint atoms | lin / lin | - | 1/3/2 | **yes, with optima at three horizons** | one-reservoir toy | T = 2: 21.39 (Inner.jl:385), T = 4: 45.833 (:161), T = 20: 241.3833 (:353), atol 0.1 |
+| `test/algorithm.jl` (`test_root_node_risk_measure`) | continuous air conditioning, demand {100, 300} each stage | textbook | 3 | RHS | lin / lin | - | 1/3/1 | yes | - | expectation 85000 (:473), worst case 107500 (:467) |
+| `papers/msppy/msppy_hydro_thermal.jl` (also `papers/biobjective_sddp/brazilian_data.jl`, `papers/entropic/data.json`) | **4-reservoir Brazilian hydrothermal** (Shapiro et al. 2013 via MSPPy) | real | 120 (60 in the two papers) | RHS inflows, 82 joint atoms per month (40 in `entropic`) | lin / lin | - | 4/144/4 | yes | **F11 (same data)** | none asserted (needs Gurobi) |
+
+Notes:
+
+- **Same problems as the catalogue.** The Brazilian hydrothermal of F11 is in `papers/` only (not in
+  `docs/`; `docs/src/examples/Hydro_thermal.jl` is a one-reservoir unicyclic toy); the newsvendor
+  (`example_newsvendor.jl`) and the inventory (`tutorial/inventory.jl`) are the F1 and F3 families with
+  other data; the many one-reservoir hydrothermals are cousins of F8 / F9 (linear cost, no future-cost
+  cuts). No unit commitment, no KWG / Ben-Tal inventory.
+- **Directly LDR-suitable** (linear graph, continuous, RHS or objective uncertainty, finite law): the three
+  FAST examples, the two StochDynamicProgramming.jl stocks, StructDualDynProg prob 5.2 (2 and 3 stages),
+  `air_conditioning_forward` (convex copy), `hydro_valley` without the Markov price, `inner_hydro_1d`
+  (risk-neutral), `arma` (AR / VAR versions), `batteries` (24 stages), `decision_hazard`,
+  `example_newsvendor`, `example_reservoir` (52 stages), `first_steps` / MSPFormat hydrothermal,
+  `inventory` (finite), `objective_uncertainty`, the MSPFormat `electric` problem, the `Inner.jl`
+  one-reservoir toy and the MSPPy Brazilian model. Their known values are SDDP bounds or deterministic
+  equivalents of the discrete-law problem, i.e. the optimum against which `dual <= optimum <= primal`
+  can be checked.
+- **Not suitable as they stand:** integer recourse (`all_blacks`, `stochastic_all_blacks`,
+  `booking_management`, `vehicle_location`, `sldp_example_*`, `generation_expansion`,
+  `air_conditioning`), random recourse (`asset_management_*`), random technology coefficients that 0.4
+  rejects (`the_farmers_problem`, `agriculture_mccardle_farm`), Markov / belief / objective-state /
+  cyclic graphs (`belief`, `markov_uncertainty`, `objective_states`, `example_milk_producer`, the
+  infinite-horizon examples, `Hydro_thermal*`, `pglib_opf`), nonconvex AC OPF.
+
+## 10. Candidates to port, and solver comparisons worth running
 
 1. **KWG 2011 inventory (F4), T = 1..10 as tests, T = 24, 48, 72 as a benchmark.** Published lb / ub for T = 1..10
    that the package reproduces to 0.1 at 0.05 s; the benchmark adds a multi-constraint multistage LP with
