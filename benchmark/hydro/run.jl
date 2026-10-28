@@ -1,5 +1,5 @@
-# Hydrothermal benchmark: the 4-reservoir, 5-subsystem problem (see model.jl) at horizons
-# T = 4, 8, 12, with four joint inflows revealed per stage, solved by
+# Hydrothermal benchmark: the 4-reservoir, 5-subsystem problem (see test/problems/hydro.jl) at
+# horizons T = 4, 8, 12, with four joint inflows revealed per stage, solved by
 #
 #   ldr_primal  the monolithic LDR model, Formulations = [PrimalLDR()]
 #   ldr_dual    the same model, Formulations = [DualLDR()] (the value is a bound)
@@ -41,8 +41,7 @@ import HiGHS
 import LinearDecisionRules as LDR
 
 include("../common.jl")
-include("data.jl")
-include("model.jl")
+include("../../test/problems/hydro.jl")
 
 const REPS = 3
 const SLOW_S = 10.0      # a variant slower than this on its first run is not repeated

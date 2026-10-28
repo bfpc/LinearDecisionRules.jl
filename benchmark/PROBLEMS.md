@@ -96,7 +96,7 @@ matrix; the only integer instances are F2 (`buy`) and F13, both in stage 1; F7 i
 support constraints and cones; F8, F10 and F14 are the convex QPs.
 
 **Inflows of F11, historical scenarios against a fitted law.** The 82 vectors per month in
-`benchmark/hydro/data.jl` (from MSPPy) are historical records: Dowson, Morton and Pagnoncelli (Ann. Oper.
+`test/problems/hydro_data.jl` (from MSPPy) are historical records: Dowson, Morton and Pagnoncelli (Ann. Oper.
 Res. 2022, preprint in SDDP.jl `papers/entropic/preprint.pdf`) describe the MSPPy data as "historical
 data", and the scenario index is a year: (run, `corr.jl` in section 8) the correlation across the 82
 indices between month m and m + 1 of the same reservoir is 0.44 to 0.98 for m = 1..11 and -0.10 to 0.08
@@ -413,7 +413,7 @@ Section 1.1 (same environment):
 
 ```julia
 # corr.jl: serial and cross-reservoir correlation of the F11 inflow records
-include("benchmark/hydro/data.jl"); X = hydro_thermal_data().inflow_scenarios
+include("test/problems/hydro_data.jl"); X = hydro_thermal_data().inflow_scenarios
 [cor(X[i][m], X[i][m % 12 + 1]) for i in 1:4, m in 1:12]   # same index = same year
 [cor(X[i][m], X[j][m]) for i in 1:4, j in 1:4]               # m = 1, 6
 

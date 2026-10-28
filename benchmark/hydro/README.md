@@ -1,10 +1,11 @@
 # Hydrothermal benchmark: a larger stage dimension
 
 The 4-reservoir, 5-subsystem hydrothermal problem of Shapiro, Tekaya, da Costa and Soares (2013),
-with data from the MSPPy / SDDP.jl example (`data.jl`, copied from `examples/recursion/recursion.jl`
-of the previous repository). Each stage reveals 4 joint inflows (82 equiprobable scenarios per
-month, independent across stages), so the stage dimension is 4, against 1 in the inventory benchmark.
-Horizons T = 4, 8, 12; `model.jl` has one function per model:
+with data from the MSPPy / SDDP.jl example (`test/problems/hydro_data.jl`, copied from
+`examples/recursion/recursion.jl` of the previous repository). Each stage reveals 4 joint inflows
+(82 equiprobable scenarios per month, independent across stages), so the stage dimension is 4,
+against 1 in the inventory benchmark. Horizons T = 4, 8, 12. The models are in
+`test/problems/hydro.jl`, which the tests share, one function per model:
 
 | Model | Function | What it is |
 |---|---|---|

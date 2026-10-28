@@ -3,10 +3,11 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# Hydrothermal benchmark: the 4-reservoir, 5-subsystem problem of Shapiro et al. (2013), written
-# three ways so that the syntax can be compared side by side.
+# The hydrothermal problem of Shapiro et al. (2013): 4 reservoirs, 5 subsystems. It is the benchmark
+# of `benchmark/hydro` and a test problem (`test_hydro.jl`). It is written three ways, so that the
+# syntax can be compared side by side.
 #
-#   ldr_model              one monolithic model with `Uncertainty` and `Stage` (linear decision rules)
+#   ldr_model              one monolithic model with `Uncertainty` and `Stage` (decision rules)
 #   average_scenario_model plain JuMP, the inflows at their means
 #   scenario_tree_model    plain JuMP, a tree with `branches` joint inflow vectors per stage
 #
@@ -17,13 +18,15 @@
 # dimension 4, independent across stages, and stage t's inflow vector is uncertainty of stage t.
 # Stage t's inflows follow the 82 equiprobable joint scenarios of month `inflow_month(t)`.
 #
-# This file defines functions only; include it after `data.jl`.
+# This file defines functions only, and includes the data (`hydro_data.jl`).
 
 using JuMP
 import Distributions
 import HiGHS
 import LinearDecisionRules as LDR
 import Random
+
+include(joinpath(@__DIR__, "hydro_data.jl"))
 
 const REES = 1:4
 const SUBSYS = 1:5
@@ -46,7 +49,10 @@ end
 function marginal_law(data, t, i)
     values = data.inflow_scenarios[i][inflow_month(t)]
     support = sort!(unique(values))
-    return Distributions.DiscreteNonParametric(support, [count(==(v), values) / length(values) for v in support])
+    return Distributions.DiscreteNonParametric(
+        support,
+        [count(==(v), values) / length(values) for v in support],
+    )
 end
 
 # `k` breakpoints at the equiprobable quantiles of `law`, those strictly inside its support (the
@@ -62,7 +68,13 @@ function stage_variables(m, data, t; name = "")
     month = month_of(t)
     n_thermal = length.(data.thermal_ub)
     spill = @variable(m, [REES], lower_bound = 0, base_name = "spill$name")
-    hydro = @variable(m, [i in REES], lower_bound = 0, upper_bound = data.hydro_ub[i], base_name = "hydro$name")
+    hydro = @variable(
+        m,
+        [i in REES],
+        lower_bound = 0,
+        upper_bound = data.hydro_ub[i],
+        base_name = "hydro$name"
+    )
     thermal = @variable(
         m,
         [i in REES, j in 1:n_thermal[i]],
@@ -99,7 +111,12 @@ end
 function stage_constraints(m, data, t, v, stored_in, inflow)
     month = month_of(t)
     scale = data.water_scale / data.energy_scale
-    @constraint(m, [i in REES], sum(v.deficit[i, :]) + scale * v.hydro[i] + sum(v.thermal[i, :]) + sum(v.exchange[:, i]) - sum(v.exchange[i, :]) == data.demand[month][i])
+    @constraint(
+        m,
+        [i in REES],
+        sum(v.deficit[i, :]) + scale * v.hydro[i] + sum(v.thermal[i, :]) + sum(v.exchange[:, i]) -
+        sum(v.exchange[i, :]) == data.demand[month][i]
+    )
     @constraint(m, [i in REES], v.stored[i] + v.spill[i] + v.hydro[i] - stored_in[i] == inflow[i])
     @constraint(m, sum(v.exchange[:, 5]) == sum(v.exchange[5, :]))
     return
@@ -107,7 +124,10 @@ end
 
 function stage_cost(data, v)
     deficit = sum(data.deficit_obj[j] * sum(v.deficit[:, j]) for j in 1:4)
-    thermal = sum(data.thermal_obj[i][j] * v.thermal[i, j] for i in REES for j in 1:length(data.thermal_obj[i]))
+    thermal = sum(
+        data.thermal_obj[i][j] * v.thermal[i, j] for i in REES for
+        j in 1:length(data.thermal_obj[i])
+    )
     return deficit + thermal
 end
 
@@ -144,7 +164,12 @@ function ldr_model(data, T; formulations = [LDR.PrimalLDR()], breakpoints = noth
         if t == 1
             inflow = data.inflow_initial
         elseif breakpoints === nothing
-            inflow = @variable(m, [1:4] in LDR.Uncertainty(inflow_law(data, t)), LDR.Stage(t), base_name = "inflow$t")
+            inflow = @variable(
+                m,
+                [1:4] in LDR.Uncertainty(inflow_law(data, t)),
+                LDR.Stage(t),
+                base_name = "inflow$t"
+            )
             m[Symbol("inflow$t")] = inflow
         else
             inflow = independent_inflows!(m, data, t, breakpoints)
@@ -179,7 +204,10 @@ end
 # without replacement, from a fixed seed, so that trees with the same `branches` agree up to T.
 function tree_scenarios(data, T, branches; seed = 1234)
     rng = Random.Xoshiro(seed)
-    return [Random.randperm(rng, length(data.inflow_scenarios[1][inflow_month(t)]))[1:branches] for t in 2:T]
+    return [
+        Random.randperm(rng, length(data.inflow_scenarios[1][inflow_month(t)]))[1:branches] for
+        t in 2:T
+    ]
 end
 
 # A scenario tree: every node of stage t has `branches` children, each with one joint inflow

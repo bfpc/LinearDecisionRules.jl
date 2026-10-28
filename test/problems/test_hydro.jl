@@ -10,10 +10,9 @@ using Test
 
 import LinearDecisionRules as LDR
 
-# The hydrothermal benchmark of benchmark/hydro: 4 reservoirs, 5 subsystems, T = 3 stages (2
-# uncertain vectors of 4 inflows, 82 joint scenarios each).
-include(joinpath(@__DIR__, "..", "..", "benchmark", "hydro", "data.jl"))
-include(joinpath(@__DIR__, "..", "..", "benchmark", "hydro", "model.jl"))
+# The hydrothermal problem of `hydro.jl` (also the benchmark of benchmark/hydro): 4 reservoirs,
+# 5 subsystems, T = 3 stages (2 uncertain vectors of 4 inflows, 82 joint scenarios each).
+include(joinpath(@__DIR__, "hydro.jl"))
 
 const T = 3
 
@@ -47,10 +46,10 @@ function _solve(data, formulation)
     return model, only(unsafe_backend(model).results)
 end
 
-# Values and sizes were measured with this implementation (see benchmark/results/hydro.csv):
-# the primal LDR is an upper bound on the optimum, the dual LDR and the average-scenario model
-# are lower bounds (the inflows enter only the right-hand sides, so the value is convex in them),
-# and here the dual bound is the average-scenario value.
+# Values and sizes were measured with this implementation at T = 3 (benchmark/results/hydro.csv
+# has T = 4, 8 and 12 only): the primal LDR is an upper bound on the optimum, the dual LDR and the
+# average-scenario model are lower bounds (the inflows enter only the right-hand sides, so the value
+# is convex in them), and here the dual bound is the average-scenario value.
 function test_ldr_values_and_sizes()
     data = hydro_thermal_data()
     primal, primal_result = _solve(data, LDR.PrimalLDR())
