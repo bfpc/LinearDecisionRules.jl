@@ -15,7 +15,7 @@ import LinearDecisionRules
 import LinearDecisionRules: DualLDR, FormulationResult, PrimalLDR, moments, solve_formulation
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
-include(joinpath(@__DIR__, "problems.jl"))
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
 
 function runtests()
     for name in names(@__MODULE__; all = true)

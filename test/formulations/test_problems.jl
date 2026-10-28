@@ -12,7 +12,7 @@ import HiGHS
 import LinearDecisionRules: DualLDR, PrimalLDR, SampledLDR, moments, solve_formulation
 import TOML
 
-include(joinpath(@__DIR__, "problems.jl"))
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
 
 const LEGACY = TOML.parsefile(joinpath(@__DIR__, "..", "reference", "legacy_values.toml"))
 

@@ -5,7 +5,8 @@
 
 # The columns of ξ are sorted by stage, before and after lifting, when the uncertainties are
 # declared out of stage order: a law over stages 2 to 5, then scalars at stages 4, 3 and 2, then an
-# unmarked one. What is expected is computed from the declarations (see `stage_order_models.jl`).
+# unmarked one. What is expected is computed from the declarations (see
+# `test/problems/stage_order.jl`).
 
 module TestStageOrder
 
@@ -29,7 +30,7 @@ import LinearDecisionRules:
 import MathOptInterface as MOI
 import Random
 
-include(joinpath(@__DIR__, "stage_order_models.jl"))
+include(joinpath(@__DIR__, "..", "problems", "stage_order.jl"))
 
 import .StageOrderModels:
     Staged,

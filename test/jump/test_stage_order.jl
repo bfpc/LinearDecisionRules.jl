@@ -4,7 +4,7 @@
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 # End to end, with uncertainties declared out of stage order (see
-# `test/canonical/stage_order_models.jl`): the rules of every formulation have exact zeros on the
+# `test/problems/stage_order.jl`): the rules of every formulation have exact zeros on the
 # columns of later stages, `decision_rule`, `evaluate` and the rule matrix agree on scenarios, and
 # the values match the dense oracles on the (lifted) forms, through breakpoints, rows of Ξ across
 # stages, deletions and changes of stage between solves.
@@ -34,7 +34,7 @@ import MathOptInterface as MOI
 import Random
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
-include(joinpath(@__DIR__, "..", "canonical", "stage_order_models.jl"))
+include(joinpath(@__DIR__, "..", "problems", "stage_order.jl"))
 
 import .StageOrderModels:
     Staged,

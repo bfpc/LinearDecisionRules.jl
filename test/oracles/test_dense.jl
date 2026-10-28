@@ -12,7 +12,7 @@ import HiGHS
 import LinearDecisionRules: moments
 
 include(joinpath(@__DIR__, "dense.jl"))
-include(joinpath(@__DIR__, "..", "formulations", "problems.jl"))
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
 
 function runtests()
     for name in names(@__MODULE__; all = true)

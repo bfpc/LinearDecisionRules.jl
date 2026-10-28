@@ -27,7 +27,7 @@ import LinearDecisionRules:
     solve_formulation,
     support_blocks
 
-include(joinpath(@__DIR__, "..", "formulations", "problems.jl"))
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
 
 function runtests()
     for name in names(@__MODULE__; all = true)
