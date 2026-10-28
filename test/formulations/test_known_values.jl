@@ -3,7 +3,11 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-module TestProblems
+# The problems of `test/problems/library.jl`, solved by each formulation directly (without the JuMP
+# layer): their known values, the values and rules of the previous version, and the statuses of
+# infeasible and unbounded problems.
+
+module TestKnownValues
 
 using JuMP
 using Test
@@ -212,6 +216,6 @@ function canonicalize_model(model)
     return Problems.form(Problems.Problem("", "", model, Problems.ModelInfo(), NaN, NaN))
 end
 
-end # module TestProblems
+end # module TestKnownValues
 
-TestProblems.runtests()
+TestKnownValues.runtests()
