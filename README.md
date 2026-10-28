@@ -2,7 +2,8 @@
 
 Linear decision rules for multistage stochastic programs written in [JuMP](https://jump.dev).
 
-> This is the development branch of a rewrite (version 0.4). The design is in [DESIGN.md](DESIGN.md).
+> This is the development branch of a rewrite (version 0.4). How the package works inside is
+> explained in the [developer documentation](docs/src/developer/index.md).
 > Released versions 0.1 and 0.2 live in the history of the `legacy` branch.
 
 ```julia

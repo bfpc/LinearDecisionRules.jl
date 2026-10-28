@@ -6,8 +6,7 @@ Version 0.4 is a rewrite. It keeps the mathematics of the previous versions — 
 linear decision rules (Kuhn, Wiesemann and Georghiou, 2011), piecewise linear liftings (Georghiou,
 Wiesemann and Kuhn, 2015), sampled rules, stages — and rebuilds everything around them: a plain
 JuMP model, a typed canonical form, and much smaller reformulations. Models written for 0.2 or 0.3
-need changes; the mapping is below. `DESIGN.md` explains the decisions and `docs/math/` the
-mathematics.
+need changes; the mapping is below. `docs/math/` explains the mathematics.
 
 ### The new way to write a model
 

@@ -3,7 +3,7 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# The invariants of DESIGN.md on every problem of the library and on the edge models of the
+# The invariants of the formulations on every problem of the library and on the edge models of the
 # Phase 1 review: the primal value is on the attained side of the dual bound, the primal rule is
 # feasible on samples of the support, and the sampled rule is feasible on its outcomes and at least
 # as good there as the primal rule. The edge models are also checked against the dense oracles.

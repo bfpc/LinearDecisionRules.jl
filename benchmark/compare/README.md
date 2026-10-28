@@ -1,6 +1,6 @@
 # Solve times: 0.4 against the previous version
 
-Question from the authors (DESIGN.md, phase 4): "a smaller (but equivalent) LP might prove harder
+Question from the authors (phase 4): "a smaller (but equivalent) LP might prove harder
 to solve". Is the 0.4 inner LP slower for HiGHS than the previous version's, and why?
 
 Method: export the inner LPs of both packages to MPS, solve each file with HiGHS in a fresh process
@@ -298,7 +298,7 @@ has few `S` columns), to be tested on more instances before it is coded: neither
 
 **D2. For the DualLDR, ask HiGHS for what the bound needs: IPM without crossover (DualLDR; strong
 evidence, solver level).** The dual value is the objective of the inner LP and its rule is not a
-policy (DESIGN: the bound needs no primal point), so a basis is not needed. With
+policy (the bound needs no primal point), so a basis is not needed. With
 `solver = "ipm", run_crossover = "off"` the 0.4 dual solves hydro T = 8 in 8.0 s against 145 s
 (18x) and hydro T = 4 in 0.64 s against 3.68 s, but inventory T = 64 in 1.2 s against 0.72 s;
 primal simplex is 4x faster at inventory T = 64 (0.18 s) but not at hydro T = 8 (168 s). The IPM

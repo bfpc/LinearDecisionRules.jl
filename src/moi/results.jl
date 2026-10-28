@@ -3,7 +3,7 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# Results follow the design of DESIGN.md:
+# How the results of the formulations are reported:
 #
 #  * result 1 is the rule of `PrimalLDR` (feasible for every outcome in Ξ), result 2 the rule of
 #    `SampledLDR` (feasible on the drawn outcomes only, `UNKNOWN_RESULT_STATUS`); a result whose
