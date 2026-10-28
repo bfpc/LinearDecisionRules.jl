@@ -33,8 +33,8 @@ multipliers, to compare both forms.
 of the optimizer, for this formulation only: `PrimalLDR(; attributes = ["solver" => "ipx"])`.
 Formulations are compared by type: the attributes are settings, not part of the identity.
 
-The benchmark of `benchmark/compare/` (HiGHS 1.15 on inventory and hydro problems) recommends the
-default dual simplex for this formulation: it is within 2 times of the best mode almost everywhere.
+With HiGHS, keep the default dual simplex for this formulation: on inventory and hydro problems
+(HiGHS 1.15), it is within 2 times of the best mode almost everywhere.
 The exception is a long hydro problem (T = 8), where the interior point method IPX without
 crossover, `["solver" => "ipx", "run_crossover" => "off"]`, is 3 times faster; the other modes
 cost 3 to 16 times more on the larger inventory problem, or fail on the hydro one.
@@ -72,16 +72,15 @@ such a law does not have it or is not known to.
 of the optimizer, for this formulation only. Formulations are compared by type: the attributes are
 settings, not part of the identity.
 
-The dual needs its bound only, not a basis, and the benchmark of `benchmark/compare/` (HiGHS 1.15
-on inventory and hydro problems, "Solver modes" of its README) recommends HiGHS's interior point
-method without crossover:
+The dual needs its bound only, not a basis. With HiGHS, its interior point method without
+crossover is often much faster on large problems:
 
 ```julia
 DualLDR(; attributes = ["solver" => "ipm", "run_crossover" => "off"])
 ```
 
-It solved all the benchmark's duals within 7 seconds, where the default dual simplex took 145
-seconds on the hydro problem with T = 8. This is not the default, since the names are HiGHS's
+On inventory and hydro problems (HiGHS 1.15), it solved every dual within 7 seconds, where the
+default dual simplex took 145 seconds on the hydro problem with T = 8. This is not the default, since the names are HiGHS's
 and the best mode depends on the problem. The bound is then the dual objective value of the inner
 linear program (see [`FormulationResult`](@ref)). Only a termination status `OPTIMAL` can be
 trusted: HiGHS may stop an interior point without crossover at an `unknown` status (its HiPO

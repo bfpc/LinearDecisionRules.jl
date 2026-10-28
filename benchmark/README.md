@@ -126,3 +126,50 @@ and 15790 from scratch), and nothing is built. At 354a8de the inner problems hel
 the model to HiGHS again at every re-solve and the solver time did not improve; f204dc1 fixes
 variables instead. The fingerprint costs 30 µs per `optimize!`, under 1% of the 4 ms that a cached
 re-solve spends outside the solver (canonical form and moments).
+
+## Past studies
+
+These studies answered one question each and are finished. Their scripts and results are no longer
+in the tree, because they cannot be re-run from it; the tag given with each study keeps them.
+
+### Solve times against 0.3 (October 2026, tag `study-0.3-comparison`)
+
+The question: is the smaller 0.4 inner LP slower for HiGHS than the one of 0.3? The study exported
+the inner LPs of both versions to MPS and solved each file with HiGHS 1.15.1 in a fresh process, on
+inventory T = 32, 64, 128 and hydro T = 4, 8, 12. It needed the environment of 0.3 and about 0.5 GB
+of MPS files, which were not committed. Its 0.4 primal is the one before the closed form of box
+supports. The scripts, the README with every table, and the CSVs are in
+[`benchmark/compare/` at the tag](https://github.com/bfpc/LinearDecisionRules.jl/tree/study-0.3-comparison/benchmark/compare).
+
+Inventory, T = 128 (constraints without variable bounds; HiGHS run time on the exported models, and
+the solver time through JuMP for the hand-written LP, from `results/timings.csv`):
+
+| Model | Variables | Constraints | Nonzeros | HiGHS (s) |
+|---|---:|---:|---:|---:|
+| 0.3 primal | 223,168 | 149,120 | 471,231 | 0.61 |
+| 0.3 primal, `SlackAsExpr` | 157,120 | 83,072 | 339,135 | 0.72 |
+| hand-written robust LP | 57,792 | 74,432 | 271,807 | 1.9 |
+| 0.4 primal | 90,560 | 41,662 | 206,013 | 0.63 |
+| 0.3 dual (dense) | 91,072 | 213,632 | 17,049,279 | 1048 |
+| 0.4 dual (structured) | 58,812 | 107,708 | 273,079 | 6.9 |
+
+What it found:
+- **Primal: no.** After presolve, the 0.4 primal and the 0.3 primal with `SlackAsExpr` are the same
+  LP (hydro T = 12: about 42.2k rows, 150.5k columns and 390.9k nonzeros for both, 161 s and
+  168 s). The order of rows and columns alone changes the simplex iterations by ±30%. The smaller
+  formulation saves the time to build and to read the model, not solver time.
+- **Dual: it depends on the instance, and the size is not the reason.** The 0.4 dual is far faster
+  on the inventory (6.9 s against 1,048 s at T = 128) but slower on the hydro problem (145 s
+  against 22.4 s at T = 8), where presolve reduces the dense 0.3 dual much more than the sparse
+  0.4 one. Conditioning and row order were ruled out.
+- **Solver modes.** No HiGHS mode is the best everywhere. For `DualLDR`, the interior point method
+  without crossover (`"solver" => "ipm", "run_crossover" => "off"`) solved all five 0.4 duals
+  within 7 s, with status `OPTIMAL`. For `PrimalLDR`, the default dual simplex is within 2 times of
+  the best mode except at hydro T = 8, where IPX without crossover is 3 times faster; HiGHS's
+  interior point is not reliable on the 0.4 hydro primal. Ipopt converged but was never the
+  fastest, and is off by 5e-5 to 4e-4 on the hydro problems. These are the recommendations of the
+  `PrimalLDR` and `DualLDR` docstrings.
+- **An idea left open.** Substituting out the auxiliary variables `u = S μ` of the dual cone rows
+  gives the presolved model of the dense 0.3 dual: 3.7 times faster at hydro T = 8 with the default
+  dual simplex, but 20 times slower at inventory T = 64, and slower with the interior point. A rule
+  to substitute `u` only where a row has few columns would need more instances.

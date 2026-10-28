@@ -11,7 +11,7 @@ Abbreviations for the sources:
 | Tag | Source |
 |---|---|
 | PT | this package, `test/` (`test/formulations/problems.jl`, `test/reference/legacy_values.toml`, `test/problems/test_hydro.jl`, `test/jump/`) |
-| PB | this package, `benchmark/` (`timing.jl`, `resolve.jl`, `hydro/`, `compare/`) |
+| PB | this package, `benchmark/` (`timing.jl`, `resolve.jl`, `hydro/`; `compare/` is the past study of solve times, kept at the tag `study-0.3-comparison`) |
 | TUT | this package, `docs/src/tutorials/*.jl` and `docs/src/getting_started.md` |
 | LEG | the legacy repository `Packages/LinearDecisionRules.jl` (0.3.1, branch `Multistage`, 17ce1eb): `examples/`, `test/` |
 | CL | `Projetos/ONS/CasosLDR` (49 commits, 2026-07-14 to 2026-10-17; branches `solvertest`, `moresolvers`, `benders_scenario`) |

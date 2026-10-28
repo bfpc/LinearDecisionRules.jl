@@ -5,7 +5,8 @@ This section collects the sizes of the reformulations and what was measured on t
 the $T$-period inventory problem of \file{benchmark/timing.jl} (one scalar uniform demand per stage, a box support, $T+1$ stages),
 and the hydrothermal problem of \citet{ShapiroEtAl2013} in \file{benchmark/hydro} (4 reservoirs, one joint discrete law of 4 inflows per stage, independent across stages).
 All times are from HiGHS \citep{HuangfuHall2018} with default options unless stated, on one machine (Windows 11, Julia 1.12.6);
-the result files are in \file{benchmark/results}, and the analyses in \file{benchmark/README.md}, \file{benchmark/hydro/README.md} and \file{benchmark/compare/README.md}.
+the result files are in \file{benchmark/results}, and the analyses in \file{benchmark/README.md} and \file{benchmark/hydro/README.md};
+the comparison of solve times with the previous version is summarized in the section ``Past studies'' of \file{benchmark/README.md}.
 
 \subsection{Where the sizes come from}
 
@@ -50,7 +51,7 @@ the objective values agree (to 12 digits on the hydrothermal problem).
 The legacy rows are the previous version, with explicit slacks (default) or slacks as expressions (\code{SlackAsExpr});
 the hand-written model uses the closed form of the box counterparts.
 Times are HiGHS's run time on the exported models, except for the hand-written model, whose time is the solver time through JuMP (\file{benchmark/results/timings.csv}).
-Sources: \file{benchmark/README.md}, \file{benchmark/results/compare.csv}.}
+Source: \file{benchmark/README.md}, ``Past studies''.}
 \label{tab:inventory}
 \begin{tabular}{lrrrr}
 \toprule
@@ -93,7 +94,7 @@ When one law couples all stages with a dense covariance, nothing collapses, the 
 
 \subsection{Smaller is not always faster}
 
-Solve times do not follow the sizes, because presolve does much of the same work (\file{benchmark/compare/README.md}).
+Solve times do not follow the sizes, because presolve does much of the same work (\file{benchmark/README.md}, ``Past studies'').
 \begin{itemize}
 \item \emph{Primal.} After presolve, the 0.4 primal and the legacy primal with \code{SlackAsExpr} are the same linear program
 (at hydrothermal $T = 12$, both about 42.2 thousand rows, 150.5 thousand columns and 390.9 thousand nonzeros),
