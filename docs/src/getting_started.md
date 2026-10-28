@@ -212,3 +212,9 @@ shared_stock(Clarabel.Optimizer)
 A constraint in `SecondOrderCone` over the uncertainties, tagged [`ValidInequality`](@ref) or
 [`Truncate`](@ref), describes the support in the same way, such as the disc
 `@constraint(model, [20; d .- 100] in SecondOrderCone(), Truncate())`.
+
+## Where to go next
+
+The tutorials build on this page, one feature at a time, and the API pages document every function.
+To learn how the package works inside, read the [Developer documentation](@ref developer_overview):
+it is written for those who change the package, and is not needed to use it.
