@@ -1,8 +1,9 @@
 # Re-solve benchmark: model predictive control with a JuMP parameter.
 #
-# Problem: the T-period inventory of `timing.jl`, with the initial stock `I0` a parameter. It is
-# solved once, then re-solved `N` times with `set_parameter_value(I0, value)`, for each
-# formulation (`PrimalLDR()`, `DualLDR()`) and two variants:
+# Problem: the T-period inventory of `timing.jl` (`inventory` of `test/problems/tagged.jl`), with
+# the initial stock a parameter, `stock`. It is solved once, then re-solved `N` times with
+# `set_parameter_value(stock, value)`, for each formulation (`PrimalLDR()`, `DualLDR()`) and two
+# variants:
 #
 #  * `cached`: the optimizer keeps its inner problem and updates its parameter (the default);
 #  * `rebuild`: the cache of inner problems is emptied before each `optimize!`, which is what every
@@ -26,32 +27,16 @@
 using Printf
 using JuMP
 import HiGHS
-import Distributions
 import LinearDecisionRules as LDR
 
 include("common.jl")
+include("../test/problems/tagged.jl")
 
-const LO, HI = 60.0, 100.0
-const C_ORDER, H_HOLD, B_BACK = 1.0, 0.5, 3.0
-const XMAX = 150.0
 const RESULTS = joinpath(@__DIR__, "results", "resolve.csv")
 
 function build(T, formulation)
-    m = LDR.LDRModel(HiGHS.Optimizer)
-    set_silent(m)
-    set_attribute(m, LDR.Formulations(), [formulation])
-    dist = Distributions.Uniform(LO, HI)
-    @variable(m, I0 in Parameter(0.0))
-    @variable(m, d[t = 1:T] in LDR.Uncertainty(dist), LDR.Stage(t + 1))
-    @variable(m, 0 <= x[t = 1:T] <= XMAX, LDR.Stage(t))
-    @variable(m, I[t = 1:T], LDR.Stage(t + 1))
-    @variable(m, y[t = 1:T], LDR.Stage(t + 1))
-    @constraint(m, I[1] == I0 + x[1] - d[1])
-    @constraint(m, [t = 2:T], I[t] == I[t-1] + x[t] - d[t])
-    @constraint(m, [t = 1:T], y[t] >= H_HOLD * I[t])
-    @constraint(m, [t = 1:T], y[t] >= -B_BACK * I[t])
-    @objective(m, Min, sum(C_ORDER * x[t] + y[t] for t in 1:T))
-    return m
+    model = TaggedProblems.ldr_model(; formulations = [formulation])
+    return TaggedProblems.inventory(T, model; parameter = true)
 end
 
 # The initial stocks of the re-solves: an inventory that drifts around zero.
@@ -63,7 +48,7 @@ function run(T, N, formulation, variant)
     total, solver, builds = 0.0, 0.0, 0
     objectives = Float64[]
     for value in initial_stocks(N)
-        set_parameter_value(m[:I0], value)
+        set_parameter_value(m[:stock], value)
         if variant == "rebuild"
             unsafe_backend(m).inner_cache = LDR._InnerCache()
         end
@@ -84,7 +69,7 @@ function fingerprint_time(T, formulation)
     optimize!(m)
     o = unsafe_backend(m)
     old = o.inner_cache.fingerprint
-    set_parameter_value(m[:I0], 10.0)
+    set_parameter_value(m[:stock], 10.0)
     optimize!(m)
     new = o.inner_cache.fingerprint
     @assert LDR._same_problem(old, new)

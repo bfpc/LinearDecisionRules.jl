@@ -5,6 +5,8 @@
 #   stage t+1 : demand d[t] ~ Uniform(lo, hi) is revealed; inventory I[t],
 #               cost y[t] >= max(h I[t], -b I[t])
 #   I[t] = I[t-1] + x[t] - d[t],   min E[sum c x[t] + y[t]]
+# The LDR model is `inventory` of `test/problems/tagged.jl`, which the tests share; the hand-written
+# LP below uses the same data.
 #
 # The primal LDR and the hand-written LP are exact reformulations of the same robust
 # problem (box support): the primal LDR and the hand LP must agree, and equal 90T + 20 for the data
@@ -26,11 +28,12 @@
 using Printf
 using JuMP
 import HiGHS
-import Distributions
 import LinearDecisionRules as LDR
 
 include("common.jl")
+include("../test/problems/tagged.jl")
 
+# The data of `TaggedProblems.inventory`, for the hand-written LP.
 const LO, HI = 60.0, 100.0
 const μ, r = (LO + HI) / 2, (HI - LO) / 2
 const C_ORDER, H_HOLD, B_BACK = 1.0, 0.5, 3.0
@@ -39,20 +42,7 @@ const REPS = 3
 const RESULTS = joinpath(@__DIR__, "results", "timings.csv")
 
 function build_ldr(T, formulation)
-    m = LDR.LDRModel(HiGHS.Optimizer)
-    set_silent(m)
-    set_attribute(m, LDR.Formulations(), [formulation])
-    dist = Distributions.Uniform(LO, HI)
-    @variable(m, d[t = 1:T] in LDR.Uncertainty(dist), LDR.Stage(t + 1))
-    @variable(m, 0 <= x[t = 1:T] <= XMAX, LDR.Stage(t))
-    @variable(m, I[t = 1:T], LDR.Stage(t + 1))
-    @variable(m, y[t = 1:T], LDR.Stage(t + 1))
-    @constraint(m, I[1] == I0 + x[1] - d[1])
-    @constraint(m, [t = 2:T], I[t] == I[t-1] + x[t] - d[t])
-    @constraint(m, [t = 1:T], y[t] >= H_HOLD * I[t])
-    @constraint(m, [t = 1:T], y[t] >= -B_BACK * I[t])
-    @objective(m, Min, sum(C_ORDER * x[t] + y[t] for t in 1:T))
-    return m
+    return TaggedProblems.inventory(T, TaggedProblems.ldr_model(; formulations = [formulation]))
 end
 
 # A decision rule is a vector of affine expressions over ξ = [1; d[1:T]], with free coefficients
