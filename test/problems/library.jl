@@ -3,7 +3,8 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# The problem library of the formulation tests: plain JuMP models with a hand-made `ModelInfo`.
+# The problem library of the core tests: plain JuMP models with a hand-made `ModelInfo`, so that
+# these tests do not depend on the JuMP layer. `tagged.jl` writes several of them with the tags.
 # `primal` and `dual` are the known values (NaN when unknown), `legacy` the key in
 # `test/reference/legacy_values.toml` (empty when absent).
 

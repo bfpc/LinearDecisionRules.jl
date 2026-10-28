@@ -16,15 +16,7 @@ import Distributions: Uniform
 import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules:
-    DualLDR,
-    FirstStage,
-    Formulations,
-    LDRModel,
-    PrimalLDR,
-    SampledLDR,
-    Stage,
-    Uncertainty,
-    ValidInequality
+    DualLDR, FirstStage, Formulations, LDRModel, PrimalLDR, SampledLDR, Uncertainty, ValidInequality
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -67,19 +59,10 @@ function newsvendor(capacity; parameter = true)
 end
 
 # The inventory with backlog of `benchmark/timing.jl`, with an initial stock.
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
 function inventory(T, x0; parameter = true)
-    model = ldr_model()
-    @variable(model, d[t = 1:T] in Uncertainty(Uniform(60, 100)), Stage(t + 1))
-    @variable(model, 0 <= x[t = 1:T] <= 150, Stage(t))
-    @variable(model, I[t = 1:T], Stage(t + 1))
-    @variable(model, y[t = 1:T], Stage(t + 1))
-    stock = parameter ? @variable(model, stock in Parameter(x0)) : x0
-    @constraint(model, I[1] == stock + x[1] - d[1])
-    @constraint(model, [t in 2:T], I[t] == I[t-1] + x[t] - d[t])
-    @constraint(model, [t in 1:T], y[t] >= 0.5 * I[t])
-    @constraint(model, [t in 1:T], y[t] >= -3 * I[t])
-    @objective(model, Min, sum(x[t] + y[t] for t in 1:T))
-    return model
+    return TaggedProblems.inventory(T, ldr_model(); x0, parameter)
 end
 
 # The same results, formulation by formulation: status, objective, bound and rules.

@@ -10,21 +10,17 @@ module TestBreakpoints
 using JuMP
 using Test
 
-import Distributions: Uniform
 import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules:
     AxisPiecewise,
     BreakPoints,
     DualLDR,
-    FirstStage,
     Formulations,
     LDRModel,
     LiftedTerm,
     PrimalLDR,
     SampledLDR,
-    Stage,
-    Uncertainty,
     decision_rule,
     expected_value,
     moments,
@@ -53,49 +49,11 @@ function ldr_model()
     return model
 end
 
-function newsvendor()
-    model = ldr_model()
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, demand in Uncertainty(Uniform(80, 120)))
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= demand)
-    @objective(model, Max, -10buy + 8ret + 15sell)
-    return model
-end
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
 
-function newsvendor_random_price()
-    model = ldr_model()
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, demand in Uncertainty(Uniform(80, 120)))
-    @variable(model, price in Uncertainty(Uniform(13, 17)))
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= demand)
-    @objective(model, Max, -10buy + 8ret + price * sell)
-    return model
-end
-
-function newsvendor_three_stages()
-    model = ldr_model()
-    @variable(model, buy >= 0, Stage(1))
-    @variable(model, sell2 >= 0, Stage(2))
-    @variable(model, ret2 >= 0, Stage(2))
-    @variable(model, demand2 in Uncertainty(Uniform(80, 120)), Stage(2))
-    @variable(model, buy2 >= 0, Stage(2))
-    @variable(model, buy_cost2 in Uncertainty(Uniform(8, 14)), Stage(2))
-    @variable(model, sell3 >= 0, Stage(3))
-    @variable(model, ret3 >= 0, Stage(3))
-    @variable(model, demand3 in Uncertainty(Uniform(80, 120)), Stage(3))
-    @constraint(model, sell2 + ret2 <= buy + buy2)
-    @constraint(model, sell2 <= demand2)
-    @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
-    @constraint(model, sell3 <= demand3)
-    @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
-    return model
-end
+newsvendor() = TaggedProblems.newsvendor(ldr_model())
+newsvendor_random_price() = TaggedProblems.newsvendor_random_price(ldr_model())
+newsvendor_three_stages() = TaggedProblems.newsvendor_three_stages(ldr_model())
 
 function error_message(f)
     try

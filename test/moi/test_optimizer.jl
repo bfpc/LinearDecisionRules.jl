@@ -48,16 +48,11 @@ function error_of(f)
     return nothing
 end
 
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
 function newsvendor(model = LDRModel(HiGHS.Optimizer); silent = true)
     silent && set_silent(model)
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, d in Uncertainty(Distributions.Uniform(80, 120)))
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= d)
-    @objective(model, Max, -10buy + 8ret + 15sell)
-    return model
+    return TaggedProblems.newsvendor(model)
 end
 
 function test_ldr_model()
@@ -78,13 +73,16 @@ function test_newsvendor_model()
     @test stage(model[:buy]) == 1
     text = sprint(print, model)
     @test occursin(" buy in Stage(1)\n", text)
-    @test occursin(" d in Uncertainty(Distributions.Uniform{Float64}(a=80.0, b=120.0))\n", text)
+    @test occursin(
+        " demand in Uncertainty(Distributions.Uniform{Float64}(a=80.0, b=120.0))\n",
+        text,
+    )
     @test occursin("Max -10 buy + 8 ret + 15 sell", text)
     # The model is read as the user wrote it.
     form = canonicalize(backend(model), LinearDecisionRules.model_info(backend(model)))
     @test form.decision_names == ["buy", "sell", "ret"]
     @test form.decision_stages == [1, 2, 2]
-    @test form.uncertainty_names == ["d"]
+    @test form.uncertainty_names == ["demand"]
     return
 end
 
@@ -127,7 +125,7 @@ end
 # Second-order cone rows are accepted, and must be tagged rows over uncertainties at `optimize!`.
 function test_second_order_cone_rows_reach_canonicalize()
     model = newsvendor()
-    sell, d = model[:sell], model[:d]
+    sell, d = model[:sell], model[:demand]
     c = @constraint(model, soc, [20, d - 100] in SecondOrderCone())
     @test name(c) == "soc"
     msg = error_of(() -> optimize!(model)).msg
@@ -137,7 +135,7 @@ function test_second_order_cone_rows_reach_canonicalize()
     msg = error_of(() -> optimize!(model)).msg
     @test occursin("The constraint mixed in a second-order cone has decisions", msg)
     model = newsvendor()
-    t = @constraint(model, [model[:d], 100] in SecondOrderCone(), ValidInequality())
+    t = @constraint(model, [model[:demand], 100] in SecondOrderCone(), ValidInequality())
     @test get_attribute(t, LinearDecisionRules.XiRole()) == ValidInequality()
     @test constraint_object(t).set == MOI.SecondOrderCone(2)
     return
@@ -147,7 +145,10 @@ end
 # error, and reads the products with a parameter.
 function test_quadratic_rows_reach_canonicalize()
     for (row, message) in (
-        (m -> @constraint(m, q, m[:d] * m[:sell] <= 100), "q multiplies the decision sell by the"),
+        (
+            m -> @constraint(m, q, m[:demand] * m[:sell] <= 100),
+            "q multiplies the decision sell by the",
+        ),
         (m -> @constraint(m, q, m[:sell] * m[:ret] == 1), "q has the product of sell and ret"),
         (m -> @constraint(m, q, m[:sell]^2 <= 1), "q has the product of sell and sell"),
     )
@@ -322,14 +323,14 @@ function test_delete()
     # Deleting an uncertainty deletes its set.
     S = LinearDecisionRules.UnivariateUncertainty{Distributions.Uniform{Float64}}
     @test num_constraints(model, VariableRef, S) == 1
-    delete(model, model[:d])
+    delete(model, model[:demand])
     @test num_constraints(model, VariableRef, S) == 0
     return
 end
 
 function test_constraint_attributes_are_kept()
     model = newsvendor()
-    d = model[:d]
+    d = model[:demand]
     cap = @constraint(model, d <= 110, ValidInequality())
     @test get_attribute(cap, LinearDecisionRules.XiRole()) == ValidInequality()
     set_attribute(d, BreakPoints(), [90.0, 100.0])
@@ -339,12 +340,12 @@ end
 
 function test_copy_model_keeps_the_metadata()
     model = newsvendor()
-    cap = @constraint(model, model[:d] <= 110, ValidInequality())
-    set_attribute(model[:d], BreakPoints(), [90.0, 100.0])
+    cap = @constraint(model, model[:demand] <= 110, ValidInequality())
+    set_attribute(model[:demand], BreakPoints(), [90.0, 100.0])
     copied, map = copy_model(model)
     @test stage(map[model[:buy]]) == 1
     @test stage(map[model[:sell]]) === nothing
-    @test get_attribute(map[model[:d]], BreakPoints()) == [90.0, 100.0]
+    @test get_attribute(map[model[:demand]], BreakPoints()) == [90.0, 100.0]
     @test get_attribute(map[cap], LinearDecisionRules.XiRole()) == ValidInequality()
     info = LinearDecisionRules.model_info(backend(copied))
     @test length(info.uncertainties) == 1

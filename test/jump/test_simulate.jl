@@ -54,15 +54,11 @@ function ldr_model()
     return model
 end
 
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
+# The newsvendor of `tagged.jl`, solved.
 function newsvendor(law = Uniform(80, 120))
-    model = ldr_model()
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, d in Uncertainty(law))
-    @constraint(model, balance, sell + ret <= buy)
-    @constraint(model, sell <= d)
-    @objective(model, Max, -10buy + 8ret + 15sell)
+    model = TaggedProblems.newsvendor(ldr_model(); law)
     optimize!(model)
     return model
 end
@@ -94,7 +90,7 @@ end
 
 function test_evaluate_newsvendor()
     model = newsvendor()
-    d, buy, sell, ret = model[:d], model[:buy], model[:sell], model[:ret]
+    d, buy, sell, ret = model[:demand], model[:buy], model[:sell], model[:ret]
     r = evaluate(model, d => 90.0)
     @test r isa Evaluation
     @test value(r, buy) ≈ 120
@@ -137,7 +133,7 @@ end
 
 function test_evaluate_violations()
     model = newsvendor()
-    d, sell, ret = model[:d], model[:sell], model[:ret]
+    d, sell, ret = model[:demand], model[:sell], model[:ret]
     # Outside the support the rule need not be feasible: it returns `120 - 130 < 0`.
     r = evaluate(model, d => 130.0; outside_support = :ignore)
     @test !r.in_support
@@ -154,25 +150,28 @@ end
 
 function test_evaluate_errors()
     model = newsvendor()
-    d, buy = model[:d], model[:buy]
+    d, buy = model[:demand], model[:buy]
     msg = error_message(() -> evaluate(model, d => 130.0))
-    @test occursin("d = 130.0 is outside its support [80.0, 120.0]", msg)
+    @test occursin("demand = 130.0 is outside its support [80.0, 120.0]", msg)
     @test occursin("outside_support", msg)
     @test_logs (:warn, r"outside its support") evaluate(model, d => 130.0; outside_support = :warn)
     @test_logs evaluate(model, d => 130.0; outside_support = :ignore)
     msg = error_message(() -> evaluate(model, Dict{Any,Any}()))
-    @test occursin("no value for the uncertainties d", msg)
+    @test occursin("no value for the uncertainties demand", msg)
     msg = error_message(() -> evaluate(model, buy => 1.0, d => 90.0))
     @test occursin("`buy` is not an uncertainty", msg)
     @test occursin("is NaN", error_message(() -> evaluate(model, d => NaN)))
-    @test occursin("maps an uncertainty", error_message(() -> evaluate(model, "d" => 1.0)))
+    @test occursin("maps an uncertainty", error_message(() -> evaluate(model, "demand" => 1.0)))
     msg = error_message(() -> evaluate(model, [d] => [1.0, 2.0]))
     @test occursin("2 values for 1 variables", msg)
     msg = error_message(() -> evaluate(model, d => 90; outside_support = :no))
     @test occursin("`outside_support`", msg)
     # The variable of another model.
     other = newsvendor()
-    @test occursin("not an uncertainty", error_message(() -> evaluate(model, other[:d] => 90.0)))
+    @test occursin(
+        "not an uncertainty",
+        error_message(() -> evaluate(model, other[:demand] => 90.0)),
+    )
     # No solution.
     model = ldr_model()
     @variable(model, x >= 0)
@@ -184,7 +183,7 @@ function test_evaluate_errors()
     @test evaluate(model, z => 0.25)[x] ≈ 0.25
     # The dual and a formulation that was not solved have no rule to apply.
     model = newsvendor()
-    d = model[:d]
+    d = model[:demand]
     set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     msg = error_message(() -> evaluate(model, d => 90; formulation = DualLDR()))
@@ -230,7 +229,7 @@ end
 function test_exact_mean_over_atoms()
     atoms, p = [82.0, 95.0, 101.0, 118.0], [0.1, 0.4, 0.3, 0.2]
     model = newsvendor(DiscreteNonParametric(atoms, p))
-    mean, s = weighted_mean(model, [Dict(model[:d] => a) for a in atoms], p)
+    mean, s = weighted_mean(model, [Dict(model[:demand] => a) for a in atoms], p)
     @test mean ≈ objective_value(model)
     @test s.violation_fraction == 0 && s.max_violation <= 1e-6
     # Two independent uncertainties, a product in the objective, with and without breakpoints.
@@ -285,14 +284,14 @@ function test_simulate_monte_carlo()
     @test t.objectives == simulate(model, 100; rng = Random.Xoshiro(1)).objectives
     @test t.objectives != simulate(model, 100; rng = Random.Xoshiro(2)).objectives
     # The objective of a scenario is the one of `evaluate`.
-    one_scenario = simulate(model, [Dict(model[:d] => 90.0)])
-    @test one_scenario.objectives == [evaluate(model, model[:d] => 90.0).objective_value]
+    one_scenario = simulate(model, [Dict(model[:demand] => 90.0)])
+    @test one_scenario.objectives == [evaluate(model, model[:demand] => 90.0).objective_value]
     @test isnan(one_scenario.objective_stderr)
 end
 
 function test_simulate_decisions()
     model = newsvendor()
-    d, sell = model[:d], model[:sell]
+    d, sell = model[:demand], model[:sell]
     s = simulate(model, 50; keep_decisions = true, rng = Random.Xoshiro(3))
     @test Set(keys(s.decisions)) == Set([model[:buy], sell, model[:ret]])
     @test all(==(120), round.(s.decisions[model[:buy]]; digits = 6))
@@ -332,7 +331,7 @@ end
 
 function test_simulate_outside_support()
     model = newsvendor()
-    d = model[:d]
+    d = model[:demand]
     scenarios = [Dict(d => 90.0), Dict(d => 130.0), Dict(d => 70.0)] # at 130, ret = -10
     msg = error_message(() -> simulate(model, scenarios))
     @test occursin("The scenario 2 is outside the support", msg)
@@ -399,7 +398,7 @@ end
 # The sampled rule is feasible on its scenarios only: out of sample it has violations.
 function test_simulate_sampled()
     model = newsvendor()
-    d = model[:d]
+    d = model[:demand]
     sampled = SampledLDR(10; seed = 5)
     set_attribute(model, Formulations(), [PrimalLDR(), sampled])
     optimize!(model)
@@ -441,7 +440,7 @@ function test_sampled_in_sample()
         set_attribute(model, Formulations(), [PrimalLDR(), sampled])
         optimize!(model)
         rng = Random.Xoshiro(9)
-        drawn = [Dict(model[:d] => rand(rng, Uniform(80, 120))) for _ in 1:N]
+        drawn = [Dict(model[:demand] => rand(rng, Uniform(80, 120))) for _ in 1:N]
         s = simulate(model, drawn; formulation = sampled)
         @test s.violation_fraction == 0
         @test s.max_violation <= 1e-6

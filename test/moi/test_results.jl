@@ -50,20 +50,10 @@ function error_of(f)
     return nothing
 end
 
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
 function newsvendor(; formulations = nothing)
-    model = LDRModel(HiGHS.Optimizer)
-    set_silent(model)
-    if formulations !== nothing
-        set_attribute(model, Formulations(), formulations)
-    end
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, d in Uncertainty(Uniform(80, 120)))
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= d)
-    @objective(model, Max, -10buy + 8ret + 15sell)
-    return model
+    return TaggedProblems.newsvendor(TaggedProblems.ldr_model(; formulations))
 end
 
 function infeasible_model(; formulations = nothing)
@@ -130,7 +120,7 @@ function test_newsvendor_results()
     # E[x(ξ)] for the decisions, E[d] for the uncertainty.
     @test value(model[:buy]) ≈ 120
     @test value(model[:sell]) ≈ 100
-    @test value(model[:d]) ≈ 100
+    @test value(model[:demand]) ≈ 100
     @test value(model[:ret]) ≈ 20
     @test value(-10 * model[:buy] + 15 * model[:sell]) ≈ 300
     return

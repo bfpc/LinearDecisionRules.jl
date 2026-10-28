@@ -37,18 +37,8 @@ function runtests()
     return
 end
 
-function newsvendor()
-    model = LDRModel(HiGHS.Optimizer)
-    set_silent(model)
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, d in Uncertainty(Uniform(80, 120)))
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= d)
-    @objective(model, Max, -10buy + 8ret + 15sell)
-    return model
-end
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+import .TaggedProblems: newsvendor
 
 # `sell` depends on the price `p` through `sell <= d + 2p`.
 function price_model()
@@ -68,7 +58,7 @@ end
 function test_decision_rule()
     model = newsvendor()
     optimize!(model)
-    d = model[:d]
+    d = model[:demand]
     rule = decision_rule(model[:buy])
     @test rule isa DecisionRule
     @test rule.constant ≈ 120 && isempty(rule.coefficients)
@@ -92,7 +82,7 @@ function test_decision_rule_show()
     model = newsvendor()
     optimize!(model)
     @test sprint(show, decision_rule(model[:buy])) == "DecisionRule: 120.0"
-    @test sprint(show, decision_rule(model[:ret])) == "DecisionRule: 120.0 - 1.0 d"
+    @test sprint(show, decision_rule(model[:ret])) == "DecisionRule: 120.0 - 1.0 demand"
     return
 end
 
@@ -120,7 +110,7 @@ function test_decision_rule_survives_changes()
     model = newsvendor()
     optimize!(model)
     rule = decision_rule(model[:ret])
-    d = model[:d]
+    d = model[:demand]
     @variable(model, extra >= 0)
     delete(model, extra)
     @test rule(d => 90.0) ≈ 30
@@ -140,7 +130,7 @@ end
 function test_expected_value_of_affine_expressions()
     model = newsvendor()
     optimize!(model)
-    buy, sell, ret, d = model[:buy], model[:sell], model[:ret], model[:d]
+    buy, sell, ret, d = model[:buy], model[:sell], model[:ret], model[:demand]
     @test expected_value(buy) ≈ 120
     @test expected_value(sell) ≈ value(sell)
     @test expected_value(d) ≈ 100

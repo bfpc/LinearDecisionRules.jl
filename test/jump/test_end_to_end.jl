@@ -19,7 +19,6 @@ import LinearDecisionRules:
     FirstStage,
     Formulations,
     LDRModel,
-    MvDiscreteNonParametric,
     PrimalLDR,
     SampledLDR,
     Stage,
@@ -53,118 +52,17 @@ function ldr_model()
     return model
 end
 
-function newsvendor(; integer = false)
-    model = ldr_model()
-    @variable(model, buy >= 0, FirstStage, integer = integer)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, demand in Uncertainty(Uniform(80, 120)))
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= demand)
-    @objective(model, Max, -10buy + 8ret + 15sell)
-    return model
-end
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+import .TaggedProblems:
+    hydro_toy,
+    inventory,
+    newsvendor_discrete_demand,
+    newsvendor_mv_discrete,
+    newsvendor_random_price,
+    newsvendor_three_stages,
+    newsvendor_two_products
 
-function newsvendor_random_price()
-    model = ldr_model()
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, demand in Uncertainty(Uniform(80, 120)))
-    @variable(model, price in Uncertainty(Uniform(13, 17)))
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= demand)
-    @objective(model, Max, -10buy + 8ret + price * sell)
-    return model
-end
-
-function newsvendor_two_products()
-    model = ldr_model()
-    @variable(model, buy[1:2] >= 0, FirstStage)
-    @variable(model, sell[1:2] >= 0)
-    @variable(model, ret[1:2] >= 0)
-    law = Distributions.product_distribution([Uniform(80, 120) for _ in 1:2])
-    @variable(model, demand[1:2] in Uncertainty(law))
-    @constraint(model, [i in 1:2], sell[i] + ret[i] <= buy[i])
-    @constraint(model, [i in 1:2], sell[i] <= demand[i])
-    @objective(model, Max, sum(-10buy[i] + 8ret[i] + 15sell[i] for i in 1:2))
-    return model
-end
-
-function newsvendor_three_stages(; unmarked_ret3 = false)
-    model = ldr_model()
-    @variable(model, buy >= 0, Stage(1))
-    @variable(model, sell2 >= 0, Stage(2))
-    @variable(model, ret2 >= 0, Stage(2))
-    @variable(model, demand2 in Uncertainty(Uniform(80, 120)), Stage(2))
-    @variable(model, buy2 >= 0, Stage(2))
-    @variable(model, buy_cost2 in Uncertainty(Uniform(8, 14)), Stage(2))
-    @variable(model, sell3 >= 0, Stage(3))
-    if unmarked_ret3
-        @variable(model, ret3 >= 0)
-    else
-        @variable(model, ret3 >= 0, Stage(3))
-    end
-    @variable(model, demand3 in Uncertainty(Uniform(80, 120)), Stage(3))
-    @constraint(model, sell2 + ret2 <= buy + buy2)
-    @constraint(model, sell2 <= demand2)
-    @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
-    @constraint(model, sell3 <= demand3)
-    @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
-    return model
-end
-
-function inventory(T::Int)
-    model = ldr_model()
-    @variable(model, d[t = 1:T] in Uncertainty(Uniform(60, 100)), Stage(t + 1))
-    @variable(model, 0 <= x[t = 1:T] <= 150, Stage(t))
-    @variable(model, I[t = 1:T], Stage(t + 1))
-    @variable(model, y[t = 1:T], Stage(t + 1))
-    @constraint(model, I[1] == x[1] - d[1])
-    @constraint(model, [t in 2:T], I[t] == I[t-1] + x[t] - d[t])
-    @constraint(model, [t in 1:T], y[t] >= 0.5 * I[t])
-    @constraint(model, [t in 1:T], y[t] >= -3 * I[t])
-    @objective(model, Min, sum(x[t] + y[t] for t in 1:T))
-    return model
-end
-
-function hydro_toy()
-    model = ldr_model()
-    @variable(model, vi == 0.5)
-    @variable(model, 0 <= vf <= 1)
-    @variable(model, gh >= 0)
-    @variable(model, gt >= 0)
-    @variable(model, inflow[i = 1:3] in Uncertainty(Uniform(0, 0.1i)))
-    @constraint(model, vf == vi - gh + sum(inflow))
-    @constraint(model, gt + gh == 0.3)
-    @objective(model, Min, gt^2 + vf^2 / 2 - vf)
-    return model
-end
-
-# The tutorial newsvendor (buy 10, sell 15, salvage 5) with a discrete demand.
-function newsvendor_discrete(law)
-    model = ldr_model()
-    k = length(law)
-    @variable(model, buy[1:k] >= 0, FirstStage)
-    @variable(model, sell[1:k] >= 0)
-    @variable(model, salvage[1:k] >= 0)
-    @variable(model, demand[1:k] in Uncertainty(law))
-    @constraint(model, [i in 1:k], sell[i] + salvage[i] <= buy[i])
-    @constraint(model, [i in 1:k], sell[i] <= demand[i])
-    @objective(model, Max, sum(-10buy[i] + 15sell[i] + 5salvage[i] for i in 1:k))
-    return model
-end
-
-function newsvendor_mv_discrete()
-    scenarios = [[80.0, 60.0], [100.0, 80.0], [120.0, 100.0], [80.0, 100.0], [120.0, 60.0]]
-    return newsvendor_discrete(MvDiscreteNonParametric(scenarios, [0.2, 0.3, 0.2, 0.15, 0.15]))
-end
-
-function newsvendor_discrete_demand()
-    support = [80.0, 90, 100, 110, 120]
-    law = Distributions.DiscreteNonParametric(support, [0.1, 0.2, 0.4, 0.2, 0.1])
-    return newsvendor_discrete(law)
-end
+newsvendor(; integer = false) = TaggedProblems.newsvendor(ldr_model(); integer)
 
 # `x1` in the legacy file is `x[1]` here.
 function variable_by_legacy_name(model, name)
