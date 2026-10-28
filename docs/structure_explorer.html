@@ -1,0 +1,469 @@
+<title>LinearDecisionRules.jl Structure</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a tool bar, then a file map across the full width, then a tree beside a detail panel. */
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --ink: #18202b;
+  --muted: #5b6676;
+  --line: #d9dee6;
+  --soft: #eceff4;
+  --accent: #1f6f78;
+  --accent-soft: #d8ecee;
+  --warn: #b3261e;
+  --warn-soft: #f8dedc;
+  --moved: #8a5a00;
+  --moved-soft: #f6ead1;
+  --font-ui: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-label: "IBM Plex Sans Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  --font-code: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141b; --panel: #161d26; --ink: #e4e9f0; --muted: #98a3b3; --line: #2a3441; --soft: #1d2631;
+    --accent: #5fc1c9; --accent-soft: #173a3e; --warn: #ff8a80; --warn-soft: #3e1d1b;
+    --moved: #e0b25a; --moved-soft: #3a2e14; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141b; --panel: #161d26; --ink: #e4e9f0; --muted: #98a3b3; --line: #2a3441; --soft: #1d2631;
+  --accent: #5fc1c9; --accent-soft: #173a3e; --warn: #ff8a80; --warn-soft: #3e1d1b;
+  --moved: #e0b25a; --moved-soft: #3a2e14; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 40px;
+}
+code, .code { font-family: var(--font-code); font-size: 12.5px; }
+h1 { font: 600 20px/1.2 var(--font-label); letter-spacing: 0.01em; margin: 0; text-wrap: balance; }
+h2 { font: 600 13px/1.2 var(--font-label); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; }
+h3 { font: 600 16px/1.3 var(--font-code); margin: 0; overflow-wrap: anywhere; }
+.wrap { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.bar .sub { color: var(--muted); font-size: 13px; }
+.toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--panel); }
+.toggle button { font: 500 13px var(--font-ui); padding: 6px 14px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.toggle button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+.toggle button:focus-visible, .chip:focus-visible, .tree button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.stat { font: 500 12px var(--font-label); letter-spacing: 0.03em; padding: 3px 9px; border-radius: 999px; background: var(--soft); color: var(--muted); font-variant-numeric: tabular-nums; }
+.stat b { color: var(--ink); font-weight: 600; }
+.stat.bad { background: var(--warn-soft); color: var(--warn); }
+.stat.bad b { color: var(--warn); }
+.stat.good { background: var(--accent-soft); color: var(--accent); }
+.stat.good b { color: var(--accent); }
+input[type="search"] { font: 14px var(--font-ui); padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); width: min(280px, 100%); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+.map-scroll { overflow-x: auto; }
+svg text { font-family: var(--font-code); font-size: 11.5px; fill: var(--ink); }
+svg .col-label { font-family: var(--font-label); font-size: 12px; font-weight: 600; fill: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+svg .node rect { fill: var(--soft); stroke: var(--line); }
+svg .node .ord { fill: var(--muted); font-size: 10px; }
+svg .node { cursor: pointer; }
+svg .node.sel rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+svg .node.near rect { stroke: var(--accent); }
+svg .node.dim { opacity: 0.35; }
+svg .edge { fill: none; stroke: var(--muted); opacity: 0.22; }
+svg .edge.later { stroke: var(--warn); opacity: 0.75; }
+svg .edge.out { stroke: var(--accent); opacity: 0.9; }
+svg .edge.in { stroke: var(--moved); opacity: 0.9; }
+svg .edge.dim { opacity: 0.06; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 12px; margin-top: 8px; }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+.split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.tree { display: grid; gap: 2px; max-height: 70vh; overflow: auto; }
+.tree .layer { font: 600 12px var(--font-label); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 10px 4px 4px; }
+.tree button { all: unset; display: flex; gap: 8px; align-items: baseline; width: 100%; padding: 3px 6px; border-radius: 4px; cursor: pointer; box-sizing: border-box; }
+.tree button:hover { background: var(--soft); }
+.tree button.sel { background: var(--accent-soft); }
+.tree .file { font-family: var(--font-code); font-size: 12.5px; }
+.tree .file .caret { width: 10px; color: var(--muted); flex: none; }
+.tree .file .n { margin-left: auto; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; flex: none; }
+.tree .defs { display: grid; gap: 1px; padding-left: 22px; }
+.tree .def { font-family: var(--font-code); font-size: 12px; color: var(--ink); }
+.tree .def .k { color: var(--muted); font-size: 10.5px; flex: none; width: 3.2em; }
+.tree .def span.nm { overflow-wrap: anywhere; }
+.badge { font: 600 10.5px var(--font-label); letter-spacing: 0.04em; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; flex: none; }
+.badge.exp { background: var(--accent-soft); color: var(--accent); }
+.badge.doc { background: var(--soft); color: var(--muted); }
+.badge.mv { background: var(--moved-soft); color: var(--moved); }
+.badge.new { background: var(--moved-soft); color: var(--moved); }
+.badge.late { background: var(--warn-soft); color: var(--warn); }
+.detail { display: grid; gap: 14px; }
+.detail .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+.detail .note { color: var(--ink); margin: 0; max-width: 70ch; }
+.detail section { display: grid; gap: 6px; }
+.rows { display: grid; gap: 6px; }
+.row { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr); gap: 8px; align-items: baseline; }
+@media (max-width: 520px) { .row { grid-template-columns: minmax(0, 1fr); } }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-family: var(--font-code); font-size: 12px; padding: 1px 7px; border-radius: 4px; background: var(--soft); color: var(--ink); border: 1px solid transparent; cursor: pointer; }
+.chip:hover { border-color: var(--accent); }
+.chip.file { background: transparent; border-color: var(--line); }
+.chip.later { border-color: var(--warn); color: var(--warn); }
+.empty { color: var(--muted); }
+a { color: var(--accent); }
+.issues { display: grid; gap: 6px; }
+.issues li { margin-bottom: 4px; }
+.issues ul { margin: 0; padding-left: 18px; }
+@media (prefers-reduced-motion: no-preference) { svg .edge, svg .node { transition: opacity 120ms ease; } }
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <div>
+      <h1>LinearDecisionRules.jl structure</h1>
+      <div class="sub">The files of <code>src/</code>, what they define and what they use. Generated by <code>docs/structure.jl</code> at __COMMIT__.</div>
+    </div>
+    <div class="toggle" role="group" aria-label="Structure">
+      <button id="mode-current" type="button" aria-pressed="true">Current</button>
+      <button id="mode-proposed" type="button" aria-pressed="false">Proposed</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <input id="search" type="search" placeholder="Find a file or a name" aria-label="Find a file or a name">
+  </header>
+
+  <section class="panel">
+    <h2>File map</h2>
+    <div class="map-scroll"><svg id="map" role="img" aria-label="Files by folder, with their dependencies"></svg></div>
+    <div class="legend">
+      <span><i style="background: var(--muted); opacity: .5"></i>uses</span>
+      <span><i style="background: var(--warn)"></i>uses a file included later</span>
+      <span><i style="background: var(--accent)"></i>the selected file uses</span>
+      <span><i style="background: var(--moved)"></i>uses the selected file</span>
+      <span>Numbers are the include order.</span>
+    </div>
+  </section>
+
+  <div class="split">
+    <section class="panel">
+      <h2>Files and definitions</h2>
+      <div class="tree" id="tree"></div>
+    </section>
+    <section class="panel">
+      <div class="detail" id="detail"></div>
+    </section>
+  </div>
+
+  <section class="panel issues" id="issues"></section>
+</div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+  const REPO = "https://github.com/bfpc/LinearDecisionRules.jl/blob/main/";
+  const COLUMNS = ["utils", "lifting", "canonical", "probability", "formulations", "moi", "jump"];
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const short = (f) => f.replace(/^src\//, "").replace(/\.jl$/, "");
+  const leaf = (f) => short(f).replace(/^[a-z]+\//, "").replace(/^distributions\//, "dist/");
+
+  // Indexes of one structure.
+  function index(s) {
+    const files = [...s.files].sort((a, b) => a.order - b.order);
+    const fileOf = Object.fromEntries(files.map((f) => [f.path, f]));
+    const defs = s.defs.map((d, i) => ({ ...d, id: i }));
+    const sorted = [...defs].sort((a, b) => fileOf[a.file].order - fileOf[b.file].order || a.line - b.line);
+    const owner = {};
+    for (const d of sorted) {
+      if (d.name.includes(".") || d.name.startsWith("(")) continue;
+      if (!(d.name in owner)) owner[d.name] = d;
+    }
+    const byName = {};
+    for (const d of defs) (byName[d.name] ||= []).push(d);
+    const callers = {};
+    for (const d of defs) for (const n of d.uses) (callers[n] ||= []).push(d);
+    const defsOf = {};
+    for (const d of sorted) (defsOf[d.file] ||= []).push(d);
+    const out = {}, inn = {};
+    for (const e of s.edges) { (out[e.from] ||= []).push(e); (inn[e.to] ||= []).push(e); }
+    return { s, files, fileOf, defs, owner, byName, callers, defsOf, out, inn, exports: new Set(s.exports) };
+  }
+  const IDX = { current: index(DATA.current), proposed: DATA.proposed ? index(DATA.proposed) : null };
+  // Where each current definition goes in the proposal, by its origin `file:line`.
+  const destination = {};
+  if (IDX.proposed) for (const d of IDX.proposed.defs) if (d.origin) (destination[d.origin] ||= []).push(d);
+
+  let mode = "current";
+  try { const m = localStorage.getItem("ldr-structure-mode"); if (m === "proposed" && IDX.proposed) mode = m; } catch (e) {}
+  let selected = null; // { type: "file", path } or { type: "def", id }
+  const open = new Set();
+  let query = "";
+
+  const $ = (id) => document.getElementById(id);
+
+  function setMode(m) {
+    const previous = mode;
+    mode = m;
+    try { localStorage.setItem("ldr-structure-mode", m); } catch (e) {}
+    $("mode-current").setAttribute("aria-pressed", String(m === "current"));
+    $("mode-proposed").setAttribute("aria-pressed", String(m === "proposed"));
+    // Keep the selection across modes when it exists in both.
+    if (selected && selected.type === "file" && !IDX[m].fileOf[selected.path]) selected = null;
+    if (selected && selected.type === "def" && previous !== m) {
+      const from = IDX[previous].defs[selected.id];
+      let match = null;
+      if (from) {
+        if (m === "proposed") match = (destination[from.origin] || [])[0];
+        else match = IDX.current.defs.find((d) => d.origin === from.origin);
+      }
+      selected = match ? { type: "def", id: match.id } : null;
+    }
+    render();
+  }
+  $("mode-current").addEventListener("click", () => setMode("current"));
+  $("mode-proposed").addEventListener("click", () => setMode("proposed"));
+  if (!IDX.proposed) $("mode-proposed").disabled = true;
+  $("search").addEventListener("input", (e) => { query = e.target.value.trim().toLowerCase(); renderTree(); });
+
+  function render() { renderStats(); renderMap(); renderTree(); renderDetail(); renderIssues(); }
+
+  function renderStats() {
+    const X = IDX[mode], s = X.s;
+    const later = s.edges.filter((e) => e.later).length;
+    const fns = new Set(X.defs.filter((d) => d.kind === "function").map((d) => d.name)).size;
+    $("stats").innerHTML = [
+      `<span class="stat"><b>${X.files.length}</b> files</span>`,
+      `<span class="stat"><b>${X.defs.length}</b> definitions</span>`,
+      `<span class="stat"><b>${fns}</b> functions</span>`,
+      `<span class="stat"><b>${s.exports.length}</b> exported</span>`,
+      `<span class="stat ${later ? "bad" : "good"}"><b>${later}</b> uses of later files</span>`,
+      `<span class="stat ${s.cycles.length ? "bad" : "good"}"><b>${s.cycles.length}</b> cycles</span>`,
+    ].join("");
+  }
+
+  // --- The map: one column per folder, files in include order, edges between them.
+  const NODE_W = 168, NODE_H = 22, GAP = 6, COL_W = 206, TOP = 34, LEFT = 8;
+  function renderMap() {
+    const X = IDX[mode];
+    const svg = $("map");
+    const cols = COLUMNS.filter((c) => X.files.some((f) => f.layer === c));
+    const pos = {};
+    let maxRows = 0;
+    cols.forEach((c, i) => {
+      const fs = X.files.filter((f) => f.layer === c);
+      maxRows = Math.max(maxRows, fs.length);
+      fs.forEach((f, k) => { pos[f.path] = { x: LEFT + i * COL_W, y: TOP + k * (NODE_H + GAP), col: i }; });
+    });
+    const width = LEFT + cols.length * COL_W, height = TOP + maxRows * (NODE_H + GAP) + 8;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    const sel = selected && selected.type === "file" ? selected.path : selected && selected.type === "def" ? X.defs[selected.id].file : null;
+    const near = new Set();
+    if (sel) {
+      for (const e of X.out[sel] || []) near.add(e.to);
+      for (const e of X.inn[sel] || []) near.add(e.from);
+    }
+    let edges = "";
+    for (const e of X.s.edges) {
+      const a = pos[e.from], b = pos[e.to];
+      if (!a || !b) continue;
+      const n = Object.keys(e.names).length;
+      let d;
+      if (a.col === b.col) {
+        const x = a.x + NODE_W, y1 = a.y + NODE_H / 2, y2 = b.y + NODE_H / 2, bulge = 18 + Math.min(40, Math.abs(y2 - y1) / 4);
+        d = `M${x},${y1} C${x + bulge},${y1} ${x + bulge},${y2} ${x},${y2}`;
+      } else {
+        const forward = b.col > a.col;
+        const x1 = forward ? a.x + NODE_W : a.x, x2 = forward ? b.x : b.x + NODE_W;
+        const y1 = a.y + NODE_H / 2, y2 = b.y + NODE_H / 2, mid = (x1 + x2) / 2;
+        d = `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`;
+      }
+      let cls = "edge" + (e.later ? " later" : "");
+      if (sel) cls += e.from === sel ? " out" : e.to === sel ? " in" : " dim";
+      edges += `<path class="${cls}" d="${d}" stroke-width="${(1 + Math.log2(n)).toFixed(2)}"><title>${esc(short(e.from))} uses ${esc(short(e.to))}: ${esc(Object.keys(e.names).join(", "))}</title></path>`;
+    }
+    let nodes = "";
+    for (const f of X.files) {
+      const p = pos[f.path];
+      if (!p) continue;
+      let cls = "node";
+      if (sel) cls += f.path === sel ? " sel" : near.has(f.path) ? " near" : " dim";
+      nodes += `<g class="${cls}" data-file="${esc(f.path)}" tabindex="0" role="button" aria-label="${esc(short(f.path))}">` +
+        `<rect x="${p.x}" y="${p.y}" width="${NODE_W}" height="${NODE_H}" rx="4"></rect>` +
+        `<text class="ord" x="${p.x + 6}" y="${p.y + 15}">${f.order}</text>` +
+        `<text x="${p.x + 28}" y="${p.y + 15}">${esc(leaf(f.path))}</text><title>${esc(f.path)}${f.note ? "\n" + esc(f.note.replace(/`/g, "")) : ""}</title></g>`;
+    }
+    const labels = cols.map((c, i) => `<text class="col-label" x="${LEFT + i * COL_W}" y="18">${c === "utils" ? "utils.jl" : c + "/"}</text>`).join("");
+    svg.innerHTML = labels + edges + nodes;
+  }
+  $("map").addEventListener("click", (e) => {
+    const g = e.target.closest("[data-file]");
+    if (g) selectFile(g.dataset.file);
+  });
+  $("map").addEventListener("keydown", (e) => {
+    const g = e.target.closest("[data-file]");
+    if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selectFile(g.dataset.file); }
+  });
+
+  // --- The tree: folders in order, files, definitions.
+  function kindLabel(d) { return d.kind === "function" ? "fn" : d.kind === "struct" ? "type" : d.kind === "abstract" ? "abs" : "const"; }
+  function renderTree() {
+    const X = IDX[mode];
+    let html = "", lastLayer = null;
+    for (const f of X.files) {
+      const ds = X.defsOf[f.path] || [];
+      const hits = query ? ds.filter((d) => d.name.toLowerCase().includes(query)) : ds;
+      const fileHit = !query || f.path.toLowerCase().includes(query);
+      if (query && !fileHit && hits.length === 0) continue;
+      if (f.layer !== lastLayer) { html += `<div class="layer">${f.layer === "module" ? "module" : f.layer === "utils" ? "utils.jl" : f.layer + "/"}</div>`; lastLayer = f.layer; }
+      const isOpen = open.has(f.path) || (query && hits.length > 0 && !fileHit) || (query && hits.length > 0 && hits.length < ds.length);
+      const isSel = selected && selected.type === "file" && selected.path === f.path;
+      html += `<button class="file${isSel ? " sel" : ""}" data-file="${esc(f.path)}" aria-expanded="${isOpen}"><span class="caret">${isOpen ? "▾" : "▸"}</span><span>${f.order}. ${esc(short(f.path))}</span><span class="n">${ds.length}</span></button>`;
+      if (isOpen) {
+        const names = new Set();
+        html += `<div class="defs">`;
+        for (const d of (query && !fileHit ? hits : ds)) {
+          // One line per name, at its first method.
+          if (names.has(d.name)) continue;
+          names.add(d.name);
+          const methods = ds.filter((x) => x.name === d.name).length;
+          const dSel = selected && selected.type === "def" && X.defs[selected.id].name === d.name && X.defs[selected.id].file === d.file;
+          let badges = "";
+          if (X.exports.has(d.name)) badges += `<span class="badge exp">export</span>`;
+          if (mode === "proposed") {
+            if (!d.origin) badges += `<span class="badge new">new</span>`;
+            else if (!d.origin.startsWith(d.file + ":")) badges += `<span class="badge mv">moved</span>`;
+          }
+          html += `<button class="def${dSel ? " sel" : ""}" data-def="${d.id}"><span class="k">${kindLabel(d)}</span><span class="nm">${esc(d.name)}${methods > 1 ? ` <span class="empty">×${methods}</span>` : ""}</span>${badges}</button>`;
+        }
+        html += `</div>`;
+      }
+    }
+    $("tree").innerHTML = html || `<p class="empty">Nothing matches “${esc(query)}”.</p>`;
+  }
+  $("tree").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.file) {
+      const p = b.dataset.file;
+      // A second click on the selected file folds it.
+      if (open.has(p) && selected && selected.type === "file" && selected.path === p) {
+        open.delete(p);
+        renderTree();
+      } else {
+        selectFile(p, false);
+      }
+    } else if (b.dataset.def) {
+      selectDef(Number(b.dataset.def), false);
+    }
+  });
+
+  function selectFile(path, scroll = true) {
+    selected = { type: "file", path };
+    open.add(path);
+    render();
+    if (scroll) document.querySelector(`#tree [data-file="${CSS.escape(path)}"]`)?.scrollIntoView({ block: "nearest" });
+  }
+  function selectDef(id, scroll = true) {
+    selected = { type: "def", id };
+    open.add(IDX[mode].defs[id].file);
+    render();
+    if (scroll) document.querySelector(`#tree [data-def="${id}"]`)?.scrollIntoView({ block: "nearest" });
+  }
+  function selectName(name) {
+    const X = IDX[mode];
+    const d = X.owner[name] || (X.byName[name] || [])[0];
+    if (d) selectDef(d.id);
+  }
+
+  // --- The detail panel.
+  const fileChip = (X, p, later) => `<button class="chip file${later ? " later" : ""}" data-goto-file="${esc(p)}">${esc(short(p))}</button>`;
+  const nameChip = (n) => `<button class="chip" data-goto-name="${esc(n)}">${esc(n)}</button>`;
+  function githubLink(fileLine) {
+    const [file, line] = fileLine.split(":");
+    return `<a href="${REPO}${esc(file)}#L${esc(line)}" target="_blank" rel="noopener">${esc(short(file))}:${esc(line)}</a>`;
+  }
+  function renderDetail() {
+    const X = IDX[mode], el = $("detail");
+    if (!selected) {
+      el.innerHTML = `<h2>Details</h2><p class="note">Select a file in the map or the tree, or a definition in the tree, to see what it defines, what it uses and what uses it. ${mode === "proposed" ? "In the proposed structure, <span class=\"badge mv\">moved</span> marks a definition that changes file and <span class=\"badge new\">new</span> one that the proposal adds." : "Switch to <b>Proposed</b> to see the proposed structure."}</p>`;
+      return;
+    }
+    if (selected.type === "file") {
+      const f = X.fileOf[selected.path];
+      const ds = X.defsOf[f.path] || [];
+      const uses = (X.out[f.path] || []).slice().sort((a, b) => X.fileOf[a.to].order - X.fileOf[b.to].order);
+      const users = (X.inn[f.path] || []).slice().sort((a, b) => X.fileOf[a.from].order - X.fileOf[b.from].order);
+      const names = [...new Set(ds.map((d) => d.name))];
+      let meta = `<span>#${f.order} in include order</span>`;
+      if (f.lines) meta += `<span>· ${f.lines} lines</span>`;
+      if (mode === "current") meta += `<span>· <a href="${REPO}${esc(f.path)}" target="_blank" rel="noopener">source</a></span>`;
+      el.innerHTML = `
+        <div><h2>File</h2><h3>${esc(f.path)}</h3></div>
+        <div class="meta">${meta}</div>
+        ${f.note ? `<p class="note">${esc(f.note).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>` : ""}
+        <section><h2>Uses (${uses.length} files)</h2>${uses.length ? `<div class="rows">${uses.map((e) => `<div class="row"><div>${fileChip(X, e.to, e.later)}${e.later ? ` <span class="badge late">later</span>` : ""}</div><div class="chips">${Object.keys(e.names).sort().map(nameChip).join("")}</div></div>`).join("")}</div>` : `<p class="empty">No other file.</p>`}</section>
+        <section><h2>Used by (${users.length} files)</h2>${users.length ? `<div class="rows">${users.map((e) => `<div class="row"><div>${fileChip(X, e.from, e.later)}</div><div class="chips">${Object.keys(e.names).sort().map(nameChip).join("")}</div></div>`).join("")}</div>` : `<p class="empty">No other file.</p>`}</section>
+        <section><h2>Defines (${names.length} names)</h2><div class="chips">${names.map(nameChip).join("") || `<span class="empty">Nothing.</span>`}</div></section>`;
+      return;
+    }
+    const d = X.defs[selected.id];
+    const methods = (X.byName[d.name] || []).slice().sort((a, b) => X.fileOf[a.file].order - X.fileOf[b.file].order || a.line - b.line);
+    const uses = [...new Set(methods.flatMap((m) => m.uses))].sort();
+    const callers = [...new Map((X.callers[d.name] || []).filter((c) => c.name !== d.name).map((c) => [c.name + "@" + c.file, c])).values()];
+    const owner = X.owner[d.name];
+    let meta = `<span class="badge doc">${esc(kindLabel(d))}</span>`;
+    if (X.exports.has(d.name)) meta += `<span class="badge exp">exported</span>`;
+    if (methods.some((m) => m.documented)) meta += `<span class="badge doc">docstring</span>`;
+    if (owner && owner.file !== d.file) meta += `<span>· extends a function of ${fileChip(X, owner.file, false)}</span>`;
+    let where = "";
+    if (mode === "current") {
+      where = methods.map((m) => `<div class="row"><div>${githubLink(m.file + ":" + m.line)}</div><div><code>${esc(m.name + m.signature)}</code></div></div>`).join("");
+    } else {
+      where = methods.map((m) => `<div class="row"><div>${fileChip(X, m.file, false)}</div><div><code>${esc(m.name + m.signature)}</code> ${m.origin ? (m.origin.startsWith(m.file + ":") ? `<span class="empty">stays</span>` : `<span class="badge mv">from</span> ${githubLink(m.origin)}`) : `<span class="badge new">new</span>`}</div></div>`).join("");
+    }
+    let goes = "";
+    if (mode === "current" && IDX.proposed) {
+      const dests = methods.flatMap((m) => destination[m.file + ":" + m.line] || []);
+      const files = [...new Set(dests.map((x) => x.file))];
+      const renamed = [...new Set(dests.map((x) => x.name))].filter((n) => n !== d.name);
+      goes = `<section><h2>In the proposed structure</h2><p class="note">${files.length ? `In ${files.map((p) => `<code>${esc(short(p))}</code>`).join(", ")}${renamed.length ? `, renamed <code>${esc(renamed.join(", "))}</code>` : ""}.` : "Removed: the proposal absorbs it into a new definition."}</p></section>`;
+    }
+    $("detail").innerHTML = `
+      <div><h2>Definition</h2><h3>${esc(d.name)}</h3></div>
+      <div class="meta">${meta}</div>
+      <section><h2>${methods.length > 1 ? `${methods.length} methods` : "Defined at"}</h2><div class="rows">${where}</div></section>
+      ${goes}
+      <section><h2>Uses (${uses.length})</h2>${uses.length ? `<div class="chips">${uses.map((n) => { const o = X.owner[n]; const later = o && X.fileOf[o.file].order > X.fileOf[d.file].order; return nameChip(n).replace('class="chip"', `class="chip${later ? " later" : ""}" title="${esc(o ? short(o.file) : "")}"`); }).join("")}</div>` : `<p class="empty">No definition of the package.</p>`}</section>
+      <section><h2>Used by (${callers.length})</h2>${callers.length ? `<div class="rows">${groupByFile(X, callers)}</div>` : `<p class="empty">${d.name.includes(".") ? "Called by JuMP or MOI, through dispatch." : "No definition of the package refers to it."}</p>`}</section>`;
+  }
+  function groupByFile(X, defs) {
+    const by = {};
+    for (const c of defs) (by[c.file] ||= new Set()).add(c.name);
+    return Object.keys(by).sort((a, b) => X.fileOf[a].order - X.fileOf[b].order)
+      .map((p) => `<div class="row"><div>${fileChip(X, p, false)}</div><div class="chips">${[...by[p]].sort().map(nameChip).join("")}</div></div>`).join("");
+  }
+  $("detail").addEventListener("click", (e) => {
+    const f = e.target.closest("[data-goto-file]"), n = e.target.closest("[data-goto-name]");
+    if (f) selectFile(f.dataset.gotoFile); else if (n) selectName(n.dataset.gotoName);
+  });
+
+  // --- Uses of later files and cycles.
+  function renderIssues() {
+    const X = IDX[mode], s = X.s;
+    const later = s.edges.filter((e) => e.later).sort((a, b) => X.fileOf[a.from].order - X.fileOf[b.from].order);
+    const cyc = s.cycles;
+    $("issues").innerHTML = `
+      <h2>Uses of files included later</h2>
+      ${later.length ? `<p class="note">They work because Julia resolves names in function bodies when a function first runs; they read as a layer calling the one above it.</p><ul>${later.map((e) => `<li>${fileChip(X, e.from, false)} uses ${fileChip(X, e.to, true)}: <span class="chips" style="display:inline-flex">${Object.keys(e.names).sort().map(nameChip).join("")}</span></li>`).join("")}</ul>` : `<p class="note">None: every file uses only names defined in files included before it.</p>`}
+      <h2>Cycles between files</h2>
+      ${cyc.length ? `<ul>${cyc.map((c) => `<li><span class="chips" style="display:inline-flex">${c.map((p) => fileChip(X, p, false)).join("")}</span></li>`).join("")}</ul>` : `<p class="note">None.</p>`}`;
+  }
+  $("issues").addEventListener("click", (e) => {
+    const f = e.target.closest("[data-goto-file]"), n = e.target.closest("[data-goto-name]");
+    if (f) selectFile(f.dataset.gotoFile); else if (n) selectName(n.dataset.gotoName);
+  });
+
+  setMode(mode);
+})();
+</script>
