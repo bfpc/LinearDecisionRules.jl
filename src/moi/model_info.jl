@@ -74,7 +74,7 @@ function _breakpoints(src::MOI.ModelLike)
 end
 
 """
-    _model_info(src::MOI.ModelLike) -> ModelInfo
+    model_info(src::MOI.ModelLike) -> ModelInfo
 
 Read the linear-decision-rule metadata of `src`: the uncertainty declarations, the stages, the
 roles of the uncertainty-only rows and the breakpoints. The result is meant for
@@ -82,8 +82,16 @@ roles of the uncertainty-only rows and the breakpoints. The result is meant for
 
 A stage on an uncertainty goes to its declaration, and a stage on any other variable to
 `decision_stages`. It only reads: the checks of the model itself are those of `canonicalize`.
+
+## Example
+
+```julia
+import LinearDecisionRules as LDR
+info = LDR.model_info(backend(model))
+form = LDR.canonicalize(backend(model), info)
+```
 """
-function _model_info(src::MOI.ModelLike)
+function model_info(src::MOI.ModelLike)
     stages = _variable_stages(src)
     declarations = _uncertainty_declarations(src, stages)
     in_uncertainty = Set(v for d in declarations for v in d.variables)

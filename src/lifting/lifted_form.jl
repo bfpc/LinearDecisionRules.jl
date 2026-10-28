@@ -27,7 +27,8 @@ uncertainties with breakpoints.
 ## Example
 
 ```julia
-form = canonicalize(backend(model), info)
+import LinearDecisionRules as LDR
+form = LDR.canonicalize(backend(model), LDR.model_info(backend(model)))
 lifted = lift(form, Dict(index(d) => AxisPiecewise([90, 100, 110])))
 ```
 """
@@ -187,4 +188,19 @@ function _lifted_laws(form::CanonicalForm, lifting_of, kept, pieces, m̃::Int)
         return UncertaintyBlock(d, pieces[j], fill(only(law.stages), length(pieces[j])))
     end
     return laws, _sparse(hull, length(h), m̃), h
+end
+
+# The lifting map of `form`: its field `lifting`, or the identity map if nothing is lifted, so
+# that `lift(map, ξ) == ξ`.
+function _lifting_map(form::CanonicalForm)
+    form.lifting === nothing || return form.lifting
+    m = length(form.uncertainties)
+    return LiftingMap(
+        copy(form.uncertainties),
+        copy(form.uncertainty_names),
+        copy(form.uncertainty_stages),
+        collect(1:1+m),
+        LiftingBlock[],
+        SparseArrays.spdiagm(0 => ones(1 + m)),
+    )
 end

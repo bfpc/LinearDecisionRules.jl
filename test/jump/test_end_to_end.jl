@@ -586,7 +586,7 @@ end
 # With no time left after the build, the inner solver stops at once.
 function test_time_limit_in_the_inner_solver()
     src = backend(inventory(16))
-    form = LinearDecisionRules.canonicalize(src, LinearDecisionRules._model_info(src))
+    form = LinearDecisionRules.canonicalize(src, LinearDecisionRules.model_info(src))
     mom = LinearDecisionRules.moments(form)
     result = solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer; time_limit = 0.0)
     @test result.termination_status == MOI.TIME_LIMIT

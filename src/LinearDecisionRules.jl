@@ -53,68 +53,64 @@ include("jump/results.jl")
 include("jump/rules.jl")
 include("jump/simulate.jl")
 
-export AbstractFormulation,
-    AbstractLifting,
-    AxisPiecewise,
-    BreakPoints,
-    CanonicalForm,
-    Certified,
-    ConicRow,
-    ConditionedDistribution,
-    ConfidenceMvNormal,
-    CovarianceBlock,
-    DecisionRule,
-    DualLDR,
-    Evaluation,
+# The user API, by the page of the manual that documents it. The canonical form, the moments and
+# `solve_formulation` are documented on the Internals page but not exported: their contract may
+# change until the `Experimental` submodule makes them stable.
+
+# Modelling.
+export LDRModel,
+    Stage,
     FirstStage,
-    FormulationAttribute,
-    FormulationCapabilities,
-    FormulationResult,
+    stage,
+    set_stage,
+    unset_stage,
+    Uncertainty,
+    ValidInequality,
+    Truncate,
+    BreakPoints,
     Formulations,
-    InformationStructure,
     InnerOptimizer,
-    LDRModel,
-    LiftedDistribution,
-    LiftedTerm,
-    LiftingBlock,
-    LiftingMap,
-    ModelInfo,
-    Moments,
-    MvDiscreteNonParametric,
-    PrimalLDR,
-    RejectionSamplingMaxSamples,
     RejectionSamplingSeed,
     RejectionSamplingTimeLimit,
-    RuleMatrix,
+    RejectionSamplingMaxSamples
+
+# Results and rules.
+export AbstractFormulation,
+    PrimalLDR,
+    DualLDR,
     SampledLDR,
-    Simulation,
-    Stage,
-    SupportBlock,
-    Truncate,
-    Uncertainty,
-    UncertaintyBlock,
-    UncertaintyDeclaration,
-    ValidInequality,
-    canonicalize,
-    capabilities,
-    decision_rule,
-    evaluate,
-    expected_value,
+    FormulationAttribute,
+    Certified,
     is_certified,
-    lift,
-    moments,
-    observes,
-    retraction,
+    inner_model,
+    decision_rule,
+    DecisionRule,
+    LiftedTerm,
+    expected_value,
     rule_coefficient,
     rule_matrix,
-    second_moment,
-    set_stage,
-    simulate,
-    solve_formulation,
-    stage,
-    support_blocks,
+    RuleMatrix
+
+# Simulation.
+export evaluate, Evaluation, simulate, Simulation
+
+# Distributions and liftings.
+export ConditionedDistribution,
+    ConfidenceMvNormal,
+    MvDiscreteNonParametric,
+    LiftedDistribution,
     support_constraints,
-    unset_stage,
-    visible_columns
+    AbstractLifting,
+    AxisPiecewise,
+    lift,
+    retraction,
+    LiftingMap,
+    LiftingBlock
+
+# `LDRModel(optimizer)` is `Model(() -> LinearDecisionRules.Optimizer(optimizer))`: the optimizer
+# is public, but not exported. The keyword `public` needs Julia 1.11.
+if VERSION >= v"1.11"
+    eval(Expr(:public, :Optimizer))
+end
 
 end # module LinearDecisionRules

@@ -26,6 +26,7 @@ import LinearDecisionRules:
     Stage,
     Truncate,
     Uncertainty,
+    inner_model,
     is_certified,
     set_stage
 
@@ -426,6 +427,25 @@ function test_is_certified()
     @test is_certified(model) === false
     reason = "[not certified: conditional expectations across stages are not linear]"
     @test endswith(raw_status(model, DualLDR()), reason)
+    return
+end
+
+# `inner_model`: the inner problem of one formulation, which a re-solve with the same data reuses.
+function test_inner_model()
+    @test_logs (:warn,) @test_throws OptimizeNotCalled inner_model(newsvendor(), PrimalLDR())
+    model = newsvendor(; formulations = [PrimalLDR(), DualLDR()])
+    optimize!(model)
+    primal, dual = inner_model(model, PrimalLDR()), inner_model(model, DualLDR())
+    @test primal isa JuMP.Model && dual isa JuMP.Model && primal !== dual
+    @test num_variables(primal) > 0
+    @test termination_status(primal) == termination_status(model, PrimalLDR())
+    @test objective_value(primal) ≈ objective_value(model, PrimalLDR())
+    @test objective_value(dual) ≈ objective_value(model, DualLDR())
+    optimize!(model)
+    @test inner_model(model, PrimalLDR()) === primal
+    err = error_of(() -> inner_model(model, SampledLDR(20)))
+    @test err isa MOI.GetAttributeNotAllowed
+    @test occursin("add it to `Formulations()`", sprint(showerror, err))
     return
 end
 

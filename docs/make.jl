@@ -51,7 +51,7 @@ Documenter.makedocs(;
     repo = Documenter.Remotes.GitHub("bfpc", "LinearDecisionRules.jl"),
     format = Documenter.HTML(; edit_link = "main", prettyurls = get(ENV, "CI", nothing) == "true"),
     pages,
-    checkdocs = :exports,
+    checkdocs = :all,
 )
 
 # Deploy only from CI.

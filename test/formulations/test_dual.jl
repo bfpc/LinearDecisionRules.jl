@@ -209,7 +209,7 @@ function test_formulation_attributes_through_the_optimizer()
     set_attribute(model, LinearDecisionRules.Formulations(), [PrimalLDR(), dual])
     optimize!(model)
     @test termination_status(model, DualLDR()) == MOI.OPTIMAL
-    @test get_attribute(unsafe_backend(model).results[2].model, "presolve") == "off"
+    @test get_attribute(LinearDecisionRules.inner_model(model, dual), "presolve") == "off"
     @test objective_value(model, dual) == objective_value(model, DualLDR())
     return
 end

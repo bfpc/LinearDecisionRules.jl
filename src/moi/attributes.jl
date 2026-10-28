@@ -219,8 +219,8 @@ MOI.is_set_by_optimize(::FormulationAttribute) = true
     Certified()
 
 A model attribute of one formulation, read through [`FormulationAttribute`](@ref): whether its
-objective value and bound are exact for the laws of the model, as a `Bool` (the field `certified`
-of [`FormulationResult`](@ref)). See [`is_certified`](@ref), its short helper.
+objective value and bound are exact for the laws of the model, as a `Bool`. See
+[`is_certified`](@ref), its short helper.
 
 ## Example
 
@@ -247,7 +247,7 @@ struct UncertaintyVariables <: MOI.AbstractModelAttribute end
 # The decisions of the model, in the rows of `FormulationResult.X`.
 struct DecisionVariables <: MOI.AbstractModelAttribute end
 
-# The `LiftingMap` of the last solve, or `nothing` if nothing was lifted.
+# The `LiftingMap` of the last solve, the identity if nothing was lifted.
 struct UncertaintyLifting <: MOI.AbstractModelAttribute end
 
 # The `Moments` of ξ of the last solve.
@@ -258,8 +258,12 @@ struct SimulationData <: MOI.AbstractModelAttribute
     formulation::AbstractFormulation
 end
 
+# The inner `JuMP.Model` of one formulation, read through `FormulationAttribute` by `inner_model`.
+struct InnerModel <: MOI.AbstractModelAttribute end
+
 function MOI.is_set_by_optimize(
     ::Union{
+        InnerModel,
         RuleCoefficients,
         UncertaintyVariables,
         DecisionVariables,
@@ -290,6 +294,7 @@ const _AttributesWithoutIndices = Union{
     UncertaintyLifting,
     UncertaintyMoments,
     SimulationData,
+    InnerModel,
 }
 
 MOI.Utilities.map_indices(::Any, ::_AttributesWithoutIndices, x) = x

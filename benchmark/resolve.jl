@@ -71,7 +71,7 @@ function run(T, N, formulation, variant)
         start = time_ns()
         optimize!(m)
         total += (time_ns() - start) / 1e9
-        solver += only(unsafe_backend(m).results).solve_time
+        solver += solve_time(m, formulation)
         builds += unsafe_backend(m).inner_cache.num_builds - before
         push!(objectives, objective_value(m, formulation))
     end

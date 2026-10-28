@@ -270,8 +270,9 @@ down, so they are off by default.
 ## Example
 
 ```julia
-form = canonicalize(backend(model), info)
-result = solve_formulation(form, PrimalLDR(), moments(form), HiGHS.Optimizer)
+import LinearDecisionRules as LDR
+form = LDR.canonicalize(backend(model), LDR.model_info(backend(model)))
+result = LDR.solve_formulation(form, PrimalLDR(), LDR.moments(form), HiGHS.Optimizer)
 result.objective_value
 ```
 """

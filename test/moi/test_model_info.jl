@@ -43,7 +43,7 @@ function error_message(f)
     return ""
 end
 
-_model_info(model) = LinearDecisionRules._model_info(backend(model))
+info_of(model) = LinearDecisionRules.model_info(backend(model))
 
 # Equality of two canonical forms, field by field. The blocks of the laws are compared sorted by
 # column, since their order is the order of declaration.
@@ -94,10 +94,10 @@ function test_newsvendor()
     by_hand, info = newsvendor_by_hand()
     model = newsvendor_with_tags()
     @test same_form(
-        canonicalize(backend(model), _model_info(model)),
+        canonicalize(backend(model), info_of(model)),
         canonicalize(backend(by_hand), info),
     )
-    info = _model_info(model)
+    info = info_of(model)
     @test info isa ModelInfo
     @test length(info.uncertainties) == 1
     @test info.uncertainties[1].variables == [index(model[:d])]
@@ -116,7 +116,7 @@ function test_integer_newsvendor()
     @constraint(model, sell <= buy)
     @constraint(model, sell <= d)
     @objective(model, Max, -10buy + 15sell)
-    form = canonicalize(backend(model), _model_info(model))
+    form = canonicalize(backend(model), info_of(model))
     @test form.integer == [true, false]
     @test form.decision_stages == [1, 2]
     return
@@ -169,11 +169,11 @@ function test_three_stages()
     @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
     @constraint(model, sell3 <= demand3)
     @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
-    form = @test_logs canonicalize(backend(model), _model_info(model))
+    form = @test_logs canonicalize(backend(model), info_of(model))
     @test same_form(form, canonicalize(backend(by_hand), info))
     @test form.decision_stages == [1, 2, 2, 2, 3, 3]
     @test form.uncertainty_stages == [2, 2, 3]
-    info = _model_info(model)
+    info = info_of(model)
     @test [u.stages for u in info.uncertainties] == [[2], [2], [3]]
     @test length(info.decision_stages) == 6
     # The stages of the uncertainties are not stages of decisions.
@@ -192,7 +192,7 @@ function test_unmarked_variables_in_last_stage()
     @constraint(model, r <= buy)
     form = @test_logs (:warn, r"the variables without a stage are in the last one") canonicalize(
         backend(model),
-        _model_info(model),
+        info_of(model),
     )
     @test form.num_stages == 3
     @test form.uncertainty_stages == [3, 3]
@@ -208,7 +208,7 @@ function test_vector_uncertainty()
     @variable(model, d[1:2] in Uncertainty(mv))
     @variable(model, e[t = 1:2] in Uncertainty(mv), Stage(t))
     @constraint(model, y <= x + d[1] + d[2] + e[1] + e[2])
-    info = _model_info(model)
+    info = info_of(model)
     @test [u.variables for u in info.uncertainties] == [index.(d), index.(e)]
     @test [u.stages for u in info.uncertainties] == [[nothing, nothing], [1, 2]]
     form = canonicalize(backend(model), info)
@@ -223,7 +223,7 @@ function test_parameters()
     @variable(model, x >= 0)
     @variable(model, d in Uncertainty(Distributions.Uniform(0, 1)))
     @constraint(model, x <= d + p)
-    form = canonicalize(backend(model), _model_info(model))
+    form = canonicalize(backend(model), info_of(model))
     @test form.decisions == [index(x)]
     @test form.num_stages == 2
     return
@@ -233,7 +233,7 @@ function test_valid_inequality()
     model = newsvendor_with_tags()
     cap = @constraint(model, 85 <= model[:d] <= 115, ValidInequality())
     @constraint(model, model[:d] >= 81, ValidInequality())
-    info = _model_info(model)
+    info = info_of(model)
     @test length(info.valid_rows) == 2 && index(cap) in info.valid_rows
     @test isempty(info.truncate_rows)
     form = canonicalize(backend(model), info)
@@ -246,7 +246,7 @@ end
 function test_truncate()
     model = newsvendor_with_tags()
     cap = @constraint(model, cap, model[:d] <= 115, Truncate())
-    info = _model_info(model)
+    info = info_of(model)
     @test info.truncate_rows == Set{MOI.ConstraintIndex}([index(cap)])
     @test isempty(info.valid_rows)
     # A bound on a univariate law truncates it exactly.
@@ -259,7 +259,7 @@ end
 function test_breakpoints()
     model = newsvendor_with_tags()
     set_attribute(model[:d], BreakPoints(), [90, 100])
-    info = _model_info(model)
+    info = info_of(model)
     @test info.breakpoints == Dict(index(model[:d]) => [90.0, 100.0])
     # `canonicalize` lifts the demand into its three pieces.
     form = canonicalize(backend(model), info)
@@ -274,7 +274,7 @@ function test_constraint_stage_is_ignored()
     by_hand, info = newsvendor_by_hand()
     @constraint(by_hand, by_hand[:sell] <= 1000)
     @test same_form(
-        canonicalize(backend(model), _model_info(model)),
+        canonicalize(backend(model), info_of(model)),
         canonicalize(backend(by_hand), info),
     )
     return
@@ -286,7 +286,7 @@ function test_set_stage_replaces_the_stage()
     sell = model[:sell]
     LinearDecisionRules.set_stage(sell, 2)
     LinearDecisionRules.set_stage(sell, 3)
-    @test _model_info(model).decision_stages[index(sell)] == 3
+    @test info_of(model).decision_stages[index(sell)] == 3
     @test num_constraints(model, VariableRef, Stage) == 2
     ci = MOI.ConstraintIndex{MOI.VariableIndex,Stage}(index(sell).value)
     @test MOI.get(backend(model), MOI.ConstraintSet(), ci) == Stage(3)
@@ -297,15 +297,15 @@ end
 function test_errors_left_to_canonicalize()
     model = newsvendor_with_tags()
     set_lower_bound(model[:d], 0)
-    msg = error_message(() -> canonicalize(backend(model), _model_info(model)))
+    msg = error_message(() -> canonicalize(backend(model), info_of(model)))
     @test occursin("The uncertainty d has a bound or integrality constraint", msg)
     model = newsvendor_with_tags()
     @constraint(model, cap, model[:d] <= 115)
-    msg = error_message(() -> canonicalize(backend(model), _model_info(model)))
+    msg = error_message(() -> canonicalize(backend(model), info_of(model)))
     @test occursin("The constraint cap involves only uncertainties (d)", msg)
     model = newsvendor_with_tags()
     fix(model[:d], 100; force = true)
-    msg = error_message(() -> canonicalize(backend(model), _model_info(model)))
+    msg = error_message(() -> canonicalize(backend(model), info_of(model)))
     @test occursin("The uncertainty d", msg)
     return
 end
@@ -318,7 +318,7 @@ function test_deleting_variables()
     delete(model, other)
     by_hand, info = newsvendor_by_hand()
     @test same_form(
-        canonicalize(backend(model), _model_info(model)),
+        canonicalize(backend(model), info_of(model)),
         canonicalize(backend(by_hand), info),
     )
     return

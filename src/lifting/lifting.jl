@@ -17,7 +17,9 @@ A lifting `l` implements:
 
 A lifted coordinate is in the largest stage of the uncertainties that it depends on.
 
-See [`AxisPiecewise`](@ref).
+[`AxisPiecewise`](@ref) is the only lifting in 0.4. Subtyping `AbstractLifting` is not supported
+yet: a lifting also implements internal methods (its sizes, the bounds and hull of its coordinates,
+its moments), whose contract may change until the `Experimental` submodule.
 """
 abstract type AbstractLifting end
 
@@ -180,9 +182,10 @@ end
 """
     LiftingMap
 
-The map between the columns `ξ = (1, η)` of a [`CanonicalForm`](@ref) and the columns
-`ξ̃ = (1, η̃)` of its lifted form, built by [`lift`](@ref)`(form, liftings)` and kept in the
-field `lifting` of the lifted form.
+The map between the outcomes `ξ = (1, η)` of the uncertainties of a model and the lifted
+coordinates `ξ̃ = (1, η̃)` in which its rules are written: [`rule_matrix`](@ref) returns it in the
+field `lifting` of a [`RuleMatrix`](@ref). Internally, [`lift`](@ref)`(form, liftings)` builds
+it, and keeps it in the field `lifting` of the lifted form.
 
 Apply the lifting `L` to an outcome of the original uncertainties with `lift(map, ξ)`, and the
 retraction with `retraction(map) * ξ̃`. A decision rule `x(ξ̃) = X̃ ξ̃` of the lifted form is the

@@ -1,34 +1,43 @@
 # Modelling
 
+```@meta
+CurrentModule = LinearDecisionRules
+```
+
 Declaring a model: the optimizer, the stages, the uncertainties and the attributes that choose the formulations and the inner solver.
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/LinearDecisionRules.jl"]
+```@docs
+LinearDecisionRules
+LDRModel
+Optimizer
+MOI.optimize!(::Optimizer, ::MOI.ModelLike)
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/jump/model.jl"]
+## Stages
+
+```@docs
+Stage
+FirstStage
+stage
+set_stage
+unset_stage
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/jump/variables.jl"]
+## Uncertainties and their support
+
+```@docs
+Uncertainty
+ValidInequality
+Truncate
+BreakPoints
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/moi/sets.jl"]
-```
+## Settings
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/moi/attributes.jl"]
+```@docs
+Formulations
+InnerOptimizer
+RejectionSamplingSeed
+RejectionSamplingTimeLimit
+RejectionSamplingMaxSamples
 ```
-
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/moi/optimizer.jl"]
-```
-

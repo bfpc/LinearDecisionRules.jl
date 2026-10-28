@@ -105,7 +105,6 @@ function run_ldr(data, T, formulation; breakpoints = nothing)
     t_build = @elapsed m = ldr_model(data, T; formulations = [formulation], breakpoints)
     set_time_limit_sec(m, breakpoints === nothing ? LDR_TIME_LIMIT : BP_TIME_LIMIT)
     t_opt = @elapsed optimize!(m)
-    result = only(unsafe_backend(m).results)
     objective = try
         objective_value(m, formulation)
     catch
@@ -119,10 +118,10 @@ function run_ldr(data, T, formulation; breakpoints = nothing)
     return (;
         build = t_build,
         optimize = t_opt,
-        solver = result.solve_time,
+        solver = solve_time(m, formulation),
         objective,
-        status = string(result.termination_status),
-        size = model_size(result.model),
+        status = string(termination_status(m, formulation)),
+        size = model_size(LDR.inner_model(m, formulation)),
         oos,
     )
 end

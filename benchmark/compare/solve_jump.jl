@@ -34,8 +34,7 @@ function run_new(problem, T, tag, data)
     problem == "hydro" || set_attribute(m, LDR.Formulations(), [f])
     set_silent(m)
     optimize!(m)
-    result = only(unsafe_backend(m).results)
-    return _times(result.model)..., NaN
+    return _times(LDR.inner_model(m, f))..., NaN
 end
 
 function run_legacy(problem, T, tag, data)

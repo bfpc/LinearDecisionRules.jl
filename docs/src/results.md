@@ -1,19 +1,43 @@
 # Results and rules
 
+```@meta
+CurrentModule = LinearDecisionRules
+```
+
 The formulations, their results, and the decision rules read from a solved model.
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/formulations/formulation.jl"]
+## Formulations
+
+```@docs
+AbstractFormulation
+PrimalLDR
+DualLDR
+SampledLDR
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/jump/results.jl"]
+## Results of one formulation
+
+```@docs
+FormulationAttribute
+Certified
+is_certified
+JuMP.termination_status(::JuMP.GenericModel, ::AbstractFormulation)
+JuMP.primal_status(::JuMP.GenericModel, ::AbstractFormulation)
+JuMP.objective_value(::JuMP.GenericModel, ::AbstractFormulation)
+JuMP.objective_bound(::JuMP.GenericModel, ::AbstractFormulation)
+JuMP.raw_status(::JuMP.GenericModel, ::AbstractFormulation)
+JuMP.solve_time(::JuMP.GenericModel, ::AbstractFormulation)
+inner_model
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/jump/rules.jl"]
-```
+## Decision rules
 
+```@docs
+decision_rule
+DecisionRule
+LiftedTerm
+expected_value
+rule_coefficient
+rule_matrix
+RuleMatrix
+```

@@ -58,8 +58,7 @@ end
 """
     JuMP.objective_bound(model::JuMP.Model, formulation::AbstractFormulation)
 
-The inner solver's bound on the objective value of `formulation`, even without a primal point (see
-[`FormulationResult`](@ref)).
+The inner solver's bound on the objective value of `formulation`, even without a primal point.
 """
 function JuMP.objective_bound(model::JuMP.GenericModel, f::AbstractFormulation)
     return _formulation_attribute(model, f, MOI.ObjectiveBound())
@@ -111,4 +110,31 @@ is_certified(model, PrimalLDR())
 """
 function is_certified(model::JuMP.GenericModel, f::AbstractFormulation = DualLDR())
     return _formulation_attribute(model, f, Certified())
+end
+
+"""
+    inner_model(model::JuMP.Model, formulation::AbstractFormulation) -> JuMP.Model
+
+The inner problem of `formulation` in the last `optimize!`: the `JuMP.Model` that the inner
+optimizer solved. Use it to inspect the reformulation, for example with `num_variables` or
+`get_attribute`, or to save it with `write_to_file`. Its variables are not named, since names slow
+the build down.
+
+Read it, do not modify it: the next `optimize!` reuses it when only the values of parameters
+changed, so a change to it would carry over to later solves.
+
+If the time limit was reached before `formulation` was built, it is an empty model. It is an error
+if `formulation` was not solved, or before `optimize!`.
+
+## Example
+
+```julia
+optimize!(model)
+inner = inner_model(model, DualLDR())
+num_variables(inner)
+write_to_file(inner, "dual.mps")
+```
+"""
+function inner_model(model::JuMP.GenericModel, f::AbstractFormulation)
+    return _formulation_attribute(model, f, InnerModel())
 end

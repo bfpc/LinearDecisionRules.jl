@@ -77,7 +77,7 @@ Return the rows that describe the support of the law `d` beyond its box (`minimu
 where `K = cones[1] × cones[2] × …` is a product of `MOI.Nonnegatives` and `MOI.SecondOrderCone`s
 whose dimensions add up to `length(h)`, and `W` has one column per component of `d`.
 
-[`support_blocks`](@ref) adds these rows to Ξ, with the role `:law`, so the formulations see them:
+The optimizer adds these rows to the support Ξ, so the formulations see them:
 the robust counterparts of [`PrimalLDR`](@ref) hold on them, and the cone constraints of
 [`DualLDR`](@ref) use them. They must hold on the support of `d`, so that the primal rule is
 feasible and the dual bound valid; a tighter description gives a better rule and a tighter

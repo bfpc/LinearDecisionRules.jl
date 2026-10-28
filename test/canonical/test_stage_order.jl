@@ -61,7 +61,7 @@ end
 # a model with five stages, hence the warning.
 function form_of(s::Staged)
     src = backend(s.model)
-    info = LinearDecisionRules._model_info(src)
+    info = LinearDecisionRules.model_info(src)
     return @test_logs (:warn, r"without a stage") match_mode = :any canonicalize(src, info)
 end
 
@@ -147,7 +147,7 @@ function test_breakpoints_on_a_component()
     @test_throws ErrorException(msg) lift(base, Dict(index(w[3]) => AxisPiecewise([12.0])))
     set_attribute(w[3], BreakPoints(), [12.0])
     src = backend(s.model)
-    info = LinearDecisionRules._model_info(src)
+    info = LinearDecisionRules.model_info(src)
     @test_logs (:warn, r"without a stage") match_mode = :any begin
         @test_throws ErrorException(msg) canonicalize(src, info)
     end

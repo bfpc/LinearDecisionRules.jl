@@ -21,6 +21,7 @@ import LinearDecisionRules:
     Stage,
     Uncertainty,
     decision_rule,
+    lift,
     rule_coefficient,
     rule_matrix
 import MathOptInterface as MOI
@@ -94,8 +95,29 @@ function test_newsvendor()
     @test R[2, 2] ≈ 1
     text = sprint(show, R)
     @test occursin("constant", text) && occursin("sell", text)
-    negative_zero = RuleMatrix([-0.0 1.0], [buy], [:constant, d], PrimalLDR())
+    negative_zero = RuleMatrix([-0.0 1.0], [buy], [:constant, d], PrimalLDR(), R.lifting)
     @test !occursin("-0.0", sprint(show, negative_zero))
+    return
+end
+
+# `x(ξ) = X lift(R.lifting, ξ)`: the lifting of the matrix gives the rules on the original
+# uncertainties; without breakpoints, it is the identity.
+function test_lifting()
+    for points in (nothing, [90.0, 100.0, 110.0])
+        model = newsvendor(; points)
+        optimize!(model)
+        d = model[:d]
+        R = rule_matrix(model)
+        @test R.lifting.uncertainties == [index(d)]
+        for value in (85.0, 100.0, 117.0)
+            ξ = [1.0, value]
+            points === nothing && @test lift(R.lifting, ξ) == ξ
+            x = R.matrix * lift(R.lifting, ξ)
+            for (i, v) in enumerate(R.decisions)
+                @test x[i] ≈ decision_rule(v)(Dict(d => value)) atol = 1e-6
+            end
+        end
+    end
     return
 end
 

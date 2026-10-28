@@ -46,7 +46,7 @@ function quadratic_model(sense, q)
 end
 
 function form_of(model)
-    info = LinearDecisionRules._model_info(backend(model))
+    info = LinearDecisionRules.model_info(backend(model))
     return LinearDecisionRules.canonicalize(backend(model), info)
 end
 

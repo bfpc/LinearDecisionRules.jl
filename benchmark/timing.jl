@@ -132,13 +132,12 @@ end
 function run_ldr(T, formulation)
     t_build = @elapsed m = build_ldr(T, formulation)
     t_opt = @elapsed optimize!(m)
-    result = only(unsafe_backend(m).results)
     return (;
         build = t_build,
         optimize = t_opt,
-        solver = result.solve_time,
+        solver = solve_time(m, formulation),
         objective = objective_value(m, formulation),
-        size = _size(result.model),
+        size = _size(LDR.inner_model(m, formulation)),
     )
 end
 

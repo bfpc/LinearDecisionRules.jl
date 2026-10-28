@@ -722,12 +722,15 @@ model = Model()
 @constraint(model, sell <= buy)
 @constraint(model, sell <= d)
 @objective(model, Max, -10buy + 15sell)
-info = ModelInfo(;
-    uncertainties = [UncertaintyDeclaration(Uniform(80, 120), [index(d)])],
+import LinearDecisionRules as LDR
+info = LDR.ModelInfo(;
+    uncertainties = [LDR.UncertaintyDeclaration(Uniform(80, 120), [index(d)])],
     decision_stages = Dict(index(buy) => 1),
 )
-form = canonicalize(backend(model), info)
+form = LDR.canonicalize(backend(model), info)
 ```
+
+For an `LDRModel`, [`model_info`](@ref) reads `info` from the tags of the model.
 """
 function canonicalize(src::MOI.ModelLike, info::ModelInfo; conic_support::Bool = true)
     variables = MOI.get(src, MOI.ListOfVariableIndices())

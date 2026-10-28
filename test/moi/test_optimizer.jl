@@ -24,6 +24,7 @@ import LinearDecisionRules:
     Uncertainty,
     ValidInequality,
     canonicalize,
+    inner_model,
     set_stage,
     stage
 
@@ -80,7 +81,7 @@ function test_newsvendor_model()
     @test occursin(" d in Uncertainty(Distributions.Uniform{Float64}(a=80.0, b=120.0))\n", text)
     @test occursin("Max -10 buy + 8 ret + 15 sell", text)
     # The model is read as the user wrote it.
-    form = canonicalize(backend(model), LinearDecisionRules._model_info(backend(model)))
+    form = canonicalize(backend(model), LinearDecisionRules.model_info(backend(model)))
     @test form.decision_names == ["buy", "sell", "ret"]
     @test form.decision_stages == [1, 2, 2]
     @test form.uncertainty_names == ["d"]
@@ -165,7 +166,7 @@ function test_unsupported_variable_sets_are_left_to_canonicalize()
     model = newsvendor()
     @variable(model, w in MOI.Semicontinuous(1.0, 2.0))
     msg = try
-        canonicalize(backend(model), LinearDecisionRules._model_info(backend(model)))
+        canonicalize(backend(model), LinearDecisionRules.model_info(backend(model)))
     catch err
         sprint(showerror, err)
     end
@@ -208,22 +209,36 @@ function test_settings_reach_the_inner_models()
     set_time_limit_sec(model, 12.5)
     set_attribute(model, "presolve", "off")
     optimize!(model)
-    for result in unsafe_backend(model).results
-        @test get_attribute(result.model, MOI.Silent())
-        @test 0 < time_limit_sec(result.model) <= 12.5
-        @test get_attribute(result.model, "presolve") == "off"
+    for f in (PrimalLDR(), DualLDR())
+        inner = inner_model(model, f)
+        @test get_attribute(inner, MOI.Silent())
+        @test 0 < time_limit_sec(inner) <= 12.5
+        @test get_attribute(inner, "presolve") == "off"
     end
     # Without settings, the inner models keep their defaults.
     quiet = optimizer_with_attributes(HiGHS.Optimizer, MOI.Silent() => true)
     other = newsvendor(LDRModel(quiet); silent = false)
     optimize!(other)
-    for result in unsafe_backend(other).results
-        @test time_limit_sec(result.model) === nothing
+    for f in (PrimalLDR(), DualLDR())
+        @test time_limit_sec(inner_model(other, f)) === nothing
     end
     # The factory may carry its own attributes.
     model = newsvendor(LDRModel(optimizer_with_attributes(HiGHS.Optimizer, "presolve" => "off")))
     optimize!(model)
-    @test get_attribute(unsafe_backend(model).results[1].model, "presolve") == "off"
+    @test get_attribute(inner_model(model, PrimalLDR()), "presolve") == "off"
+    return
+end
+
+# The canonical layer is internal; `Optimizer` is public, though not exported (`public` needs
+# Julia 1.11).
+function test_public_names()
+    @test !Base.isexported(LinearDecisionRules, :CanonicalForm)
+    @test !Base.isexported(LinearDecisionRules, :canonicalize)
+    @test !Base.isexported(LinearDecisionRules, :Optimizer)
+    if VERSION >= v"1.11"
+        @test Base.ispublic(LinearDecisionRules, :Optimizer)
+        @test !Base.ispublic(LinearDecisionRules, :CanonicalForm)
+    end
     return
 end
 
@@ -331,7 +346,7 @@ function test_copy_model_keeps_the_metadata()
     @test stage(map[model[:sell]]) === nothing
     @test get_attribute(map[model[:d]], BreakPoints()) == [90.0, 100.0]
     @test get_attribute(map[cap], LinearDecisionRules.XiRole()) == ValidInequality()
-    info = LinearDecisionRules._model_info(backend(copied))
+    info = LinearDecisionRules.model_info(backend(copied))
     @test length(info.uncertainties) == 1
     @test info.decision_stages == Dict(index(map[model[:buy]]) => 1)
     @test length(info.valid_rows) == 1

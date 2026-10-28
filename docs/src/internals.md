@@ -1,34 +1,67 @@
 # Internals
 
-The canonical form, the information structure, the support blocks and the moments, which the formulations read. These types are documented for reference; their contract may change before the `Experimental` submodule makes them stable.
-
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/canonical/info.jl"]
+```@meta
+CurrentModule = LinearDecisionRules
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/moi/model_info.jl"]
+This page looks under the hood: what the optimizer reads from a model, and what the formulations work on (the canonical form, the information structure, the support blocks and the moments). These names are not exported, so write them qualified, as in `LinearDecisionRules.canonicalize`. They are documented for reference and for debugging; their design may still change, and they will become stable with a planned `Experimental` submodule.
+
+## Reading a model
+
+The metadata of a model are constraints and attributes of MOI, which the macros of the [Modelling](modelling.md) page add.
+
+```@docs
+model_info
+ModelInfo
+UncertaintyDeclaration
+canonicalize
+UnivariateUncertainty
+MultivariateUncertainty
+AbstractXiRole
+XiRole
+ConstraintStage
+_is_metadata_constraint
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/canonical/form.jl"]
+## The canonical form
+
+```@docs
+CanonicalForm
+ConicRow
+UncertaintyBlock
+ParameterTerms
+lift(::CanonicalForm, ::AbstractDict{MOI.VariableIndex,<:AbstractLifting})
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/canonical/information.jl"]
+## The information structure
+
+```@docs
+InformationStructure
+observes
+visible_columns
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/canonical/support.jl"]
+## The support
+
+```@docs
+SupportBlock
+support_blocks
 ```
 
-```@autodocs
-Modules = [LinearDecisionRules]
-Pages = ["src/probability/moments.jl"]
+## The moments
+
+```@docs
+CovarianceBlock
+Moments
+moments
+second_moment
 ```
 
+## Solving one formulation
+
+```@docs
+FormulationCapabilities
+capabilities
+FormulationResult
+solve_formulation
+```

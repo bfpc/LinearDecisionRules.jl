@@ -203,6 +203,10 @@ function MOI.get(o::Optimizer, attr::FormulationAttribute{Certified})
     return _require_result(o, attr).certified
 end
 
+function MOI.get(o::Optimizer, attr::FormulationAttribute{InnerModel})
+    return _require_result(o, attr).model
+end
+
 # Formulations differ in what they certify, so the attribute is read for one of them.
 function MOI.get(::Optimizer, attr::Certified)
     msg = "Read it for one formulation: `FormulationAttribute(DualLDR(), Certified())`."
@@ -225,6 +229,6 @@ end
 
 MOI.get(o::Optimizer, ::DecisionVariables) = copy(o.form.decisions)
 
-MOI.get(o::Optimizer, ::UncertaintyLifting) = o.form.lifting
+MOI.get(o::Optimizer, ::UncertaintyLifting) = _lifting_map(o.form)
 
 MOI.get(o::Optimizer, ::UncertaintyMoments) = o.moments

@@ -354,7 +354,7 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     MOI.empty!(dest)
     start = time_ns()
     factory = _inner_factory(dest)
-    info = _model_info(src)
+    info = model_info(src)
     _check_bounded_support(src, info)
     form = canonicalize(src, info; conic_support = _conic_support(factory, info))
     # Without `RejectionSamplingTimeLimit()`, the sampling gets half of what remains of
