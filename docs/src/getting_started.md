@@ -10,8 +10,9 @@ The user writes a plain JuMP model with [`LDRModel`](@ref). Decisions are tagged
 
 ## The newsvendor
 
-The newsvendor buys `buy` newspapers at 10 before the demand `d`, uniform on `[80, 120]`, is
-known. Afterwards she sells `sell ≤ d` at 15 and returns the rest at 8.
+The newsvendor buys `buy` newspapers at a price of 10,
+before the demand `d`, uniform on `[80, 120]`, is known.
+Afterwards she sells `sell ≤ d` for 15 and returns the rest at a salvage value of 8.
 
 ```@example newsvendor
 using JuMP, HiGHS, Distributions, LinearDecisionRules
@@ -31,8 +32,9 @@ nothing # hide
 
 ## Results
 
-The primal linear decision rule is a feasible policy for every demand in the support, so its value
-is the objective value of the model. The dual rule gives a bound on the optimal value.
+The primal linear decision rule is a feasible policy for every demand in the support,
+so its value is the objective value of the model.
+The dual rule gives a bound on the optimal value of any nonanticipative decision.
 
 ```@example newsvendor
 objective_value(model)
