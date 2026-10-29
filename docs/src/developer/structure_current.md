@@ -783,10 +783,10 @@ Uses:
 
 `evaluate` and `simulate`, and the `SimulationData` the optimizer gives them.
 
-[`src/jump/simulate.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/simulate.jl): 701 lines.
+[`src/jump/simulate.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/simulate.jl): 703 lines.
 
 Defines:
-`_OriginalLaw` (L13) (2 methods), `_outside_law_rows` (L26), `_RowGroup` (L34), `_Simulator` (L38), `_original_laws` (L58), `_stack_rows` (L73), `MOI.get` (L108), `_simulator` (L139), `_Given` (L153), `_add_scenario!` (L157) (2 methods), `_add_pair!` (L166) (3 methods), `_outcome` (L188), `_check_policy` (L214), `_Batch` (L224), `_assess` (L232), `_group_name` (L253), `_support_reasons` (L267), **`Evaluation` (L345)**†, `_lookup` (L356), `JuMP.value` (L370)† (2 methods), `Base.getindex` (L374), `Base.broadcastable` (L377), `JuMP.objective_value` (L384)†, `Base.show` (L386) (2 methods), `_outside_support` (L397), **`evaluate` (L445)**† (3 methods), **`Simulation` (L506)**†, `_draw_chunk` (L537), `_simulate` (L547), **`simulate` (L651)**† (2 methods).
+`_OriginalLaw` (L13) (2 methods), `_outside_law_rows` (L26), `_RowGroup` (L34), `_Simulator` (L38), `_original_laws` (L58), `_stack_rows` (L73), `MOI.get` (L108), `_simulator` (L139), `_Given` (L153), `_add_scenario!` (L157) (2 methods), `_add_pair!` (L166) (3 methods), `_outcome` (L188), `_check_outside_support` (L215), `_Batch` (L225), `_assess` (L233), `_group_name` (L254), `_support_reasons` (L268), **`Evaluation` (L346)**†, `_lookup` (L357), `JuMP.value` (L371)† (2 methods), `Base.getindex` (L375), `Base.broadcastable` (L378), `JuMP.objective_value` (L385)†, `Base.show` (L387) (2 methods), `_handle_outside_support` (L398), **`evaluate` (L446)**† (3 methods), **`Simulation` (L507)**†, `_draw_chunk` (L538), `_simulate` (L548), **`simulate` (L653)**† (2 methods).
 
 Uses:
 

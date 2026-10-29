@@ -211,7 +211,8 @@ function _outcome(sim::_Simulator, model::JuMP.GenericModel, scenario)
     return ξ
 end
 
-function _check_policy(outside_support::Symbol)
+# The keyword `outside_support` of `evaluate` and `simulate`.
+function _check_outside_support(outside_support::Symbol)
     if !(outside_support in (:error, :warn, :ignore))
         msg = "`outside_support` is `:error`, `:warn` or `:ignore`; got `:$outside_support`."
         throw(ArgumentError(msg))
@@ -394,11 +395,11 @@ function Base.show(io::IO, r::Evaluation)
 end
 
 # What to do with an outcome outside the support: `:error`, `:warn` or `:ignore`.
-function _outside_support(policy::Symbol, reason::String, where_::String)
+function _handle_outside_support(action::Symbol, reason::String, where_::String)
     message = "The scenario$where_ is outside the support: $reason."
-    if policy == :error
+    if action == :error
         error(message * " Use `outside_support = :warn` or `:ignore` to evaluate it anyway.")
-    elseif policy == :warn
+    elseif action == :warn
         @warn message
     end
     return
@@ -449,12 +450,12 @@ function evaluate(
     tolerance::Real = 1e-6,
     outside_support::Symbol = :error,
 )
-    _check_policy(outside_support)
+    _check_outside_support(outside_support)
     sim = _simulator(model, formulation)
     ξ = reshape(_outcome(sim, model, scenario), :, 1)
     batch = _assess(sim, ξ, Float64(tolerance))
     reason = only(_support_reasons(model, sim, ξ, batch, Float64(tolerance)))
-    reason === nothing || _outside_support(outside_support, reason, "")
+    reason === nothing || _handle_outside_support(outside_support, reason, "")
     decisions =
         Dict(JuMP.VariableRef(model, v) => batch.decisions[i, 1] for (v, i) in sim.decision_index)
     given = Dict(JuMP.VariableRef(model, v) => ξ[j] for (v, j) in sim.column)
@@ -577,7 +578,8 @@ function _simulate(
             outside += 1
             if outside == 1
                 first_reason = reason
-                outside_support == :error && _outside_support(:error, reason, " $(start + k - 1)")
+                outside_support == :error &&
+                    _handle_outside_support(:error, reason, " $(start + k - 1)")
             end
         end
     end
@@ -676,7 +678,7 @@ function simulate(
     tolerance::Real = 1e-6,
     outside_support::Symbol = :error,
 )
-    _check_policy(outside_support)
+    _check_outside_support(outside_support)
     if isempty(scenarios)
         throw(ArgumentError("There are no scenarios to simulate."))
     end
