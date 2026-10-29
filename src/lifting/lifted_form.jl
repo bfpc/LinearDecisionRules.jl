@@ -204,3 +204,51 @@ function _lifting_map(form::CanonicalForm)
         SparseArrays.spdiagm(0 => ones(1 + m)),
     )
 end
+
+# The `AxisPiecewise` lifting of each uncertainty with breakpoints: a vector of breakpoints, or a
+# number `n` of equally spaced breakpoints inside the support. No breakpoint means no lifting.
+function _breakpoint_liftings(src, form::CanonicalForm, breakpoints)
+    liftings = Dict{MOI.VariableIndex,AbstractLifting}()
+    columns = Dict(v => 1 + j for (j, v) in enumerate(form.uncertainties))
+    for (v, points) in breakpoints
+        if !haskey(columns, v)
+            error(
+                "The variable $(_variable_name(src, v)) has breakpoints, but it is not an " *
+                "uncertainty.",
+            )
+        elseif points isa Integer
+            if points < 0
+                error(
+                    "The uncertainty $(_variable_name(src, v)) has $points breakpoints; the " *
+                    "number of breakpoints must be nonnegative.",
+                )
+            end
+            points == 0 && continue
+            law = only(l for l in form.laws if columns[v] in l.columns)
+            lo, hi = _support_box(law.distribution)
+            k = findfirst(==(columns[v]), law.columns)
+            if !(isfinite(lo[k]) && isfinite(hi[k]))
+                error(
+                    "The uncertainty $(_variable_name(src, v)) has $points breakpoints, but its " *
+                    "support is unbounded.",
+                )
+            end
+            points = collect(range(lo[k], hi[k]; length = points + 2)[2:end-1])
+        end
+        isempty(points) && continue
+        liftings[v] = _named_lifting_error(_variable_name(src, v)) do
+            return AxisPiecewise(points)
+        end
+    end
+    return liftings
+end
+
+# Name the uncertainty in the `ArgumentError` of a lifting.
+function _named_lifting_error(f::Function, name::String)
+    try
+        return f()
+    catch err
+        err isa ArgumentError || rethrow()
+        error("The lifting of the uncertainty $name is invalid: $(err.msg)")
+    end
+end

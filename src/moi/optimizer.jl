@@ -337,6 +337,9 @@ function _conic_support(factory, info::ModelInfo)
     return MOI.supports_constraint(inner, MOI.VectorAffineFunction{Float64}, MOI.SecondOrderCone)
 end
 
+# The value of each parameter of `src`, which is its rule (see `_rule_coefficients`).
+_parameter_values(src::MOI.ModelLike) = Dict(zip(_parameter_list(src)...))
+
 """
     MOI.optimize!(dest::Optimizer, src::MOI.ModelLike) -> (MOI.Utilities.IndexMap, Bool)
 

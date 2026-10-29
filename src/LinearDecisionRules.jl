@@ -24,7 +24,11 @@ import SparseArrays
 
 include("lifting/lifting.jl")
 include("canonical/info.jl")
-include("canonical/form.jl")
+include("canonical/types.jl")
+include("canonical/names.jl")
+include("canonical/read.jl")
+include("canonical/checks.jl")
+include("canonical/canonicalize.jl")
 include("canonical/information.jl")
 include("canonical/support.jl")
 include("probability/distributions/conditioned_distribution.jl")

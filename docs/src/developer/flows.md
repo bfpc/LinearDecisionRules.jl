@@ -69,7 +69,7 @@ sequenceDiagram
     O-->>J: (identity index map, false)
 ```
 
-### `canonicalize(src, info; conic_support)` (`canonical/form.jl`)
+### `canonicalize(src, info; conic_support)` (`canonical/canonicalize.jl`)
 
 1. `_parameter_list(src)`: the parameters and their values.
 2. `_check_declarations`: the declarations of `info` against the model (dimensions, duplicates,
