@@ -62,6 +62,39 @@ end
 
 _cone_violation(::MOI.Nonnegatives, v::AbstractVector) = max(0.0, -minimum(v; init = 0.0))
 
+# The one rule for a point in a set `W x - h ∈ K`, such as the support Ξ: whether `v = W x - h` is
+# outside `cone` beyond `tolerance` relative to the size of `h`, that is, `tolerance (1 + |h_r|)`
+# for each row of `MOI.Nonnegatives` and `tolerance (1 + ‖h‖₂)` for a second-order cone.
+# `evaluate` and `simulate` use the tolerance of the user, and the conditioning by constraints
+# tagged `Truncate()` uses `_CONDITIONING_TOLERANCE`.
+function _outside_cone(::MOI.Nonnegatives, v::AbstractVector, h::AbstractVector, tolerance::Real)
+    return any(r -> v[r] < -tolerance * (1 + abs(h[r])), eachindex(v, h))
+end
+
+function _outside_cone(
+    cone::MOI.SecondOrderCone,
+    v::AbstractVector,
+    h::AbstractVector,
+    tolerance::Real,
+)
+    return _cone_violation(cone, v) > tolerance * (1 + LinearAlgebra.norm(h))
+end
+
+# The same for the product of `cones`, with `v` and `h` stacked in their order.
+function _outside_cone(cones::AbstractVector, v::AbstractVector, h::AbstractVector, tolerance::Real)
+    offset = 0
+    for cone in cones
+        r = offset .+ (1:MOI.dimension(cone))
+        offset += MOI.dimension(cone)
+        _outside_cone(cone, view(v, r), view(h, r), tolerance) && return true
+    end
+    return false
+end
+
+# Small enough to be rounding only, so that the atoms of a discrete law on the boundary of the set
+# are kept.
+const _CONDITIONING_TOLERANCE = 1e-9
+
 """
     UncertaintyBlock(
         distribution::Distributions.Distribution,

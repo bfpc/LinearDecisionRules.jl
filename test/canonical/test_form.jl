@@ -569,6 +569,21 @@ function test_error_declarations()
     return
 end
 
+# The tolerance of a point in a set is relative to the constant of each row, or of each cone.
+function test_outside_cone()
+    outside = LinearDecisionRules._outside_cone
+    # Two rows `v ≥ 0` with `h = (0, 100)`: the second one may be violated by 101 × 1e-3.
+    @test !outside(MOI.Nonnegatives(2), [0.0, -0.1], [0.0, 100.0], 1e-3)
+    @test outside(MOI.Nonnegatives(2), [-0.01, 0.0], [0.0, 100.0], 1e-3)
+    # A cone: `‖(3, 4)‖ - 4.9 = 0.1` against `1e-2 (1 + ‖h‖)`.
+    cone = MOI.SecondOrderCone(3)
+    @test !outside(cone, [4.9, 3.0, 4.0], [0.0, 0.0, 9.0], 1e-2)
+    @test outside(cone, [4.9, 3.0, 4.0], [0.0, 0.0, 1.0], 1e-2)
+    # A product of cones, in their order.
+    @test outside([MOI.Nonnegatives(1), cone], [0.0, 4.9, 3.0, 4.0], [0.0, 0.0, 0.0, 1.0], 1e-2)
+    return
+end
+
 end # module TestForm
 
 TestForm.runtests()

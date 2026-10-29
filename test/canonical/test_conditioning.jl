@@ -136,6 +136,20 @@ function test_exact_truncation_discrete()
     return
 end
 
+# Truncation and rejection keep the same atoms near the boundary, whatever the scale of the row:
+# `1000 d ≥ 2000` keeps `2 - 2e-9`, within `1e-9 (1 + 2000)` of the row, and drops `2 - 3e-9`.
+function test_discrete_truncation_matches_rejection()
+    atoms = [2 - 3e-9, 2 - 2e-9, 3.0]
+    law = Distributions.DiscreteNonParametric(atoms, [0.25, 0.25, 0.5])
+    model, decls = model_with("d" => law)
+    row = @constraint(model, 1000 * model[:d] >= 2000)
+    truncated = only(form_of(model, decls; truncate = [row]).laws).distribution
+    @test Distributions.support(truncated) == atoms[2:3]
+    rejection = ConditionedDistribution([law], [1000.0;;], [2000.0])
+    @test LDR._in_set(rejection, permutedims(atoms)) == [false, true, true]
+    return
+end
+
 # A discrete law without a finite support is truncated by rejection sampling.
 function test_infinite_discrete_by_rejection()
     model, decls = model_with("d" => Distributions.Poisson(3))

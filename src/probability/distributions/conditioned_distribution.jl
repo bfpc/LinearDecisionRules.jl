@@ -142,32 +142,13 @@ function _draw_candidates!(rng::Random.AbstractRNG, d::ConditionedDistribution, 
     return C
 end
 
-# Whether each column of `C` is in the set `W η - h ∈ K`, with a relative tolerance, so that the
-# atoms of discrete laws on the boundary are kept despite rounding.
+# Whether each column of `C` is in the set `W η - h ∈ K`, up to `_CONDITIONING_TOLERANCE` (see
+# `_outside_cone`).
 function _in_set(d::ConditionedDistribution, C::AbstractMatrix)
-    WC = d.W * C
-    accepted = trues(size(C, 2))
-    offset = 0
-    for cone in d.cones
-        rows = offset .+ (1:MOI.dimension(cone))
-        offset += MOI.dimension(cone)
-        if cone isa MOI.Nonnegatives
-            for s in axes(C, 2), r in rows
-                if WC[r, s] < d.h[r] - 1e-9 * (1 + abs(d.h[r]))
-                    accepted[s] = false
-                end
-            end
-        else
-            tolerance = 1e-9 * (1 + LinearAlgebra.norm(view(d.h, rows)))
-            for s in axes(C, 2)
-                v = view(WC, rows, s) .- view(d.h, rows)
-                if _cone_violation(cone, v) > tolerance
-                    accepted[s] = false
-                end
-            end
-        end
-    end
-    return accepted
+    V = d.W * C .- d.h
+    return [
+        !_outside_cone(d.cones, view(V, :, s), d.h, _CONDITIONING_TOLERANCE) for s in axes(C, 2)
+    ]
 end
 
 # One draw costs about a hundred nanoseconds, so this is about ten seconds: far beyond what a law

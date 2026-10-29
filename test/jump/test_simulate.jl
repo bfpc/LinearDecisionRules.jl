@@ -145,6 +145,17 @@ function test_evaluate_violations()
     @test isempty(r.violations) && r.max_violation ≈ 10
 end
 
+# Each side of the box is a row, `η ≥ lo` or `-η ≥ -hi`, with its own tolerance.
+function test_support_tolerance_per_side()
+    model = newsvendor()
+    d = model[:demand]
+    optimize!(model)
+    @test evaluate(model, d => 80 - 5e-5).in_support  # within 1e-6 (1 + 80)
+    @test !evaluate(model, d => 80 - 1e-4; outside_support = :ignore).in_support
+    @test evaluate(model, d => 120 + 1e-4).in_support  # within 1e-6 (1 + 120)
+    return
+end
+
 function test_evaluate_errors()
     model = newsvendor()
     d, buy = model[:demand], model[:buy]

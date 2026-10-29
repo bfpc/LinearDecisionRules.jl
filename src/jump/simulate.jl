@@ -26,15 +26,7 @@ end
 function _outside_law_rows(law::_OriginalLaw, x::AbstractVector, tolerance::Float64)
     rows = law.rows
     isempty(rows.h) && return false
-    v = rows.W * x .- rows.h
-    offset = 0
-    for cone in rows.cones
-        r = offset .+ (1:MOI.dimension(cone))
-        offset += MOI.dimension(cone)
-        scale = 1 + maximum(abs, view(rows.h, r); init = 0.0)
-        _cone_violation(cone, view(v, r)) > tolerance * scale && return true
-    end
-    return false
+    return _outside_cone(rows.cones, rows.W * x .- rows.h, rows.h, tolerance)
 end
 
 # A group of rows that violations are reported by: a constraint, or the lower or upper bound of
@@ -287,8 +279,9 @@ function _support_reasons(
     for s in axes(ξ, 2)
         for j in 2:size(ξ, 1)
             lo, hi = sim.lower[j], sim.upper[j]
-            slack_lo, slack_hi = ξ[j, s] - lo, hi - ξ[j, s]
-            if min(slack_lo, slack_hi) < -tolerance * (1 + abs(lo) + abs(hi))
+            # The rows `η ≥ lo` and `-η ≥ -hi`, by the rule of `_outside_cone`.
+            if ξ[j, s] - lo < -tolerance * (1 + abs(lo)) ||
+               hi - ξ[j, s] < -tolerance * (1 + abs(hi))
                 name = sim.uncertainty_names[j-1]
                 reasons[s] = "$name = $(ξ[j, s]) is outside its support [$lo, $hi]"
                 break
@@ -305,6 +298,7 @@ function _support_reasons(
         end
         reasons[s] === nothing || continue
         for (k, r) in enumerate(valid)
+            # One row, by the rule of `_outside_cone`.
             if slack[k, s] < -tolerance * (1 + abs(form.h_valid[r]))
                 name = _constraint_name(JuMP.backend(model), form.valid_constraints[r])
                 what = form.conditioning[r] ? "constraint tagged `Truncate()`" : "valid inequality"
@@ -315,8 +309,8 @@ function _support_reasons(
         reasons[s] === nothing || continue
         for row in form.conic_rows
             v = row.W * view(batch.ξ̃, 2:size(batch.ξ̃, 1), s) .- row.h
-            violation = _cone_violation(row.cone, v)
-            if violation > tolerance * (1 + LinearAlgebra.norm(row.h))
+            if _outside_cone(row.cone, v, row.h, tolerance)
+                violation = _cone_violation(row.cone, v)
                 name = _constraint_name(JuMP.backend(model), row.constraint)
                 what = row.conditioning ? "constraint tagged `Truncate()`" : "valid inequality"
                 reasons[s] = "the $what $name is violated by $violation"
@@ -430,8 +424,9 @@ uncertainties maps to an array of values. Every uncertainty needs a value, in th
 coordinates (not lifted by [`BreakPoints`](@ref)), or `evaluate` is an error that names the missing
 ones. The scenario must be in the support of the uncertainties: the box of each law and its
 [`support_constraints`](@ref), and the constraints tagged `ValidInequality()` or `Truncate()`,
-linear or second-order cone. `outside_support` is `:error`, or `:warn` or `:ignore` to evaluate it
-anyway.
+linear or second-order cone, each up to `tolerance` relative to the size of its constant terms
+(`tolerance (1 + |b|)` for a row `a·η ≥ b`). `outside_support` is `:error`, or `:warn` or `:ignore`
+to evaluate it anyway.
 
 The rule of [`PrimalLDR`](@ref) violates no constraint on the support, up to the tolerance of the
 inner solver; that of [`SampledLDR`](@ref) may, outside the scenarios that it was solved on.

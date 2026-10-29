@@ -35,9 +35,9 @@ function _condition(src::MOI.ModelLike, form::CanonicalForm)
         d isa Distributions.UnivariateDistribution || continue
         j = only(law.columns) - 1
         (lo,), (hi,) = _support_box(d)
-        for r in mine
-            # `a η ≥ h`
-            a, h = Wt[j, r], form.h_valid[r]
+        # The rows `a η ≥ h`, as pairs `(a, h)`.
+        pairs = [(Wt[j, r], form.h_valid[r]) for r in mine]
+        for (a, h) in pairs
             if a > 0
                 lo = max(lo, h / a)
             else
@@ -45,7 +45,7 @@ function _condition(src::MOI.ModelLike, form::CanonicalForm)
             end
         end
         names = _row_names(src, form, mine)
-        truncated = _truncated_law(d, lo, hi, form.uncertainty_names[j], names)
+        truncated = _truncated_law(d, lo, hi, pairs, form.uncertainty_names[j], names)
         truncated === nothing && continue
         laws[l] = UncertaintyBlock(truncated, law.columns, law.stages)
         dropped[mine] .= true
@@ -207,11 +207,12 @@ function _discrete_conditioned_law(d::ConditionedDistribution, names::String)
     end
     return MvDiscreteNonParametric(atoms, probabilities ./ sum(probabilities))
 end
-# The law `d` conditioned on `lo ≤ η ≤ hi`, exactly: `Distributions.truncated` for a continuous law,
-# or a `DiscreteNonParametric` law on the atoms in `[lo, hi]` for a discrete law with a finite
+# The law `d` conditioned on the rows `a η ≥ h` of `pairs`, whose intersection with the support of
+# `d` is `[lo, hi]`, exactly: `Distributions.truncated` for a continuous law, or a
+# `DiscreteNonParametric` law on the atoms that satisfy the rows for a discrete law with a finite
 # support. It is `nothing` for other laws, whose truncation is then estimated by rejection
 # sampling. A truncation of probability zero is an error that names the constraints.
-function _truncated_law(d::Distributions.UnivariateDistribution, lo, hi, name, constraints)
+function _truncated_law(d::Distributions.UnivariateDistribution, lo, hi, pairs, name, constraints)
     function empty_error()
         return error(
             "The constraints $(join(constraints, ", ")) tagged `Truncate()` condition the law of " *
@@ -227,8 +228,11 @@ function _truncated_law(d::Distributions.UnivariateDistribution, lo, hi, name, c
         atoms = _finite_atoms(d)
         atoms === nothing && return nothing
         x, p = vec(atoms[1]), atoms[2]
-        # The tolerance of the rejection, so that both treat the atoms on the boundary alike.
-        inside = findall(a -> lo - 1e-9 * (1 + abs(lo)) <= a <= hi + 1e-9 * (1 + abs(hi)), x)
+        # The rule of the rejection, on the rows themselves, so that both treat the atoms on the
+        # boundary alike.
+        a, h = first.(pairs), last.(pairs)
+        cone = MOI.Nonnegatives(length(h))
+        inside = findall(η -> !_outside_cone(cone, a .* η .- h, h, _CONDITIONING_TOLERANCE), x)
         isempty(inside) && empty_error()
         return Distributions.DiscreteNonParametric(x[inside], p[inside] ./ sum(p[inside]))
     end
