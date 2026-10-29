@@ -3,6 +3,41 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
+"""
+    SampledLDR(num_scenarios::Integer; seed::Integer = 1234)
+
+The sampled linear decision rule: every inequality holds on `num_scenarios` outcomes drawn from the
+laws, and the objective uses the empirical moments of the outcomes.
+
+Outcomes are drawn with `Random.Xoshiro(seed)`, one draw per declaration per scenario. Equality rows
+hold for every outcome, as in [`PrimalLDR`](@ref). The rule is feasible on the drawn outcomes only.
+
+Results are read with the same number of scenarios and seed: after solving `SampledLDR(100)`,
+`objective_value(model, SampledLDR(10))` is an error.
+"""
+struct SampledLDR <: AbstractFormulation
+    num_scenarios::Int
+    seed::Int
+
+    function SampledLDR(num_scenarios::Integer, seed::Integer)
+        if num_scenarios < 1
+            throw(ArgumentError("The number of scenarios must be positive; got $num_scenarios."))
+        end
+        return new(num_scenarios, seed)
+    end
+end
+
+SampledLDR(num_scenarios::Integer; seed::Integer = 1234) = SampledLDR(num_scenarios, seed)
+
+function Base.show(io::IO, f::SampledLDR)
+    print(io, "SampledLDR(", f.num_scenarios, "; seed = ", f.seed, ")")
+    return
+end
+
+function capabilities(::SampledLDR)
+    return FormulationCapabilities(MOI.UNKNOWN_RESULT_STATUS, false)
+end
+
 # The outcomes ξ_s = (1, η_s) as the columns of a matrix: one draw of each law per scenario, in
 # the order of the declarations.
 function _sample_outcomes(form::CanonicalForm, f::SampledLDR)

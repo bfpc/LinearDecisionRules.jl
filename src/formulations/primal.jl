@@ -3,6 +3,49 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
+"""
+    PrimalLDR(; attributes = [], box_closed_form::Bool = true)
+
+The primal linear decision rule: every constraint holds for every outcome in the support Ξ.
+
+Its rule is a policy, so its objective value is attained (a lower bound of a maximization, an upper
+bound of a minimization). Each inequality is replaced by its robust counterpart over the
+[`SupportBlock`](@ref)s on which it depends (Kuhn, Wiesemann and Georghiou, 2011), with
+multipliers in the dual cone of each block: nonnegative for its linear rows, in a second-order
+cone for each of its second-order cone rows, so the inner problem is then a second-order cone
+program. On a block that is a box (finite bounds of its coordinates, no other row), the
+multipliers are replaced by the closed form `min(lo s_j, hi s_j)` of each coefficient `s_j` of the
+slack, with one auxiliary variable per coefficient; `box_closed_form = false` keeps the
+multipliers, to compare both forms.
+
+`attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
+of the optimizer, for this formulation only: `PrimalLDR(; attributes = ["solver" => "ipx"])`.
+Formulations are compared by type: the attributes are settings, not part of the identity.
+
+With HiGHS, keep the default dual simplex for this formulation: on inventory and hydro problems
+(HiGHS 1.15), it is within 2 times of the best mode almost everywhere.
+The exception is a long hydro problem (T = 8), where the interior point method IPX without
+crossover, `["solver" => "ipx", "run_crossover" => "off"]`, is 3 times faster; the other modes
+cost 3 to 16 times more on the larger inventory problem, or fail on the hydro one.
+"""
+struct PrimalLDR <: AbstractFormulation
+    attributes::Vector{Pair{String,Any}}
+    box_closed_form::Bool
+end
+
+function PrimalLDR(; attributes = Pair{String,Any}[], box_closed_form::Bool = true)
+    return PrimalLDR(_attribute_pairs(attributes), box_closed_form)
+end
+
+# The formulations of a type are the same formulation whatever their attributes.
+Base.:(==)(::PrimalLDR, ::PrimalLDR) = true
+
+Base.hash(::PrimalLDR, h::UInt) = hash(:PrimalLDR, h)
+
+function capabilities(::PrimalLDR)
+    return FormulationCapabilities(MOI.FEASIBLE_POINT, false)
+end
+
 # The support block of each column of ξ (0 for the constant column).
 function _block_of_columns(blocks::Vector{SupportBlock}, k::Int)
     block_of = zeros(Int, k)

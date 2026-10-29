@@ -3,6 +3,75 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
+"""
+    DualLDR(; attributes = [])
+
+The dual linear decision rule: a relaxation whose objective value bounds the optimal value of the
+stochastic program (an upper bound of a maximization, a lower bound of a minimization).
+
+Its rule is not a policy. Each inequality `s(ξ) ≥ 0` is relaxed to `E[s(ξ) W'ξ] ∈ K`, where
+`W'ξ ∈ K` describes Ξ, including the row `ξ₁ ≥ 0` (Kuhn, Wiesemann and Georghiou, 2011): `K` is
+the nonnegative orthant of the linear rows of the [`SupportBlock`](@ref)s times a second-order
+cone for each of their second-order cone rows, so the inner problem is then a second-order cone
+program.
+
+The bound needs the conditional expectations of the uncertainties of later stages, given those of
+earlier stages, to be linear (as for independent stages). Separate declarations are independent,
+so this is a property of each law whose components are in several stages: it holds for a product
+of univariate laws, a normal law and a [`ConfidenceMvNormal`](@ref), and it is checked exactly
+for a [`MvDiscreteNonParametric`](@ref); it is unknown for other laws, such as a
+[`ConditionedDistribution`](@ref). Building the dual warns, and the bound is not certified, when
+such a law does not have it or is not known to.
+
+`attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
+of the optimizer, for this formulation only. Formulations are compared by type: the attributes are
+settings, not part of the identity.
+
+The dual needs its bound only, not a basis. With HiGHS, its interior point method without
+crossover is often much faster on large problems:
+
+```julia
+DualLDR(; attributes = ["solver" => "ipm", "run_crossover" => "off"])
+```
+
+On inventory and hydro problems (HiGHS 1.15), it solved every dual within 7 seconds, where the
+default dual simplex took 145 seconds on the hydro problem with T = 8. This is not the default, since the names are HiGHS's
+and the best mode depends on the problem. The bound is then the dual objective value of the inner
+linear program (see [`FormulationResult`](@ref)). Only a termination status `OPTIMAL` can be
+trusted: HiGHS may stop an interior point without crossover at an `unknown` status (its HiPO
+stagnates a little above the tolerance), with a wrong objective value or none; the termination
+status is then `OTHER_ERROR` and the bound `NaN`. This happens on most of the small problems of the
+test library, so keep the default for small models.
+"""
+struct DualLDR <: AbstractFormulation
+    attributes::Vector{Pair{String,Any}}
+end
+
+DualLDR(; attributes = Pair{String,Any}[]) = DualLDR(_attribute_pairs(attributes))
+
+# The formulations of a type are the same formulation whatever their attributes.
+Base.:(==)(::DualLDR, ::DualLDR) = true
+
+Base.hash(::DualLDR, h::UInt) = hash(:DualLDR, h)
+
+function Base.show(io::IO, f::Union{PrimalLDR,DualLDR})
+    settings = String[]
+    if !isempty(f.attributes)
+        pairs = ("$(repr(k)) => $(repr(v))" for (k, v) in f.attributes)
+        push!(settings, "attributes = [$(join(pairs, ", "))]")
+    end
+    if f isa PrimalLDR && !f.box_closed_form
+        push!(settings, "box_closed_form = false")
+    end
+    print(io, nameof(typeof(f)), "(", join(settings, ", "), ")")
+    return
+end
+
+# The raw attributes that a formulation sets on its inner problem, over those of the optimizer.
+_formulation_attributes(f::Union{PrimalLDR,DualLDR}) = f.attributes
+
+capabilities(::DualLDR) = FormulationCapabilities(MOI.NO_SOLUTION, true)
+
 # The rows `W'ξ = W_b η_b - h_b ξ₁ ∈ K_b` of one support block, seen through the moments:
 # `E[s(ξ) W'ξ] = (S μ) (W'μ) + S Σ W'ᵀ` for the slack `s(ξ) = S ξ`.
 struct _DualCone

@@ -35,9 +35,9 @@ Each box is a typed struct with documented fields. Nothing is kept in `ext` dict
 | Layer | Files | Responsibility | Knows MOI? | Knows JuMP? |
 |---|---|---|---|---|
 | `lifting/` | 2 | Liftings of uncertainties (`AbstractLifting`, `AxisPiecewise`), the `LiftingMap` of a lifted form, and `lift(form, liftings)` | no | no |
-| `canonical/` | 5 | `ModelInfo`, the `CanonicalForm` read from an MOI model, its transforms (conditioning by `Truncate()` rows, the choice of support representation), the information structure, and Ξ as a product of `SupportBlock`s | reads an `MOI.ModelLike` | no |
+| `canonical/` | 9 | `ModelInfo`, the `CanonicalForm` read from an MOI model, its transforms (conditioning by `Truncate()` rows, the choice of support representation), the information structure, and Ξ as a product of `SupportBlock`s | reads an `MOI.ModelLike` | no |
 | `probability/` | 5 | The laws the package adds (`ConditionedDistribution`, `ConfidenceMvNormal`, `MvDiscreteNonParametric`, `LiftedDistribution`), the moments of the laws, and rejection sampling | no | no |
-| `formulations/` | 4 | `PrimalLDR`, `DualLDR` and `SampledLDR`: building and solving an inner JuMP model from a form and its moments, and the `FormulationResult` | statuses | builds the inner models |
+| `formulations/` | 7 | `PrimalLDR`, `DualLDR` and `SampledLDR`: building and solving an inner JuMP model from a form and its moments, and the `FormulationResult` | statuses | builds the inner models |
 | `moi/` | 7 | The `Optimizer`: supported constraints and attributes, reading the tags (`model_info`), whole-model checks, the inner-problem cache, `MOI.optimize!` and the results | yes | no |
 | `jump/` | 7 | The JuMP extension: tags at declaration (`build_variable`, `build_constraint`), `LDRModel`, results per formulation, decision rules, `evaluate` and `simulate` | through JuMP | yes |
 
@@ -45,11 +45,11 @@ The core is `lifting/`, `canonical/`, `probability/` and `formulations/`; the fr
 `jump/`. The core uses no front-end type: `JuMP.` appears in `formulations/` only to build the
 inner models. Within the core, the layers do not form a strict order yet:
 - `canonical/`, `probability/` and `lifting/` use one another.
-- `formulations/` calls two helpers of `moi/checks.jl`.
+- `formulations/` calls three helpers of `moi/checks.jl`.
 - `probability/moments.jl` calls `_seconds_since`, which `formulations/` defines.
 
 The generated page [Structure of `src/`](structure_current.md) has the layer graph, the ten pairs of
-files where a file uses a later one, and the cycle of eleven files that results.
+files where a file uses a later one, and the two cycles of files that result.
 
 ### Include order
 
@@ -62,7 +62,7 @@ The include order (`src/LinearDecisionRules.jl`) is what loads. It interleaves t
 4. `canonical/conditioning.jl`: one of its methods takes a `ConditionedDistribution`.
 5. `probability/moments.jl`, `distributions/mv_discrete_non_parametric.jl`, `lifted_distribution.jl`.
 6. `lifting/lifted_form.jl`.
-7. `formulations/formulation.jl`, `primal.jl`, `dual.jl`, `sampled.jl`.
+7. `formulations/interface.jl`, `rows.jl`, `primal.jl`, `dual.jl`, `sampled.jl`, `result.jl`, `inner.jl`.
 8. `moi/sets.jl`, `attributes.jl`, `model_info.jl`, `checks.jl`, `inner_cache.jl`, `optimizer.jl`, `results.jl`.
 9. `jump/variables.jl`, `constraints.jl`, `checks.jl`, `model.jl`, `results.jl`, `rules.jl`, `simulate.jl`.
 
@@ -84,8 +84,8 @@ are included after them: `_resolve_supports` (`support.jl`), `_condition` (`cond
 | `SupportBlock` | `canonical/support.jl` | `support_blocks(form)`, in each primal or dual build | the robust counterparts (primal), the dual cones (dual) |
 | `LiftingMap`, `LiftingBlock` | `lifting/lifting.jl` | `lift(form, liftings)` | the results and the rules, to map lifted columns back to the uncertainties |
 | `Moments`, `CovarianceBlock` | `probability/moments.jl` | `_moments(form, …)` (or `moments(form)`) | the objective and dual cones of the formulations; `value`, `expected_value` |
-| `_InnerProblem` | `formulations/formulation.jl` | `_build_inner` | `_solve_inner!`, the inner cache |
-| `FormulationResult` | `formulations/formulation.jl` | `_formulation_result`, after each solve | `moi/results.jl`, the JuMP layer, simulation |
+| `_InnerProblem` | `formulations/inner.jl` | `_build_inner` | `_solve_inner!`, the inner cache |
+| `FormulationResult` | `formulations/result.jl` | `_formulation_result`, after each solve | `moi/results.jl`, the JuMP layer, simulation |
 | `_Simulator` | `jump/simulate.jl` | `MOI.get(::Optimizer, ::SimulationData)` | `evaluate`, `simulate` |
 
 ## Where state lives

@@ -112,7 +112,7 @@ The result is `Moments(mean, blocks)`, one `CovarianceBlock` per law.
 
 ### `_build_inner` and `_build!` (`formulations/`)
 
-`_build_inner(form, f, mom, factory)` (`formulation.jl`):
+`_build_inner(form, f, mom, factory)` (`inner.jl`):
 1. creates the inner `JuMP.Model`, then sets silence, the raw attributes and the formulation's own
    `attributes`.
 2. `_with_parameter_decisions(form)` turns each parameter in use into a decision of stage 0. It
@@ -131,7 +131,7 @@ The three methods of `_build!` share one skeleton:
 | each inequality | deterministic: `_add_deterministic!`; otherwise `_add_robust_counterpart!` (box closed form, or multipliers per block) | deterministic, or `_add_dual_cone!` | deterministic, or one row per outcome |
 | objective | `_set_objective!(model, form, mom, X)` | same | with `_empirical_moments(outcomes)` |
 
-### `_solve!`, `_solve_inner!` and the result (`formulations/formulation.jl`)
+### `_solve!`, `_solve_inner!` and the result (`formulations/inner.jl`, `result.jl`)
 
 `_solve!` returns `_time_limit_result` when no time is left, builds the inner problem unless the
 inner cache has it, and gives `_solve_inner!` the time that remains. `_solve_inner!` fixes the parameter variables whose value changed and sets or clears the time

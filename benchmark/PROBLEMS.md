@@ -62,7 +62,7 @@ recourse; supp = constraints on the uncertainty only, `Truncate` / `ValidInequal
 **objective / constraints**; **integers**; **dimensions** (decisions / uncertainties per stage); and the
 **law across stages** (SWI = stagewise independent).
 
-What 0.4 accepts, from the canonical form (`src/canonical/form.jl`, docstring of `canonicalize`): RHS,
+What 0.4 accepts, from the canonical form (`src/canonical/canonicalize.jl`, docstring of `canonicalize`): RHS,
 obj (products of an uncertainty and a decision in the objective become a quadratic objective), supp,
 linear and quadratic objectives, SOC rows on uncertainties only, integers in stage 1 only. **Any product
 of an uncertainty and a decision in a constraint is rejected as random recourse, also when the decision

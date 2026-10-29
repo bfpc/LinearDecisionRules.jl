@@ -29,8 +29,7 @@ A few rules keep the code easy to navigate:
   without touching the core or its tests.
 - **Private names** start with `_`. Exported names are the user API, and a few unexported names
   are documented on the Internals page; see [Public and internal API](@ref developer_api).
-- **One concern per file**, named after it. Two files still hold several concerns,
-  `canonical/form.jl` and `formulations/formulation.jl`, and are good candidates for a split.
+- **One concern per file**, named after it.
 
 ## How the structure page is made
 

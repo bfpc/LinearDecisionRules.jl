@@ -1,0 +1,222 @@
+# Copyright (c) 2024: Joaquim Dias Garcia, Bernardo Freitas Paulo da Costa, and contributors
+#
+# Use of this source code is governed by an MIT-style license that can be found
+# in the LICENSE file or at https://opensource.org/licenses/MIT.
+
+# The parts that the formulations share: the rule variables, the rows and the objective.
+
+# The rule variables: `X[i][j]` is the coefficient of decision `i` on column `j` of ξ, for its
+# observed columns only. A decision that observes only the constant column keeps its bounds as
+# variable bounds; the bounds of the other decisions are rows (see `_inequalities`). A decision
+# that is a parameter of the form (see `_with_parameter_decisions`) is a variable of `model` fixed
+# to its value. It is not a JuMP `Parameter`: MOI's bridge of parameters, used by solvers without
+# them (HiGHS), cannot change their value (MOI 1.54), so `set_parameter_value` drops the solver's
+# copy of the model and every re-solve starts from scratch, while `fix` changes a bound in place
+# and the solver keeps its basis (inventory, T = 64: 0 simplex iterations instead of 4999).
+function _rule_variables!(model::JuMP.Model, form::CanonicalForm, info::InformationStructure)
+    X = Vector{Vector{JuMP.VariableRef}}(undef, length(form.decisions))
+    named = JuMP.set_string_names_on_creation(model)
+    terms = form.parameters
+    parameter_column = Dict(v => k for (k, v) in enumerate(terms.parameters))
+    for i in eachindex(form.decisions)
+        k = get(parameter_column, form.decisions[i], 0)
+        if k > 0
+            name = named ? form.decision_names[i] : ""
+            X[i] = [JuMP.@variable(model, base_name = name)]
+            JuMP.fix(only(X[i]), terms.values[k])
+            continue
+        end
+        X[i] = map(visible_columns(info, i)) do j
+            return JuMP.@variable(model, base_name = named ? "X[$i,$j]" : "")
+        end
+        if info.num_visible[i] == 1
+            isfinite(form.lower[i]) && JuMP.set_lower_bound(X[i][1], form.lower[i])
+            isfinite(form.upper[i]) && JuMP.set_upper_bound(X[i][1], form.upper[i])
+        end
+        if form.binary[i]
+            JuMP.set_binary(X[i][1])
+        elseif form.integer[i]
+            JuMP.set_integer(X[i][1])
+        end
+    end
+    return X
+end
+
+# One row `a ⋅ x(ξ) (≤, =, ≥) b ⋅ ξ`, and the columns of ξ on which it depends.
+struct _LinearRow
+    decisions::Vector{Int}
+    coefficients::Vector{Float64}
+    b::SparseArrays.SparseVector{Float64,Int}
+    # `(a ⋅ X)[j]` can be nonzero for `j in 1:num_visible`.
+    num_visible::Int
+end
+
+# Columns `j` where the row `a ⋅ X - b` is structurally nonzero: an observed column of one of its
+# decisions, or a nonzero of `b`.
+function _structural_columns(row::_LinearRow)
+    return vcat(1:row.num_visible, filter(>(row.num_visible), SparseArrays.nonzeroinds(row.b)))
+end
+
+function _is_deterministic(row::_LinearRow)
+    return row.num_visible == 1 && all(<=(1), SparseArrays.nonzeroinds(row.b))
+end
+
+function _linear_rows(A::_SparseMatrix, B::_SparseMatrix, info::InformationStructure)
+    At, Bt = SparseArrays.sparse(transpose(A)), SparseArrays.sparse(transpose(B))
+    return map(axes(A, 1)) do r
+        range = SparseArrays.nzrange(At, r)
+        decisions = SparseArrays.rowvals(At)[range]
+        num_visible = maximum((info.num_visible[i] for i in decisions); init = 1)
+        return _LinearRow(decisions, SparseArrays.nonzeros(At)[range], Bt[:, r], num_visible)
+    end
+end
+
+# One inequality `s(ξ) = sign * (b ⋅ ξ - a ⋅ x(ξ)) ≥ 0`.
+struct _Inequality
+    sign::Float64
+    row::_LinearRow
+end
+
+# The inequalities of `form`: the rows of `A_u` (sign 1) and `A_l` (sign -1), then the finite
+# bounds of the decisions that observe some uncertainty.
+function _inequalities(form::CanonicalForm, info::InformationStructure)
+    out = _Inequality[]
+    append!(out, _Inequality.(1.0, _linear_rows(form.A_u, form.B_u, info)))
+    append!(out, _Inequality.(-1.0, _linear_rows(form.A_l, form.B_l, info)))
+    k = 1 + length(form.uncertainties)
+    for (sign, bounds) in ((1.0, form.upper), (-1.0, form.lower)), i in eachindex(bounds)
+        if isfinite(bounds[i]) && info.num_visible[i] > 1
+            b = SparseArrays.sparsevec([1], [bounds[i]], k)
+            push!(out, _Inequality(sign, _LinearRow([i], [1.0], b, info.num_visible[i])))
+        end
+    end
+    return out
+end
+
+# Add `coef * (a ⋅ X)[j]` to `expr`.
+function _add_row_column!(expr::JuMP.AffExpr, X, row::_LinearRow, j::Int, coef::Float64)
+    for (i, a) in zip(row.decisions, row.coefficients)
+        if j <= length(X[i])
+            JuMP.add_to_expression!(expr, coef * a, X[i][j])
+        end
+    end
+    return expr
+end
+
+# The equality rows hold for every ξ: match the coefficients of each column on which they depend.
+function _add_equalities!(model::JuMP.Model, form::CanonicalForm, info::InformationStructure, X)
+    for row in _linear_rows(form.A_e, form.B_e, info), j in _structural_columns(row)
+        expr = _add_row_column!(JuMP.AffExpr(0.0), X, row, j, 1.0)
+        JuMP.@constraint(model, expr == row.b[j])
+    end
+    return
+end
+
+# A deterministic inequality `sign * (b₁ - a ⋅ X[:, 1]) ≥ 0`.
+function _add_deterministic!(model::JuMP.Model, X, ineq::_Inequality)
+    expr = _add_row_column!(JuMP.AffExpr(ineq.sign * ineq.row.b[1]), X, ineq.row, 1, -ineq.sign)
+    JuMP.@constraint(model, expr >= 0)
+    return
+end
+
+# `E[η'Qη + d'η + f]`.
+function _objective_constant(form::CanonicalForm, mom::Moments)
+    μ = mom.mean[2:end]
+    value = form.f + LinearAlgebra.dot(form.d, μ) + LinearAlgebra.dot(μ, form.Q, μ)
+    for block in mom.blocks
+        η = block.columns .- 1
+        value += LinearAlgebra.dot(form.Q[η, η], block.covariance)
+    end
+    return value
+end
+
+# The objective `E[x'Px + x'Cξ] + E[η'Qη + d'η + f]` with `x = Xξ` and `E[ξξ'] = μμ' + Σ`, Σ block
+# diagonal:
+#   E[x'Px]  = (Xμ)'P(Xμ) + Σ_b tr(X_b' P X_b Σ_b),
+#   E[x'Cξ] = ⟨C, XM⟩ = (Cμ)'(Xμ) + Σ_b ⟨C_b Σ_b, X_b⟩,
+# where `X_b`, `C_b` are the columns of the covariance block `b`.
+function _set_objective!(model::JuMP.Model, form::CanonicalForm, mom::Moments, X)
+    if form.sense == MOI.FEASIBILITY_SENSE
+        JuMP.set_objective_sense(model, MOI.FEASIBILITY_SENSE)
+        return
+    end
+    μ = mom.mean
+    obj = JuMP.QuadExpr(JuMP.AffExpr(_objective_constant(form, mom)))
+    Cμ = form.C * μ
+    for i in eachindex(X)
+        iszero(Cμ[i]) && continue
+        for j in eachindex(X[i])
+            iszero(μ[j]) || JuMP.add_to_expression!(obj, Cμ[i] * μ[j], X[i][j])
+        end
+    end
+    for block in mom.blocks
+        Cb = form.C[:, block.columns]
+        rows = unique!(sort(SparseArrays.rowvals(Cb)))
+        isempty(rows) && continue
+        CΣ = Matrix(Cb[rows, :]) * block.covariance
+        for (r, i) in enumerate(rows), (c, j) in enumerate(block.columns)
+            if j <= length(X[i]) && !iszero(CΣ[r, c])
+                JuMP.add_to_expression!(obj, CΣ[r, c], X[i][j])
+            end
+        end
+    end
+    _add_quadratic_terms!(obj, model, form, mom, X)
+    JuMP.set_objective(model, form.sense, isempty(obj.terms) ? obj.aff : obj)
+    return
+end
+
+# `E[x'Px] = Σ_ik P_ik (E[x_i] E[x_k] + Σ_b X_ib' Σ_b X_kb)`, term by term: the columns of a block
+# are visited in increasing order, so that those beyond what a decision observes are skipped. The
+# mean `E[x_i] = X_i ⋅ μ` of a decision is a variable `m_i` with one equality, so that the first
+# term has one entry per nonzero of `P` instead of one per pair of columns.
+function _add_quadratic_terms!(
+    obj::JuMP.QuadExpr,
+    model::JuMP.Model,
+    form::CanonicalForm,
+    mom::Moments,
+    X,
+)
+    μ = mom.mean
+    order = [sortperm(block.columns) for block in mom.blocks]
+    first_column = [minimum(block.columns; init = typemax(Int)) for block in mom.blocks]
+    I, K, V = SparseArrays.findnz(form.P)
+    means = _decision_means!(model, X, μ, unique(vcat(I, K)))
+    for (i, k, p) in zip(I, K, V)
+        Xi, Xk = X[i], X[k]
+        JuMP.add_to_expression!(obj, p * means[i], means[k])
+        for (b, block) in enumerate(mom.blocks)
+            first_column[b] <= min(length(Xi), length(Xk)) || continue
+            for a in order[b]
+                ja = block.columns[a]
+                ja <= length(Xi) || break
+                for c in order[b]
+                    jc = block.columns[c]
+                    jc <= length(Xk) || break
+                    s = p * block.covariance[a, c]
+                    iszero(s) || JuMP.add_to_expression!(obj, s, Xi[ja], Xk[jc])
+                end
+            end
+        end
+    end
+    return
+end
+
+# `E[x_i]` for the decisions `rows`: the expression `X_i ⋅ μ`, or a variable equal to it when it
+# has more than one term.
+function _decision_means!(model::JuMP.Model, X, μ::Vector{Float64}, rows)
+    means = Dict{Int,JuMP.AffExpr}()
+    for i in rows
+        expr = JuMP.AffExpr(0.0)
+        for j in eachindex(X[i])
+            iszero(μ[j]) || JuMP.add_to_expression!(expr, μ[j], X[i][j])
+        end
+        if length(expr.terms) > 1
+            m = JuMP.@variable(model)
+            JuMP.@constraint(model, m == expr)
+            means[i] = JuMP.AffExpr(0.0, m => 1.0)
+        else
+            means[i] = expr
+        end
+    end
+    return means
+end
