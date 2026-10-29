@@ -31,10 +31,11 @@ struct Problem
     primal::Float64
     dual::Float64
     atol::Float64 # 0 for the default tolerance of `isapprox`
+    optimum::Float64 # the optimal value of the problem itself, NaN when unknown
 end
 
-function Problem(name, legacy, model, info, primal, dual; atol = 0.0)
-    return Problem(name, legacy, model, info, primal, dual, atol)
+function Problem(name, legacy, model, info, primal, dual; atol = 0.0, optimum = NaN)
+    return Problem(name, legacy, model, info, primal, dual, atol, optimum)
 end
 
 """
@@ -95,7 +96,9 @@ function newsvendor(; integer = false)
         decision_stages = stages(buy => 1),
     )
     name = integer ? "newsvendor_integer" : "newsvendor"
-    return Problem(name, name, model, info, 460, integer ? 486 : 1460 / 3)
+    # The optimum of the continuous newsvendor buys the critical quantile 760/7 of the demand.
+    optimum = integer ? NaN : 3300 / 7
+    return Problem(name, name, model, info, 460, integer ? 486 : 1460 / 3; optimum)
 end
 
 function newsvendor_random_price()
@@ -433,7 +436,7 @@ function with_breakpoints(p::Problem, name, legacy, breakpoints::Pair...; primal
         valid_rows = p.info.valid_rows,
         breakpoints = points,
     )
-    return Problem(name, legacy, p.model, info, primal, dual, p.atol)
+    return Problem(name, legacy, p.model, info, primal, dual; p.atol, p.optimum)
 end
 
 # The nested breakpoints of the previous version's `test_newsvendor_piecewise`, with the values of

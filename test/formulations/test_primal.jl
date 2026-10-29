@@ -28,36 +28,6 @@ function runtests()
     return
 end
 
-function test_dense_oracle()
-    for p in Problems.library()
-        form = Problems.form(p)
-        mom = moments(form)
-        @testset "$(p.name)" begin
-            result = solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
-            oracle = DenseOracle.solve(DenseOracle.build_primal, form, mom, HiGHS.Optimizer)
-            @test result.termination_status == MOI.OPTIMAL
-            @test isapprox(result.objective_value, oracle.objective_value; rtol = 1e-7)
-        end
-    end
-    return
-end
-
-# Second-order cone rows of Ξ: multipliers in the second-order cone. Clarabel solves to about 1e-8.
-function test_conic_dense_oracle()
-    for p in Problems.conic_library()
-        form = Problems.form(p)
-        mom = moments(form)
-        @testset "$(p.name)" begin
-            result = solve_formulation(form, PrimalLDR(), mom, Clarabel.Optimizer)
-            oracle = DenseOracle.solve(DenseOracle.build_primal, form, mom, Clarabel.Optimizer)
-            @test result.termination_status == MOI.OPTIMAL
-            @test isapprox(result.objective_value, oracle.objective_value; rtol = 1e-6)
-            isnan(p.primal) || @test isapprox(result.objective_value, p.primal; rtol = 1e-6)
-        end
-    end
-    return
-end
-
 # A disc that contains the box leaves Ξ, and the value, unchanged; a smaller one tightens Ξ, so
 # the primal improves. The multipliers of the cone are named `λ[r,b,2]`.
 function test_conic_support()

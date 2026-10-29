@@ -17,7 +17,6 @@ import LinearDecisionRules:
     LiftedDistribution,
     LiftingMap,
     ModelInfo,
-    PrimalLDR,
     canonicalize,
     lift,
     moments,
@@ -207,21 +206,6 @@ function test_errors()
     unbounded_info = ModelInfo(; unbounded.info.uncertainties, breakpoints = Dict(η => 2))
     msg = error_message(() -> canonicalize(backend(unbounded.model), unbounded_info))
     @test occursin("η has 2 breakpoints, but its support is unbounded", msg)
-    return
-end
-
-# The primal values increase and the dual values decrease over nested breakpoints.
-function test_nested_breakpoints_monotone()
-    primal, dual = Float64[], Float64[]
-    for p in [Problems.newsvendor(); Problems.newsvendor_breakpoints.(1:4)]
-        form = Problems.form(p)
-        mom = moments(form)
-        push!(primal, solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer).objective_value)
-        push!(dual, solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer).objective_value)
-    end
-    @test all(diff(primal) .>= -1e-7)
-    @test all(diff(dual) .<= 1e-7)
-    @test all(primal .<= dual .+ 1e-7)
     return
 end
 

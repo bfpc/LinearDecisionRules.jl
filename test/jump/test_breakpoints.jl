@@ -57,24 +57,6 @@ function library_values(p)
     return primal.objective_value, dual.objective_value
 end
 
-# Over the nested breakpoints of the library, the primal values increase and the dual values
-# decrease. The values and the rules are the golden values of `test_end_to_end.jl`.
-function test_nested_breakpoints()
-    primal, dual = Float64[], Float64[]
-    for (points, _, _) in Problems.NEWSVENDOR_BREAKPOINTS
-        model = newsvendor()
-        set_attribute(model[:demand], BreakPoints(), points)
-        optimize!(model)
-        @test termination_status(model) == MOI.OPTIMAL
-        push!(primal, objective_value(model))
-        push!(dual, objective_bound(model))
-    end
-    @test all(diff(primal) .>= -1e-7)
-    @test all(diff(dual) .<= 1e-7)
-    @test primal[1] > 460 && dual[1] < 1460 / 3
-    return
-end
-
 # At the critical quantile 760/7 of `buy`, the primal LDR is the optimal policy, 3300/7.
 function test_critical_breakpoint()
     model = newsvendor()

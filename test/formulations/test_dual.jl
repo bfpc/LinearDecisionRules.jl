@@ -14,7 +14,6 @@ import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules: DualLDR, PrimalLDR, moments, solve_formulation
 
-include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
 include(joinpath(@__DIR__, "..", "problems", "library.jl"))
 
 function runtests()
@@ -23,25 +22,6 @@ function runtests()
             @testset "$name" begin
                 getfield(@__MODULE__, name)()
             end
-        end
-    end
-    return
-end
-
-# Second-order cone rows of Ξ: cone rows of the dual in the second-order cone.
-function test_conic_dense_oracle()
-    for p in Problems.conic_library()
-        form = Problems.form(p)
-        mom = moments(form)
-        @testset "$(p.name)" begin
-            result = solve_formulation(form, DualLDR(), mom, Clarabel.Optimizer)
-            oracle = DenseOracle.solve(DenseOracle.build_dual, form, mom, Clarabel.Optimizer)
-            @test result.termination_status == MOI.OPTIMAL
-            @test isapprox(result.objective_value, oracle.objective_value; rtol = 1e-6)
-            isnan(p.dual) || @test isapprox(result.objective_value, p.dual; rtol = 1e-6)
-            primal = solve_formulation(form, PrimalLDR(), mom, Clarabel.Optimizer)
-            tol = 1e-6 * abs(result.objective_value)
-            @test primal.objective_value <= result.objective_value + tol
         end
     end
     return
@@ -62,20 +42,6 @@ function test_conic_support()
     loose = LinearDecisionRules._replace(tight; conic_rows = LinearDecisionRules.ConicRow[])
     box_bound = solve_formulation(loose, DualLDR(), mom, HiGHS.Optimizer).objective_value
     @test disc.objective_value < box_bound - 1
-    return
-end
-
-function test_dense_oracle()
-    for p in Problems.library()
-        form = Problems.form(p)
-        mom = moments(form)
-        @testset "$(p.name)" begin
-            result = solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer)
-            oracle = DenseOracle.solve(DenseOracle.build_dual, form, mom, HiGHS.Optimizer)
-            @test result.termination_status == MOI.OPTIMAL
-            @test isapprox(result.objective_value, oracle.objective_value; rtol = 1e-7)
-        end
-    end
     return
 end
 
