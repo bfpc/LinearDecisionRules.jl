@@ -8,11 +8,13 @@ module TestOptimizer
 using JuMP
 using Test
 
+import Clarabel
 import Distributions
 import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules:
     BreakPoints,
+    ConfidenceMvNormal,
     FirstStage,
     DualLDR,
     Formulations,
@@ -350,6 +352,38 @@ function test_copy_model_keeps_the_metadata()
     @test length(info.uncertainties) == 1
     @test info.decision_stages == Dict(index(map[model[:buy]]) => 1)
     @test length(info.valid_rows) == 1
+    return
+end
+
+# The formulations of the optimizer, and the lookups of their results, ignore the attributes.
+function test_formulation_attributes_reach_the_inner_model()
+    model = newsvendor()
+    dual = DualLDR(; attributes = ["presolve" => "off"])
+    set_attribute(model, Formulations(), [PrimalLDR(), dual])
+    optimize!(model)
+    @test termination_status(model, DualLDR()) == MOI.OPTIMAL
+    @test get_attribute(inner_model(model, dual), "presolve") == "off"
+    @test objective_value(model, dual) == objective_value(model, DualLDR())
+    return
+end
+
+# `optimize!` asks the inner optimizer whether it has second-order cones, to resolve
+# `support = :auto`: HiGHS has none, Clarabel has them.
+function test_auto_support_asks_the_inner_optimizer()
+    Σ = [1.0 0.5; 0.5 2.0]
+    for (factory, chosen) in ((HiGHS.Optimizer, :boxes), (Clarabel.Optimizer, :ellipsoid))
+        model = LDRModel(factory)
+        set_silent(model)
+        @variable(model, buy >= 0, FirstStage)
+        @variable(model, sell[1:2] >= 0)
+        @variable(model, d[1:2] in Uncertainty(ConfidenceMvNormal([100.0, 80.0], Σ, 0.9)))
+        @constraint(model, sum(sell) <= buy)
+        @constraint(model, sell .<= d)
+        @objective(model, Max, -10buy + 15sum(sell))
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        @test only(unsafe_backend(model).form.laws).distribution.support == chosen
+    end
     return
 end
 

@@ -8,20 +8,11 @@ module TestConfidenceMvNormal
 using JuMP
 using Test
 
-import Clarabel
 import Distributions
-import HiGHS
 import LinearAlgebra
 import LinearDecisionRules as LDR
 import LinearDecisionRules:
-    ConfidenceMvNormal,
-    FirstStage,
-    LDRModel,
-    ModelInfo,
-    Uncertainty,
-    UncertaintyDeclaration,
-    canonicalize,
-    support_constraints
+    ConfidenceMvNormal, ModelInfo, UncertaintyDeclaration, canonicalize, support_constraints
 import Random
 
 function runtests()
@@ -191,24 +182,6 @@ function test_auto_support_in_canonicalize()
         form = canonicalize(backend(model), info; conic_support)
         chosen = only(form.laws).distribution.support
         @test chosen == (conic_support && !integer ? :ellipsoid : :boxes)
-    end
-    return
-end
-
-# `optimize!` asks the inner optimizer: HiGHS has no second-order cones, Clarabel has them.
-function test_auto_support_in_optimize()
-    for (factory, chosen) in ((HiGHS.Optimizer, :boxes), (Clarabel.Optimizer, :ellipsoid))
-        model = LDRModel(factory)
-        set_silent(model)
-        @variable(model, buy >= 0, FirstStage)
-        @variable(model, sell[1:2] >= 0)
-        @variable(model, d[1:2] in Uncertainty(ConfidenceMvNormal([100.0, 80.0], Σ, 0.9)))
-        @constraint(model, sum(sell) <= buy)
-        @constraint(model, sell .<= d)
-        @objective(model, Max, -10buy + 15sum(sell))
-        optimize!(model)
-        @test termination_status(model) == MOI.OPTIMAL
-        @test only(unsafe_backend(model).form.laws).distribution.support == chosen
     end
     return
 end

@@ -195,25 +195,6 @@ function test_formulation_attributes()
     return
 end
 
-# The formulations of the optimizer, and the lookups of their results, ignore the attributes.
-function test_formulation_attributes_through_the_optimizer()
-    model = LinearDecisionRules.LDRModel(HiGHS.Optimizer)
-    set_silent(model)
-    @variable(model, buy >= 0, LinearDecisionRules.FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, d in LinearDecisionRules.Uncertainty(Distributions.Uniform(80, 120)))
-    @constraint(model, sell <= buy)
-    @constraint(model, sell <= d)
-    @objective(model, Max, 2sell - buy)
-    dual = DualLDR(; attributes = ["presolve" => "off"])
-    set_attribute(model, LinearDecisionRules.Formulations(), [PrimalLDR(), dual])
-    optimize!(model)
-    @test termination_status(model, DualLDR()) == MOI.OPTIMAL
-    @test get_attribute(LinearDecisionRules.inner_model(model, dual), "presolve") == "off"
-    @test objective_value(model, dual) == objective_value(model, DualLDR())
-    return
-end
-
 # S is masked by history, and the cone rows of a block appear only in the rows that see it.
 function test_size()
     p = Problems.newsvendor_three_stages()

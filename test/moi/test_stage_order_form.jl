@@ -5,10 +5,10 @@
 
 # The columns of ξ are sorted by stage, before and after lifting, when the uncertainties are
 # declared out of stage order: a law over stages 2 to 5, then scalars at stages 4, 3 and 2, then an
-# unmarked one. What is expected is computed from the declarations (see
-# `test/problems/stage_order.jl`).
+# unmarked one. The form is read from a model with tags, as `optimize!` reads it. What is expected is
+# computed from the declarations (see `test/problems/stage_order.jl`).
 
-module TestStageOrder
+module TestStageOrderForm
 
 using JuMP
 using Test
@@ -264,6 +264,6 @@ function test_random_stages()
     return
 end
 
-end # module TestStageOrder
+end # module TestStageOrderForm
 
-TestStageOrder.runtests()
+TestStageOrderForm.runtests()
