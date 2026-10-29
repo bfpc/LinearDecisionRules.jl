@@ -25,6 +25,7 @@ import SparseArrays
 include("utils.jl")
 include("probability/laws.jl")
 include("lifting/lifting.jl")
+include("lifting/axis_piecewise.jl")
 include("canonical/info.jl")
 include("canonical/types.jl")
 include("canonical/names.jl")

@@ -34,7 +34,7 @@ Each box is a typed struct with documented fields. Nothing is kept in `ext` dict
 
 | Layer | Files | Responsibility | Knows MOI? | Knows JuMP? |
 |---|---|---|---|---|
-| `lifting/` | 2 | Liftings of uncertainties (`AbstractLifting`, `AxisPiecewise`), the `LiftingMap` of a lifted form, and `lift(form, liftings)` | no | no |
+| `lifting/` | 3 | Liftings of uncertainties (`AbstractLifting`, `AxisPiecewise`), the `LiftingMap` of a lifted form, and `lift(form, liftings)` | no | no |
 | `canonical/` | 9 | `ModelInfo`, the `CanonicalForm` read from an MOI model, its transforms (conditioning by `Truncate()` rows, the choice of support representation), the information structure, and Ξ as a product of `SupportBlock`s | reads an `MOI.ModelLike` | no |
 | `probability/` | 6 | The interface of a law (`laws.jl`: support, atoms, moments, with fallbacks for any `Distributions` law), the laws the package adds (`ConditionedDistribution`, `ConfidenceMvNormal`, `MvDiscreteNonParametric`, `LiftedDistribution`), the moments of the laws, and rejection sampling | no | no |
 | `formulations/` | 7 | `PrimalLDR`, `DualLDR` and `SampledLDR`: building and solving an inner JuMP model from a form and its moments, and the `FormulationResult` | statuses | builds the inner models |
@@ -56,7 +56,7 @@ of files where a file uses a later one; no files form a cycle.
 The include order (`src/LinearDecisionRules.jl`) is what loads. It interleaves the layers:
 
 1. `utils.jl`, `probability/laws.jl`: the interface of a law uses no other file.
-2. `lifting/lifting.jl`: `CanonicalForm` has a `LiftingMap` field.
+2. `lifting/lifting.jl`, `axis_piecewise.jl`: `CanonicalForm` has a `LiftingMap` field.
 3. `canonical/info.jl`, `types.jl`, `names.jl`, `read.jl`, `checks.jl`, `canonicalize.jl`,
    `information.jl`, `support.jl`.
 4. `probability/distributions/conditioned_distribution.jl`, `confidence_mv_normal.jl`.
