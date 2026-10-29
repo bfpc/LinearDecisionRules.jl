@@ -277,6 +277,60 @@ function test_same_value()
     return
 end
 
+# A parameter multiplied by a decision in the objective, the cost of `buy`: the re-solve gives the
+# results of a fresh model with the new cost.
+function test_parameter_times_decision_in_the_objective()
+    function build(cost)
+        model = ldr_model()
+        @variable(model, c in Parameter(cost))
+        @variable(model, buy >= 0, FirstStage)
+        @variable(model, sell >= 0)
+        @variable(model, ret >= 0)
+        @variable(model, demand in Uncertainty(Uniform(80, 120)))
+        @constraint(model, sell + ret <= buy)
+        @constraint(model, sell <= demand)
+        @objective(model, Max, -c * buy + 8ret + 15sell)
+        return model, c
+    end
+    model, c = build(10.0)
+    optimize!(model)
+    @test objective_value(model) ≈ 460
+    @test value(c) == 10
+    set_parameter_value(c, 12.0)
+    optimize!(model)
+    fresh, _ = build(12.0)
+    optimize!(fresh)
+    @test objective_value(model) < 460 - 1
+    @test objective_value(model) ≈ objective_value(fresh)
+    @test objective_bound(model) ≈ objective_bound(fresh)
+    @test value(c) == 12
+    return
+end
+
+# A product of a parameter and a decision in a row is a quadratic row that `canonicalize` reads
+# as affine.
+function test_parameter_times_decision_in_a_row()
+    function build(capacity)
+        model = TaggedProblems.newsvendor(ldr_model())
+        @variable(model, c in Parameter(capacity))
+        @constraint(model, model[:sell] <= c * model[:buy])
+        return model, c
+    end
+    model, c = build(0.8)
+    @test num_constraints(model, QuadExpr, MOI.LessThan{Float64}) == 1
+    optimize!(model)
+    fresh = TaggedProblems.newsvendor(ldr_model())
+    @constraint(fresh, fresh[:sell] <= 0.8 * fresh[:buy])
+    optimize!(fresh)
+    @test objective_value(model) < 460 - 1
+    @test objective_value(model) ≈ objective_value(fresh)
+    @test objective_bound(model) ≈ objective_bound(fresh)
+    set_parameter_value(c, 2.0)
+    optimize!(model)
+    @test objective_value(model) ≈ 460
+    return
+end
+
 end # module TestParameters
 
 TestParameters.runtests()

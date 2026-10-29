@@ -205,6 +205,7 @@ function test_infeasible_model()
     @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
     @test_throws MOI.GetAttributeNotAllowed objective_value(model, PrimalLDR())
     @test_throws MOI.GetAttributeNotAllowed objective_value(model, DualLDR())
+    @test occursin("INFEASIBLE", sprint(show, solution_summary(model)))
     return
 end
 
@@ -320,13 +321,15 @@ function test_solution_summary()
     model = newsvendor()
     optimize!(model)
     summary = solution_summary(model; verbose = true)
+    @test summary.termination_status == MOI.OPTIMAL
     @test summary.objective_value ≈ 460
     @test summary.objective_bound ≈ 1460 / 3
+    @test summary.relative_gap ≈ (1460 / 3 - 460) / 460
     @test summary.result_count == 1
     @test summary.primal_status == MOI.FEASIBLE_POINT
     @test summary.has_values
     text = sprint(show, summary)
-    @test occursin("buy", text) && occursin("sell", text)
+    @test occursin("buy", text) && occursin("sell", text) && occursin("demand", text)
     return
 end
 
@@ -437,6 +440,18 @@ function test_inner_model()
     err = error_of(() -> inner_model(model, SampledLDR(20)))
     @test err isa MOI.GetAttributeNotAllowed
     @test occursin("add it to `Formulations()`", sprint(showerror, err))
+    return
+end
+
+# The rule of a large sample is close to the primal rule.
+function test_sampled_value_is_close_to_the_primal()
+    model = newsvendor(; formulations = [PrimalLDR(), DualLDR(), SampledLDR(1000)])
+    optimize!(model)
+    @test result_count(model) == 2
+    @test primal_status(model; result = 2) == MOI.UNKNOWN_RESULT_STATUS
+    @test objective_value(model; result = 2) ≈ 460 rtol = 0.05
+    @test objective_value(model, SampledLDR(1000)) == objective_value(model; result = 2)
+    @test objective_bound(model) ≈ 1460 / 3
     return
 end
 

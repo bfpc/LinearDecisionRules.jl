@@ -379,6 +379,73 @@ function test_auto_support_asks_the_inner_optimizer()
     return
 end
 
+# `TimeLimitSec` limits the whole `optimize!`, so each formulation gets what remains.
+function test_time_limit_is_shared()
+    model = newsvendor()
+    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(10)])
+    set_time_limit_sec(model, 60)
+    optimize!(model)
+    @test objective_value(model) ≈ 460
+    results = unsafe_backend(model).results
+    for (k, r) in enumerate(results)
+        # The time of the earlier solves (and of the builds) is taken from the limit.
+        spent = sum(results[l].solve_time for l in 1:k-1; init = 0.0)
+        @test 0 < time_limit_sec(r.model) < 60 - spent
+    end
+    return
+end
+
+# Reading the inventory with T = 64 takes far more than a microsecond, so no formulation is built.
+function test_time_limit_before_the_build()
+    model = TaggedProblems.inventory(64)
+    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(10)])
+    set_time_limit_sec(model, 1e-6)
+    optimize!(model)
+    @test termination_status(model) == MOI.TIME_LIMIT
+    @test result_count(model) == 2
+    @test !has_values(model)
+    for f in (PrimalLDR(), DualLDR(), SampledLDR(10))
+        @test termination_status(model, f) == MOI.TIME_LIMIT
+        @test primal_status(model, f) == MOI.NO_SOLUTION
+        @test occursin("time limit was reached before", raw_status(model, f))
+    end
+    @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
+    return
+end
+
+# With no time left, `solve_formulation` does not build the inner problem, as `optimize!`.
+function test_time_limit_before_the_build_of_one_formulation()
+    src = backend(TaggedProblems.inventory(16))
+    form = LinearDecisionRules.canonicalize(src, LinearDecisionRules.model_info(src))
+    mom = LinearDecisionRules.moments(form)
+    result = LinearDecisionRules.solve_formulation(
+        form,
+        DualLDR(),
+        mom,
+        HiGHS.Optimizer;
+        time_limit = 0.0,
+    )
+    @test result.termination_status == MOI.TIME_LIMIT
+    @test occursin("time limit was reached before", result.raw_status)
+    @test num_variables(result.model) == 0
+    return
+end
+
+# With no time left after the build, the inner solver stops at once.
+function test_time_limit_in_the_inner_solver()
+    src = backend(TaggedProblems.inventory(16))
+    form = LinearDecisionRules.canonicalize(src, LinearDecisionRules.model_info(src))
+    mom = LinearDecisionRules.moments(form)
+    result = LinearDecisionRules._solve!(DualLDR(), form, mom, time_ns(), 0.05) do
+        sleep(0.1)
+        return LinearDecisionRules._build_inner(form, DualLDR(), mom, HiGHS.Optimizer)
+    end
+    @test result.termination_status == MOI.TIME_LIMIT
+    @test time_limit_sec(result.model) == 0
+    @test isnan(result.objective_value)
+    return
+end
+
 end # module TestOptimizer
 
 TestOptimizer.runtests()

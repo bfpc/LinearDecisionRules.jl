@@ -17,17 +17,13 @@ import LinearDecisionRules
 import LinearDecisionRules:
     DualLDR,
     FirstStage,
-    Formulations,
     LDRModel,
-    PrimalLDR,
-    SampledLDR,
     Stage,
     Truncate,
     Uncertainty,
     ValidInequality,
     decision_rule,
     expected_value,
-    solve_formulation,
     stage
 import TOML
 
@@ -270,58 +266,6 @@ function test_set_normalized_rhs()
     return
 end
 
-function test_parameters()
-    function build(cost)
-        model = ldr_model()
-        @variable(model, c in Parameter(cost))
-        @variable(model, buy >= 0, FirstStage)
-        @variable(model, sell >= 0)
-        @variable(model, ret >= 0)
-        @variable(model, demand in Uncertainty(Uniform(80, 120)))
-        @constraint(model, sell + ret <= buy)
-        @constraint(model, sell <= demand)
-        @objective(model, Max, -c * buy + 8ret + 15sell)
-        return model, c
-    end
-    model, c = build(10.0)
-    optimize!(model)
-    @test objective_value(model) ≈ 460
-    @test value(c) == 10
-    set_parameter_value(c, 12.0)
-    optimize!(model)
-    fresh, _ = build(12.0)
-    optimize!(fresh)
-    @test objective_value(model) < 460 - 1
-    @test objective_value(model) ≈ objective_value(fresh)
-    @test objective_bound(model) ≈ objective_bound(fresh)
-    @test value(c) == 12
-    return
-end
-
-# A product of a parameter and a decision in a row is a quadratic row that `canonicalize` reads
-# as affine.
-function test_parameter_times_decision_in_a_row()
-    function build(capacity)
-        model = newsvendor()
-        @variable(model, c in Parameter(capacity))
-        @constraint(model, model[:sell] <= c * model[:buy])
-        return model, c
-    end
-    model, c = build(0.8)
-    @test num_constraints(model, QuadExpr, MOI.LessThan{Float64}) == 1
-    optimize!(model)
-    fresh = newsvendor()
-    @constraint(fresh, fresh[:sell] <= 0.8 * fresh[:buy])
-    optimize!(fresh)
-    @test objective_value(model) < 460 - 1
-    @test objective_value(model) ≈ objective_value(fresh)
-    @test objective_bound(model) ≈ objective_bound(fresh)
-    set_parameter_value(c, 2.0)
-    optimize!(model)
-    @test objective_value(model) ≈ 460
-    return
-end
-
 function test_copy_model()
     model = newsvendor_three_stages()
     copied, map = copy_model(model)
@@ -391,116 +335,6 @@ function test_valid_inequality_on_a_variable()
     @test objective_value(truncated) ≈ objective_value(narrow)
     @test objective_bound(truncated) ≈ objective_bound(narrow)
     @test value(truncated[:demand]) ≈ 95
-    return
-end
-
-function test_sampled_formulation()
-    model = newsvendor()
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(1000)])
-    optimize!(model)
-    @test result_count(model) == 2
-    @test primal_status(model; result = 2) == MOI.UNKNOWN_RESULT_STATUS
-    @test objective_value(model; result = 2) ≈ 460 rtol = 0.05
-    @test objective_value(model, SampledLDR(1000)) == objective_value(model; result = 2)
-    @test objective_bound(model) ≈ 1460 / 3
-    return
-end
-
-function test_infeasible_and_unbounded_models()
-    model = ldr_model()
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, demand in Uncertainty(Uniform(80, 120)))
-    @constraint(model, buy <= demand - 200)
-    @objective(model, Max, buy)
-    optimize!(model)
-    @test termination_status(model) == MOI.INFEASIBLE
-    @test result_count(model) == 1
-    @test_throws MOI.GetAttributeNotAllowed value(buy)
-    @test_throws MOI.GetAttributeNotAllowed objective_value(model)
-    text = sprint(show, solution_summary(model))
-    @test occursin("INFEASIBLE", text)
-    model = ldr_model()
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, demand in Uncertainty(Uniform(80, 120)))
-    @objective(model, Max, buy)
-    optimize!(model)
-    @test termination_status(model) in (MOI.DUAL_INFEASIBLE, MOI.INFEASIBLE_OR_UNBOUNDED)
-    @test result_count(model) == 1
-    @test_throws MOI.GetAttributeNotAllowed value(buy)
-    return
-end
-
-function test_solution_summary()
-    model = newsvendor()
-    optimize!(model)
-    summary = solution_summary(model; verbose = true)
-    @test summary.termination_status == MOI.OPTIMAL
-    @test summary.objective_value ≈ 460
-    @test summary.objective_bound ≈ 1460 / 3
-    @test summary.relative_gap ≈ (1460 / 3 - 460) / 460
-    text = sprint(show, summary)
-    @test occursin("buy", text) && occursin("demand", text)
-    return
-end
-
-# `TimeLimitSec` limits the whole `optimize!`, so each formulation gets what remains.
-function test_time_limit_is_shared()
-    model = newsvendor()
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(10)])
-    set_time_limit_sec(model, 60)
-    optimize!(model)
-    @test objective_value(model) ≈ 460
-    results = unsafe_backend(model).results
-    for (k, r) in enumerate(results)
-        # The time of the earlier solves (and of the builds) is taken from the limit.
-        spent = sum(results[l].solve_time for l in 1:k-1; init = 0.0)
-        @test 0 < time_limit_sec(r.model) < 60 - spent
-    end
-    return
-end
-
-# Reading the inventory with T = 64 takes far more than a microsecond, so no formulation is built.
-function test_time_limit_before_the_build()
-    model = inventory(64)
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(10)])
-    set_time_limit_sec(model, 1e-6)
-    optimize!(model)
-    @test termination_status(model) == MOI.TIME_LIMIT
-    @test result_count(model) == 2
-    @test !has_values(model)
-    for f in (PrimalLDR(), DualLDR(), SampledLDR(10))
-        @test termination_status(model, f) == MOI.TIME_LIMIT
-        @test primal_status(model, f) == MOI.NO_SOLUTION
-        @test occursin("time limit was reached before", raw_status(model, f))
-    end
-    @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
-    return
-end
-
-# With no time left, `solve_formulation` does not build the inner problem, as `optimize!`.
-function test_time_limit_before_the_build_of_one_formulation()
-    src = backend(inventory(16))
-    form = LinearDecisionRules.canonicalize(src, LinearDecisionRules.model_info(src))
-    mom = LinearDecisionRules.moments(form)
-    result = solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer; time_limit = 0.0)
-    @test result.termination_status == MOI.TIME_LIMIT
-    @test occursin("time limit was reached before", result.raw_status)
-    @test num_variables(result.model) == 0
-    return
-end
-
-# With no time left after the build, the inner solver stops at once.
-function test_time_limit_in_the_inner_solver()
-    src = backend(inventory(16))
-    form = LinearDecisionRules.canonicalize(src, LinearDecisionRules.model_info(src))
-    mom = LinearDecisionRules.moments(form)
-    result = LinearDecisionRules._solve!(DualLDR(), form, mom, time_ns(), 0.05) do
-        sleep(0.1)
-        return LinearDecisionRules._build_inner(form, DualLDR(), mom, HiGHS.Optimizer)
-    end
-    @test result.termination_status == MOI.TIME_LIMIT
-    @test time_limit_sec(result.model) == 0
-    @test isnan(result.objective_value)
     return
 end
 
