@@ -3,7 +3,7 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-module TestInformation
+module TestInformationStructure
 
 using JuMP
 using Test
@@ -79,6 +79,6 @@ function test_unsorted_columns()
     return
 end
 
-end # module TestInformation
+end # module TestInformationStructure
 
-TestInformation.runtests()
+TestInformationStructure.runtests()

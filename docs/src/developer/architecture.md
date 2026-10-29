@@ -44,44 +44,44 @@ Each box is a typed struct with documented fields. Nothing is kept in `ext` dict
 The core is `lifting/`, `canonical/`, `probability/` and `formulations/`; the front end is `moi/` and
 `jump/`. The core uses no front-end type: `JuMP.` appears in `formulations/` only to build the
 inner models. Generic helpers with no type of the package (sparse triplets, timing, lists of names)
-are in `src/utils.jl`, included first. Within the core, the layers do not form a strict order yet:
-- `canonical/`, `probability/` and `lifting/` use one another.
-- `formulations/` calls two helpers of `moi/checks.jl`.
+are in `src/utils.jl`, included first.
 
-The generated page [Structure of `src/`](structure_current.md) has the layer graph, the seven pairs
-of files where a file uses a later one; no files form a cycle.
+The folders group the files by topic, and the include order follows the pipeline, so the folders
+are not layers in a strict order: `lifting/`, `canonical/` and `probability/` each come at more
+than one place of the order below (a `CanonicalForm` holds a `LiftingMap`, and the lifted form is
+a `CanonicalForm`). The files are in a strict order: each one uses only the names of the files
+above it, with one exception, `formulations/result.jl`, which calls two helpers of
+`moi/checks.jl`. The generated page [Structure of `src/`](structure_current.md) has the layer graph
+and that pair of files.
 
 ### Include order
 
-The include order (`src/LinearDecisionRules.jl`) is what loads. It interleaves the layers:
+The include order (`src/LinearDecisionRules.jl`) is what loads:
 
-1. `utils.jl`, `probability/laws.jl`: the interface of a law uses no other file.
-2. `lifting/lifting.jl`, `axis_piecewise.jl`: `CanonicalForm` has a `LiftingMap` field.
-3. `canonical/info.jl`, `types.jl`, `names.jl`, `read.jl`, `checks.jl`, `canonicalize.jl`,
-   `information.jl`, `support.jl`.
-4. `probability/distributions/conditioned_distribution.jl`, `confidence_mv_normal.jl`.
-5. `canonical/conditioning.jl`: one of its methods takes a `ConditionedDistribution`.
-6. `probability/moments.jl`, `distributions/mv_discrete_non_parametric.jl`, `lifted_distribution.jl`.
-7. `lifting/lifted_form.jl`.
+1. `utils.jl`, `probability/laws.jl`: generic helpers, and the interface of a law, which use no
+   other file.
+2. `lifting/lifting.jl`, `axis_piecewise.jl`: the liftings and `LiftingMap`.
+3. `probability/distributions/conditioned_distribution.jl`, `confidence_mv_normal.jl`,
+   `mv_discrete_non_parametric.jl`, `lifted_distribution.jl`: the laws the package adds.
+4. `canonical/declarations.jl`, `types.jl`, `names.jl`, `read.jl`, `information_structure.jl`,
+   `checks.jl`, `support.jl`, `conditioning.jl`: the canonical form, its reader, its checks and
+   its transforms.
+5. `lifting/lifted_form.jl`: `lift(form, liftings)`, the last transform.
+6. `canonical/canonicalize.jl`: the reader, the transforms and the checks, in order.
+7. `probability/moments.jl`.
 8. `formulations/interface.jl`, `rows.jl`, `primal.jl`, `dual.jl`, `sampled.jl`, `result.jl`, `inner.jl`.
 9. `moi/sets.jl`, `attributes.jl`, `model_info.jl`, `checks.jl`, `inner_cache.jl`, `optimizer.jl`, `results.jl`.
 10. `jump/variables.jl`, `constraints.jl`, `checks.jl`, `model.jl`, `results.jl`, `rules.jl`, `simulate.jl`.
-
-`canonicalize` (`canonical/canonicalize.jl`) and the checks call functions defined in files that
-are included after them: `_resolve_supports` (`support.jl`), `_condition` (`conditioning.jl`),
-`InformationStructure` (`information.jl`), `ConditionedDistribution`, `_breakpoint_liftings` and
-`lift(form, liftings)` (`lifted_form.jl`). This works because Julia looks these names up when the function first runs
-(late binding), not when the file is loaded.
 
 ## The types that flow
 
 | Type | Defined in | Built by | Read by |
 |---|---|---|---|
-| `ModelInfo`, `UncertaintyDeclaration` | `canonical/info.jl` | `model_info(src)` (`moi/model_info.jl`), or by hand for a plain `Model()` | `canonicalize` |
+| `ModelInfo`, `UncertaintyDeclaration` | `canonical/declarations.jl` | `model_info(src)` (`moi/model_info.jl`), or by hand for a plain `Model()` | `canonicalize` |
 | `CanonicalForm` | `canonical/types.jl` | `canonicalize`; then `_replace` (in the transforms) and `lift` | everything after: moments, formulations, results, simulation |
 | `UncertaintyBlock` | `canonical/types.jl` | the reader (one per declaration); replaced by `_condition` | moments, support blocks, conditioning |
 | `ParameterTerms` | `canonical/types.jl` | the reader | `_with_parameter_decisions`, the inner cache |
-| `InformationStructure` | `canonical/information.jl` | `InformationStructure(form)`, in each `_build!` and a check | the rule variables and rows of the formulations |
+| `InformationStructure` | `canonical/information_structure.jl` | `InformationStructure(form)`, in each `_build!` and a check | the rule variables and rows of the formulations |
 | `SupportBlock` | `canonical/support.jl` | `support_blocks(form)`, in each primal or dual build | the robust counterparts (primal), the dual cones (dual) |
 | `LiftingMap`, `LiftingBlock` | `lifting/lifting.jl` | `lift(form, liftings)` | the results and the rules, to map lifted columns back to the uncertainties |
 | `Moments`, `CovarianceBlock` | `probability/moments.jl` | `_moments(form, …)` (or `moments(form)`) | the objective and dual cones of the formulations; `value`, `expected_value` |

@@ -22,8 +22,8 @@ flowchart TD
     lifting -->|"4 names"| canonical
     lifting -->|"4 names"| probability
     canonical -->|"10 names"| utils
-    canonical -->|"3 names, 1 to later files"| lifting
-    canonical -->|"18 names, 2 to later files"| probability
+    canonical -->|"3 names"| lifting
+    canonical -->|"18 names"| probability
     probability -->|"2 names"| utils
     probability -->|"6 names"| lifting
     probability -->|"1 names"| canonical
@@ -42,8 +42,6 @@ flowchart TD
     jump -->|"7 names"| probability
     jump -->|"4 names"| formulations
     jump -->|"22 names"| moi
-    linkStyle 4 stroke:#c0392b,stroke-width:2px
-    linkStyle 5 stroke:#c0392b,stroke-width:2px
     linkStyle 12 stroke:#c0392b,stroke-width:2px
 ```
 
@@ -54,21 +52,21 @@ flowchart TD
 3. [`src/probability/laws.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/laws.jl): The interface of a law, with its fallbacks: support (box, `support_constraints`, representation, membership test), atoms, moments and the trait of the dual bound.
 4. [`src/lifting/lifting.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/lifting.jl): The lifting interface (`AbstractLifting`, `lift`, `retraction`), and `LiftingMap`.
 5. [`src/lifting/axis_piecewise.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/axis_piecewise.jl): `AxisPiecewise`: the map, the box and hull of its lifted support, and the moments of its pieces.
-6. [`src/canonical/info.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/info.jl): `ModelInfo` and `UncertaintyDeclaration`: what `canonicalize` reads besides the MOI model.
-7. [`src/canonical/types.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/types.jl): `CanonicalForm` and the types of its parts, and the cone helpers shared by every layer.
-8. [`src/canonical/names.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/names.jl): Names of variables and constraints, and printing of MOI functions and sets, for the messages.
-9. [`src/canonical/read.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/read.jl): The reader of an MOI model: rows, bounds, objective and parameters of the canonical form.
-10. [`src/canonical/checks.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/checks.jl): Checks of a canonical form once read: valid rows at the mean, observable equalities.
-11. [`src/canonical/canonicalize.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/canonicalize.jl): `canonicalize`: the reader, the transforms of the laws, the checks and the liftings, in order.
-12. [`src/canonical/information.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/information.jl): `InformationStructure`: which columns of ξ each decision observes.
-13. [`src/canonical/support.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/support.jl): `SupportBlock` and `support_blocks` (Ξ as a product of blocks), and the choice of representation of the supports.
-14. [`src/probability/distributions/conditioned_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/conditioned_distribution.jl): `ConditionedDistribution`: laws conditioned by `Truncate()` rows, sampled by rejection.
-15. [`src/probability/distributions/confidence_mv_normal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/confidence_mv_normal.jl): `ConfidenceMvNormal`: a normal law truncated to a confidence ellipsoid.
-16. [`src/canonical/conditioning.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/conditioning.jl): `_condition`: the transform that conditions laws by the rows tagged `Truncate()`.
-17. [`src/probability/moments.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/moments.jl): `Moments` and `CovarianceBlock`, `moments`, and the rejection-sampling engine.
-18. [`src/probability/distributions/mv_discrete_non_parametric.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/mv_discrete_non_parametric.jl): `MvDiscreteNonParametric`: a multivariate law with finitely many atoms.
-19. [`src/probability/distributions/lifted_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/lifted_distribution.jl): `LiftedDistribution`: the law of the lifted coordinates of an uncertainty.
-20. [`src/lifting/lifted_form.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/lifted_form.jl): `lift(form, liftings)`: the lifted canonical form.
+6. [`src/probability/distributions/conditioned_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/conditioned_distribution.jl): `ConditionedDistribution`: laws conditioned by `Truncate()` rows, sampled by rejection.
+7. [`src/probability/distributions/confidence_mv_normal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/confidence_mv_normal.jl): `ConfidenceMvNormal`: a normal law truncated to a confidence ellipsoid.
+8. [`src/probability/distributions/mv_discrete_non_parametric.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/mv_discrete_non_parametric.jl): `MvDiscreteNonParametric`: a multivariate law with finitely many atoms.
+9. [`src/probability/distributions/lifted_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/lifted_distribution.jl): `LiftedDistribution`: the law of the lifted coordinates of an uncertainty.
+10. [`src/canonical/declarations.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/declarations.jl): `ModelInfo` and `UncertaintyDeclaration`: what `canonicalize` reads besides the MOI model.
+11. [`src/canonical/types.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/types.jl): `CanonicalForm` and the types of its parts, and the cone helpers shared by every layer.
+12. [`src/canonical/names.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/names.jl): Names of variables and constraints, and printing of MOI functions and sets, for the messages.
+13. [`src/canonical/read.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/read.jl): The reader of an MOI model: rows, bounds, objective and parameters of the canonical form.
+14. [`src/canonical/information_structure.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/information_structure.jl): `InformationStructure`: which columns of ξ each decision observes.
+15. [`src/canonical/checks.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/checks.jl): Checks of a canonical form once read: valid rows at the mean, observable equalities.
+16. [`src/canonical/support.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/support.jl): `SupportBlock` and `support_blocks` (Ξ as a product of blocks), and the choice of representation of the supports.
+17. [`src/canonical/conditioning.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/conditioning.jl): `_condition`: the transform that conditions laws by the rows tagged `Truncate()`.
+18. [`src/lifting/lifted_form.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/lifted_form.jl): `lift(form, liftings)`: the lifted canonical form.
+19. [`src/canonical/canonicalize.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/canonicalize.jl): `canonicalize`: the reader, the transforms of the laws, the checks and the liftings, in order.
+20. [`src/probability/moments.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/moments.jl): `Moments` and `CovarianceBlock`, `moments`, and the rejection-sampling engine.
 21. [`src/formulations/interface.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/interface.jl): `AbstractFormulation`, `FormulationCapabilities` and `capabilities`, and the `_build!` hook.
 22. [`src/formulations/rows.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/rows.jl): What the formulations share: the rule variables, the linear rows and inequalities, the equalities and the objective.
 23. [`src/formulations/primal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/primal.jl): `PrimalLDR` and its `_build!`: robust counterparts per support block, closed form on boxes.
@@ -97,12 +95,6 @@ These uses work because Julia resolves names in function bodies when the functio
 
 | File | uses, from a later file | names |
 |---|---|---|
-| `canonical/checks` | `canonical/information` | `InformationStructure` |
-| `canonical/checks` | `probability/distributions/conditioned_distribution` | `ConditionedDistribution` |
-| `canonical/canonicalize` | `canonical/support` | `_resolve_supports` |
-| `canonical/canonicalize` | `canonical/conditioning` | `_condition` |
-| `canonical/canonicalize` | `lifting/lifted_form` | `_breakpoint_liftings` |
-| `canonical/conditioning` | `probability/distributions/mv_discrete_non_parametric` | `MvDiscreteNonParametric` |
 | `formulations/result` | `moi/checks` | `_nonconvex_decisions`, `_singular_blocks` |
 
 ## Cycles between files
@@ -128,7 +120,7 @@ Generic helpers with no type of the package: sparse triplets, timing, lists of n
 Defines:
 `_SparseMatrix` (L8), `_nonzero_columns` (L11), `_Triplets` (L16) (2 methods), `_push!` (L24), `_sparse` (L33), `_symmetric` (L35), `_seconds_since` (L38), `_name_list` (L41).
 
-Used by: `lifting/axis_piecewise` (1), `canonical/types` (1), `canonical/read` (3), `canonical/support` (5), `canonical/conditioning` (1), `probability/moments` (1), `probability/distributions/lifted_distribution` (1), `lifting/lifted_form` (3), `formulations/rows` (1), `formulations/dual` (2), `formulations/inner` (2), `moi/checks` (1), `moi/inner_cache` (1), `moi/optimizer` (1), `jump/simulate` (1).
+Used by: `lifting/axis_piecewise` (1), `probability/distributions/lifted_distribution` (1), `canonical/types` (1), `canonical/read` (3), `canonical/support` (5), `canonical/conditioning` (1), `lifting/lifted_form` (3), `probability/moments` (1), `formulations/rows` (1), `formulations/dual` (2), `formulations/inner` (2), `moi/checks` (1), `moi/inner_cache` (1), `moi/optimizer` (1), `jump/simulate` (1).
 
 ### `probability/laws`
 
@@ -139,7 +131,7 @@ The interface of a law, with its fallbacks: support (box, `support_constraints`,
 Defines:
 `_dimension` (L11) (3 methods), `_SupportCone` (L16), `_support_bounds` (L21) (2 methods), `_support_box` (L36), **`support_constraints` (L71)**†, `_no_support_constraints` (L75), `_has_auto_support` (L81), `_resolve_support` (L83), `_cone_violation` (L86) (2 methods), `_outside_cone` (L97) (3 methods), `_CONDITIONING_TOLERANCE` (L123), `_finite_atoms` (L127) (2 methods), `_law_mean` (L145) (3 methods), `_law_covariance` (L148) (3 methods), `_linear_conditional_expectations` (L156) (4 methods), `_ContinuousTruncated` (L173), `_truncated_moments` (L182).
 
-Used by: `canonical/read` (1), `canonical/checks` (2), `canonical/support` (5), `probability/distributions/conditioned_distribution` (8), `probability/distributions/confidence_mv_normal` (6), `canonical/conditioning` (5), `probability/moments` (2), `probability/distributions/mv_discrete_non_parametric` (2), `probability/distributions/lifted_distribution` (1), `lifting/lifted_form` (1), `formulations/dual` (2), `moi/sets` (1), `moi/optimizer` (1), `jump/simulate` (5).
+Used by: `probability/distributions/conditioned_distribution` (8), `probability/distributions/confidence_mv_normal` (6), `probability/distributions/mv_discrete_non_parametric` (2), `probability/distributions/lifted_distribution` (1), `canonical/read` (1), `canonical/checks` (2), `canonical/support` (5), `canonical/conditioning` (5), `lifting/lifted_form` (1), `probability/moments` (2), `formulations/dual` (2), `moi/sets` (1), `moi/optimizer` (1), `jump/simulate` (5).
 
 ### `lifting/lifting`
 
@@ -150,7 +142,7 @@ The lifting interface (`AbstractLifting`, `lift`, `retraction`), and `LiftingMap
 Defines:
 **`AbstractLifting` (L24)**†, **`lift` (L33)**† (4 methods), **`retraction` (L43)**† (2 methods), **`LiftingBlock` (L58)**†, **`LiftingMap` (L88)**†.
 
-Used by: `lifting/axis_piecewise` (3), `canonical/types` (1), `canonical/canonicalize` (1), `probability/distributions/lifted_distribution` (2), `lifting/lifted_form` (5), `moi/results` (1), `jump/rules` (3), `jump/simulate` (1).
+Used by: `lifting/axis_piecewise` (3), `probability/distributions/lifted_distribution` (2), `canonical/types` (1), `lifting/lifted_form` (5), `canonical/canonicalize` (1), `moi/results` (1), `jump/rules` (3), `jump/simulate` (1).
 
 ### `lifting/axis_piecewise`
 
@@ -168,135 +160,6 @@ Uses:
 
 Used by: `probability/distributions/lifted_distribution` (4), `lifting/lifted_form` (4).
 
-### `canonical/info`
-
-`ModelInfo` and `UncertaintyDeclaration`: what `canonicalize` reads besides the MOI model.
-
-[`src/canonical/info.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/info.jl): 73 lines.
-
-Defines:
-`UncertaintyDeclaration` (L25)† (2 methods), `ModelInfo` (L66)†.
-
-Used by: `canonical/read` (1), `canonical/canonicalize` (1), `moi/model_info` (2), `moi/optimizer` (1).
-
-### `canonical/types`
-
-`CanonicalForm` and the types of its parts, and the cone helpers shared by every layer.
-
-[`src/canonical/types.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/types.jl): 255 lines.
-
-Defines:
-`_BoundSet` (L9), `_ScalarFunction` (L12), `_VectorFunction` (L16), `_VectorSet` (L18), `ConicRow` (L42)†, `UncertaintyBlock` (L66)†, `ParameterTerms` (L99)†, `Base.==` (L112), `Base.hash` (L116), `_has_parameter_terms` (L121), `CanonicalForm` (L206)†, `_replace` (L244), `Base.show` (L249).
-
-Uses:
-
-- `utils`: `_SparseMatrix`
-- `lifting/lifting`: `LiftingMap`
-
-Used by: `canonical/read` (8), `canonical/checks` (1), `canonical/information` (1), `canonical/support` (3), `canonical/conditioning` (3), `probability/moments` (1), `lifting/lifted_form` (3), `formulations/rows` (1), `formulations/primal` (1), `formulations/dual` (1), `formulations/sampled` (1), `formulations/result` (1), `formulations/inner` (3), `moi/checks` (1), `moi/inner_cache` (2), `moi/optimizer` (5), `jump/simulate` (1).
-
-### `canonical/names`
-
-Names of variables and constraints, and printing of MOI functions and sets, for the messages.
-
-[`src/canonical/names.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/names.jl): 88 lines.
-
-Defines:
-`_variable_name` (L9), `_constraint_name` (L18), `_number_string` (L27), `_terms_string` (L30), `_function_string` (L49) (5 methods), `_set_string` (L76) (6 methods).
-
-Used by: `canonical/read` (2), `canonical/checks` (1), `canonical/conditioning` (1), `lifting/lifted_form` (1), `moi/model_info` (1), `moi/optimizer` (1), `jump/simulate` (2).
-
-### `canonical/read`
-
-The reader of an MOI model: rows, bounds, objective and parameters of the canonical form.
-
-[`src/canonical/read.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/read.jl): 708 lines.
-
-Defines:
-`_is_metadata_constraint` (L15)†, `_bounds` (L17) (4 methods), `_scalar_set` (L22) (3 methods), `_Columns` (L27), `_add_term!` (L40), `_add_product!` (L52), `_read!` (L71) (2 methods), `_Row` (L93) (2 methods), `_reset!` (L107), `_add_parameter!` (L117) (2 methods), `_parameter_value` (L123), `_add_decision!` (L131) (2 methods), `_add_uncertainty!` (L136) (2 methods), `_add_constant!` (L141) (2 methods), `_add_bilinear!` (L147) (2 methods), `_Objective` (L159) (2 methods), `_RowBlock` (L210) (2 methods), `_push_row!` (L222), `_ValidRows` (L246) (2 methods), `_Layout` (L256), `_Constraints` (L268) (2 methods), `_parameter_list` (L297), `_check_declarations` (L311), `_layout` (L357), `_warn_unmarked` (L395), `_read_constraints` (L409), `_read_constraints!` (L421) (5 methods), `_read_row!` (L553), `_check_row` (L576), `_push_valid_row!` (L595), `_check_uncertainty_only_row` (L622), `_read_objective` (L640), `_canonical_form` (L655).
-
-Uses:
-
-- `utils`: `_Triplets`, `_push!`, `_sparse`
-- `probability/laws`: `_dimension`
-- `canonical/info`: `ModelInfo`
-- `canonical/types`: `CanonicalForm`, `ConicRow`, `ParameterTerms`, `UncertaintyBlock`, `_BoundSet`, `_ScalarFunction`, `_VectorFunction`, `_VectorSet`
-- `canonical/names`: `_constraint_name`, `_variable_name`
-
-Used by: `canonical/canonicalize` (6), `moi/sets` (1), `moi/optimizer` (1).
-
-### `canonical/checks`
-
-Checks of a canonical form once read: valid rows at the mean, observable equalities.
-
-[`src/canonical/checks.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/checks.jl): 79 lines.
-
-Defines:
-`_check_valid_rows_at_mean` (L12), `_check_observable_equalities` (L57).
-
-Uses:
-
-- `probability/laws`: `_cone_violation`, `_law_mean`
-- `canonical/types`: `CanonicalForm`
-- `canonical/names`: `_constraint_name`
-- `canonical/information` (included later): `InformationStructure`
-- `probability/distributions/conditioned_distribution` (included later): `ConditionedDistribution`
-
-Used by: `canonical/canonicalize` (2).
-
-### `canonical/canonicalize`
-
-`canonicalize`: the reader, the transforms of the laws, the checks and the liftings, in order.
-
-[`src/canonical/canonicalize.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/canonicalize.jl): 91 lines.
-
-Defines:
-`canonicalize` (L77)†.
-
-Uses:
-
-- `lifting/lifting`: `lift`
-- `canonical/info`: `ModelInfo`
-- `canonical/read`: `_canonical_form`, `_check_declarations`, `_layout`, `_parameter_list`, `_read_constraints`, `_read_objective`
-- `canonical/checks`: `_check_observable_equalities`, `_check_valid_rows_at_mean`
-- `canonical/support` (included later): `_resolve_supports`
-- `canonical/conditioning` (included later): `_condition`
-- `lifting/lifted_form` (included later): `_breakpoint_liftings`
-
-Used by: `moi/optimizer` (1).
-
-### `canonical/information`
-
-`InformationStructure`: which columns of ξ each decision observes.
-
-[`src/canonical/information.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/information.jl): 65 lines.
-
-Defines:
-`InformationStructure` (L28)† (2 methods), `observes` (L58)†, `visible_columns` (L65)†.
-
-Uses:
-
-- `canonical/types`: `CanonicalForm`
-
-Used by: `canonical/checks` (1), `formulations/rows` (2), `formulations/primal` (1), `formulations/dual` (1), `formulations/sampled` (1).
-
-### `canonical/support`
-
-`SupportBlock` and `support_blocks` (Ξ as a product of blocks), and the choice of representation of the supports.
-
-[`src/canonical/support.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/support.jl): 192 lines.
-
-Defines:
-`SupportBlock` (L30)†, `_cone_rows` (L40), `_find_root!` (L45), `support_blocks` (L66)†, `_resolve_supports` (L184).
-
-Uses:
-
-- `utils`: `_SparseMatrix`, `_Triplets`, `_nonzero_columns`, `_push!`, `_sparse`
-- `probability/laws`: `_SupportCone`, `_has_auto_support`, `_resolve_support`, `_support_box`, `support_constraints`
-- `canonical/types`: `CanonicalForm`, `UncertaintyBlock`, `_replace`
-
-Used by: `canonical/canonicalize` (1), `canonical/conditioning` (1), `formulations/primal` (3), `formulations/dual` (3).
-
 ### `probability/distributions/conditioned_distribution`
 
 `ConditionedDistribution`: laws conditioned by `Truncate()` rows, sampled by rejection.
@@ -310,7 +173,7 @@ Uses:
 
 - `probability/laws`: `_CONDITIONING_TOLERANCE`, `_SupportCone`, `_dimension`, `_has_auto_support`, `_outside_cone`, `_resolve_support`, `_support_box`, `support_constraints`
 
-Used by: `canonical/checks` (1), `canonical/conditioning` (3), `probability/moments` (4), `lifting/lifted_form` (2).
+Used by: `canonical/checks` (1), `canonical/conditioning` (3), `lifting/lifted_form` (2), `probability/moments` (4).
 
 ### `probability/distributions/confidence_mv_normal`
 
@@ -324,45 +187,6 @@ Defines:
 Uses:
 
 - `probability/laws`: `_SupportCone`, `_has_auto_support`, `_linear_conditional_expectations`, `_no_support_constraints`, `_resolve_support`, `support_constraints`
-
-### `canonical/conditioning`
-
-`_condition`: the transform that conditions laws by the rows tagged `Truncate()`.
-
-[`src/canonical/conditioning.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/conditioning.jl): 220 lines.
-
-Defines:
-`_condition` (L11), `_row_names` (L100), `_conditioned_block` (L108), `_MAX_PRODUCT_ATOMS` (L156), `_discrete_conditioned_law` (L163), `_truncated_law` (L195).
-
-Uses:
-
-- `utils`: `_nonzero_columns`
-- `probability/laws`: `_CONDITIONING_TOLERANCE`, `_SupportCone`, `_finite_atoms`, `_outside_cone`, `_support_box`
-- `canonical/types`: `CanonicalForm`, `UncertaintyBlock`, `_replace`
-- `canonical/names`: `_constraint_name`
-- `canonical/support`: `_find_root!`
-- `probability/distributions/conditioned_distribution`: `ConditionedDistribution`, `_constraint_names`, `_in_set`
-- `probability/distributions/mv_discrete_non_parametric` (included later): `MvDiscreteNonParametric`
-
-Used by: `canonical/canonicalize` (1).
-
-### `probability/moments`
-
-`Moments` and `CovarianceBlock`, `moments`, and the rejection-sampling engine.
-
-[`src/probability/moments.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/moments.jl): 305 lines.
-
-Defines:
-`CovarianceBlock` (L25)† (2 methods), `Moments` (L50)†, `_is_estimated` (L57), `_RejectionSampling` (L61), `_DEFAULT_SAMPLING_TIME_LIMIT` (L82), `_sampling_time_limit` (L88), `_sampling_time_limit_source` (L98), `_Estimate` (L111), `_MomentsCache` (L122) (2 methods), `_MIN_SAMPLES` (L131), `_estimate` (L139), `_check_estimate` (L176), `moments` (L217)†, `_moments` (L228), `second_moment` (L299)†.
-
-Uses:
-
-- `utils`: `_seconds_since`
-- `probability/laws`: `_law_covariance`, `_law_mean`
-- `canonical/types`: `CanonicalForm`
-- `probability/distributions/conditioned_distribution`: `ConditionedDistribution`, `_constraint_names`, `_draw_candidates!`, `_in_set`
-
-Used by: `formulations/rows` (1), `formulations/primal` (1), `formulations/dual` (1), `formulations/sampled` (2), `formulations/result` (2), `formulations/inner` (1), `moi/checks` (2), `moi/inner_cache` (1), `moi/optimizer` (4), `jump/rules` (1).
 
 ### `probability/distributions/mv_discrete_non_parametric`
 
@@ -397,6 +221,135 @@ Uses:
 
 Used by: `lifting/lifted_form` (1), `jump/simulate` (1).
 
+### `canonical/declarations`
+
+`ModelInfo` and `UncertaintyDeclaration`: what `canonicalize` reads besides the MOI model.
+
+[`src/canonical/declarations.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/declarations.jl): 73 lines.
+
+Defines:
+`UncertaintyDeclaration` (L25)† (2 methods), `ModelInfo` (L66)†.
+
+Used by: `canonical/read` (1), `canonical/canonicalize` (1), `moi/model_info` (2), `moi/optimizer` (1).
+
+### `canonical/types`
+
+`CanonicalForm` and the types of its parts, and the cone helpers shared by every layer.
+
+[`src/canonical/types.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/types.jl): 255 lines.
+
+Defines:
+`_BoundSet` (L9), `_ScalarFunction` (L12), `_VectorFunction` (L16), `_VectorSet` (L18), `ConicRow` (L42)†, `UncertaintyBlock` (L66)†, `ParameterTerms` (L99)†, `Base.==` (L112), `Base.hash` (L116), `_has_parameter_terms` (L121), `CanonicalForm` (L206)†, `_replace` (L244), `Base.show` (L249).
+
+Uses:
+
+- `utils`: `_SparseMatrix`
+- `lifting/lifting`: `LiftingMap`
+
+Used by: `canonical/read` (8), `canonical/information_structure` (1), `canonical/checks` (1), `canonical/support` (3), `canonical/conditioning` (3), `lifting/lifted_form` (3), `probability/moments` (1), `formulations/rows` (1), `formulations/primal` (1), `formulations/dual` (1), `formulations/sampled` (1), `formulations/result` (1), `formulations/inner` (3), `moi/checks` (1), `moi/inner_cache` (2), `moi/optimizer` (5), `jump/simulate` (1).
+
+### `canonical/names`
+
+Names of variables and constraints, and printing of MOI functions and sets, for the messages.
+
+[`src/canonical/names.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/names.jl): 88 lines.
+
+Defines:
+`_variable_name` (L9), `_constraint_name` (L18), `_number_string` (L27), `_terms_string` (L30), `_function_string` (L49) (5 methods), `_set_string` (L76) (6 methods).
+
+Used by: `canonical/read` (2), `canonical/checks` (1), `canonical/conditioning` (1), `lifting/lifted_form` (1), `moi/model_info` (1), `moi/optimizer` (1), `jump/simulate` (2).
+
+### `canonical/read`
+
+The reader of an MOI model: rows, bounds, objective and parameters of the canonical form.
+
+[`src/canonical/read.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/read.jl): 708 lines.
+
+Defines:
+`_is_metadata_constraint` (L15)†, `_bounds` (L17) (4 methods), `_scalar_set` (L22) (3 methods), `_Columns` (L27), `_add_term!` (L40), `_add_product!` (L52), `_read!` (L71) (2 methods), `_Row` (L93) (2 methods), `_reset!` (L107), `_add_parameter!` (L117) (2 methods), `_parameter_value` (L123), `_add_decision!` (L131) (2 methods), `_add_uncertainty!` (L136) (2 methods), `_add_constant!` (L141) (2 methods), `_add_bilinear!` (L147) (2 methods), `_Objective` (L159) (2 methods), `_RowBlock` (L210) (2 methods), `_push_row!` (L222), `_ValidRows` (L246) (2 methods), `_Layout` (L256), `_Constraints` (L268) (2 methods), `_parameter_list` (L297), `_check_declarations` (L311), `_layout` (L357), `_warn_unmarked` (L395), `_read_constraints` (L409), `_read_constraints!` (L421) (5 methods), `_read_row!` (L553), `_check_row` (L576), `_push_valid_row!` (L595), `_check_uncertainty_only_row` (L622), `_read_objective` (L640), `_canonical_form` (L655).
+
+Uses:
+
+- `utils`: `_Triplets`, `_push!`, `_sparse`
+- `probability/laws`: `_dimension`
+- `canonical/declarations`: `ModelInfo`
+- `canonical/types`: `CanonicalForm`, `ConicRow`, `ParameterTerms`, `UncertaintyBlock`, `_BoundSet`, `_ScalarFunction`, `_VectorFunction`, `_VectorSet`
+- `canonical/names`: `_constraint_name`, `_variable_name`
+
+Used by: `canonical/canonicalize` (6), `moi/sets` (1), `moi/optimizer` (1).
+
+### `canonical/information_structure`
+
+`InformationStructure`: which columns of ξ each decision observes.
+
+[`src/canonical/information_structure.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/information_structure.jl): 65 lines.
+
+Defines:
+`InformationStructure` (L28)† (2 methods), `observes` (L58)†, `visible_columns` (L65)†.
+
+Uses:
+
+- `canonical/types`: `CanonicalForm`
+
+Used by: `canonical/checks` (1), `formulations/rows` (2), `formulations/primal` (1), `formulations/dual` (1), `formulations/sampled` (1).
+
+### `canonical/checks`
+
+Checks of a canonical form once read: valid rows at the mean, observable equalities.
+
+[`src/canonical/checks.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/checks.jl): 79 lines.
+
+Defines:
+`_check_valid_rows_at_mean` (L12), `_check_observable_equalities` (L57).
+
+Uses:
+
+- `probability/laws`: `_cone_violation`, `_law_mean`
+- `probability/distributions/conditioned_distribution`: `ConditionedDistribution`
+- `canonical/types`: `CanonicalForm`
+- `canonical/names`: `_constraint_name`
+- `canonical/information_structure`: `InformationStructure`
+
+Used by: `canonical/canonicalize` (2).
+
+### `canonical/support`
+
+`SupportBlock` and `support_blocks` (Ξ as a product of blocks), and the choice of representation of the supports.
+
+[`src/canonical/support.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/support.jl): 192 lines.
+
+Defines:
+`SupportBlock` (L30)†, `_cone_rows` (L40), `_find_root!` (L45), `support_blocks` (L66)†, `_resolve_supports` (L184).
+
+Uses:
+
+- `utils`: `_SparseMatrix`, `_Triplets`, `_nonzero_columns`, `_push!`, `_sparse`
+- `probability/laws`: `_SupportCone`, `_has_auto_support`, `_resolve_support`, `_support_box`, `support_constraints`
+- `canonical/types`: `CanonicalForm`, `UncertaintyBlock`, `_replace`
+
+Used by: `canonical/conditioning` (1), `canonical/canonicalize` (1), `formulations/primal` (3), `formulations/dual` (3).
+
+### `canonical/conditioning`
+
+`_condition`: the transform that conditions laws by the rows tagged `Truncate()`.
+
+[`src/canonical/conditioning.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/conditioning.jl): 220 lines.
+
+Defines:
+`_condition` (L11), `_row_names` (L100), `_conditioned_block` (L108), `_MAX_PRODUCT_ATOMS` (L156), `_discrete_conditioned_law` (L163), `_truncated_law` (L195).
+
+Uses:
+
+- `utils`: `_nonzero_columns`
+- `probability/laws`: `_CONDITIONING_TOLERANCE`, `_SupportCone`, `_finite_atoms`, `_outside_cone`, `_support_box`
+- `probability/distributions/conditioned_distribution`: `ConditionedDistribution`, `_constraint_names`, `_in_set`
+- `probability/distributions/mv_discrete_non_parametric`: `MvDiscreteNonParametric`
+- `canonical/types`: `CanonicalForm`, `UncertaintyBlock`, `_replace`
+- `canonical/names`: `_constraint_name`
+- `canonical/support`: `_find_root!`
+
+Used by: `canonical/canonicalize` (1).
+
 ### `lifting/lifted_form`
 
 `lift(form, liftings)`: the lifted canonical form.
@@ -412,12 +365,51 @@ Uses:
 - `probability/laws`: `_support_box`
 - `lifting/lifting`: `AbstractLifting`, `LiftingBlock`, `LiftingMap`, `lift`, `retraction`
 - `lifting/axis_piecewise`: `AxisPiecewise`, `_hull_rows`, `_num_inputs`, `_num_lifted`
-- `canonical/types`: `CanonicalForm`, `ConicRow`, `UncertaintyBlock`
-- `canonical/names`: `_variable_name`
 - `probability/distributions/conditioned_distribution`: `ConditionedDistribution`, `_constraint_names`
 - `probability/distributions/lifted_distribution`: `LiftedDistribution`
+- `canonical/types`: `CanonicalForm`, `ConicRow`, `UncertaintyBlock`
+- `canonical/names`: `_variable_name`
 
 Used by: `canonical/canonicalize` (1), `moi/results` (1).
+
+### `canonical/canonicalize`
+
+`canonicalize`: the reader, the transforms of the laws, the checks and the liftings, in order.
+
+[`src/canonical/canonicalize.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/canonicalize.jl): 91 lines.
+
+Defines:
+`canonicalize` (L77)†.
+
+Uses:
+
+- `lifting/lifting`: `lift`
+- `canonical/declarations`: `ModelInfo`
+- `canonical/read`: `_canonical_form`, `_check_declarations`, `_layout`, `_parameter_list`, `_read_constraints`, `_read_objective`
+- `canonical/checks`: `_check_observable_equalities`, `_check_valid_rows_at_mean`
+- `canonical/support`: `_resolve_supports`
+- `canonical/conditioning`: `_condition`
+- `lifting/lifted_form`: `_breakpoint_liftings`
+
+Used by: `moi/optimizer` (1).
+
+### `probability/moments`
+
+`Moments` and `CovarianceBlock`, `moments`, and the rejection-sampling engine.
+
+[`src/probability/moments.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/moments.jl): 305 lines.
+
+Defines:
+`CovarianceBlock` (L25)† (2 methods), `Moments` (L50)†, `_is_estimated` (L57), `_RejectionSampling` (L61), `_DEFAULT_SAMPLING_TIME_LIMIT` (L82), `_sampling_time_limit` (L88), `_sampling_time_limit_source` (L98), `_Estimate` (L111), `_MomentsCache` (L122) (2 methods), `_MIN_SAMPLES` (L131), `_estimate` (L139), `_check_estimate` (L176), `moments` (L217)†, `_moments` (L228), `second_moment` (L299)†.
+
+Uses:
+
+- `utils`: `_seconds_since`
+- `probability/laws`: `_law_covariance`, `_law_mean`
+- `probability/distributions/conditioned_distribution`: `ConditionedDistribution`, `_constraint_names`, `_draw_candidates!`, `_in_set`
+- `canonical/types`: `CanonicalForm`
+
+Used by: `formulations/rows` (1), `formulations/primal` (1), `formulations/dual` (1), `formulations/sampled` (2), `formulations/result` (2), `formulations/inner` (1), `moi/checks` (2), `moi/inner_cache` (1), `moi/optimizer` (4), `jump/rules` (1).
 
 ### `formulations/interface`
 
@@ -443,7 +435,7 @@ Uses:
 
 - `utils`: `_SparseMatrix`
 - `canonical/types`: `CanonicalForm`
-- `canonical/information`: `InformationStructure`, `visible_columns`
+- `canonical/information_structure`: `InformationStructure`, `visible_columns`
 - `probability/moments`: `Moments`
 
 Used by: `formulations/primal` (9), `formulations/dual` (9), `formulations/sampled` (6).
@@ -460,7 +452,7 @@ Defines:
 Uses:
 
 - `canonical/types`: `CanonicalForm`
-- `canonical/information`: `InformationStructure`
+- `canonical/information_structure`: `InformationStructure`
 - `canonical/support`: `SupportBlock`, `_cone_rows`, `support_blocks`
 - `probability/moments`: `Moments`
 - `formulations/interface`: `AbstractFormulation`, `FormulationCapabilities`, `_attribute_pairs`, `_build!`, `capabilities`
@@ -482,7 +474,7 @@ Uses:
 - `utils`: `_SparseMatrix`, `_name_list`
 - `probability/laws`: `_SupportCone`, `_linear_conditional_expectations`
 - `canonical/types`: `CanonicalForm`
-- `canonical/information`: `InformationStructure`
+- `canonical/information_structure`: `InformationStructure`
 - `canonical/support`: `SupportBlock`, `_cone_rows`, `support_blocks`
 - `probability/moments`: `Moments`
 - `formulations/interface`: `AbstractFormulation`, `FormulationCapabilities`, `_attribute_pairs`, `_build!`, `_formulation_attributes`, `capabilities`
@@ -503,7 +495,7 @@ Defines:
 Uses:
 
 - `canonical/types`: `CanonicalForm`
-- `canonical/information`: `InformationStructure`
+- `canonical/information_structure`: `InformationStructure`
 - `probability/moments`: `CovarianceBlock`, `Moments`
 - `formulations/interface`: `AbstractFormulation`, `FormulationCapabilities`, `_build!`, `capabilities`
 - `formulations/rows`: `_add_deterministic!`, `_add_equalities!`, `_inequalities`, `_is_deterministic`, `_rule_variables!`, `_set_objective!`
@@ -590,7 +582,7 @@ Defines:
 
 Uses:
 
-- `canonical/info`: `ModelInfo`, `UncertaintyDeclaration`
+- `canonical/declarations`: `ModelInfo`, `UncertaintyDeclaration`
 - `canonical/names`: `_variable_name`
 - `moi/sets`: `Stage`, `_AnyUncertainty`
 - `moi/attributes`: `BreakPoints`, `Truncate`, `ValidInequality`, `XiRole`
@@ -646,7 +638,7 @@ Uses:
 
 - `utils`: `_seconds_since`
 - `probability/laws`: `_has_auto_support`
-- `canonical/info`: `ModelInfo`
+- `canonical/declarations`: `ModelInfo`
 - `canonical/types`: `CanonicalForm`, `_BoundSet`, `_ScalarFunction`, `_VectorFunction`, `_VectorSet`
 - `canonical/names`: `_variable_name`
 - `canonical/read`: `_parameter_list`
@@ -787,9 +779,9 @@ Uses:
 - `utils`: `_SparseMatrix`
 - `probability/laws`: `_SupportCone`, `_cone_violation`, `_outside_cone`, `_support_box`, `support_constraints`
 - `lifting/lifting`: `lift`
+- `probability/distributions/lifted_distribution`: `LiftedDistribution`
 - `canonical/types`: `CanonicalForm`
 - `canonical/names`: `_constraint_name`, `_number_string`
-- `probability/distributions/lifted_distribution`: `LiftedDistribution`
 - `formulations/interface`: `AbstractFormulation`, `capabilities`
 - `moi/attributes`: `FormulationAttribute`, `SimulationData`
 - `moi/optimizer`: `Optimizer`
