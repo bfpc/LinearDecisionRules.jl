@@ -65,7 +65,7 @@ split or rename a file.
 Two options help to explore the structure. `--explorer structure.html` writes a self-contained
 interactive page, with a map of the files by folder, a tree of files and definitions, and the uses
 and users of each. `--json structure.json` writes the underlying data. To plan a reorganization,
-describe it in `docs/proposed_structure.toml` (moves of definitions between files, renames, new
-definitions, a new include order); the script then analyses the proposed structure in the same way,
-writes its page with `--proposed structure_proposed.md`, and adds it to the explorer, with a
-toggle between the two structures.
+describe it in a TOML file (moves of definitions between files, renames, new definitions, a new
+include order) and pass it with `--proposal proposal.toml`; the script then analyses the proposed
+structure in the same way, writes its page with `--proposed structure_proposed.md`, and adds it to
+the explorer, with a toggle between the two structures.
