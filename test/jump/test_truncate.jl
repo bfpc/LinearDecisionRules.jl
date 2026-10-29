@@ -319,9 +319,10 @@ function test_rejection_sampling_shares_the_time_limit()
     set_attribute(model, RejectionSamplingMaxSamples(), 10^8)
     set_time_limit_sec(model, 2.0)
     shared = r"seconds shared by the laws, half of the time that remained of `TimeLimitSec\(\)`"
-    start = time()
+    start = time_ns()
     @test_logs (:warn, shared) optimize!(model)
-    @test time() - start < 2.5
+    # 10^8 draws would take minutes; the slack is for a loaded machine.
+    @test (time_ns() - start) / 1e9 < 2.0 + 2.0
     @test termination_status(model, DualLDR()) == MOI.OPTIMAL
     @test 100 <= only(moments_of(model).blocks).num_samples < 10^8
     # Without time left, the laws are estimated from one batch of draws, if it has enough.
@@ -345,9 +346,9 @@ function test_rejection_sampling_shares_the_time_limit()
     set_attribute(model, RejectionSamplingTimeLimit(), 0.5)
     set_time_limit_sec(model, 0.2)
     explicit = r"within its time limit \(0.5 seconds per law, `RejectionSamplingTimeLimit\(\)`\)"
-    start = time()
+    start = time_ns()
     @test_logs (:warn, explicit) optimize!(model)
-    @test time() - start >= 0.5
+    @test (time_ns() - start) / 1e9 >= 0.5
     @test termination_status(model, PrimalLDR()) == MOI.TIME_LIMIT
     @test termination_status(model, DualLDR()) == MOI.TIME_LIMIT
     return

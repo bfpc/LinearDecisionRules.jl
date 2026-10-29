@@ -186,14 +186,14 @@ end
 function test_impossible_conditioning()
     laws = [Distributions.Uniform(40, 80), Distributions.Uniform(40, 80)]
     d = ConditionedDistribution(laws, [-1.0 -1.0], [-50.0]; names = ["tiny"])
-    start = time()
+    start = time_ns()
     err = try
         moments_of(d)
     catch e
         e
     end
     # The upper bound of the acceptance rate stops it well before the time limit.
-    @test time() - start < 5
+    @test (time_ns() - start) / 1e9 < 5
     msg = sprint(showerror, err)
     @test occursin("conditioned on the constraints tiny tagged `Truncate()`", msg)
     @test occursin("uncertainties d1[1], d1[2]", msg)

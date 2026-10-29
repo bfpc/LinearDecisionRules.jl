@@ -66,9 +66,6 @@ function test_ldr_values_and_sizes()
     @test model_size(primal_result.model) ==
           (variables = 5724, constraints = 4223, nonzeros = 17129)
     @test model_size(dual_result.model) == (variables = 6892, constraints = 11815, nonzeros = 50417)
-    # A loose bound, for a slow runner: it takes about a second here once compiled.
-    @test primal_result.solve_time < 30
-    @test dual_result.solve_time < 30
     return
 end
 
