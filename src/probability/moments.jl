@@ -56,55 +56,6 @@ end
 # estimates too.
 _is_estimated(mom::Moments) = any(block -> block.num_samples > 0, mom.blocks)
 
-_law_mean(d::Distributions.UnivariateDistribution) = [Float64(Distributions.mean(d))]
-_law_mean(d::Distributions.MultivariateDistribution) = Vector{Float64}(Distributions.mean(d))
-
-_law_covariance(d::Distributions.UnivariateDistribution) = fill(Float64(Distributions.var(d)), 1, 1)
-_law_covariance(d::Distributions.MultivariateDistribution) = Matrix{Float64}(Distributions.cov(d))
-
-# Whether the conditional expectation of the components of `d` in later stages, given those in
-# earlier stages, is affine in the latter, when its components are in the stages `stages`: `true`,
-# `false`, or `nothing` when it is not known. Separate laws are independent, so this is, law by
-# law, condition (i) of the dual bound (Kuhn, Wiesemann and Georghiou, 2011, Section 4), which
-# independent stages satisfy. A law in one stage has it trivially.
-function _linear_conditional_expectations(d::Distributions.Distribution, stages::AbstractVector)
-    return allequal(stages) ? true : nothing
-end
-
-_linear_conditional_expectations(::Distributions.UnivariateDistribution, ::AbstractVector) = true
-
-# The components of a product of univariate laws are independent.
-function _linear_conditional_expectations(
-    ::Union{Distributions.Product,Distributions.ProductDistribution{1,0}},
-    ::AbstractVector,
-)
-    return true
-end
-
-# The law of some components of a normal vector given the others is normal, with an affine mean.
-_linear_conditional_expectations(::Distributions.AbstractMvNormal, ::AbstractVector) = true
-
-const _ContinuousTruncated =
-    Distributions.Truncated{<:Distributions.ContinuousUnivariateDistribution}
-
-_law_mean(d::_ContinuousTruncated) = [_truncated_moments(d)[1]]
-
-_law_covariance(d::_ContinuousTruncated) = fill(_truncated_moments(d)[2], 1, 1)
-
-# Distributions has the moments of few truncated laws, such as the normal one; the others are by
-# quadrature of the density of the truncated law.
-function _truncated_moments(d::_ContinuousTruncated)
-    try
-        return Float64(Distributions.mean(d)), Float64(Distributions.var(d))
-    catch err
-        err isa MethodError || rethrow()
-    end
-    lo, hi = minimum(d), maximum(d)
-    mean, _ = QuadGK.quadgk(x -> x * Distributions.pdf(d, x), lo, hi; rtol = 1e-12)
-    var, _ = QuadGK.quadgk(x -> (x - mean)^2 * Distributions.pdf(d, x), lo, hi; rtol = 1e-12)
-    return mean, var
-end
-
 # The settings of the rejection sampling that estimates the moments of conditioned laws. A time
 # limit of `nothing` is the default: see `_sampling_time_limit`.
 struct _RejectionSampling

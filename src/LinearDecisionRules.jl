@@ -23,6 +23,7 @@ import Random
 import SparseArrays
 
 include("utils.jl")
+include("probability/laws.jl")
 include("lifting/lifting.jl")
 include("canonical/info.jl")
 include("canonical/types.jl")

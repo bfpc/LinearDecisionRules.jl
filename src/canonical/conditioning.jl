@@ -151,26 +151,6 @@ function _conditioned_block(src, form::CanonicalForm, laws, rows, conic, Wt)
     return UncertaintyBlock(something(discrete, d), columns, stages)
 end
 
-# The atoms of a law with finitely many outcomes, as the columns of a matrix, and their
-# probabilities, all positive; `nothing` for another law.
-_finite_atoms(::Distributions.Distribution) = nothing
-
-function _finite_atoms(d::Distributions.DiscreteUnivariateDistribution)
-    # `support` throws for the laws with an infinite support, such as `Poisson`.
-    (lo,), (hi,) = _support_box(d)
-    isfinite(lo) && isfinite(hi) || return nothing
-    atoms = try
-        Distributions.support(d)
-    catch err
-        err isa MethodError || rethrow()
-        nothing
-    end
-    atoms isa AbstractVector || return nothing
-    positive = [a for a in atoms if Distributions.pdf(d, a) > 0]
-    p = [Float64(Distributions.pdf(d, a)) for a in positive]
-    return reshape(Vector{Float64}(positive), 1, :), p
-end
-
 # Above this number of atoms of the product of its laws, a conditioned law is estimated by
 # rejection sampling rather than enumerated.
 const _MAX_PRODUCT_ATOMS = 10^6
