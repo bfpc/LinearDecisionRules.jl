@@ -12,19 +12,14 @@ import Distributions
 import Distributions: Uniform
 import LinearDecisionRules
 import LinearDecisionRules:
-    BreakPoints,
-    CanonicalForm,
-    FirstStage,
-    ModelInfo,
-    Stage,
-    Truncate,
-    Uncertainty,
-    UncertaintyDeclaration,
-    ValidInequality,
-    canonicalize
+    BreakPoints, FirstStage, ModelInfo, Stage, Truncate, Uncertainty, ValidInequality, canonicalize
 
 include(joinpath(@__DIR__, "..", "common.jl"))
 import .TestCommon: error_message
+
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+import .Problems: same_form
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -39,62 +34,18 @@ end
 
 info_of(model) = LinearDecisionRules.model_info(backend(model))
 
-# Equality of two canonical forms, field by field. The blocks of the laws are compared sorted by
-# column, since their order is the order of declaration.
-function same_form(a::CanonicalForm, b::CanonicalForm)
-    for name in fieldnames(CanonicalForm)
-        if name == :laws
-            continue
-        end
-        if getfield(a, name) != getfield(b, name)
-            return false
-        end
-    end
-    key(law) = (law.columns, law.stages, law.distribution)
-    return sort(key.(a.laws); by = first) == sort(key.(b.laws); by = first)
-end
-
-# The model of the canonical tests, written with a `ModelInfo` by hand...
-function newsvendor_by_hand()
-    model = Model()
-    @variable(model, buy >= 0)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, d)
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= d)
-    @objective(model, Max, -10buy + 8ret + 15sell)
-    info = ModelInfo(;
-        uncertainties = [UncertaintyDeclaration(Distributions.Uniform(80, 120), [index(d)])],
-        decision_stages = Dict(index(buy) => 1),
-    )
-    return model, info
-end
-
-# ... and written with the tags.
-function newsvendor_with_tags()
-    model = Model()
-    @variable(model, buy >= 0, FirstStage)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, d in Uncertainty(Distributions.Uniform(80, 120)))
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= d)
-    @objective(model, Max, -10buy + 8ret + 15sell)
-    return model
-end
+# The newsvendor written with the tags, on a model without an optimizer; its twin with a
+# `ModelInfo` by hand is `Problems.newsvendor()`.
+newsvendor_with_tags() = TaggedProblems.newsvendor(Model())
 
 function test_newsvendor()
-    by_hand, info = newsvendor_by_hand()
     model = newsvendor_with_tags()
-    @test same_form(
-        canonicalize(backend(model), info_of(model)),
-        canonicalize(backend(by_hand), info),
-    )
+    form = canonicalize(backend(model), info_of(model))
+    @test same_form(form, Problems.form(Problems.newsvendor()))
     info = info_of(model)
     @test info isa ModelInfo
     @test length(info.uncertainties) == 1
-    @test info.uncertainties[1].variables == [index(model[:d])]
+    @test info.uncertainties[1].variables == [index(model[:demand])]
     @test info.uncertainties[1].stages == [nothing]
     @test info.uncertainties[1].distribution == Distributions.Uniform(80, 120)
     @test info.decision_stages == Dict(index(model[:buy]) => 1)
@@ -116,62 +67,17 @@ function test_integer_newsvendor()
     return
 end
 
-function three_stage_by_hand()
-    model = Model()
-    @variable(model, buy >= 0)
-    @variable(model, sell2 >= 0)
-    @variable(model, ret2 >= 0)
-    @variable(model, demand2)
-    @variable(model, buy2 >= 0)
-    @variable(model, buy_cost2)
-    @variable(model, sell3 >= 0)
-    @variable(model, ret3 >= 0)
-    @variable(model, demand3)
-    @constraint(model, sell2 + ret2 <= buy + buy2)
-    @constraint(model, sell2 <= demand2)
-    @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
-    @constraint(model, sell3 <= demand3)
-    @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
-    stages = Dict(index(buy) => 1, index(sell3) => 3, index(ret3) => 3)
-    for v in (sell2, ret2, buy2)
-        stages[index(v)] = 2
-    end
-    uniform(a, b) = Distributions.Uniform(a, b)
-    uncertainties = [
-        UncertaintyDeclaration(uniform(80, 120), [index(demand2)], [2]),
-        UncertaintyDeclaration(uniform(8, 14), [index(buy_cost2)], [2]),
-        UncertaintyDeclaration(uniform(80, 120), [index(demand3)], [3]),
-    ]
-    return model, ModelInfo(; uncertainties, decision_stages = stages)
-end
-
 function test_three_stages()
-    by_hand, info = three_stage_by_hand()
-    model = Model()
-    uniform(a, b) = Distributions.Uniform(a, b)
-    @variable(model, buy >= 0, Stage(1))
-    @variable(model, sell2 >= 0, Stage(2))
-    @variable(model, ret2 >= 0, Stage(2))
-    @variable(model, demand2 in Uncertainty(uniform(80, 120)), Stage(2))
-    @variable(model, buy2 >= 0, Stage(2))
-    @variable(model, buy_cost2 in Uncertainty(uniform(8, 14)), Stage(2))
-    @variable(model, sell3 >= 0, Stage(3))
-    @variable(model, ret3 >= 0, Stage(3))
-    @variable(model, demand3 in Uncertainty(uniform(80, 120)), Stage(3))
-    @constraint(model, sell2 + ret2 <= buy + buy2)
-    @constraint(model, sell2 <= demand2)
-    @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
-    @constraint(model, sell3 <= demand3)
-    @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
+    model = TaggedProblems.newsvendor_three_stages(Model())
     form = @test_logs canonicalize(backend(model), info_of(model))
-    @test same_form(form, canonicalize(backend(by_hand), info))
+    @test same_form(form, Problems.form(Problems.newsvendor_three_stages()))
     @test form.decision_stages == [1, 2, 2, 2, 3, 3]
     @test form.uncertainty_stages == [2, 2, 3]
     info = info_of(model)
     @test [u.stages for u in info.uncertainties] == [[2], [2], [3]]
     @test length(info.decision_stages) == 6
     # The stages of the uncertainties are not stages of decisions.
-    @test !haskey(info.decision_stages, index(demand2))
+    @test !haskey(info.decision_stages, index(model[:demand2]))
     return
 end
 
@@ -225,8 +131,8 @@ end
 
 function test_valid_inequality()
     model = newsvendor_with_tags()
-    cap = @constraint(model, 85 <= model[:d] <= 115, ValidInequality())
-    @constraint(model, model[:d] >= 81, ValidInequality())
+    cap = @constraint(model, 85 <= model[:demand] <= 115, ValidInequality())
+    @constraint(model, model[:demand] >= 81, ValidInequality())
     info = info_of(model)
     @test length(info.valid_rows) == 2 && index(cap) in info.valid_rows
     @test isempty(info.truncate_rows)
@@ -239,7 +145,7 @@ end
 
 function test_truncate()
     model = newsvendor_with_tags()
-    cap = @constraint(model, cap, model[:d] <= 115, Truncate())
+    cap = @constraint(model, cap, model[:demand] <= 115, Truncate())
     info = info_of(model)
     @test info.truncate_rows == Set{MOI.ConstraintIndex}([index(cap)])
     @test isempty(info.valid_rows)
@@ -252,12 +158,12 @@ end
 
 function test_breakpoints()
     model = newsvendor_with_tags()
-    set_attribute(model[:d], BreakPoints(), [90, 100])
+    set_attribute(model[:demand], BreakPoints(), [90, 100])
     info = info_of(model)
-    @test info.breakpoints == Dict(index(model[:d]) => [90.0, 100.0])
+    @test info.breakpoints == Dict(index(model[:demand]) => [90.0, 100.0])
     # `canonicalize` lifts the demand into its three pieces.
     form = canonicalize(backend(model), info)
-    @test form.uncertainty_names == ["d[piece 1]", "d[piece 2]", "d[piece 3]"]
+    @test form.uncertainty_names == ["demand[piece 1]", "demand[piece 2]", "demand[piece 3]"]
     @test only(form.lifting.blocks).lifting == LinearDecisionRules.AxisPiecewise([90, 100])
     return
 end
@@ -278,17 +184,17 @@ end
 # What canonicalize checks at `optimize!`, since JuMP cannot intercept it at declaration.
 function test_errors_left_to_canonicalize()
     model = newsvendor_with_tags()
-    set_lower_bound(model[:d], 0)
+    set_lower_bound(model[:demand], 0)
     msg = error_message(() -> canonicalize(backend(model), info_of(model)))
-    @test occursin("The uncertainty d has a bound or integrality constraint", msg)
+    @test occursin("The uncertainty demand has a bound or integrality constraint", msg)
     model = newsvendor_with_tags()
-    @constraint(model, cap, model[:d] <= 115)
+    @constraint(model, cap, model[:demand] <= 115)
     msg = error_message(() -> canonicalize(backend(model), info_of(model)))
-    @test occursin("The constraint cap involves only uncertainties (d)", msg)
+    @test occursin("The constraint cap involves only uncertainties (demand)", msg)
     model = newsvendor_with_tags()
-    fix(model[:d], 100; force = true)
+    fix(model[:demand], 100; force = true)
     msg = error_message(() -> canonicalize(backend(model), info_of(model)))
-    @test occursin("The uncertainty d", msg)
+    @test occursin("The uncertainty demand", msg)
     return
 end
 
@@ -298,11 +204,8 @@ function test_deleting_variables()
     @variable(model, other in Uncertainty(Distributions.Uniform(0, 1)), Stage(2))
     delete(model, extra)
     delete(model, other)
-    by_hand, info = newsvendor_by_hand()
-    @test same_form(
-        canonicalize(backend(model), info_of(model)),
-        canonicalize(backend(by_hand), info),
-    )
+    form = canonicalize(backend(model), info_of(model))
+    @test same_form(form, Problems.form(Problems.newsvendor()))
     return
 end
 

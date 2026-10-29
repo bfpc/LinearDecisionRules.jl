@@ -59,6 +59,22 @@ end
 
 solve(p::Problem, f) = solve(form(p), f)
 
+# Equality of two canonical forms, field by field, such as those of a problem and of its twin of
+# `tagged.jl`. The blocks of the laws are compared sorted by column, since their order is the order
+# of declaration.
+function same_form(a::CanonicalForm, b::CanonicalForm)
+    for name in fieldnames(CanonicalForm)
+        if name == :laws
+            continue
+        end
+        if getfield(a, name) != getfield(b, name)
+            return false
+        end
+    end
+    key(law) = (law.columns, law.stages, law.distribution)
+    return sort(key.(a.laws); by = first) == sort(key.(b.laws); by = first)
+end
+
 function declare(dist, vars...; stages = fill(nothing, length(vars)))
     return UncertaintyDeclaration(dist, collect(index.(vars)), stages)
 end

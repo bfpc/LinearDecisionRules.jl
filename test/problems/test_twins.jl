@@ -12,10 +12,11 @@ using JuMP
 using Test
 
 import LinearDecisionRules
-import LinearDecisionRules: CanonicalForm, canonicalize
+import LinearDecisionRules: canonicalize
 
 include(joinpath(@__DIR__, "library.jl"))
 include(joinpath(@__DIR__, "tagged.jl"))
+import .Problems: same_form
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -43,21 +44,6 @@ const TWINS = [
     (TaggedProblems.newsvendor_mv_discrete, Problems.newsvendor_mv_discrete),
     (TaggedProblems.newsvendor_discrete_demand, Problems.newsvendor_discrete_demand),
 ]
-
-# Equality of two canonical forms, field by field. The blocks of the laws are compared sorted by
-# column, since their order is the order of declaration.
-function same_form(a::CanonicalForm, b::CanonicalForm)
-    for name in fieldnames(CanonicalForm)
-        if name == :laws
-            continue
-        end
-        if getfield(a, name) != getfield(b, name)
-            return false
-        end
-    end
-    key(law) = (law.columns, law.stages, law.distribution)
-    return sort(key.(a.laws); by = first) == sort(key.(b.laws); by = first)
-end
 
 function test_twins_have_the_same_form()
     for (tagged, by_hand) in TWINS
