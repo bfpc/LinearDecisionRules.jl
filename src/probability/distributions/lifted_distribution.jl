@@ -19,6 +19,13 @@ Its mean and covariance are computed once, on construction:
 `minimum` and `maximum` are the box of the lifted support, and `rand` lifts a draw of `original`,
 so a sample of the lifted law uses one draw of `original` per outcome.
 
+## Fields
+
+ * `original`: the law of `η`.
+ * `lifting`: the lifting.
+ * `lower::Vector{Float64}`, `upper::Vector{Float64}`: the box of the lifted support.
+ * `mean::Vector{Float64}`, `covariance::Matrix{Float64}`: the moments of `lift(lifting, η)`.
+
 ## Example
 
 ```julia

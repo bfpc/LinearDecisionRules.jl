@@ -35,15 +35,22 @@ the formulations see it:
 
  * `:ellipsoid`: `E` itself, as one second-order cone row `(ρ, L⁻¹ (η - μ))`. The inner problems
    of [`PrimalLDR`](@ref) and [`DualLDR`](@ref) are second-order cone programs.
- * `:boxes`: the box along the principal axes of `Σ` (as the previous version of the package), a
-   polyhedron that contains `E`: the inner problems stay linear, the primal rule stays feasible
-   on `E` and the dual bound stays valid, but both are looser than with `:ellipsoid`.
+ * `:boxes`: the box along the principal axes of `Σ`, a polyhedron that contains `E`: the inner
+   problems stay linear, the primal rule stays feasible on `E` and the dual bound stays valid, but
+   both are looser than with `:ellipsoid`.
  * `:auto` (the default): `:ellipsoid` if the inner optimizer supports second-order cone
    constraints and the model has no integer decisions, and `:boxes` otherwise (a mixed-integer
    second-order cone program is much harder than a mixed-integer linear one). `optimize!` decides,
    and asks the inner optimizer only when some law has `support = :auto`; outside of `optimize!`,
    [`canonicalize`](@ref) takes the choice of the optimizer as its keyword `conic_support`, and
    `support_constraints` of a law with `support = :auto` is the ellipsoid.
+
+## Fields
+
+ * `μ::Vector{Float64}`, `Σ::Matrix{Float64}`, `α::Float64`, `support::Symbol`: as given.
+ * `L::LowerTriangular{Float64,Matrix{Float64}}`: the Cholesky factor, `Σ = L Lᵀ`.
+ * `ρ::Float64`: the radius of `E` in the standardized space, `ρ = √quantile(Chisq(d), α)`.
+ * `scaling::Float64`: the factor `cdf(Chisq(d + 2), ρ²) / α` of the covariance.
 
 ## Example
 

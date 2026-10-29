@@ -26,6 +26,13 @@ rejection sampling. `minimum` and `maximum` are the boxes of the laws. When all 
 finitely many atoms, [`canonicalize`](@ref) replaces it by the exact law of the atoms of their
 product in `C`, a [`MvDiscreteNonParametric`](@ref).
 
+## Fields
+
+ * `laws::Vector{Distribution}`: the independent laws, in the order of their components.
+ * `W::Matrix{Float64}`, `h::Vector{Float64}`, `cones::Vector`: the set `C`.
+ * `names::Vector{String}`: the name of the constraint of each row.
+ * `offsets::Vector{Int}`: the first component of each law, and `length + 1` after the last.
+
 ## Example
 
 ```julia

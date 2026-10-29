@@ -173,10 +173,8 @@ standard deviation with `10_000` draws, and about 3% with `1_000`; the time is p
 it, divided by the acceptance rate of the conditioning constraints. The values that use estimated
 moments are not certified (see [`is_certified`](@ref)).
 
-It is the attribute `RejectionSamplingMaxIterations` of the previous versions (the number of draws
-kept, `1000` by default). Their `RejectionSamplingWarnAttempts` has no counterpart: the time limit
-bounds the attempts (see [`RejectionSamplingTimeLimit`](@ref)), and a draw is never replaced by a
-default value.
+The time limit bounds the attempts (see [`RejectionSamplingTimeLimit`](@ref)), and a draw is never
+replaced by a default value.
 
 ## Example
 

@@ -531,8 +531,7 @@ struct _Inequality
 end
 
 # The inequalities of `form`: the rows of `A_u` (sign 1) and `A_l` (sign -1), then the finite
-# bounds of the decisions that observe some uncertainty, as the rows `Sxu` and `Sxl` of the
-# previous version.
+# bounds of the decisions that observe some uncertainty.
 function _inequalities(form::CanonicalForm, info::InformationStructure)
     out = _Inequality[]
     append!(out, _Inequality.(1.0, _linear_rows(form.A_u, form.B_u, info)))

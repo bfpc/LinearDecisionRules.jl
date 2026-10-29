@@ -15,6 +15,12 @@ The covariance matrix of the columns `columns` of ξ: `covariance[a, b] = Cov(ξ
 
 `num_samples` is `0` when the moments of the block are exact, and otherwise the size of the sample
 that estimates them (by rejection sampling, for a [`ConditionedDistribution`](@ref)).
+
+## Fields
+
+ * `columns::Vector{Int}`
+ * `covariance::Matrix{Float64}`
+ * `num_samples::Int`
 """
 struct CovarianceBlock
     columns::Vector{Int}

@@ -9,8 +9,8 @@
 A `JuMP.Model` whose optimizer is [`Optimizer`](@ref)`(inner_factory)`, without bridges.
 
 `inner_factory`, for example `HiGHS.Optimizer`, builds the optimizer that solves the
-reformulated models. Anything the optimizer does not read, such as a second-order cone, is
-rejected when it is added to the model.
+reformulated models. [`Optimizer`](@ref) lists what a model may contain; anything else is
+rejected when it is added.
 
 ## Example
 

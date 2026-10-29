@@ -112,10 +112,10 @@ The module: imports, includes and the export list.
 
 The lifting interface (`AbstractLifting`, `lift`, `retraction`), `AxisPiecewise`, and `LiftingMap`.
 
-[`src/lifting/lifting.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/lifting.jl): 245 lines.
+[`src/lifting/lifting.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/lifting.jl): 249 lines.
 
 Defines:
-**`AbstractLifting` (L24)**†, **`lift` (L33)**† (5 methods), **`retraction` (L43)**† (3 methods), **`AxisPiecewise` (L76)**†, `Base.==` (L92), `Base.hash` (L94), `_num_inputs` (L96), `_num_lifted` (L98), `_vertices` (L118), `_lifted_bounds` (L132), `_hull_rows` (L143), `Base.show` (L158), **`LiftingBlock` (L176)**†, **`LiftingMap` (L206)**†.
+**`AbstractLifting` (L24)**†, **`lift` (L33)**† (5 methods), **`retraction` (L43)**† (3 methods), **`AxisPiecewise` (L80)**†, `Base.==` (L96), `Base.hash` (L98), `_num_inputs` (L100), `_num_lifted` (L102), `_vertices` (L122), `_lifted_bounds` (L136), `_hull_rows` (L147), `Base.show` (L162), **`LiftingBlock` (L180)**†, **`LiftingMap` (L210)**†.
 
 Used by: `canonical/form` (4), `probability/distributions/lifted_distribution` (7), `lifting/lifted_form` (8), `moi/results` (1), `jump/rules` (3), `jump/simulate` (1).
 
@@ -185,10 +185,10 @@ Used by: `canonical/form` (3), `probability/distributions/conditioned_distributi
 
 `ConditionedDistribution`: laws conditioned by `Truncate()` rows, sampled by rejection.
 
-[`src/probability/distributions/conditioned_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/conditioned_distribution.jl): 209 lines.
+[`src/probability/distributions/conditioned_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/conditioned_distribution.jl): 216 lines.
 
 Defines:
-**`ConditionedDistribution` (L43)**†, `Base.length` (L90), `Base.eltype` (L92), `Distributions.params` (L94), `Base.minimum` (L96), `Base.maximum` (L100), `Base.==` (L106), `Base.hash` (L110), `Base.show` (L114), `_constraint_names` (L120), `_draw_candidates!` (L126), `_in_set` (L140), `_MAX_ATTEMPTS_PER_DRAW` (L168), `Distributions._rand!` (L170), **`support_constraints` (L191)** (extends `canonical/support`), `_has_auto_support` (L203) (extends `canonical/support`), `_resolve_support` (L205) (extends `canonical/support`).
+**`ConditionedDistribution` (L50)**†, `Base.length` (L97), `Base.eltype` (L99), `Distributions.params` (L101), `Base.minimum` (L103), `Base.maximum` (L107), `Base.==` (L113), `Base.hash` (L117), `Base.show` (L121), `_constraint_names` (L127), `_draw_candidates!` (L133), `_in_set` (L147), `_MAX_ATTEMPTS_PER_DRAW` (L175), `Distributions._rand!` (L177), **`support_constraints` (L198)** (extends `canonical/support`), `_has_auto_support` (L210) (extends `canonical/support`), `_resolve_support` (L212) (extends `canonical/support`).
 
 Uses:
 
@@ -201,10 +201,10 @@ Used by: `canonical/form` (1), `canonical/conditioning` (3), `probability/moment
 
 `ConfidenceMvNormal`: a normal law truncated to a confidence ellipsoid.
 
-[`src/probability/distributions/confidence_mv_normal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/confidence_mv_normal.jl): 179 lines.
+[`src/probability/distributions/confidence_mv_normal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/confidence_mv_normal.jl): 186 lines.
 
 Defines:
-**`ConfidenceMvNormal` (L55)**†, `Base.length` (L92), `Base.eltype` (L94), `Distributions.params` (L96), `Distributions.mean` (L98), `Distributions.cov` (L100), `Distributions.var` (L102), `Base.minimum` (L104), `Base.maximum` (L106), `Base.==` (L109), `Base.hash` (L113), `Base.show` (L117), `Distributions.insupport` (L125), `Distributions._rand!` (L131), **`support_constraints` (L147)** (extends `canonical/support`), `_linear_conditional_expectations` (L172), `_has_auto_support` (L174) (extends `canonical/support`), `_resolve_support` (L176) (extends `canonical/support`).
+**`ConfidenceMvNormal` (L62)**†, `Base.length` (L99), `Base.eltype` (L101), `Distributions.params` (L103), `Distributions.mean` (L105), `Distributions.cov` (L107), `Distributions.var` (L109), `Base.minimum` (L111), `Base.maximum` (L113), `Base.==` (L116), `Base.hash` (L120), `Base.show` (L124), `Distributions.insupport` (L132), `Distributions._rand!` (L138), **`support_constraints` (L154)** (extends `canonical/support`), `_linear_conditional_expectations` (L179), `_has_auto_support` (L181) (extends `canonical/support`), `_resolve_support` (L183) (extends `canonical/support`).
 
 Uses:
 
@@ -235,10 +235,10 @@ Used by: `canonical/form` (1), `probability/distributions/mv_discrete_non_parame
 
 `Moments` and `CovarianceBlock`, the moment hooks of the laws, and the rejection-sampling engine.
 
-[`src/probability/moments.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/moments.jl): 348 lines.
+[`src/probability/moments.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/moments.jl): 354 lines.
 
 Defines:
-`CovarianceBlock` (L19)† (2 methods), `Moments` (L44)†, `_is_estimated` (L51), `_law_mean` (L53) (3 methods), `_law_covariance` (L56) (3 methods), `_linear_conditional_expectations` (L64) (4 methods) (extends `probability/distributions/confidence_mv_normal`), `_ContinuousTruncated` (L81), `_truncated_moments` (L90), `_RejectionSampling` (L104), `_DEFAULT_SAMPLING_TIME_LIMIT` (L125), `_sampling_time_limit` (L131), `_sampling_time_limit_source` (L141), `_Estimate` (L154), `_MomentsCache` (L165) (2 methods), `_MIN_SAMPLES` (L174), `_estimate` (L182), `_check_estimate` (L219), `moments` (L260)†, `_moments` (L271), `second_moment` (L342)†.
+`CovarianceBlock` (L25)† (2 methods), `Moments` (L50)†, `_is_estimated` (L57), `_law_mean` (L59) (3 methods), `_law_covariance` (L62) (3 methods), `_linear_conditional_expectations` (L70) (4 methods) (extends `probability/distributions/confidence_mv_normal`), `_ContinuousTruncated` (L87), `_truncated_moments` (L96), `_RejectionSampling` (L110), `_DEFAULT_SAMPLING_TIME_LIMIT` (L131), `_sampling_time_limit` (L137), `_sampling_time_limit_source` (L147), `_Estimate` (L160), `_MomentsCache` (L171) (2 methods), `_MIN_SAMPLES` (L180), `_estimate` (L188), `_check_estimate` (L225), `moments` (L266)†, `_moments` (L277), `second_moment` (L348)†.
 
 Uses:
 
@@ -253,10 +253,10 @@ Used by: `canonical/form` (1), `formulations/formulation` (2), `formulations/pri
 
 `MvDiscreteNonParametric`: a multivariate law with finitely many atoms.
 
-[`src/probability/distributions/mv_discrete_non_parametric.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/mv_discrete_non_parametric.jl): 158 lines.
+[`src/probability/distributions/mv_discrete_non_parametric.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/mv_discrete_non_parametric.jl): 163 lines.
 
 Defines:
-**`MvDiscreteNonParametric` (L22)**† (2 methods), `Base.eltype` (L61), `Distributions.params` (L63), `Base.length` (L65), `Distributions._rand!` (L67), `Base.minimum` (L83), `Base.maximum` (L91), `Distributions.mean` (L99), `Distributions.cov` (L107), `Distributions.var` (L117), `Distributions.insupport` (L126), `_finite_atoms` (L129) (extends `canonical/conditioning`), `_linear_conditional_expectations` (L138) (extends `probability/distributions/confidence_mv_normal`).
+**`MvDiscreteNonParametric` (L27)**† (2 methods), `Base.eltype` (L66), `Distributions.params` (L68), `Base.length` (L70), `Distributions._rand!` (L72), `Base.minimum` (L88), `Base.maximum` (L96), `Distributions.mean` (L104), `Distributions.cov` (L112), `Distributions.var` (L122), `Distributions.insupport` (L131), `_finite_atoms` (L134) (extends `canonical/conditioning`), `_linear_conditional_expectations` (L143) (extends `probability/distributions/confidence_mv_normal`).
 
 Uses:
 
@@ -269,10 +269,10 @@ Used by: `canonical/conditioning` (1).
 
 `LiftedDistribution`, and the moments of `AxisPiecewise` pieces.
 
-[`src/probability/distributions/lifted_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/lifted_distribution.jl): 154 lines.
+[`src/probability/distributions/lifted_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/lifted_distribution.jl): 161 lines.
 
 Defines:
-**`LiftedDistribution` (L29)**† (2 methods), `Base.length` (L55), `Base.eltype` (L59), `Distributions.params` (L61), `Base.minimum` (L63), `Base.maximum` (L65), `Distributions.mean` (L67), `Distributions.cov` (L69), `Distributions.var` (L71), `Distributions._rand!` (L73), `Base.show` (L82), `_lifted_moments` (L89) (2 methods), `_symmetric` (L107), `_piece_moments` (L144) (2 methods).
+**`LiftedDistribution` (L36)**† (2 methods), `Base.length` (L62), `Base.eltype` (L66), `Distributions.params` (L68), `Base.minimum` (L70), `Base.maximum` (L72), `Distributions.mean` (L74), `Distributions.cov` (L76), `Distributions.var` (L78), `Distributions._rand!` (L80), `Base.show` (L89), `_lifted_moments` (L96) (2 methods), `_symmetric` (L114), `_piece_moments` (L151) (2 methods).
 
 Uses:
 
@@ -304,10 +304,10 @@ Used by: `moi/results` (1).
 
 The formulation types, capabilities, `FormulationResult`, `solve_formulation`, the inner problem, the shared rows and objective.
 
-[`src/formulations/formulation.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/formulation.jl): 778 lines.
+[`src/formulations/formulation.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/formulation.jl): 777 lines.
 
 Defines:
-**`AbstractFormulation` (L15)**†, **`PrimalLDR` (L42)**† (2 methods), **`DualLDR` (L91)**† (2 methods), `_attribute_pairs` (L97), `Base.==` (L100) (2 methods), `Base.hash` (L104) (2 methods), `Base.show` (L108) (2 methods), `_formulation_attributes` (L122) (2 methods), **`SampledLDR` (L135)**† (2 methods), `FormulationCapabilities` (L163)†, `capabilities` (L173)† (3 methods), `FormulationResult` (L218)†, `solve_formulation` (L274)†, `_InnerProblem` (L295), `_build_inner` (L305), `_solve_inner!` (L337), `_with_parameter_decisions` (L365), `_with_constant_column` (L398), `_certification` (L411), `_raw_status` (L432), `_seconds_since` (L437), `_time_limit_result` (L440), `_build!` (L459), `_rule_variables!` (L469), `_LinearRow` (L499), `_structural_columns` (L509), `_is_deterministic` (L513), `_linear_rows` (L517), `_Inequality` (L528), `_inequalities` (L536), `_add_row_column!` (L551), `_add_equalities!` (L561), `_add_deterministic!` (L570), `_objective_constant` (L577), `_set_objective!` (L592), `_add_quadratic_terms!` (L626), `_decision_means!` (L660), `_has_integers` (L678), `_is_linear_program` (L685), `_dual_objective_or` (L697), `_objective_bound` (L711), `_NO_SOLUTION_STATUS` (L738), `_formulation_result` (L741).
+**`AbstractFormulation` (L15)**†, **`PrimalLDR` (L42)**† (2 methods), **`DualLDR` (L91)**† (2 methods), `_attribute_pairs` (L97), `Base.==` (L100) (2 methods), `Base.hash` (L104) (2 methods), `Base.show` (L108) (2 methods), `_formulation_attributes` (L122) (2 methods), **`SampledLDR` (L135)**† (2 methods), `FormulationCapabilities` (L163)†, `capabilities` (L173)† (3 methods), `FormulationResult` (L218)†, `solve_formulation` (L274)†, `_InnerProblem` (L295), `_build_inner` (L305), `_solve_inner!` (L337), `_with_parameter_decisions` (L365), `_with_constant_column` (L398), `_certification` (L411), `_raw_status` (L432), `_seconds_since` (L437), `_time_limit_result` (L440), `_build!` (L459), `_rule_variables!` (L469), `_LinearRow` (L499), `_structural_columns` (L509), `_is_deterministic` (L513), `_linear_rows` (L517), `_Inequality` (L528), `_inequalities` (L535), `_add_row_column!` (L550), `_add_equalities!` (L560), `_add_deterministic!` (L569), `_objective_constant` (L576), `_set_objective!` (L591), `_add_quadratic_terms!` (L625), `_decision_means!` (L659), `_has_integers` (L677), `_is_linear_program` (L684), `_dual_objective_or` (L696), `_objective_bound` (L710), `_NO_SOLUTION_STATUS` (L737), `_formulation_result` (L740).
 
 Uses:
 
@@ -393,10 +393,10 @@ Used by: `moi/model_info` (2), `moi/optimizer` (4), `jump/variables` (1), `jump/
 
 The tags (`ValidInequality`, `Truncate`) and the MOI attributes, public and internal.
 
-[`src/moi/attributes.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/attributes.jl): 290 lines.
+[`src/moi/attributes.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/attributes.jl): 288 lines.
 
 Defines:
-`AbstractXiRole` (L12)†, `Base.broadcastable` (L15), **`ValidInequality` (L29)**†, **`Truncate` (L57)**†, `XiRole` (L65)†, **`BreakPoints` (L87)**†, **`InnerOptimizer` (L101)**†, **`Formulations` (L120)**†, **`RejectionSamplingSeed` (L134)**†, **`RejectionSamplingTimeLimit` (L162)**†, **`RejectionSamplingMaxSamples` (L187)**†, **`FormulationAttribute` (L202)**†, `MOI.is_set_by_optimize` (L207) (3 methods), **`Certified` (L222)**†, `RuleCoefficients` (L230), `UncertaintyVariables` (L236), `DecisionVariables` (L239), `UncertaintyLifting` (L242), `UncertaintyMoments` (L245), `SimulationData` (L248), `InnerModel` (L253), `_AttributesWithoutIndices` (L271), `MOI.Utilities.map_indices` (L290).
+`AbstractXiRole` (L12)†, `Base.broadcastable` (L15), **`ValidInequality` (L29)**†, **`Truncate` (L57)**†, `XiRole` (L65)†, **`BreakPoints` (L87)**†, **`InnerOptimizer` (L101)**†, **`Formulations` (L120)**†, **`RejectionSamplingSeed` (L134)**†, **`RejectionSamplingTimeLimit` (L162)**†, **`RejectionSamplingMaxSamples` (L185)**†, **`FormulationAttribute` (L200)**†, `MOI.is_set_by_optimize` (L205) (3 methods), **`Certified` (L220)**†, `RuleCoefficients` (L228), `UncertaintyVariables` (L234), `DecisionVariables` (L237), `UncertaintyLifting` (L240), `UncertaintyMoments` (L243), `SimulationData` (L246), `InnerModel` (L251), `_AttributesWithoutIndices` (L269), `MOI.Utilities.map_indices` (L288).
 
 Uses:
 
@@ -588,10 +588,10 @@ Uses:
 
 `evaluate` and `simulate`, and the `SimulationData` the optimizer gives them.
 
-[`src/jump/simulate.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/simulate.jl): 706 lines.
+[`src/jump/simulate.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/simulate.jl): 707 lines.
 
 Defines:
-`_OriginalLaw` (L13) (2 methods), `_outside_law_rows` (L26), `_RowGroup` (L42), `_Simulator` (L46), `_original_laws` (L66), `_stack_rows` (L81), `MOI.get` (L116), `_simulator` (L148), `_Given` (L162), `_add_scenario!` (L166) (2 methods), `_add_pair!` (L175) (3 methods), `_outcome` (L197), `_check_policy` (L223), `_Batch` (L233), `_assess` (L241), `_group_name` (L262), `_support_reasons` (L276), **`Evaluation` (L352)**†, `_lookup` (L363), `JuMP.value` (L377)† (2 methods), `Base.getindex` (L381), `Base.broadcastable` (L384), `JuMP.objective_value` (L391)†, `Base.show` (L393) (2 methods), `_outside_support` (L404), **`evaluate` (L450)**† (3 methods), **`Simulation` (L511)**†, `_draw_chunk` (L542), `_simulate` (L552), **`simulate` (L656)**† (2 methods).
+`_OriginalLaw` (L13) (2 methods), `_outside_law_rows` (L26), `_RowGroup` (L42), `_Simulator` (L46), `_original_laws` (L66), `_stack_rows` (L81), `MOI.get` (L116), `_simulator` (L148), `_Given` (L162), `_add_scenario!` (L166) (2 methods), `_add_pair!` (L175) (3 methods), `_outcome` (L197), `_check_policy` (L223), `_Batch` (L233), `_assess` (L241), `_group_name` (L262), `_support_reasons` (L276), **`Evaluation` (L352)**†, `_lookup` (L363), `JuMP.value` (L377)† (2 methods), `Base.getindex` (L381), `Base.broadcastable` (L384), `JuMP.objective_value` (L391)†, `Base.show` (L393) (2 methods), `_outside_support` (L404), **`evaluate` (L451)**† (3 methods), **`Simulation` (L512)**†, `_draw_chunk` (L543), `_simulate` (L553), **`simulate` (L657)**† (2 methods).
 
 Uses:
 

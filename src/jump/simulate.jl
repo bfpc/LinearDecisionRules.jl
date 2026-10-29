@@ -428,8 +428,9 @@ constraints that it violates.
 `scenario` maps each uncertainty of the model to a value, as a `Dict` or as pairs; an array of
 uncertainties maps to an array of values. Every uncertainty needs a value, in the original
 coordinates (not lifted by [`BreakPoints`](@ref)), or `evaluate` is an error that names the missing
-ones. The scenario must be in the support of the uncertainties (their bounds, and the constraints
-tagged `ValidInequality()`): `outside_support` is `:error`, or `:warn` or `:ignore` to evaluate it
+ones. The scenario must be in the support of the uncertainties: the box of each law and its
+[`support_constraints`](@ref), and the constraints tagged `ValidInequality()` or `Truncate()`,
+linear or second-order cone. `outside_support` is `:error`, or `:warn` or `:ignore` to evaluate it
 anyway.
 
 The rule of [`PrimalLDR`](@ref) violates no constraint on the support, up to the tolerance of the

@@ -12,6 +12,11 @@ Use it for scenario-based uncertainty with joint realizations of several paramet
 tagged [`Truncate`](@ref) condition it exactly: the scenarios that satisfy them are kept, with
 their probabilities renormalized.
 
+## Fields
+
+ * `support`: the support points, as given.
+ * `p`: their probabilities.
+
 ## Example
 
 ```julia

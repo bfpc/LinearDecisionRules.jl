@@ -127,8 +127,8 @@ end
 # Ξ_b; with second-order cones, strong duality needs a point of Ξ_b strictly inside them, and the
 # "if" direction holds without it, so the rule stays feasible on Ξ).
 # A block where `s_b` is structurally zero needs no multiplier, since Ξ_b is nonempty.
-# The slack is an expression of X, as `SlackAsExpr` in the previous version: explicit slack
-# variables would add one variable and one equality per (row, column) and save nothing.
+# The slack is an expression of X: explicit slack variables would add one variable and one
+# equality per (row, column) and save nothing.
 function _add_robust_counterpart!(
     model::JuMP.Model,
     X,

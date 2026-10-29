@@ -52,9 +52,9 @@ The piecewise-linear lifting of one uncertainty `η` along its axis, with the in
 \\tilde\\eta_k = \\min(\\max(\\eta - b_{k-1}, 0), b_k - b_{k-1}), \\quad
 \\tilde\\eta_{n+1} = \\max(\\eta - b_n, 0),
 ```
-so that `η = η̃₁ + … + η̃ₙ₊₁` (the retraction is a row of ones). The first piece includes the
-minimum of the support, as in the previous versions of the package. A rule that is linear in `η̃`
-is piecewise affine in `η`, and its coefficient on `η̃ₖ` is its slope on the `k`-th piece.
+so that `η = η̃₁ + … + η̃ₙ₊₁` (the retraction is a row of ones): the first piece includes the
+minimum of the support. A rule that is linear in `η̃` is piecewise affine in `η`, and its
+coefficient on `η̃ₖ` is its slope on the `k`-th piece.
 
 With the support `[η_min, η_max]` and the lengths `Δ₁ = b₁ - η_min`, `Δₖ = bₖ - bₖ₋₁` and
 `Δₙ₊₁ = η_max - bₙ`, the convex hull of the lifted support is
@@ -64,6 +64,10 @@ With the support `[η_min, η_max]` and the lengths `Δ₁ = b₁ - η_min`, `Δ
 ```
 
 Set it on a model with `set_attribute(d, BreakPoints(), breakpoints)`.
+
+## Fields
+
+ * `breakpoints::Vector{Float64}`: the interior breakpoints, sorted.
 
 ## Example
 
@@ -137,7 +141,7 @@ end
 
 # The rows `W η̃ ≥ h` of the convex hull of the lifted support, beyond its box. With `Δ` as in the
 # docstring of `AxisPiecewise`, row `k` is `(η̃ₖ - [k = 1] η_min) / Δₖ ≥ η̃ₖ₊₁ / Δₖ₊₁`, scaled by
-# `Δₖ Δₖ₊₁` as in the previous versions. The scaling is immaterial: with the row `e₁` kept, the dual
+# `Δₖ Δₖ₊₁`. The scaling is immaterial: with the row `e₁` kept, the dual
 # LDR depends only on the support Ξ, not on the rows that describe it (Farkas; Proposition 5.4 of
 # `docs/math`).
 function _hull_rows(l::AxisPiecewise, lower::Vector{Float64}, upper::Vector{Float64})
@@ -195,8 +199,8 @@ rule `x(ξ) = X̃ lift(map, ξ)` on the original uncertainties.
 
  * `uncertainties::Vector{MOI.VariableIndex}`: the original uncertainties, in the columns
    `2:1+m` of `ξ`.
- * `uncertainty_names::Vector{String}`
- * `uncertainty_stages::Vector{Int}`
+ * `uncertainty_names::Vector{String}`: the name of each original uncertainty.
+ * `uncertainty_stages::Vector{Int}`: the stage of each original uncertainty.
  * `kept::Vector{Int}`: the column of `ξ̃` of each column of `ξ` that is not lifted (the constant
    column 1 is column 1), and 0 for a lifted column.
  * `blocks::Vector{LiftingBlock}`: the liftings, each with its columns in `ξ` and in `ξ̃`.
