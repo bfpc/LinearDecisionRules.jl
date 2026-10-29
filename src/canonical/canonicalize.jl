@@ -83,7 +83,7 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo; conic_support::Bool =
     constraints = _read_constraints(src, info, layout)
     sense, objective = _read_objective(src, layout)
     form = _canonical_form(src, layout, constraints, sense, objective)
-    form = _condition(src, _resolve_supports(form, conic_support))
+    form = _condition(src, _resolve_representations(form, conic_support))
     _check_valid_rows_at_mean(src, form)
     _check_observable_equalities(src, form)
     liftings = _breakpoint_liftings(src, form, info.breakpoints)

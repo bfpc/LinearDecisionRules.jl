@@ -331,8 +331,8 @@ end
 # Whether the inner optimizer supports second-order cone constraints, with the bridges of the inner
 # models. It is asked only when a law chooses the representation of its support (see
 # `canonicalize`), since an instance of some optimizers costs a license check.
-function _conic_support(factory, info::ModelInfo)
-    any(d -> _has_auto_support(d.distribution), info.uncertainties) || return true
+function _inner_supports_cones(factory, info::ModelInfo)
+    any(d -> _has_auto_representation(d.distribution), info.uncertainties) || return true
     inner = MOI.instantiate(factory; with_bridge_type = Float64)
     return MOI.supports_constraint(inner, MOI.VectorAffineFunction{Float64}, MOI.SecondOrderCone)
 end
@@ -359,7 +359,7 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     factory = _inner_factory(dest)
     info = model_info(src)
     _check_bounded_support(src, info)
-    form = canonicalize(src, info; conic_support = _conic_support(factory, info))
+    form = canonicalize(src, info; conic_support = _inner_supports_cones(factory, info))
     # Without `RejectionSamplingTimeLimit()`, the sampling gets half of what remains of
     # `TimeLimitSec`, and the formulations the rest.
     budget = nothing

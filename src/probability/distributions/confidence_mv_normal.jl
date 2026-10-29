@@ -178,9 +178,9 @@ end
 # Proposition "Moments of ConfidenceMvNormal").
 _linear_conditional_expectations(::ConfidenceMvNormal, ::AbstractVector) = true
 
-_has_auto_support(d::ConfidenceMvNormal) = d.support == :auto
+_has_auto_representation(d::ConfidenceMvNormal) = d.support == :auto
 
-function _resolve_support(d::ConfidenceMvNormal, conic::Bool)
+function _resolve_representation(d::ConfidenceMvNormal, conic::Bool)
     d.support == :auto || return d
     return ConfidenceMvNormal(d.μ, d.Σ, d.α; support = conic ? :ellipsoid : :boxes)
 end

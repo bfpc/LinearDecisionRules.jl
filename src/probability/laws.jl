@@ -78,9 +78,9 @@ end
 
 # Whether the representation of the support of `d` is chosen by `canonicalize` (`support = :auto`),
 # and the law with the representation chosen, with second-order cones if `conic`.
-_has_auto_support(::Distributions.Distribution) = false
+_has_auto_representation(::Distributions.Distribution) = false
 
-_resolve_support(d::Distributions.Distribution, ::Bool) = d
+_resolve_representation(d::Distributions.Distribution, ::Bool) = d
 
 # How far `v` is from `cone`, in the units of `v`: 0 if `v ∈ cone`.
 function _cone_violation(::MOI.SecondOrderCone, v::AbstractVector)

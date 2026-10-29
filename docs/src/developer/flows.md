@@ -49,7 +49,7 @@ sequenceDiagram
     O->>O: MOI.empty!(dest), _inner_factory(dest)
     O->>O: model_info(src) → ModelInfo (moi/model_info.jl)
     O->>O: _check_bounded_support(src, info)
-    O->>C: canonicalize(src, info; conic_support = _conic_support(factory, info))
+    O->>C: canonicalize(src, info; conic_support = _inner_supports_cones(factory, info))
     C-->>O: CanonicalForm
     O->>P: _moments(form, rejection_sampling, moments_cache; budget)
     P-->>O: Moments
@@ -86,9 +86,10 @@ sequenceDiagram
    decisions after stage 1.
 5. `_read_objective`, then `_canonical_form`: the `CanonicalForm`, with `lifting = nothing` and the
    `ParameterTerms`.
-6. `_resolve_supports(form, conic_support)`: each law with `support = :auto` (`_has_auto_support`)
-   gets its representation from `_resolve_support`: second-order cones if `conic_support` holds and
-   no decision is integer, linear rows otherwise (`canonical/support.jl`).
+6. `_resolve_representations(form, conic_support)`: each law with `support = :auto`
+   (`_has_auto_representation`) gets its representation from `_resolve_representation`:
+   second-order cones if `conic_support` holds and no decision is integer, linear rows otherwise
+   (`canonical/support.jl`).
 7. `_condition(src, form)` (`canonical/conditioning.jl`) conditions the laws by the rows tagged
    `Truncate()`. A univariate law whose linear rows involve it alone is truncated exactly. Laws
    coupled by such rows, or by conic rows, are merged by union–find into a `ConditionedDistribution`.

@@ -156,14 +156,14 @@ function test_support_constraints()
     return
 end
 
-function test_resolve_support()
+function test_resolve_representation()
     d = ConfidenceMvNormal(μ, Σ, 0.9)
-    @test LDR._has_auto_support(d)
-    @test LDR._resolve_support(d, true).support == :ellipsoid
-    @test LDR._resolve_support(d, false).support == :boxes
+    @test LDR._has_auto_representation(d)
+    @test LDR._resolve_representation(d, true).support == :ellipsoid
+    @test LDR._resolve_representation(d, false).support == :boxes
     boxes = ConfidenceMvNormal(μ, Σ, 0.9; support = :boxes)
-    @test !LDR._has_auto_support(boxes) && LDR._resolve_support(boxes, true) === boxes
-    @test !LDR._has_auto_support(Distributions.Uniform(0, 1))
+    @test !LDR._has_auto_representation(boxes) && LDR._resolve_representation(boxes, true) === boxes
+    @test !LDR._has_auto_representation(Distributions.Uniform(0, 1))
     return
 end
 

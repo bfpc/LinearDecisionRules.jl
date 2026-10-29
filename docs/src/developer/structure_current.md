@@ -124,7 +124,7 @@ The interface of a law, with its fallbacks: support (box, `support_constraints`,
 [`src/probability/laws.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/laws.jl): 192 lines.
 
 Defines:
-`_dimension` (L11) (3 methods), `_SupportCone` (L16), `_support_bounds` (L21) (2 methods), `_support_box` (L36), **`support_constraints` (L71)**†, `_no_support_constraints` (L75), `_has_auto_support` (L81), `_resolve_support` (L83), `_cone_violation` (L86) (2 methods), `_outside_cone` (L97) (3 methods), `_CONDITIONING_TOLERANCE` (L123), `_finite_atoms` (L127) (2 methods), `_law_mean` (L145) (3 methods), `_law_covariance` (L148) (3 methods), `_linear_conditional_expectations` (L156) (4 methods), `_ContinuousTruncated` (L173), `_truncated_moments` (L182).
+`_dimension` (L11) (3 methods), `_SupportCone` (L16), `_support_bounds` (L21) (2 methods), `_support_box` (L36), **`support_constraints` (L71)**†, `_no_support_constraints` (L75), `_has_auto_representation` (L81), `_resolve_representation` (L83), `_cone_violation` (L86) (2 methods), `_outside_cone` (L97) (3 methods), `_CONDITIONING_TOLERANCE` (L123), `_finite_atoms` (L127) (2 methods), `_law_mean` (L145) (3 methods), `_law_covariance` (L148) (3 methods), `_linear_conditional_expectations` (L156) (4 methods), `_ContinuousTruncated` (L173), `_truncated_moments` (L182).
 
 Used by: `probability/distributions/conditioned_distribution` (8), `probability/distributions/confidence_mv_normal` (6), `probability/distributions/mv_discrete_non_parametric` (2), `probability/distributions/lifted_distribution` (1), `canonical/read` (1), `canonical/checks` (2), `canonical/support` (5), `canonical/conditioning` (5), `lifting/lifted_form` (1), `probability/moments` (2), `formulations/dual` (2), `moi/sets` (1), `moi/optimizer` (1), `jump/simulate` (5).
 
@@ -162,11 +162,11 @@ Used by: `probability/distributions/lifted_distribution` (4), `lifting/lifted_fo
 [`src/probability/distributions/conditioned_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/conditioned_distribution.jl): 197 lines.
 
 Defines:
-**`ConditionedDistribution` (L50)**†, `Base.length` (L97), `Base.eltype` (L99), `Distributions.params` (L101), `Base.minimum` (L103), `Base.maximum` (L107), `Base.==` (L113), `Base.hash` (L117), `Base.show` (L121), `_constraint_names` (L127), `_draw_candidates!` (L133), `_in_set` (L147), `_MAX_ATTEMPTS_PER_DRAW` (L156), `Distributions._rand!` (L158), **`support_constraints` (L179)** (extends `probability/laws`), `_has_auto_support` (L191) (extends `probability/laws`), `_resolve_support` (L193) (extends `probability/laws`).
+**`ConditionedDistribution` (L50)**†, `Base.length` (L97), `Base.eltype` (L99), `Distributions.params` (L101), `Base.minimum` (L103), `Base.maximum` (L107), `Base.==` (L113), `Base.hash` (L117), `Base.show` (L121), `_constraint_names` (L127), `_draw_candidates!` (L133), `_in_set` (L147), `_MAX_ATTEMPTS_PER_DRAW` (L156), `Distributions._rand!` (L158), **`support_constraints` (L179)** (extends `probability/laws`), `_has_auto_representation` (L191) (extends `probability/laws`), `_resolve_representation` (L193) (extends `probability/laws`).
 
 Uses:
 
-- `probability/laws`: `_CONDITIONING_TOLERANCE`, `_SupportCone`, `_dimension`, `_has_auto_support`, `_outside_cone`, `_resolve_support`, `_support_box`, `support_constraints`
+- `probability/laws`: `_CONDITIONING_TOLERANCE`, `_SupportCone`, `_dimension`, `_has_auto_representation`, `_outside_cone`, `_resolve_representation`, `_support_box`, `support_constraints`
 
 Used by: `canonical/checks` (1), `canonical/conditioning` (3), `lifting/lifted_form` (2), `probability/rejection_sampling` (4), `probability/moments` (1).
 
@@ -177,11 +177,11 @@ Used by: `canonical/checks` (1), `canonical/conditioning` (3), `lifting/lifted_f
 [`src/probability/distributions/confidence_mv_normal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/confidence_mv_normal.jl): 186 lines.
 
 Defines:
-**`ConfidenceMvNormal` (L62)**†, `Base.length` (L99), `Base.eltype` (L101), `Distributions.params` (L103), `Distributions.mean` (L105), `Distributions.cov` (L107), `Distributions.var` (L109), `Base.minimum` (L111), `Base.maximum` (L113), `Base.==` (L116), `Base.hash` (L120), `Base.show` (L124), `Distributions.insupport` (L132), `Distributions._rand!` (L138), **`support_constraints` (L154)** (extends `probability/laws`), `_linear_conditional_expectations` (L179) (extends `probability/laws`), `_has_auto_support` (L181) (extends `probability/laws`), `_resolve_support` (L183) (extends `probability/laws`).
+**`ConfidenceMvNormal` (L62)**†, `Base.length` (L99), `Base.eltype` (L101), `Distributions.params` (L103), `Distributions.mean` (L105), `Distributions.cov` (L107), `Distributions.var` (L109), `Base.minimum` (L111), `Base.maximum` (L113), `Base.==` (L116), `Base.hash` (L120), `Base.show` (L124), `Distributions.insupport` (L132), `Distributions._rand!` (L138), **`support_constraints` (L154)** (extends `probability/laws`), `_linear_conditional_expectations` (L179) (extends `probability/laws`), `_has_auto_representation` (L181) (extends `probability/laws`), `_resolve_representation` (L183) (extends `probability/laws`).
 
 Uses:
 
-- `probability/laws`: `_SupportCone`, `_has_auto_support`, `_linear_conditional_expectations`, `_no_support_constraints`, `_resolve_support`, `support_constraints`
+- `probability/laws`: `_SupportCone`, `_has_auto_representation`, `_linear_conditional_expectations`, `_no_support_constraints`, `_resolve_representation`, `support_constraints`
 
 ### `probability/distributions/mv_discrete_non_parametric`
 
@@ -314,12 +314,12 @@ Used by: `canonical/canonicalize` (2), `formulations/result` (1), `moi/checks` (
 [`src/canonical/support.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/canonical/support.jl): 172 lines.
 
 Defines:
-`SupportBlock` (L30)†, `_cone_rows` (L40), `support_blocks` (L58)†, `_resolve_supports` (L164).
+`SupportBlock` (L30)†, `_cone_rows` (L40), `support_blocks` (L58)†, `_resolve_representations` (L164).
 
 Uses:
 
 - `utils`: `_SparseMatrix`, `_Triplets`, `_UnionFind`, `_groups`, `_join!`, `_nonzero_columns`, `_push!`, `_sparse`
-- `probability/laws`: `_SupportCone`, `_has_auto_support`, `_resolve_support`, `_support_box`, `support_constraints`
+- `probability/laws`: `_SupportCone`, `_has_auto_representation`, `_resolve_representation`, `_support_box`, `support_constraints`
 - `canonical/types`: `CanonicalForm`, `UncertaintyBlock`, `_replace`
 
 Used by: `canonical/canonicalize` (1), `formulations/primal` (3), `formulations/dual` (3).
@@ -381,7 +381,7 @@ Uses:
 - `canonical/declarations`: `ModelInfo`
 - `canonical/read`: `_canonical_form`, `_check_declarations`, `_layout`, `_parameter_list`, `_read_constraints`, `_read_objective`
 - `canonical/checks`: `_check_observable_equalities`, `_check_valid_rows_at_mean`
-- `canonical/support`: `_resolve_supports`
+- `canonical/support`: `_resolve_representations`
 - `canonical/conditioning`: `_condition`
 - `lifting/lifted_form`: `_breakpoint_liftings`
 
@@ -644,12 +644,12 @@ Used by: `moi/optimizer` (5).
 [`src/moi/optimizer.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/optimizer.jl): 394 lines.
 
 Defines:
-`Optimizer` (L55)†, `MOI.is_empty` (L101), `MOI.empty!` (L103), `MOI.get` (L114) (10 methods), `MOI.supports_incremental_interface` (L117), `MOI.supports_constraint` (L120) (5 methods), `MOI.supports` (L146) (6 methods), `MOI.set` (L206) (9 methods), `_inner_factory` (L290), `MOI.copy_to` (L301), `_identity_map` (L306), `_check_bounded_support` (L320), `_conic_support` (L334), `_parameter_values` (L341), `MOI.optimize!` (L356)†.
+`Optimizer` (L55)†, `MOI.is_empty` (L101), `MOI.empty!` (L103), `MOI.get` (L114) (10 methods), `MOI.supports_incremental_interface` (L117), `MOI.supports_constraint` (L120) (5 methods), `MOI.supports` (L146) (6 methods), `MOI.set` (L206) (9 methods), `_inner_factory` (L290), `MOI.copy_to` (L301), `_identity_map` (L306), `_check_bounded_support` (L320), `_inner_supports_cones` (L334), `_parameter_values` (L341), `MOI.optimize!` (L356)†.
 
 Uses:
 
 - `utils`: `_seconds_since`
-- `probability/laws`: `_has_auto_support`
+- `probability/laws`: `_has_auto_representation`
 - `canonical/declarations`: `ModelInfo`
 - `canonical/types`: `CanonicalForm`, `_BoundSet`, `_ScalarFunction`, `_VectorFunction`, `_VectorSet`
 - `canonical/names`: `_variable_name`

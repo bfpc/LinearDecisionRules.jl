@@ -188,10 +188,10 @@ function support_constraints(d::ConditionedDistribution)
     return (W = W, h = h, cones = reduce(vcat, (p.cones for p in pieces); init = _SupportCone[]))
 end
 
-_has_auto_support(d::ConditionedDistribution) = any(_has_auto_support, d.laws)
+_has_auto_representation(d::ConditionedDistribution) = any(_has_auto_representation, d.laws)
 
-function _resolve_support(d::ConditionedDistribution, conic::Bool)
-    _has_auto_support(d) || return d
-    laws = [_resolve_support(law, conic) for law in d.laws]
+function _resolve_representation(d::ConditionedDistribution, conic::Bool)
+    _has_auto_representation(d) || return d
+    laws = [_resolve_representation(law, conic) for law in d.laws]
     return ConditionedDistribution(laws, d.W, d.h; d.cones, d.names)
 end

@@ -161,11 +161,11 @@ end
 # The laws with the representation of their support chosen: second-order cones if the inner
 # optimizer supports them, unless a decision is integer, since a mixed-integer second-order cone
 # program is much harder than a mixed-integer linear one.
-function _resolve_supports(form::CanonicalForm, conic_support::Bool)
-    any(law -> _has_auto_support(law.distribution), form.laws) || return form
+function _resolve_representations(form::CanonicalForm, conic_support::Bool)
+    any(law -> _has_auto_representation(law.distribution), form.laws) || return form
     conic = conic_support && !any(form.integer)
     laws = map(form.laws) do law
-        d = _resolve_support(law.distribution, conic)
+        d = _resolve_representation(law.distribution, conic)
         return UncertaintyBlock(d, law.columns, law.stages)
     end
     return _replace(form; laws)
