@@ -371,22 +371,13 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     _update!(cache, _Fingerprint(form, mom, factory, dest.silent, raw_attributes))
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
-        remaining = nothing
-        if dest.time_limit !== nothing
-            remaining = dest.time_limit - _seconds_since(start)
-            remaining <= 0 && return _time_limit_result(f, form, mom)
-        end
         inner = _cached_problem(cache, f)
-        if inner === nothing
-            silent = dest.silent
-            inner = _build_inner(form, f, mom, factory; silent, raw_attributes)
-            push!(cache.problems, f => inner)
+        return _solve!(f, form, mom, start, dest.time_limit; inner) do
+            built = _build_inner(form, f, mom, factory; silent = dest.silent, raw_attributes)
+            push!(cache.problems, f => built)
             cache.num_builds += 1
-            if remaining !== nothing
-                remaining = max(0.0, dest.time_limit - _seconds_since(start))
-            end
+            return built
         end
-        return _solve_inner!(inner, f, form, mom; time_limit = remaining)
     end
     # Keep the inner problems of these formulations only.
     filter!(p -> any(f -> _same_value(f, p.first), dest.formulations), cache.problems)

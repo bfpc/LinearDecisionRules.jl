@@ -56,12 +56,13 @@ sequenceDiagram
     O->>O: _check_convex_objective(form), _warn_singular_moments(form, mom) (moi/checks.jl)
     O->>K: _update!(inner_cache, _Fingerprint(form, mom, factory, silent, raw))
     loop each f in Formulations()
-        O->>O: time left? otherwise _time_limit_result(f, form, mom)
         O->>K: _cached_problem(inner_cache, f)
+        O->>F: _solve!(build, f, form, mom, start, TimeLimitSec; inner)
+        Note over F: time left? otherwise _time_limit_result(f, form, mom)
         alt not cached
-            O->>F: _build_inner(form, f, mom, factory)
+            F->>F: build() = _build_inner(form, f, mom, factory), kept in the inner cache
         end
-        O->>F: _solve_inner!(inner, f, form, mom; time_limit)
+        F->>F: _solve_inner!(inner, f, form, mom; time_limit = what remains)
         F-->>O: FormulationResult
     end
     O->>O: keep form, moments, results, decision_rows, uncertainty_columns, parameters
@@ -130,9 +131,10 @@ The three methods of `_build!` share one skeleton:
 | each inequality | deterministic: `_add_deterministic!`; otherwise `_add_robust_counterpart!` (box closed form, or multipliers per block) | deterministic, or `_add_dual_cone!` | deterministic, or one row per outcome |
 | objective | `_set_objective!(model, form, mom, X)` | same | with `_empirical_moments(outcomes)` |
 
-### `_solve_inner!` and the result (`formulations/formulation.jl`)
+### `_solve!`, `_solve_inner!` and the result (`formulations/formulation.jl`)
 
-`_solve_inner!` fixes the parameter variables whose value changed and sets or clears the time
+`_solve!` returns `_time_limit_result` when no time is left, builds the inner problem unless the
+inner cache has it, and gives `_solve_inner!` the time that remains. `_solve_inner!` fixes the parameter variables whose value changed and sets or clears the time
 limit. Then it runs `JuMP.optimize!` on the inner model and calls `_formulation_result`, which
 collects:
 - the statuses (`NO_SOLUTION` after a stop without a solution);
@@ -194,7 +196,7 @@ mom = LDR.moments(form)
 result = LDR.solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
 ```
 
-`solve_formulation` calls `_build_inner` and `_solve_inner!`, like `optimize!`. It does not use
-the inner cache, the result slots, or the time-limit shortcut of `optimize!`. Unlike `optimize!`,
+`solve_formulation` calls `_solve!`, like `optimize!`, so a time limit is handled alike. It does not
+use the inner cache or the result slots. Unlike `optimize!`,
 `canonicalize` does not ask the inner optimizer whether it supports second-order cones: its
 keyword `conic_support` is `true` unless given.

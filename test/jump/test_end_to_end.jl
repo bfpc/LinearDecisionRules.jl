@@ -481,12 +481,27 @@ function test_time_limit_before_the_build()
     return
 end
 
+# With no time left, `solve_formulation` does not build the inner problem, as `optimize!`.
+function test_time_limit_before_the_build_of_one_formulation()
+    src = backend(inventory(16))
+    form = LinearDecisionRules.canonicalize(src, LinearDecisionRules.model_info(src))
+    mom = LinearDecisionRules.moments(form)
+    result = solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer; time_limit = 0.0)
+    @test result.termination_status == MOI.TIME_LIMIT
+    @test occursin("time limit was reached before", result.raw_status)
+    @test num_variables(result.model) == 0
+    return
+end
+
 # With no time left after the build, the inner solver stops at once.
 function test_time_limit_in_the_inner_solver()
     src = backend(inventory(16))
     form = LinearDecisionRules.canonicalize(src, LinearDecisionRules.model_info(src))
     mom = LinearDecisionRules.moments(form)
-    result = solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer; time_limit = 0.0)
+    result = LinearDecisionRules._solve!(DualLDR(), form, mom, time_ns(), 0.05) do
+        sleep(0.1)
+        return LinearDecisionRules._build_inner(form, DualLDR(), mom, HiGHS.Optimizer)
+    end
     @test result.termination_status == MOI.TIME_LIMIT
     @test time_limit_sec(result.model) == 0
     @test isnan(result.objective_value)

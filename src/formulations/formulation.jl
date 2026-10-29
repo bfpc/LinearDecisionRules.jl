@@ -259,10 +259,11 @@ Build the inner problem of the formulation `f` for `form` and the moments `mom`,
 `optimizer_factory` and return a [`FormulationResult`](@ref).
 
 `time_limit` is in seconds, for building and solving the inner problem: the inner optimizer gets
-what remains after the build. `raw_attributes` is an iterable of `name => value` pairs passed to
-`JuMP.set_attribute` on the inner problem, followed by the `attributes` of `f` (see
-[`DualLDR`](@ref)). [`SampledLDR`](@ref) ignores `mom` and uses the empirical moments of its
-outcomes.
+what remains after the build, and with no time left (`time_limit = 0`) the inner problem is not
+built and the result has status `TIME_LIMIT`. `raw_attributes` is an iterable of
+`name => value` pairs passed to `JuMP.set_attribute` on the inner problem, followed by the
+`attributes` of `f` (see [`DualLDR`](@ref)). [`SampledLDR`](@ref) ignores `mom` and uses the
+empirical moments of its outcomes.
 
 With `names = true`, the variables of the inner problem are named, so that `write_to_file` is
 readable: `X[i,j]` for the rule of decision `i` on column `j` of ξ, and by inequality `r`,
@@ -290,13 +291,9 @@ function solve_formulation(
     raw_attributes = Dict{String,Any}(),
     names::Bool = false,
 )
-    start = time_ns()
-    inner = _build_inner(form, f, mom, optimizer_factory; silent, raw_attributes, names)
-    if time_limit !== nothing
-        # The limit covers the build too, which can take longer than the solve.
-        time_limit = max(0.0, time_limit - _seconds_since(start))
+    return _solve!(f, form, mom, time_ns(), time_limit) do
+        return _build_inner(form, f, mom, optimizer_factory; silent, raw_attributes, names)
     end
-    return _solve_inner!(inner, f, form, mom; time_limit)
 end
 
 # The inner problem of a formulation, which the optimizer keeps to solve it again when only the
@@ -363,6 +360,29 @@ function _solve_inner!(
     solve_start = time_ns()
     JuMP.optimize!(model)
     return _formulation_result(f, form, mom, model, inner.X, _seconds_since(solve_start))
+end
+
+# Solve the inner problem of `f`, built by `build()` unless `inner` is given, within `time_limit`
+# seconds from `start` (`nothing` for no limit). The limit covers the build too, which can take
+# longer than the solve: past the limit, the problem is not built and the result has status
+# `TIME_LIMIT`, and the inner optimizer gets what remains after the build.
+function _solve!(
+    build::Function,
+    f::AbstractFormulation,
+    form::CanonicalForm,
+    mom::Moments,
+    start::UInt64,
+    time_limit::Union{Nothing,Real};
+    inner::Union{Nothing,_InnerProblem} = nothing,
+)
+    if time_limit !== nothing && _seconds_since(start) >= time_limit
+        return _time_limit_result(f, form, mom)
+    end
+    if inner === nothing
+        inner = build()
+    end
+    remaining = time_limit === nothing ? nothing : max(0.0, time_limit - _seconds_since(start))
+    return _solve_inner!(inner, f, form, mom; time_limit = remaining)
 end
 
 # The form that the formulations build when constants depend on parameters (see `ParameterTerms`):
