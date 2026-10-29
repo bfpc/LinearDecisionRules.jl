@@ -43,8 +43,8 @@ Each box is a typed struct with documented fields. Nothing is kept in `ext` dict
 
 The core is `lifting/`, `canonical/`, `probability/` and `formulations/`; the front end is `moi/` and
 `jump/`. The core uses no front-end type: `JuMP.` appears in `formulations/` only to build the
-inner models. Generic helpers with no type of the package (sparse triplets, timing, lists of names)
-are in `src/utils.jl`, included first.
+inner models. Generic helpers with no type of the package (sparse triplets, union–find, timing,
+lists of names) are in `src/utils.jl`, included first.
 
 The folders group the files by topic, and the include order follows the pipeline, so the folders
 are not layers in a strict order: `lifting/`, `canonical/` and `probability/` each come at more

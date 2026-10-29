@@ -2,7 +2,7 @@
 # (docs/structure.jl). Update it when a file is added, split or renamed.
 
 "src/LinearDecisionRules.jl" = "The module: imports, includes and the export list."
-"src/utils.jl" = "Generic helpers with no type of the package: sparse triplets, timing, lists of names."
+"src/utils.jl" = "Generic helpers with no type of the package: sparse triplets, union–find, timing, lists of names."
 "src/probability/laws.jl" = "The interface of a law, with its fallbacks: support (box, `support_constraints`, representation, membership test), atoms, moments and the trait of the dual bound."
 "src/lifting/lifting.jl" = "The lifting interface (`AbstractLifting`, `lift`, `retraction`), and `LiftingMap`."
 "src/lifting/axis_piecewise.jl" = "`AxisPiecewise`: the map, the box and hull of its lifted support, and the moments of its pieces."

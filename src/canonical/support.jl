@@ -42,14 +42,6 @@ function _cone_rows(block::SupportBlock)
     return [offsets[k]+1:offsets[k+1] for k in eachindex(block.cones)]
 end
 
-function _find_root!(parent::Vector{Int}, a::Int)
-    while parent[a] != a
-        parent[a] = parent[parent[a]]
-        a = parent[a]
-    end
-    return a
-end
-
 """
     support_blocks(form::CanonicalForm) -> Vector{SupportBlock}
 
@@ -89,33 +81,21 @@ function support_blocks(form::CanonicalForm)
             push!(law_pieces, (law.columns[used] .- 1, W[:, used], rows.h[r], cone))
         end
     end
-    # Union–find of the η coordinates coupled by a row.
-    parent = collect(1:m)
-    function join!(coordinates)
-        isempty(coordinates) && return
-        a = _find_root!(parent, first(coordinates))
-        for j in coordinates
-            parent[_find_root!(parent, j)] = a
-        end
-        return
-    end
+    # The η coordinates coupled by a row are in one block.
+    coupled = _UnionFind(m)
     Wt = SparseArrays.sparse(transpose(form.W_valid))
     rv, nz = SparseArrays.rowvals(Wt), SparseArrays.nonzeros(Wt)
     for r in axes(Wt, 2)
-        join!(view(rv, SparseArrays.nzrange(Wt, r)))
+        _join!(coupled, view(rv, SparseArrays.nzrange(Wt, r)))
     end
     conic_columns = [_nonzero_columns(row.W) for row in form.conic_rows]
-    foreach(join!, conic_columns)
-    foreach(piece -> join!(piece[1]), law_pieces)
-    block_of_root = Dict{Int,Int}()
-    block = zeros(Int, m)
+    foreach(η -> _join!(coupled, η), conic_columns)
+    foreach(piece -> _join!(coupled, piece[1]), law_pieces)
+    groups, block = _groups(coupled)
+    columns = [1 .+ η for η in groups]
     local_index = zeros(Int, m)
-    columns = Vector{Int}[]
-    for j in 1:m
-        b = get!(block_of_root, _find_root!(parent, j), length(columns) + 1)
-        b > length(columns) && push!(columns, Int[])
-        push!(columns[b], 1 + j)
-        block[j], local_index[j] = b, length(columns[b])
+    for η in groups, (k, j) in enumerate(η)
+        local_index[j] = k
     end
     triplets = [_Triplets() for _ in columns]
     h = [Float64[] for _ in columns]

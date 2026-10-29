@@ -34,6 +34,44 @@ _sparse(t::_Triplets, m::Int, n::Int) = SparseArrays.sparse(t.I, t.J, t.V, m, n)
 
 _symmetric(A::Matrix{Float64}) = (A + A') ./ 2
 
+# A partition of `1:n` into groups, which `_join!` merges (union–find).
+struct _UnionFind
+    parent::Vector{Int}
+end
+
+_UnionFind(n::Int) = _UnionFind(collect(1:n))
+
+function _root!(u::_UnionFind, a::Int)
+    while u.parent[a] != a
+        u.parent[a] = u.parent[u.parent[a]]
+        a = u.parent[a]
+    end
+    return a
+end
+
+# Merge the groups of `elements` into one.
+function _join!(u::_UnionFind, elements)
+    isempty(elements) && return
+    a = _root!(u, first(elements))
+    for e in elements
+        u.parent[_root!(u, e)] = a
+    end
+    return
+end
+
+# The groups, each sorted, in the order of their smallest element, and the group of each element.
+function _groups(u::_UnionFind)
+    group_of_root = Dict{Int,Int}()
+    groups, group = Vector{Int}[], zeros(Int, length(u.parent))
+    for e in eachindex(u.parent)
+        g = get!(group_of_root, _root!(u, e), length(groups) + 1)
+        g > length(groups) && push!(groups, Int[])
+        push!(groups[g], e)
+        group[e] = g
+    end
+    return groups, group
+end
+
 # `time_ns` rather than `time`, whose resolution can be 16 ms on Windows.
 _seconds_since(start::UInt64) = (time_ns() - start) / 1e9
 

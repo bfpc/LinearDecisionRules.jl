@@ -50,39 +50,32 @@ function _condition(src::MOI.ModelLike, form::CanonicalForm)
         laws[l] = UncertaintyBlock(truncated, law.columns, law.stages)
         dropped[mine] .= true
     end
-    parent = collect(eachindex(laws))
-    function join!(group)
-        a = _find_root!(parent, first(group))
-        for l in group
-            parent[_find_root!(parent, l)] = a
-        end
-        return
-    end
+    coupled = _UnionFind(length(laws))
     for r in rows
-        dropped[r] || join!(laws_of[r])
+        dropped[r] || _join!(coupled, laws_of[r])
     end
     for c in conic
-        join!(conic_laws_of[c])
+        _join!(coupled, conic_laws_of[c])
     end
-    group_rows = Dict{Int,Vector{Int}}()
-    group_conic = Dict{Int,Vector{Int}}()
+    groups, group = _groups(coupled)
+    # The conditioning rows of each group of laws.
+    group_rows, group_conic = [Int[] for _ in groups], [Int[] for _ in groups]
     for r in rows
-        dropped[r] || push!(get!(group_rows, _find_root!(parent, first(laws_of[r])), Int[]), r)
+        dropped[r] || push!(group_rows[group[first(laws_of[r])]], r)
     end
     for c in conic
-        push!(get!(group_conic, _find_root!(parent, first(conic_laws_of[c])), Int[]), c)
+        push!(group_conic[group[first(conic_laws_of[c])]], c)
     end
     merged = UncertaintyBlock[]
-    for l in eachindex(laws)
-        root = _find_root!(parent, l)
-        if !haskey(group_rows, root) && !haskey(group_conic, root)
-            # A declared `ConditionedDistribution` may be exact (see `_conditioned_block`).
-            single = laws[l].distribution isa ConditionedDistribution
-            push!(merged, single ? _conditioned_block(src, form, laws[l:l], [], [], Wt) : laws[l])
-        elseif l == minimum(k for k in eachindex(laws) if _find_root!(parent, k) == root)
-            group = filter(k -> _find_root!(parent, k) == root, eachindex(laws))
-            linear, cones = get(group_rows, root, Int[]), get(group_conic, root, Int[])
-            push!(merged, _conditioned_block(src, form, laws[group], linear, cones, Wt))
+    for (g, members) in enumerate(groups)
+        linear, cones = group_rows[g], group_conic[g]
+        # A law without conditioning rows is alone in its group. A declared
+        # `ConditionedDistribution` may be exact (see `_conditioned_block`).
+        alone = isempty(linear) && isempty(cones)
+        if alone && !(laws[only(members)].distribution isa ConditionedDistribution)
+            push!(merged, laws[only(members)])
+        else
+            push!(merged, _conditioned_block(src, form, laws[members], linear, cones, Wt))
         end
     end
     keep = .!dropped
