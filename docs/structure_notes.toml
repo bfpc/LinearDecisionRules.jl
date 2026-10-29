@@ -2,9 +2,10 @@
 # (docs/structure.jl). Update it when a file is added, split or renamed.
 
 "src/LinearDecisionRules.jl" = "The module: imports, includes and the export list."
+"src/utils.jl" = "Generic helpers with no type of the package: sparse triplets, timing, lists of names."
 "src/lifting/lifting.jl" = "The lifting interface (`AbstractLifting`, `lift`, `retraction`), `AxisPiecewise`, and `LiftingMap`."
 "src/canonical/info.jl" = "`ModelInfo` and `UncertaintyDeclaration`: what `canonicalize` reads besides the MOI model."
-"src/canonical/types.jl" = "`CanonicalForm` and the types of its parts, and helpers shared by every layer (sparse triplets, cones)."
+"src/canonical/types.jl" = "`CanonicalForm` and the types of its parts, and the cone helpers shared by every layer."
 "src/canonical/names.jl" = "Names of variables and constraints, and printing of MOI functions and sets, for the messages."
 "src/canonical/read.jl" = "The reader of an MOI model: rows, bounds, objective and parameters of the canonical form."
 "src/canonical/checks.jl" = "Checks of a canonical form once read: valid rows at the mean, observable equalities."

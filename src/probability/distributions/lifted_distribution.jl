@@ -111,8 +111,6 @@ function _lifted_moments(
     return mean, _symmetric(second - mean * mean')
 end
 
-_symmetric(A::Matrix{Float64}) = (A + A') ./ 2
-
 # The pieces of `AxisPiecewise` with `u₁ = η̃₁ - η_min` and `uₖ = η̃ₖ` otherwise: on piece `i`,
 # `(vᵢ₋₁, vᵢ]`, `uₖ = Δₖ` for `k < i`, `uᵢ = η - vᵢ₋₁` and `uₖ = 0` for `k > i`. With `pᵢ`, `mᵢ` and
 # `sᵢ` the probability and the moments `E[(η - vᵢ₋₁)^q 1{piece i}]`, `q = 1, 2`, and `tₖ` the

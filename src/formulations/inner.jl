@@ -58,9 +58,6 @@ function solve_formulation(
     end
 end
 
-# `time_ns` rather than `time`, whose resolution can be 16 ms on Windows.
-_seconds_since(start::UInt64) = (time_ns() - start) / 1e9
-
 # The inner problem of a formulation, which the optimizer keeps to solve it again when only the
 # values of the parameters change (see `ParameterTerms`).
 mutable struct _InnerProblem

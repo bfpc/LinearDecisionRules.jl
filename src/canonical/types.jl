@@ -17,8 +17,6 @@ const _VectorFunction = Union{MOI.VectorAffineFunction{Float64},MOI.VectorOfVari
 
 const _VectorSet = Union{MOI.Nonnegatives,MOI.Nonpositives,MOI.Zeros}
 
-const _SparseMatrix = SparseArrays.SparseMatrixCSC{Float64,Int}
-
 # The pieces of the cone of a support block: the nonnegative orthant and second-order cones.
 const _SupportCone = Union{MOI.Nonnegatives,MOI.SecondOrderCone}
 
@@ -50,11 +48,6 @@ struct ConicRow
     cone::MOI.SecondOrderCone
     constraint::MOI.ConstraintIndex
     conditioning::Bool
-end
-
-# The η columns where some row of `W` is nonzero.
-function _nonzero_columns(W::_SparseMatrix)
-    return [j for j in axes(W, 2) if !isempty(SparseArrays.nzrange(W, j))]
 end
 
 # How far `v` is from `cone`, in the units of `v`: 0 if `v ∈ cone`.
@@ -307,23 +300,3 @@ end
 _dimension(::Distributions.UnivariateDistribution) = 1
 _dimension(d::Distributions.MultivariateDistribution) = length(d)
 _dimension(::Distributions.Distribution) = 0
-
-# Coordinate lists of a sparse matrix.
-struct _Triplets
-    I::Vector{Int}
-    J::Vector{Int}
-    V::Vector{Float64}
-end
-
-_Triplets() = _Triplets(Int[], Int[], Float64[])
-
-function _push!(t::_Triplets, i::Int, j::Int, v::Float64)
-    if !iszero(v)
-        push!(t.I, i)
-        push!(t.J, j)
-        push!(t.V, v)
-    end
-    return
-end
-
-_sparse(t::_Triplets, m::Int, n::Int) = SparseArrays.sparse(t.I, t.J, t.V, m, n)

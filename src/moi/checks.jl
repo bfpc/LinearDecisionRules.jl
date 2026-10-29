@@ -6,12 +6,6 @@
 # Whole-model checks of the assumptions of the dual bound, run by `optimize!`: they warn, since the
 # primal rule and the sampled rule do not need them, and the inner solver has the last word.
 
-# "a, b, c and 2 more", for at most `n` names.
-function _name_list(names::Vector{String}, n::Int = 5)
-    length(names) <= n && return join(names, ", ")
-    return "$(join(names[1:n], ", ")) and $(length(names) - n) more"
-end
-
 # The decisions with a quadratic term, if `sense * P` is not positive semidefinite (up to a
 # tolerance relative to its largest entry, so that a singular semidefinite `P` passes), else nothing.
 function _nonconvex_decisions(form::CanonicalForm)
