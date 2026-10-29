@@ -1,6 +1,7 @@
 # Helpers shared by the timing scripts in this folder.
 
 using Dates
+import HiGHS
 
 include(joinpath(@__DIR__, "..", "test", "common.jl"))
 
@@ -8,8 +9,12 @@ import .TestCommon: model_size
 
 timestamp() = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS")
 
-# Commit of the repository, and whether tracked files under src/ have uncommitted changes
-# (untracked scratch files are ignored).
+# The measured code: the package and the benchmarked problems, which the tests share.
+const MEASURED = ["../src", "../Project.toml", "../test/problems"]
+
+# The commit of the repository; the last commit that changed the measured code, so that rows of
+# one state of the code have one `src_commit` whatever else changed; and whether tracked files of
+# the measured code have uncommitted changes (untracked scratch files are ignored).
 function git_info()
     git(args...) =
         try
@@ -18,8 +23,15 @@ function git_info()
             "unknown"
         end
     commit = git("rev-parse", "--short", "HEAD")
-    src_dirty = !isempty(git("status", "--porcelain", "--untracked-files=no", "--", "../src"))
-    return (; commit, src_dirty)
+    src_commit = git("log", "-1", "--format=%h", "--", MEASURED...)
+    src_dirty = !isempty(git("status", "--porcelain", "--untracked-files=no", "--", MEASURED...))
+    return (; commit, src_commit, src_dirty)
+end
+
+# The version of the HiGHS library (not of the HiGHS.jl wrapper).
+function highs_version()
+    version = (HiGHS.Highs_versionMajor(), HiGHS.Highs_versionMinor(), HiGHS.Highs_versionPatch())
+    return join(version, ".")
 end
 
 # Append one row, writing the header first if the file is new. Rows are appended one at a time so

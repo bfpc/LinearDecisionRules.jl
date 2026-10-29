@@ -83,10 +83,12 @@ end
 const HEADER = [
     "timestamp", "commit", "src_dirty", "julia", "T", "num_resolves", "formulation", "variant",
     "num_builds", "build_s", "solver_s", "total_s", "fingerprint_s", "last_objective",
+    "src_commit", "highs",
 ]
 
 function main(T, N)
-    (; commit, src_dirty) = git_info()
+    (; commit, src_commit, src_dirty) = git_info()
+    highs = highs_version()
     stamp = timestamp()
     for f in (LDR.PrimalLDR(), LDR.DualLDR()), variant in ("cached", "rebuild")
         run(4, 2, f, variant)  # compile before timing
@@ -110,7 +112,7 @@ function main(T, N)
                 RESULTS,
                 HEADER,
                 (stamp, commit, src_dirty, VERSION, T, N, name, variant, r.builds, r.build,
-                 r.solver, r.total, fingerprint, last(r.objectives)),
+                 r.solver, r.total, fingerprint, last(r.objectives), src_commit, highs),
             )
         end
     end

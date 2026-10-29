@@ -29,11 +29,11 @@
 # asserted.
 #
 # Usage (from the repository root):
-#   julia --project=benchmark/hydro benchmark/hydro/run.jl                   # T = 4, 8, 12
-#   julia --project=benchmark/hydro benchmark/hydro/run.jl 4 8               # custom horizons
-#   julia --project=benchmark/hydro benchmark/hydro/run.jl 12 tree=4         # tree branches
-#   julia --project=benchmark/hydro benchmark/hydro/run.jl 12 only=ldr_dual  # some variants only
-#   julia --project=benchmark/hydro benchmark/hydro/run.jl 4 bp=0,1,2        # breakpoints only
+#   julia --project=benchmark benchmark/hydro/run.jl                   # T = 4, 8, 12
+#   julia --project=benchmark benchmark/hydro/run.jl 4 8               # custom horizons
+#   julia --project=benchmark benchmark/hydro/run.jl 12 tree=4         # tree branches
+#   julia --project=benchmark benchmark/hydro/run.jl 12 only=ldr_dual  # some variants only
+#   julia --project=benchmark benchmark/hydro/run.jl 4 bp=0,1,2        # breakpoints only
 
 using Printf
 using JuMP
@@ -130,6 +130,7 @@ const HEADER = [
     "timestamp", "commit", "src_dirty", "julia", "T", "variant", "num_variables",
     "num_constraints", "nonzeros", "objective", "build_s", "optimize_s", "solver_s",
     "branches", "reps", "status", "breakpoints", "oos_mean", "oos_stderr", "oos_violated",
+    "src_commit", "highs",
 ]
 
 # Runs `f` once; if it is fast, twice more, and keeps the run with the smallest build + optimize.
@@ -147,7 +148,8 @@ function main(args)
     options = Dict(Pair(split(a, "="; limit = 2)...) for a in args if occursin("=", a))
     bps = haskey(options, "bp") ? parse.(Int, split(options["bp"], ",")) : Int[]
     only_variants = haskey(options, "only") ? split(options["only"], ",") : nothing
-    (; commit, src_dirty) = git_info()
+    (; commit, src_commit, src_dirty) = git_info()
+    highs = highs_version()
     stamp = timestamp()
     data = hydro_thermal_data()
     for (_, f) in variants(data, 2, 2, [1])  # compile everything before timing
@@ -178,7 +180,7 @@ function main(args)
                 RESULTS,
                 HEADER,
                 (stamp, commit, src_dirty, VERSION, T, name, res.size..., res.objective,
-                 res.build, res.optimize, res.solver, b, reps, res.status, k, oos...),
+                 res.build, res.optimize, res.solver, b, reps, res.status, k, oos..., src_commit, highs),
             )
         end
     end

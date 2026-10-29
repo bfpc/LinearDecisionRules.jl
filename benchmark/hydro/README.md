@@ -18,10 +18,10 @@ its decisions are taken after the inflows of month t are known, stage 1 has the 
 `inflow_initial`, so there are T - 1 uncertain vectors (`Uncertainty` with `Stage(t)`, t = 2:T).
 
 ```
-julia --project=benchmark/hydro -e 'using Pkg; Pkg.develop(path = "."); Pkg.instantiate()'
-julia --project=benchmark/hydro benchmark/hydro/run.jl                  # T = 4, 8, 12
-julia --project=benchmark/hydro benchmark/hydro/run.jl 4 tree=3 only=ldr_primal,tree
-julia --project=benchmark/hydro benchmark/hydro/run.jl 4 bp=0,1,2   # k breakpoints per inflow
+julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
+julia --project=benchmark benchmark/hydro/run.jl                  # T = 4, 8, 12
+julia --project=benchmark benchmark/hydro/run.jl 4 tree=3 only=ldr_primal,tree
+julia --project=benchmark benchmark/hydro/run.jl 4 bp=0,1,2   # k breakpoints per inflow
 # `only=ldr_dual_ipm` runs DualLDR with attributes ["solver" => "ipm", "run_crossover" => "off"]
 ```
 

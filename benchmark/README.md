@@ -5,12 +5,18 @@ repository, `CasosLDR` and the papers (data, known values, solver notes, candida
 
 `timing.jl` times the T-period inventory problem (see the header of the script) for the primal LDR,
 the dual LDR and a hand-written robust LP, and appends one row per T and variant to
-`results/timings.csv`, tagged with the commit, a flag for uncommitted changes in `src/`, and the
-Julia version. The objective of the primal LDR and of the hand LP must be 90T + 20; the script warns
-otherwise. The dual value is a lower bound (for example 10673.33 against 11540 at T = 128).
+`results/timings.csv`, tagged with the commit, the Julia version and the version of the HiGHS
+library (`highs`). `src_commit` is the last commit that changed the measured code (`src/`,
+`Project.toml` and the problems of `test/problems/`), and `src_dirty` flags uncommitted changes to
+it: rows with the same `src_commit` measure the same code, whatever else changed. The objective of
+the primal LDR and of the hand LP must be 90T + 20; the script warns otherwise. The dual value is a
+lower bound (for example 10673.33 against 11540 at T = 128).
+
+The scripts of this folder and of `hydro/` share one environment, which uses the package of this
+repository (it needs Julia 1.11 or later):
 
 ```
-julia --project=benchmark -e 'using Pkg; Pkg.develop(path = "."); Pkg.instantiate()'
+julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
 julia --project=benchmark benchmark/timing.jl 4 8 16 32 64 128
 ```
 
@@ -86,8 +92,8 @@ The build time of the LDR models is below 0.5 ms at T = 128 in both recordings.
 `resolve.jl` solves the inventory with its initial stock as a JuMP parameter, then re-solves it
 `N` times with new values, keeping the inner problem (`cached`, the default) or emptying the cache
 before each `optimize!` (`rebuild`, what every re-solve did before). It appends one row per
-formulation and variant to `results/resolve.csv` (commit, dirty flag, Julia version, as above),
-and warns if the objectives of the two variants differ.
+formulation and variant to `results/resolve.csv` (the same tags as above), and warns if the
+objectives of the two variants differ.
 
 ```
 julia --project=benchmark benchmark/resolve.jl          # T = 64, N = 20

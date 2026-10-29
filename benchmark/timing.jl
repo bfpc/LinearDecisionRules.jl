@@ -124,10 +124,12 @@ const VARIANTS = [
 const HEADER = [
     "timestamp", "commit", "src_dirty", "julia", "T", "variant", "num_variables",
     "num_constraints", "nonzeros", "objective", "build_s", "optimize_s", "solver_s",
+    "src_commit", "highs",
 ]
 
 function main(sizes)
-    (; commit, src_dirty) = git_info()
+    (; commit, src_commit, src_dirty) = git_info()
+    highs = highs_version()
     stamp = timestamp()
     for (_, f) in VARIANTS  # compile everything before timing
         f(2)
@@ -149,7 +151,7 @@ function main(sizes)
                 RESULTS,
                 HEADER,
                 (stamp, commit, src_dirty, VERSION, T, name, res.size..., res.objective,
-                 res.build, res.optimize, res.solver),
+                 res.build, res.optimize, res.solver, src_commit, highs),
             )
         end
     end
