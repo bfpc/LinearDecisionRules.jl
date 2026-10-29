@@ -11,7 +11,7 @@
 # `src/<layer>/<file>.jl`. The core layers (`canonical`, `lifting`, `probability`, `formulations`)
 # build plain JuMP models with a hand-built `ModelInfo`; tests that need the tags of `LDRModel` or
 # `optimize!` are in `moi/` or `jump/`. Shared problems and oracles are in `problems/` and
-# `oracles/`, in files without the `test_` prefix.
+# `oracles/`, and shared helpers in `common.jl`, in files without the `test_` prefix.
 
 using Test
 

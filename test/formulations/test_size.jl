@@ -15,7 +15,10 @@ import LinearDecisionRules: DualLDR, PrimalLDR, moments, solve_formulation
 const LDR = LinearDecisionRules
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
+include(joinpath(@__DIR__, "..", "common.jl"))
 include(joinpath(@__DIR__, "..", "problems", "library.jl"))
+
+import .TestCommon: model_size
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -56,19 +59,6 @@ function test_quadratic_objective()
     oracle = DenseOracle.solve(DenseOracle.build_dual, form, mom, Clarabel.Optimizer)
     @test isapprox(dual.objective_value, oracle.objective_value; rtol = 1e-6)
     return
-end
-
-# Variables, affine constraints and their nonzeros.
-function model_size(model::Model)
-    nonzeros = 0
-    for (F, S) in list_of_constraint_types(model)
-        F <: AffExpr || continue
-        for c in all_constraints(model, F, S)
-            nonzeros += length(constraint_object(c).func.terms)
-        end
-    end
-    constraints = num_constraints(model; count_variable_in_set_constraints = false)
-    return (variables = num_variables(model), constraints = constraints, nonzeros = nonzeros)
 end
 
 # Inventory, T = 32 (33 stages, one block per stage, each a box). Measured: the block primal has

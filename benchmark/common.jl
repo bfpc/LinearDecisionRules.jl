@@ -2,6 +2,10 @@
 
 using Dates
 
+include(joinpath(@__DIR__, "..", "test", "common.jl"))
+
+import .TestCommon: model_size
+
 timestamp() = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS")
 
 # Commit of the repository, and whether tracked files under src/ have uncommitted changes

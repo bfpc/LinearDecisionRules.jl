@@ -10,9 +10,13 @@ using Test
 
 import LinearDecisionRules as LDR
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+
 # The hydrothermal problem of `hydro.jl` (also the benchmark of benchmark/hydro): 4 reservoirs,
 # 5 subsystems, T = 3 stages (2 uncertain vectors of 4 inflows, 82 joint scenarios each).
 include(joinpath(@__DIR__, "hydro.jl"))
+
+import .TestCommon: model_size
 
 const T = 3
 
@@ -25,19 +29,6 @@ function runtests()
         end
     end
     return
-end
-
-# Variables, constraints without variable bounds, and nonzeros of the constraint matrix.
-function model_size(model::Model)
-    nonzeros = 0
-    for (F, S) in list_of_constraint_types(model)
-        F <: AffExpr || continue
-        for c in all_constraints(model, F, S)
-            nonzeros += length(constraint_object(c).func.terms)
-        end
-    end
-    constraints = num_constraints(model; count_variable_in_set_constraints = false)
-    return (variables = num_variables(model), constraints = constraints, nonzeros = nonzeros)
 end
 
 function _solve(data, formulation)

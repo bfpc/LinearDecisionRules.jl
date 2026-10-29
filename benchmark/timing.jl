@@ -90,22 +90,6 @@ function build_hand(T)
     return model
 end
 
-_nnz(f::AffExpr) = length(f.terms)
-_nnz(f::AbstractVector{AffExpr}) = sum(_nnz, f; init = 0)
-_nnz(::Any) = 0  # bounds and other variable sets
-
-# Variables, constraints (without bounds on variables) and nonzeros of the constraint matrix.
-function _size(model)
-    nonzeros = 0
-    for (F, S) in list_of_constraint_types(model)
-        for c in all_constraints(model, F, S)
-            nonzeros += _nnz(constraint_object(c).func)
-        end
-    end
-    constraints = num_constraints(model; count_variable_in_set_constraints = false)
-    return (num_variables(model), constraints, nonzeros)
-end
-
 function run_hand(T)
     t_build = @elapsed model = build_hand(T)
     t_opt = @elapsed optimize!(model)
@@ -114,7 +98,7 @@ function run_hand(T)
         optimize = t_opt,
         solver = solve_time(model),
         objective = objective_value(model),
-        size = _size(model),
+        size = model_size(model),
     )
 end
 
@@ -127,7 +111,7 @@ function run_ldr(T, formulation)
         optimize = t_opt,
         solver = solve_time(m, formulation),
         objective = objective_value(m, formulation),
-        size = _size(LDR.inner_model(m, formulation)),
+        size = model_size(LDR.inner_model(m, formulation)),
     )
 end
 

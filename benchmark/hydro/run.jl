@@ -51,22 +51,6 @@ const OOS_SCENARIOS = 2000
 const BRANCHES = Dict(4 => 3, 8 => 2, 12 => 2)
 const RESULTS = joinpath(@__DIR__, "..", "results", "hydro.csv")
 
-_nnz(f::AffExpr) = length(f.terms)
-_nnz(f::AbstractVector{AffExpr}) = sum(_nnz, f; init = 0)
-_nnz(::Any) = 0  # bounds and other variable sets
-
-# Variables, constraints (without bounds on variables) and nonzeros of the constraint matrix.
-function model_size(model)
-    nonzeros = 0
-    for (F, S) in list_of_constraint_types(model)
-        for c in all_constraints(model, F, S)
-            nonzeros += _nnz(constraint_object(c).func)
-        end
-    end
-    constraints = num_constraints(model; count_variable_in_set_constraints = false)
-    return (num_variables(model), constraints, nonzeros)
-end
-
 function run_plain(build, args...)
     t_build = @elapsed model = build(args...)
     t_opt = @elapsed optimize!(model)
