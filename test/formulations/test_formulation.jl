@@ -53,10 +53,6 @@ function test_capabilities()
     @test capabilities(DualLDR()).bound
     @test capabilities(SampledLDR(10)).rule_status == MOI.UNKNOWN_RESULT_STATUS
     @test !capabilities(SampledLDR(10)).bound
-    for f in (PrimalLDR(), DualLDR(), SampledLDR(10))
-        @test capabilities(f).integer
-        @test capabilities(f).quadratic_objective
-    end
     return
 end
 

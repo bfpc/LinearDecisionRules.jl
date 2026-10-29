@@ -149,7 +149,7 @@ SampledLDR(num_scenarios::Integer; seed::Integer = 1234) = SampledLDR(num_scenar
 """
     FormulationCapabilities
 
-What a formulation provides and supports, returned by [`capabilities`](@ref).
+What a formulation provides, returned by [`capabilities`](@ref).
 
 ## Fields
 
@@ -159,14 +159,10 @@ What a formulation provides and supports, returned by [`capabilities`](@ref).
    not a policy).
  * `bound::Bool`: whether its objective value bounds the optimal value of the stochastic program
    from the side opposite to the sense (an upper bound of a maximization).
- * `integer::Bool`: whether it supports integer and binary decisions (of stage 1).
- * `quadratic_objective::Bool`: whether it supports a quadratic objective.
 """
 struct FormulationCapabilities
     rule_status::MOI.ResultStatusCode
     bound::Bool
-    integer::Bool
-    quadratic_objective::Bool
 end
 
 """
@@ -175,13 +171,13 @@ end
 Return the [`FormulationCapabilities`](@ref) of the formulation `f`.
 """
 function capabilities(::PrimalLDR)
-    return FormulationCapabilities(MOI.FEASIBLE_POINT, false, true, true)
+    return FormulationCapabilities(MOI.FEASIBLE_POINT, false)
 end
 
-capabilities(::DualLDR) = FormulationCapabilities(MOI.NO_SOLUTION, true, true, true)
+capabilities(::DualLDR) = FormulationCapabilities(MOI.NO_SOLUTION, true)
 
 function capabilities(::SampledLDR)
-    return FormulationCapabilities(MOI.UNKNOWN_RESULT_STATUS, false, true, true)
+    return FormulationCapabilities(MOI.UNKNOWN_RESULT_STATUS, false)
 end
 
 """
