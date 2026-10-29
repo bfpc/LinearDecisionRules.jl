@@ -64,13 +64,13 @@ function _empirical_moments(outcomes::Matrix{Float64})
 end
 
 function _build!(model::JuMP.Model, f::SampledLDR, form::CanonicalForm, ::Moments)
-    info = InformationStructure(form)
-    X = _rule_variables!(model, form, info)
+    observed = InformationStructure(form)
+    X = _rule_variables!(model, form, observed)
     # Without random recourse, coefficient matching is exact and needs no scenario; one equality
     # per scenario would leave too few degrees of freedom to interior-point solvers.
-    _add_equalities!(model, form, info, X)
+    _add_equalities!(model, form, observed, X)
     outcomes = _sample_outcomes(form, f)
-    for ineq in _inequalities(form, info)
+    for ineq in _inequalities(form, observed)
         if _is_deterministic(ineq.row)
             _add_deterministic!(model, X, ineq)
             continue

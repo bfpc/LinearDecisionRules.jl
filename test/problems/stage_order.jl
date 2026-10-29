@@ -471,11 +471,11 @@ function check_columns(s::Staged, form::CanonicalForm)
         columns = [column[x] for x in law.variables]
         @test count(l -> l.columns == columns, form.laws) == 1
     end
-    info = InformationStructure(form)
+    observed = InformationStructure(form)
     for (i, x) in enumerate(form.decisions)
         expected = [1; [1 + j for (j, v) in enumerate(form.uncertainties) if stage(v) <= stage(x)]]
-        @test collect(visible_columns(info, i)) == expected
-        @test [observes(info, i, j) for j in 1:1+m] == [j in expected for j in 1:1+m]
+        @test collect(visible_columns(observed, i)) == expected
+        @test [observes(observed, i, j) for j in 1:1+m] == [j in expected for j in 1:1+m]
     end
     return
 end

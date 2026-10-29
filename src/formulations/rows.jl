@@ -13,7 +13,7 @@
 # them (HiGHS), cannot change their value (MOI 1.54), so `set_parameter_value` drops the solver's
 # copy of the model and every re-solve starts from scratch, while `fix` changes a bound in place
 # and the solver keeps its basis (inventory, T = 64: 0 simplex iterations instead of 4999).
-function _rule_variables!(model::JuMP.Model, form::CanonicalForm, info::InformationStructure)
+function _rule_variables!(model::JuMP.Model, form::CanonicalForm, observed::InformationStructure)
     X = Vector{Vector{JuMP.VariableRef}}(undef, length(form.decisions))
     named = JuMP.set_string_names_on_creation(model)
     terms = form.parameters
@@ -26,10 +26,10 @@ function _rule_variables!(model::JuMP.Model, form::CanonicalForm, info::Informat
             JuMP.fix(only(X[i]), terms.values[k])
             continue
         end
-        X[i] = map(visible_columns(info, i)) do j
+        X[i] = map(visible_columns(observed, i)) do j
             return JuMP.@variable(model, base_name = named ? "X[$i,$j]" : "")
         end
-        if info.num_visible[i] == 1
+        if observed.num_visible[i] == 1
             isfinite(form.lower[i]) && JuMP.set_lower_bound(X[i][1], form.lower[i])
             isfinite(form.upper[i]) && JuMP.set_upper_bound(X[i][1], form.upper[i])
         end
@@ -61,12 +61,12 @@ function _is_deterministic(row::_LinearRow)
     return row.num_visible == 1 && all(<=(1), SparseArrays.nonzeroinds(row.b))
 end
 
-function _linear_rows(A::_SparseMatrix, B::_SparseMatrix, info::InformationStructure)
+function _linear_rows(A::_SparseMatrix, B::_SparseMatrix, observed::InformationStructure)
     At, Bt = SparseArrays.sparse(transpose(A)), SparseArrays.sparse(transpose(B))
     return map(axes(A, 1)) do r
         range = SparseArrays.nzrange(At, r)
         decisions = SparseArrays.rowvals(At)[range]
-        num_visible = maximum((info.num_visible[i] for i in decisions); init = 1)
+        num_visible = maximum((observed.num_visible[i] for i in decisions); init = 1)
         return _LinearRow(decisions, SparseArrays.nonzeros(At)[range], Bt[:, r], num_visible)
     end
 end
@@ -79,15 +79,15 @@ end
 
 # The inequalities of `form`: the rows of `A_u` (sign 1) and `A_l` (sign -1), then the finite
 # bounds of the decisions that observe some uncertainty.
-function _inequalities(form::CanonicalForm, info::InformationStructure)
+function _inequalities(form::CanonicalForm, observed::InformationStructure)
     out = _Inequality[]
-    append!(out, _Inequality.(1.0, _linear_rows(form.A_u, form.B_u, info)))
-    append!(out, _Inequality.(-1.0, _linear_rows(form.A_l, form.B_l, info)))
+    append!(out, _Inequality.(1.0, _linear_rows(form.A_u, form.B_u, observed)))
+    append!(out, _Inequality.(-1.0, _linear_rows(form.A_l, form.B_l, observed)))
     k = 1 + length(form.uncertainties)
     for (sign, bounds) in ((1.0, form.upper), (-1.0, form.lower)), i in eachindex(bounds)
-        if isfinite(bounds[i]) && info.num_visible[i] > 1
+        if isfinite(bounds[i]) && observed.num_visible[i] > 1
             b = SparseArrays.sparsevec([1], [bounds[i]], k)
-            push!(out, _Inequality(sign, _LinearRow([i], [1.0], b, info.num_visible[i])))
+            push!(out, _Inequality(sign, _LinearRow([i], [1.0], b, observed.num_visible[i])))
         end
     end
     return out
@@ -104,8 +104,8 @@ function _add_row_column!(expr::JuMP.AffExpr, X, row::_LinearRow, j::Int, coef::
 end
 
 # The equality rows hold for every ξ: match the coefficients of each column on which they depend.
-function _add_equalities!(model::JuMP.Model, form::CanonicalForm, info::InformationStructure, X)
-    for row in _linear_rows(form.A_e, form.B_e, info), j in _structural_columns(row)
+function _add_equalities!(model::JuMP.Model, form::CanonicalForm, observed::InformationStructure, X)
+    for row in _linear_rows(form.A_e, form.B_e, observed), j in _structural_columns(row)
         expr = _add_row_column!(JuMP.AffExpr(0.0), X, row, j, 1.0)
         JuMP.@constraint(model, expr == row.b[j])
     end

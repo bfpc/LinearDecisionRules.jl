@@ -57,12 +57,12 @@ end
 # observes that uncertainty.
 function _check_observable_equalities(src::MOI.ModelLike, form::CanonicalForm)
     isempty(form.e_constraints) && return
-    info = InformationStructure(form)
+    observed = InformationStructure(form)
     At = SparseArrays.sparse(transpose(form.A_e))
     Bt = SparseArrays.sparse(transpose(form.B_e))
     for r in eachindex(form.e_constraints)
         decisions = view(SparseArrays.rowvals(At), SparseArrays.nzrange(At, r))
-        visible = maximum((info.num_visible[i] for i in decisions); init = 1)
+        visible = maximum((observed.num_visible[i] for i in decisions); init = 1)
         for k in SparseArrays.nzrange(Bt, r)
             j = SparseArrays.rowvals(Bt)[k]
             j <= visible && continue

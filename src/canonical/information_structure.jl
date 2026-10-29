@@ -50,16 +50,16 @@ function InformationStructure(form::CanonicalForm)
 end
 
 """
-    observes(info::InformationStructure, i::Int, j::Int) -> Bool
+    observes(observed::InformationStructure, i::Int, j::Int) -> Bool
 
 Return `true` if decision `i` observes column `j` of ξ, that is, if its decision rule may have a
 nonzero coefficient on `ξ[j]`.
 """
-observes(info::InformationStructure, i::Int, j::Int) = j <= info.num_visible[i]
+observes(observed::InformationStructure, i::Int, j::Int) = j <= observed.num_visible[i]
 
 """
-    visible_columns(info::InformationStructure, i::Int) -> UnitRange{Int}
+    visible_columns(observed::InformationStructure, i::Int) -> UnitRange{Int}
 
 Return the columns of ξ that decision `i` observes, a prefix `1:k`.
 """
-visible_columns(info::InformationStructure, i::Int) = 1:info.num_visible[i]
+visible_columns(observed::InformationStructure, i::Int) = 1:observed.num_visible[i]

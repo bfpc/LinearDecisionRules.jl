@@ -209,15 +209,15 @@ function _add_robust_counterpart!(
 end
 
 function _build!(model::JuMP.Model, f::PrimalLDR, form::CanonicalForm, mom::Moments)
-    info = InformationStructure(form)
-    X = _rule_variables!(model, form, info)
-    _add_equalities!(model, form, info, X)
+    observed = InformationStructure(form)
+    X = _rule_variables!(model, form, observed)
+    _add_equalities!(model, form, observed, X)
     blocks = support_blocks(form)
     block_of = _block_of_columns(blocks, 1 + length(form.uncertainties))
     first_columns = [first(block.columns) for block in blocks]
     # The bounds of the box blocks, for their closed form; `nothing` for the general form.
     boxes = Any[f.box_closed_form ? _box_bounds(block) : nothing for block in blocks]
-    for (r, ineq) in enumerate(_inequalities(form, info))
+    for (r, ineq) in enumerate(_inequalities(form, observed))
         if _is_deterministic(ineq.row)
             _add_deterministic!(model, X, ineq)
         else

@@ -52,25 +52,25 @@ function test_three_stages()
         ),
     )
     form = canonicalize(backend(model), info)
-    info = InformationStructure(form)
-    @test info.column_stages == [1, 1, 2, 3]
-    @test info.decision_stages == [1, 1, 2, 3]
-    @test info.num_visible == [1, 2, 3, 4]
-    @test [observes(info, i, j) for i in 1:4, j in 1:4] == Bool[
+    observed = InformationStructure(form)
+    @test observed.column_stages == [1, 1, 2, 3]
+    @test observed.decision_stages == [1, 1, 2, 3]
+    @test observed.num_visible == [1, 2, 3, 4]
+    @test [observes(observed, i, j) for i in 1:4, j in 1:4] == Bool[
         1 0 0 0
         1 1 0 0
         1 1 1 0
         1 1 1 1
     ]
-    @test visible_columns(info, 1) == 1:1
-    @test visible_columns(info, 3) == 1:3
+    @test visible_columns(observed, 1) == 1:1
+    @test visible_columns(observed, 3) == 1:3
     return
 end
 
 function test_two_stages_without_uncertainty()
-    info = InformationStructure([1, 2], [1], falses(2))
-    @test info.num_visible == [1, 1]
-    @test observes(info, 2, 1) && !observes(info, 2, 2)
+    observed = InformationStructure([1, 2], [1], falses(2))
+    @test observed.num_visible == [1, 1]
+    @test observes(observed, 2, 1) && !observes(observed, 2, 2)
     return
 end
 

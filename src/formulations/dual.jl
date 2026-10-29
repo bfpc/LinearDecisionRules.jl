@@ -186,16 +186,16 @@ end
 
 function _build!(model::JuMP.Model, ::DualLDR, form::CanonicalForm, mom::Moments)
     _warn_stage_dependence(form)
-    info = InformationStructure(form)
-    X = _rule_variables!(model, form, info)
-    _add_equalities!(model, form, info, X)
+    observed = InformationStructure(form)
+    X = _rule_variables!(model, form, observed)
+    _add_equalities!(model, form, observed, X)
     cones = _dual_cones(support_blocks(form), mom)
     # The cones whose rows involve each column of ξ.
     cones_of = [Int[] for _ in mom.mean]
     for (b, cone) in enumerate(cones), j in unique(SparseArrays.rowvals(cone.V))
         push!(cones_of[j], b)
     end
-    for (r, ineq) in enumerate(_inequalities(form, info))
+    for (r, ineq) in enumerate(_inequalities(form, observed))
         if _is_deterministic(ineq.row)
             _add_deterministic!(model, X, ineq)
         else
