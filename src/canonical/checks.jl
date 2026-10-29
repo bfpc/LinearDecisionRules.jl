@@ -3,7 +3,8 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-# The checks of a canonical form once read: valid rows at the mean, observable equalities.
+# The checks of a canonical form once read: valid rows at the mean, observable equalities, and the
+# convexity of the objective.
 
 # A valid inequality holds on the support, so it holds at the mean: a cheap check of validity,
 # which also shows that every support block contains a point (the mean). The mean is that of the
@@ -76,4 +77,21 @@ function _check_observable_equalities(src::MOI.ModelLike, form::CanonicalForm)
         end
     end
     return
+end
+
+# The decisions with a quadratic term, if `sense * P` is not positive semidefinite (up to a
+# tolerance relative to its largest entry, so that a singular semidefinite `P` passes), else nothing.
+function _nonconvex_decisions(form::CanonicalForm)
+    sign = form.sense == MOI.MAX_SENSE ? -1.0 : 1.0
+    if form.sense == MOI.FEASIBILITY_SENSE || iszero(SparseArrays.nnz(form.P))
+        return nothing
+    end
+    P = SparseArrays.dropzeros(sign * (form.P + form.P') / 2)
+    involved = unique!(sort(SparseArrays.rowvals(P)))
+    isempty(involved) && return nothing
+    tolerance = 1e-9 * maximum(abs, SparseArrays.nonzeros(P))
+    shifted = P[involved, involved] + tolerance * LinearAlgebra.I
+    factor = LinearAlgebra.cholesky(LinearAlgebra.Symmetric(shifted); check = false)
+    LinearAlgebra.issuccess(factor) && return nothing
+    return involved
 end

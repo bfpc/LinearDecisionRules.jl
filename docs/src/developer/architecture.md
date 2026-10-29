@@ -36,7 +36,7 @@ Each box is a typed struct with documented fields. Nothing is kept in `ext` dict
 |---|---|---|---|---|
 | `lifting/` | 3 | Liftings of uncertainties (`AbstractLifting`, `AxisPiecewise`), the `LiftingMap` of a lifted form, and `lift(form, liftings)` | no | no |
 | `canonical/` | 9 | `ModelInfo`, the `CanonicalForm` read from an MOI model, its transforms (conditioning by `Truncate()` rows, the choice of support representation), the information structure, and Ξ as a product of `SupportBlock`s | reads an `MOI.ModelLike` | no |
-| `probability/` | 6 | The interface of a law (`laws.jl`: support, atoms, moments, with fallbacks for any `Distributions` law), the laws the package adds (`ConditionedDistribution`, `ConfidenceMvNormal`, `MvDiscreteNonParametric`, `LiftedDistribution`), the moments of the laws, and rejection sampling | no | no |
+| `probability/` | 7 | The interface of a law (`laws.jl`: support, atoms, moments, with fallbacks for any `Distributions` law), the laws the package adds (`ConditionedDistribution`, `ConfidenceMvNormal`, `MvDiscreteNonParametric`, `LiftedDistribution`), the moments of the laws, and rejection sampling | no | no |
 | `formulations/` | 7 | `PrimalLDR`, `DualLDR` and `SampledLDR`: building and solving an inner JuMP model from a form and its moments, and the `FormulationResult` | statuses | builds the inner models |
 | `moi/` | 7 | The `Optimizer`: supported constraints and attributes, reading the tags (`model_info`), whole-model checks, the inner-problem cache, `MOI.optimize!` and the results | yes | no |
 | `jump/` | 7 | The JuMP extension: tags at declaration (`build_variable`, `build_constraint`), `LDRModel`, results per formulation, decision rules, `evaluate` and `simulate` | through JuMP | yes |
@@ -50,9 +50,8 @@ The folders group the files by topic, and the include order follows the pipeline
 are not layers in a strict order: `lifting/`, `canonical/` and `probability/` each come at more
 than one place of the order below (a `CanonicalForm` holds a `LiftingMap`, and the lifted form is
 a `CanonicalForm`). The files are in a strict order: each one uses only the names of the files
-above it, with one exception, `formulations/result.jl`, which calls two helpers of
-`moi/checks.jl`. The generated page [Structure of `src/`](structure_current.md) has the layer graph
-and that pair of files.
+above it. The generated page [Structure of `src/`](structure_current.md) has the layer graph and
+the uses of each file.
 
 ### Include order
 
@@ -68,7 +67,7 @@ The include order (`src/LinearDecisionRules.jl`) is what loads:
    its transforms.
 5. `lifting/lifted_form.jl`: `lift(form, liftings)`, the last transform.
 6. `canonical/canonicalize.jl`: the reader, the transforms and the checks, in order.
-7. `probability/moments.jl`.
+7. `probability/rejection_sampling.jl`, `moments.jl`.
 8. `formulations/interface.jl`, `rows.jl`, `primal.jl`, `dual.jl`, `sampled.jl`, `result.jl`, `inner.jl`.
 9. `moi/sets.jl`, `attributes.jl`, `model_info.jl`, `checks.jl`, `inner_cache.jl`, `optimizer.jl`, `results.jl`.
 10. `jump/variables.jl`, `constraints.jl`, `checks.jl`, `model.jl`, `results.jl`, `rules.jl`, `simulate.jl`.

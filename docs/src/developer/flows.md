@@ -101,12 +101,12 @@ sequenceDiagram
 ### `_moments(form, sampling, cache; budget)` (`probability/moments.jl`)
 
 For each law (`UncertaintyBlock`) of the form:
-- a `ConditionedDistribution` is estimated by rejection sampling (`_estimate`). The estimate is
-  cached in `moments_cache` under (law, seed, number of draws). The laws still to sample share
-  the time budget: half of what remains of `TimeLimitSec()`, unless `RejectionSamplingTimeLimit()`
-  is set.
-- any other law gives `_law_mean` and `_law_covariance`. A truncated univariate law is integrated
-  with QuadGK.
+- a `ConditionedDistribution` is estimated by rejection sampling (`_estimate`, in
+  `probability/rejection_sampling.jl`). The estimate is cached in `moments_cache` under (law,
+  seed, number of draws). The laws still to sample share the time budget: half of what remains of
+  `TimeLimitSec()`, unless `RejectionSamplingTimeLimit()` is set.
+- any other law gives `_law_mean` and `_law_covariance` (`probability/laws.jl`). A truncated
+  univariate law is integrated with QuadGK.
 
 The result is `Moments(mean, blocks)`, one `CovarianceBlock` per law.
 

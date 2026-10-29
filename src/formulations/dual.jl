@@ -81,19 +81,6 @@ struct _DualCone
     rows::Vector{UnitRange{Int}} # the rows of each piece of the cone
 end
 
-function _covariance_matrix(mom::Moments)
-    k = length(mom.mean)
-    I, J, V = Int[], Int[], Float64[]
-    for block in mom.blocks, (b, j) in enumerate(block.columns), (a, i) in enumerate(block.columns)
-        if !iszero(block.covariance[a, b])
-            push!(I, i)
-            push!(J, j)
-            push!(V, block.covariance[a, b])
-        end
-    end
-    return SparseArrays.sparse(I, J, V, k, k)
-end
-
 function _dual_cones(blocks::Vector{SupportBlock}, mom::Moments)
     Σ = _covariance_matrix(mom)
     return map(blocks) do block

@@ -137,15 +137,6 @@ function _a_variable(expr::JuMP.GenericQuadExpr)
     return isempty(expr.terms) ? _a_variable(expr.aff) : first(keys(expr.terms)).a
 end
 
-# `E[a ⋅ ξ  b ⋅ ξ]` with `E[ξ ξᵀ] = μ μᵀ + blockdiag(Σ)`.
-function _product_moment(mom::Moments, a::Vector{Float64}, b::Vector{Float64})
-    value = LinearAlgebra.dot(a, mom.mean) * LinearAlgebra.dot(b, mom.mean)
-    for block in mom.blocks
-        value += LinearAlgebra.dot(a[block.columns], block.covariance, b[block.columns])
-    end
-    return value
-end
-
 """
     expected_value(expr; formulation::AbstractFormulation = PrimalLDR()) -> Float64
 
