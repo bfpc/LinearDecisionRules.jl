@@ -23,6 +23,9 @@ import LinearDecisionRules:
     ValidInequality,
     canonicalize
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_message
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -32,15 +35,6 @@ function runtests()
         end
     end
     return
-end
-
-function error_message(f)
-    try
-        f()
-    catch err
-        return sprint(showerror, err)
-    end
-    return ""
 end
 
 info_of(model) = LinearDecisionRules.model_info(backend(model))

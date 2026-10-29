@@ -20,6 +20,9 @@ import LinearDecisionRules:
     support_blocks,
     support_constraints
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_of
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -211,19 +214,11 @@ function test_second_order_cone_row_errors()
     end
     @test only(form_with(ok).conic_rows).h == [-5, 1, 0]
     far = @constraint(model, far, [1, d[1] - 3, d[2]] in SecondOrderCone())
-    err = try
-        form_with(ok, far)
-    catch err
-        err
-    end
+    err = error_of(() -> form_with(ok, far))
     @test occursin("far is tagged `ValidInequality()`, but the mean of the uncertainty", err.msg)
     delete.(model, [ok, far])
     constant = @constraint(model, constant, [r, 1] in SecondOrderCone())
-    err = try
-        form_with(constant; truncate = true)
-    catch err
-        err
-    end
+    err = error_of(() -> form_with(constant; truncate = true))
     @test occursin("constant is tagged `Truncate()`, but it has no uncertainty", err.msg)
     return
 end

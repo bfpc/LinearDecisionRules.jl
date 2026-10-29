@@ -26,4 +26,20 @@ function model_size(model::Model)
     return (variables = num_variables(model), constraints = constraints, nonzeros = nonzeros)
 end
 
+# The error that `f()` throws, or `nothing` if it throws none.
+function error_of(f::Function)
+    try
+        f()
+    catch err
+        return err
+    end
+    return nothing
+end
+
+# The message of the error that `f()` throws, as it is printed, or "" if it throws none.
+function error_message(f::Function)
+    err = error_of(f)
+    return err === nothing ? "" : sprint(showerror, err)
+end
+
 end # module TestCommon

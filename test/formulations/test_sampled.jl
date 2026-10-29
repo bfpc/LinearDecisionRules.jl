@@ -17,6 +17,7 @@ import TOML
 const LDR = LinearDecisionRules
 
 include(joinpath(@__DIR__, "..", "problems", "library.jl"))
+import .Problems: solve
 
 const LEGACY = TOML.parsefile(joinpath(@__DIR__, "..", "reference", "legacy_values.toml"))
 
@@ -29,10 +30,6 @@ function runtests()
         end
     end
     return
-end
-
-function solve(p::Problems.Problem, f)
-    return (form = Problems.form(p); solve_formulation(form, f, moments(form), HiGHS.Optimizer))
 end
 
 # The legacy sampler drew `rand(Xoshiro(1234), Uniform(80, 120))` scenario by scenario, as here.

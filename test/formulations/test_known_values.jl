@@ -31,13 +31,10 @@ function runtests()
     return
 end
 
-# An exact MIP bound, so that the integer dual is the known value.
-const SETTINGS = Dict("mip_rel_gap" => 0.0)
-
+# The form of `p`, and the result of the formulation `f` on it.
 function solve(p::Problems.Problem, f)
     form = Problems.form(p)
-    result = solve_formulation(form, f, moments(form), HiGHS.Optimizer; raw_attributes = SETTINGS)
-    return form, result
+    return form, Problems.solve(form, f)
 end
 
 # `x1` in the legacy file is `x[1]` here, and `buy` of a one-product model can be `buy[1]`.
@@ -80,7 +77,7 @@ function check_rules(p, form, f, solved, rules)
         end
         return
     end
-    options = (raw_attributes = SETTINGS, names = true)
+    options = (raw_attributes = Problems.EXACT, names = true)
     model = solve_formulation(form, f, moments(form), HiGHS.Optimizer; options...).model
     optimum = objective_value(model)
     for (i, x) in legacy, j in eachindex(x)

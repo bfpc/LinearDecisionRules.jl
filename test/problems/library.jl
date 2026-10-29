@@ -13,7 +13,15 @@ module Problems
 using JuMP
 
 import Distributions
-import LinearDecisionRules: ModelInfo, MvDiscreteNonParametric, UncertaintyDeclaration, canonicalize
+import HiGHS
+import LinearDecisionRules:
+    CanonicalForm,
+    ModelInfo,
+    MvDiscreteNonParametric,
+    UncertaintyDeclaration,
+    canonicalize,
+    moments,
+    solve_formulation
 
 struct Problem
     name::String
@@ -39,6 +47,17 @@ function matches(value, expected, p::Problem)
 end
 
 form(p::Problem) = canonicalize(backend(p.model), p.info)
+
+# An exact MIP bound, so that the integer problems reach their known values, and the integer dual
+# is a bound of the integer primal.
+const EXACT = Dict("mip_rel_gap" => 0.0)
+
+# The result of the formulation `f` on a form, or on the form of `p`, solved with HiGHS.
+function solve(form::CanonicalForm, f)
+    return solve_formulation(form, f, moments(form), HiGHS.Optimizer; raw_attributes = EXACT)
+end
+
+solve(p::Problem, f) = solve(form(p), f)
 
 function declare(dist, vars...; stages = fill(nothing, length(vars)))
     return UncertaintyDeclaration(dist, collect(index.(vars)), stages)

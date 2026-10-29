@@ -14,6 +14,9 @@ import LinearDecisionRules:
     ConditionedDistribution, ModelInfo, UncertaintyDeclaration, canonicalize, moments
 import Random
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_of
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -187,11 +190,7 @@ function test_impossible_conditioning()
     laws = [Distributions.Uniform(40, 80), Distributions.Uniform(40, 80)]
     d = ConditionedDistribution(laws, [-1.0 -1.0], [-50.0]; names = ["tiny"])
     start = time_ns()
-    err = try
-        moments_of(d)
-    catch e
-        e
-    end
+    err = error_of(() -> moments_of(d))
     # The upper bound of the acceptance rate stops it well before the time limit.
     @test (time_ns() - start) / 1e9 < 5
     msg = sprint(showerror, err)

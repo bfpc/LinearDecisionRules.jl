@@ -13,6 +13,9 @@ import Distributions: Uniform
 import LinearDecisionRules
 import LinearDecisionRules: Stage, Uncertainty
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_of
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -33,11 +36,7 @@ function test_uncertainty_constructor()
     @test v isa LinearDecisionRules.MultivariateUncertainty
     @test v isa MOI.AbstractVectorSet
     @test MOI.dimension(v) == 2
-    err = try
-        Uncertainty(Distributions.LKJ(3, 1.0))
-    catch err
-        err
-    end
+    err = error_of(() -> Uncertainty(Distributions.LKJ(3, 1.0)))
     @test err isa ArgumentError
     @test occursin("must be univariate or multivariate", err.msg)
     return
@@ -68,11 +67,7 @@ function test_stage_set()
     @test sprint(show, Stage(2)) == "Stage(2)"
     @test LinearDecisionRules.FirstStage == Stage(1)
     for t in (0, -1)
-        err = try
-            Stage(t)
-        catch err
-            err
-        end
+        err = error_of(() -> Stage(t))
         @test err isa ArgumentError
         @test occursin("stages start at 1", err.msg)
     end

@@ -29,6 +29,9 @@ import LinearDecisionRules:
     is_certified,
     set_stage
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_of
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -38,15 +41,6 @@ function runtests()
         end
     end
     return
-end
-
-function error_of(f)
-    try
-        f()
-    catch err
-        return err
-    end
-    return nothing
 end
 
 include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))

@@ -31,12 +31,9 @@ end
 
 const FORMULATIONS = [PrimalLDR(), DualLDR(), SampledLDR(20; seed = 3)]
 
-function ldr_model()
-    model = LDRModel(HiGHS.Optimizer)
-    set_silent(model)
-    set_attribute(model, Formulations(), FORMULATIONS)
-    return model
-end
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
+ldr_model() = TaggedProblems.ldr_model(; formulations = FORMULATIONS)
 
 num_builds(model) = unsafe_backend(model).inner_cache.num_builds
 
@@ -59,8 +56,6 @@ function newsvendor(capacity; parameter = true)
 end
 
 # The inventory with backlog of `benchmark/timing.jl`, with an initial stock.
-include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
-
 function inventory(T, x0; parameter = true)
     return TaggedProblems.inventory(T, ldr_model(); x0, parameter)
 end

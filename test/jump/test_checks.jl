@@ -13,6 +13,9 @@ import Distributions: Uniform
 import LinearDecisionRules
 import LinearDecisionRules: Stage, Uncertainty
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_of
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -25,15 +28,6 @@ function runtests()
 end
 
 # The message of the error thrown by `f`, with its type.
-function error_of(f)
-    try
-        f()
-    catch err
-        return err
-    end
-    return nothing
-end
-
 macro error_message(expr)
     return quote
         err = error_of(() -> $(esc(expr)))

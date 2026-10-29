@@ -33,6 +33,9 @@ import LinearDecisionRules:
     simulate
 import Random
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_message
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -44,12 +47,9 @@ function runtests()
     return
 end
 
-function ldr_model()
-    model = LDRModel(HiGHS.Optimizer)
-    set_silent(model)
-    set_time_limit_sec(model, 60.0)
-    return model
-end
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
+ldr_model() = TaggedProblems.ldr_model(; time_limit = 60.0)
 
 # The newsvendor of the previous version; `demand` returns the demand from the model.
 function newsvendor(demand::Function)
@@ -219,11 +219,7 @@ function test_scenarios_in_conditioning_set()
     @test isapprox(s.objective_mean, objective_value(model); atol = 4 * s.objective_stderr + 1)
     # A scenario outside the conditioning set is outside Ξ.
     d = model[:demand]
-    msg = try
-        simulate(model, [Dict(d[1] => 70.0, d[2] => 70.0)])
-    catch err
-        sprint(showerror, err)
-    end
+    msg = error_message(() -> simulate(model, [Dict(d[1] => 70.0, d[2] => 70.0)]))
     @test occursin("the constraint tagged `Truncate()` budget is violated by 20", msg)
     return
 end
@@ -332,12 +328,7 @@ function test_rejection_sampling_shares_the_time_limit()
     # A law with an acceptance rate of 3% has too few in one batch: an error that says why.
     model = budget(; total = 90.0)
     set_time_limit_sec(model, 1e-6)
-    message = try
-        optimize!(model)
-        ""
-    catch err
-        sprint(showerror, err)
-    end
+    message = error_message(() -> optimize!(model))
     @test occursin("needs 100 within its time limit of 0.0 seconds", message)
     @test occursin("half of the time that remained of `TimeLimitSec()`", message)
     # An explicit limit for each law wins, and its time counts against `TimeLimitSec()`.

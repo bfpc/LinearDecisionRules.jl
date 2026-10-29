@@ -24,6 +24,7 @@ const LDR = LinearDecisionRules
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
 include(joinpath(@__DIR__, "..", "problems", "library.jl"))
+import .Problems: solve
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -34,13 +35,6 @@ function runtests()
         end
     end
     return
-end
-
-# An exact MIP bound, so that the integer dual is a bound of the integer primal.
-const SETTINGS = Dict("mip_rel_gap" => 0.0)
-
-function solve(form, f)
-    return solve_formulation(form, f, moments(form), HiGHS.Optimizer; raw_attributes = SETTINGS)
 end
 
 # The largest violation by the rule `X` of the rows and bounds of `form` at the outcome `ξ`,

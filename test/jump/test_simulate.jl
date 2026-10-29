@@ -33,6 +33,9 @@ import LinearDecisionRules:
     simulate
 import Random
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_message
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -44,14 +47,9 @@ function runtests()
     return
 end
 
-function ldr_model()
-    model = LDRModel(HiGHS.Optimizer)
-    set_silent(model)
-    set_time_limit_sec(model, 60.0)
-    return model
-end
-
 include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
+ldr_model() = TaggedProblems.ldr_model(; time_limit = 60.0)
 
 # The newsvendor of `tagged.jl`, solved.
 function newsvendor(law = Uniform(80, 120))
@@ -74,15 +72,6 @@ function random_price(demand_law, price_law; breakpoints = nothing)
     breakpoints === nothing || set_attribute(d, BreakPoints(), breakpoints)
     optimize!(model)
     return model
-end
-
-function error_message(f)
-    try
-        f()
-    catch err
-        return sprint(showerror, err)
-    end
-    return ""
 end
 
 function test_evaluate_newsvendor()

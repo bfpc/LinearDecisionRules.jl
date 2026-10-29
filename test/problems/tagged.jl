@@ -20,11 +20,19 @@ import HiGHS
 import LinearDecisionRules:
     BreakPoints, FirstStage, Formulations, LDRModel, MvDiscreteNonParametric, Stage, Uncertainty
 
-function ldr_model(; formulations = nothing)
+# A silent `LDRModel` with HiGHS; the keywords set the formulations, a time limit and attributes
+# of the inner optimizer, such as `"mip_rel_gap" => 0.0`.
+function ldr_model(; formulations = nothing, time_limit = nothing, attributes = ())
     model = LDRModel(HiGHS.Optimizer)
     set_silent(model)
     if formulations !== nothing
         set_attribute(model, Formulations(), formulations)
+    end
+    if time_limit !== nothing
+        set_time_limit_sec(model, time_limit)
+    end
+    for (name, value) in attributes
+        set_attribute(model, name, value)
     end
     return model
 end

@@ -44,15 +44,11 @@ function runtests()
     return
 end
 
-# An exact MIP bound, so that the integer dual is the known value.
-function ldr_model()
-    model = LDRModel(HiGHS.Optimizer)
-    set_silent(model)
-    set_attribute(model, "mip_rel_gap", 0.0)
-    return model
-end
-
 include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
+# An exact MIP bound, so that the integer dual is the known value.
+ldr_model() = TaggedProblems.ldr_model(; attributes = ("mip_rel_gap" => 0.0,))
+
 import .TaggedProblems:
     hydro_toy,
     inventory,

@@ -20,6 +20,9 @@ import Random
 
 include(joinpath(@__DIR__, "..", "oracles", "dense.jl"))
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_message
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -131,12 +134,7 @@ function test_simulate_in_ellipsoid()
         @test all(x -> Distributions.insupport(law, x), draws)
         @test s.violation_fraction == 0
         corner = maximum(law)
-        msg = try
-            evaluate(model, d => corner)
-            ""
-        catch err
-            sprint(showerror, err)
-        end
+        msg = error_message(() -> evaluate(model, d => corner))
         @test occursin("is outside the support of its law", msg)
         @test !evaluate(model, d => corner; outside_support = :ignore).in_support
     end

@@ -29,6 +29,9 @@ import LinearDecisionRules:
     inner_model,
     stage
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_message, error_of
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -38,15 +41,6 @@ function runtests()
         end
     end
     return
-end
-
-function error_of(f)
-    try
-        f()
-    catch err
-        return err
-    end
-    return nothing
 end
 
 include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
@@ -167,11 +161,9 @@ end
 function test_unsupported_variable_sets_are_left_to_canonicalize()
     model = newsvendor()
     @variable(model, w in MOI.Semicontinuous(1.0, 2.0))
-    msg = try
-        canonicalize(backend(model), LinearDecisionRules.model_info(backend(model)))
-    catch err
-        sprint(showerror, err)
-    end
+    msg = error_message(
+        () -> canonicalize(backend(model), LinearDecisionRules.model_info(backend(model))),
+    )
     @test occursin("VariableIndex-in-MathOptInterface.Semicontinuous", msg)
     return
 end

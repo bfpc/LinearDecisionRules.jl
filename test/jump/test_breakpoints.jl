@@ -30,6 +30,9 @@ include(joinpath(@__DIR__, "..", "problems", "library.jl"))
 
 const LEGACY = TOML.parsefile(joinpath(@__DIR__, "..", "reference", "legacy_values.toml"))
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_message
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -41,27 +44,13 @@ function runtests()
     return
 end
 
-function ldr_model()
-    model = LDRModel(HiGHS.Optimizer)
-    set_silent(model)
-    set_time_limit_sec(model, 60.0)
-    return model
-end
-
 include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
+ldr_model() = TaggedProblems.ldr_model(; time_limit = 60.0)
 
 newsvendor() = TaggedProblems.newsvendor(ldr_model())
 newsvendor_random_price() = TaggedProblems.newsvendor_random_price(ldr_model())
 newsvendor_three_stages() = TaggedProblems.newsvendor_three_stages(ldr_model())
-
-function error_message(f)
-    try
-        f()
-    catch err
-        return sprint(showerror, err)
-    end
-    return ""
-end
 
 # The value of the canonical problem of the library, solved directly.
 function library_values(p)

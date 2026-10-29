@@ -10,6 +10,9 @@ using Test
 
 import LinearDecisionRules: Stage, Truncate, ValidInequality, XiRole
 
+include(joinpath(@__DIR__, "..", "common.jl"))
+import .TestCommon: error_of
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -64,11 +67,7 @@ function test_xi_roles_on_vector_rows()
     @test constraint_object(b).func == x
     c = @constraint(model, x .- 1 in MOI.Nonnegatives(2), ValidInequality())
     @test get_attribute(c, XiRole()) == ValidInequality()
-    err = try
-        @constraint(model, [1, x[1]^2] in SecondOrderCone(), ValidInequality())
-    catch err
-        err
-    end
+    err = error_of(() -> @constraint(model, [1, x[1]^2] in SecondOrderCone(), ValidInequality()))
     @test occursin("must be affine", err.msg)
     return
 end
@@ -84,11 +83,7 @@ function test_constraint_stage_is_an_error()
         () -> @constraint(model, [t = 1:2], x <= t, Stage(t)),
         () -> @constraint(model, [1; y] in SecondOrderCone(), Stage(2)),
     )
-        err = try
-            build()
-        catch err
-            err
-        end
+        err = error_of(build)
         @test err isa ErrorException
         @test occursin("tags variables, not constraints", err.msg)
     end
@@ -99,11 +94,7 @@ end
 function test_tag_requires_affine_row()
     model = Model()
     @variable(model, x)
-    err = try
-        @constraint(model, x^2 <= 1, ValidInequality())
-    catch err
-        err
-    end
+    err = error_of(() -> @constraint(model, x^2 <= 1, ValidInequality()))
     @test err isa ErrorException
     @test occursin("must be affine", err.msg)
     return
