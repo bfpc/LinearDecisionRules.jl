@@ -12,7 +12,6 @@ import Distributions
 import Random
 import Distributions: Uniform
 import HiGHS
-import LinearDecisionRules
 import LinearDecisionRules:
     DecisionRule,
     DualLDR,
@@ -93,15 +92,11 @@ function test_rules_of_each_formulation()
     # The dual rule is not a policy: it buys less.
     @test decision_rule(model[:buy]; formulation = DualLDR()).constant ≈ 320 / 3
     @test decision_rule(model[:buy]; formulation = PrimalLDR()).constant ≈ 120
-    @test isfinite(decision_rule(model[:buy]; formulation = SampledLDR(100)).constant)
+    @test decision_rule(model[:buy]; formulation = SampledLDR(100)).constant ≈
+          value(model[:buy]; result = 2)
     set_attribute(model, Formulations(), [PrimalLDR()])
     optimize!(model)
-    err = try
-        decision_rule(model[:buy]; formulation = DualLDR())
-    catch err
-        err
-    end
-    @test err isa MOI.GetAttributeNotAllowed
+    @test_throws MOI.GetAttributeNotAllowed decision_rule(model[:buy]; formulation = DualLDR())
     return
 end
 

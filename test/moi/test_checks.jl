@@ -12,15 +12,7 @@ import Distributions
 import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules:
-    AxisPiecewise,
-    BreakPoints,
-    DualLDR,
-    FirstStage,
-    Formulations,
-    LDRModel,
-    MvDiscreteNonParametric,
-    PrimalLDR,
-    Uncertainty
+    BreakPoints, DualLDR, FirstStage, LDRModel, MvDiscreteNonParametric, PrimalLDR, Uncertainty
 
 function runtests()
     for name in names(@__MODULE__; all = true)

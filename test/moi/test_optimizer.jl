@@ -25,7 +25,6 @@ import LinearDecisionRules:
     ValidInequality,
     canonicalize,
     inner_model,
-    set_stage,
     stage
 
 function runtests()

@@ -16,7 +16,6 @@ using Test
 
 import Clarabel
 import HiGHS
-import LinearDecisionRules
 import LinearDecisionRules:
     BreakPoints,
     DualLDR,

@@ -11,7 +11,6 @@ using JuMP
 using Test
 
 import HiGHS
-import LinearDecisionRules
 import LinearDecisionRules:
     AxisPiecewise,
     BreakPoints,

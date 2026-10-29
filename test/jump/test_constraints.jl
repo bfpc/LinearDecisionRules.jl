@@ -8,7 +8,6 @@ module TestConstraints
 using JuMP
 using Test
 
-import LinearDecisionRules
 import LinearDecisionRules: Stage, Truncate, ValidInequality, XiRole
 
 function runtests()

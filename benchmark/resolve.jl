@@ -26,7 +26,6 @@
 
 using Printf
 using JuMP
-import HiGHS
 import LinearDecisionRules as LDR
 
 include("common.jl")

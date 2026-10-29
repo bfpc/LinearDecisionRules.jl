@@ -14,7 +14,6 @@ import Clarabel
 import Distributions
 import Distributions: DiscreteNonParametric, Uniform
 import HiGHS
-import LinearDecisionRules
 import LinearDecisionRules:
     BreakPoints,
     DualLDR,
@@ -22,7 +21,6 @@ import LinearDecisionRules:
     FirstStage,
     Formulations,
     LDRModel,
-    MvDiscreteNonParametric,
     PrimalLDR,
     SampledLDR,
     Simulation,
@@ -32,7 +30,6 @@ import LinearDecisionRules:
     ValidInequality,
     decision_rule,
     evaluate,
-    expected_value,
     simulate
 import Random
 
@@ -402,11 +399,18 @@ function test_simulate_sampled()
     sampled = SampledLDR(10; seed = 5)
     set_attribute(model, Formulations(), [PrimalLDR(), sampled])
     optimize!(model)
-    s = simulate(model, 2_000; formulation = sampled, rng = Random.Xoshiro(11))
+    s = simulate(
+        model,
+        2_000;
+        formulation = sampled,
+        rng = Random.Xoshiro(11),
+        keep_decisions = true,
+    )
     @test s isa Simulation
     @test s.formulation == sampled
     @test length(s.objectives) == 2_000
-    @test all(isfinite, s.objectives)
+    x = s.decisions
+    @test s.objectives ≈ -10x[model[:buy]] + 8x[model[:ret]] + 15x[model[:sell]]
     # With 10 scenarios, the rule is not robust: the report is a count (0 to 100%), not a value.
     @test 0 <= s.violation_fraction <= 1
     @test s.max_violation >= 0
@@ -420,7 +424,9 @@ function test_simulate_sampled()
     @test occursin("not solved", msg)
     # `evaluate` reads the sampled rule too.
     r = evaluate(model, d => 100.0; formulation = sampled)
-    @test isfinite(r.objective_value) && r.in_support
+    @test r.in_support
+    @test r.objective_value ≈
+          -10value(r, model[:buy]) + 8value(r, model[:ret]) + 15value(r, model[:sell])
     # An (almost) empty sample leaves out-of-sample violations that `evaluate` also reports.
     model = newsvendor()
     set_attribute(model, Formulations(), [SampledLDR(3; seed = 2)])

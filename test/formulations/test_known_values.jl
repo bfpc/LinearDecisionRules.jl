@@ -75,7 +75,9 @@ end
 function check_rules(p, form, f, solved, rules)
     legacy = legacy_rules(form, rules)
     if all(isapprox(solved.X[i, :], x; atol = 1e-6) for (i, x) in legacy)
-        @test true
+        for (i, x) in legacy
+            @test solved.X[i, :] ≈ x atol = 1e-6
+        end
         return
     end
     options = (raw_attributes = SETTINGS, names = true)

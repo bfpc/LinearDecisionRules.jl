@@ -13,14 +13,7 @@ module Problems
 using JuMP
 
 import Distributions
-import LinearDecisionRules:
-    CanonicalForm,
-    ModelInfo,
-    Moments,
-    MvDiscreteNonParametric,
-    UncertaintyDeclaration,
-    canonicalize,
-    moments
+import LinearDecisionRules: ModelInfo, MvDiscreteNonParametric, UncertaintyDeclaration, canonicalize
 
 struct Problem
     name::String

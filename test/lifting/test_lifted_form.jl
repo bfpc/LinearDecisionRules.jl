@@ -8,7 +8,6 @@ module TestLiftedForm
 using JuMP
 using Test
 
-import Distributions
 import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules:

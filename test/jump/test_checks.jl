@@ -11,7 +11,7 @@ using Test
 import Distributions
 import Distributions: Uniform
 import LinearDecisionRules
-import LinearDecisionRules: Stage, Uncertainty, stage
+import LinearDecisionRules: Stage, Uncertainty
 
 function runtests()
     for name in names(@__MODULE__; all = true)

@@ -11,8 +11,7 @@ using Test
 import HiGHS
 import LinearAlgebra
 import LinearDecisionRules
-import LinearDecisionRules:
-    DualLDR, PrimalLDR, SampledLDR, moments, second_moment, solve_formulation
+import LinearDecisionRules: PrimalLDR, SampledLDR, moments, second_moment, solve_formulation
 import TOML
 
 const LDR = LinearDecisionRules
@@ -125,7 +124,8 @@ function test_integer()
     result = solve(Problems.newsvendor(; integer = true), SampledLDR(100))
     @test result.termination_status == MOI.OPTIMAL
     @test result.X[1, 1] ≈ round(result.X[1, 1])
-    @test isfinite(result.objective_bound)
+    # HiGHS stops at a relative gap of 1e-4.
+    @test result.objective_bound ≈ result.objective_value rtol = 1e-4
     return
 end
 

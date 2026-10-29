@@ -8,10 +8,8 @@ module TestResults
 using JuMP
 using Test
 
-import Distributions
 import Distributions: Uniform
 import HiGHS
-import LinearDecisionRules
 import LinearDecisionRules:
     Certified,
     DualLDR,
@@ -26,6 +24,7 @@ import LinearDecisionRules:
     Stage,
     Truncate,
     Uncertainty,
+    decision_rule,
     inner_model,
     is_certified,
     set_stage
@@ -162,7 +161,8 @@ function test_sampled_is_result_two()
     @test objective_value(model; result = 2) >= 460 - 1e-6
     @test objective_value(model, SampledLDR(200)) == objective_value(model; result = 2)
     @test value(model[:buy]; result = 1) ≈ 120
-    @test isfinite(value(model[:buy]; result = 2))
+    @test value(model[:buy]; result = 2) ≈
+          decision_rule(model[:buy]; formulation = SampledLDR(200)).constant
     @test_throws MOI.ResultIndexBoundsError value(model[:buy]; result = 3)
     return
 end
@@ -249,7 +249,7 @@ function test_result_slots_are_fixed()
     @test_throws MOI.GetAttributeNotAllowed value(buy)
     @test_throws MOI.GetAttributeNotAllowed relative_gap(model)
     @test objective_value(model; result = 2) == objective_value(model, SampledLDR(5))
-    @test isfinite(objective_bound(model))
+    @test objective_bound(model) == objective_value(model, DualLDR())
     # Without the primal, result 1 is still the empty primal slot.
     set_attribute(model, Formulations(), [DualLDR(), SampledLDR(5)])
     optimize!(model)
@@ -257,7 +257,7 @@ function test_result_slots_are_fixed()
     @test primal_status(model) == MOI.NO_SOLUTION
     err = error_of(() -> value(buy))
     @test occursin("PrimalLDR, which was not solved", sprint(showerror, err))
-    @test isfinite(value(buy; result = 2))
+    @test value(buy; result = 2) == decision_rule(buy; formulation = SampledLDR(5)).constant
     return
 end
 

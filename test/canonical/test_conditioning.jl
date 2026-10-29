@@ -15,12 +15,10 @@ import Distributions: Uniform
 import LinearAlgebra
 import LinearDecisionRules as LDR
 import LinearDecisionRules:
-    AxisPiecewise,
     ConditionedDistribution,
     ModelInfo,
     UncertaintyDeclaration,
     canonicalize,
-    lift,
     moments,
     support_blocks
 import Random
