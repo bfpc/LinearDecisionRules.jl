@@ -65,15 +65,6 @@ It is set by `@constraint(model, expr, ValidInequality())` and read by `ModelInf
 struct XiRole <: MOI.AbstractConstraintAttribute end
 
 """
-    ConstraintStage()
-
-A constraint attribute: the stage of a constraint, as an `Int`, or `nothing`. It is set by
-`@constraint(model, expr, Stage(t))`. It is stored and not read yet, since it is reserved for
-expectation constraints at time `t`.
-"""
-struct ConstraintStage <: MOI.AbstractConstraintAttribute end
-
-"""
     BreakPoints()
 
 A variable attribute: the breakpoints of the [`AxisPiecewise`](@ref) lifting of an uncertainty,
@@ -279,7 +270,6 @@ end
 # `UncertaintyLifting`, which the identity map of `optimize!` leaves as they are.
 const _AttributesWithoutIndices = Union{
     XiRole,
-    ConstraintStage,
     BreakPoints,
     InnerOptimizer,
     Formulations,

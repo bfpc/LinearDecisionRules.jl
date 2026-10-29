@@ -19,7 +19,6 @@ UnivariateUncertainty
 MultivariateUncertainty
 AbstractXiRole
 XiRole
-ConstraintStage
 _is_metadata_constraint
 ```
 

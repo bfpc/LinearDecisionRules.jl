@@ -104,9 +104,8 @@ end
 
 """
     stage(x::JuMP.VariableRef) -> Union{Int,Nothing}
-    stage(c::JuMP.ConstraintRef) -> Union{Int,Nothing}
 
-The declared stage of a variable or a constraint, or `nothing` if it has none (it is unmarked).
+The declared stage of a variable, or `nothing` if it has none (it is unmarked).
 
 See also [`Stage`](@ref), [`set_stage`](@ref), [`unset_stage`](@ref).
 """
@@ -117,9 +116,8 @@ end
 
 """
     set_stage(x::JuMP.VariableRef, t::Integer)
-    set_stage(c::JuMP.ConstraintRef, t::Integer)
 
-Declare or change the stage of a variable or a constraint.
+Declare or change the stage of a variable.
 
 See also [`Stage`](@ref), [`stage`](@ref), [`unset_stage`](@ref).
 """
@@ -136,9 +134,8 @@ end
 
 """
     unset_stage(x::JuMP.VariableRef)
-    unset_stage(c::JuMP.ConstraintRef)
 
-Remove the stage of a variable or a constraint, which becomes unmarked.
+Remove the stage of a variable, which becomes unmarked.
 
 See also [`Stage`](@ref), [`stage`](@ref), [`set_stage`](@ref).
 """

@@ -43,7 +43,7 @@ Two of them give access to what is otherwise internal:
 
 | Group | Names |
 |---|---|
-| Reading a model | `model_info`, `ModelInfo`, `UncertaintyDeclaration`, `canonicalize`; the MOI form of the tags, `UnivariateUncertainty`, `MultivariateUncertainty`, `AbstractXiRole`, `XiRole`, `ConstraintStage`; the hook `_is_metadata_constraint` |
+| Reading a model | `model_info`, `ModelInfo`, `UncertaintyDeclaration`, `canonicalize`; the MOI form of the tags, `UnivariateUncertainty`, `MultivariateUncertainty`, `AbstractXiRole`, `XiRole`; the hook `_is_metadata_constraint` |
 | The canonical form | `CanonicalForm`, `ConicRow`, `UncertaintyBlock`, `ParameterTerms`, `lift(form, liftings)` |
 | The information structure | `InformationStructure`, `observes`, `visible_columns` |
 | The support | `SupportBlock`, `support_blocks` |

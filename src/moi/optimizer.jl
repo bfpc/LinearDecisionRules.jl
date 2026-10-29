@@ -178,7 +178,7 @@ MOI.supports(::Optimizer, ::Union{MOI.VariableName,BreakPoints}, ::Type{MOI.Vari
 
 function MOI.supports(
     ::Optimizer,
-    ::Union{MOI.ConstraintName,XiRole,ConstraintStage},
+    ::Union{MOI.ConstraintName,XiRole},
     ::Type{<:MOI.ConstraintIndex{<:_ScalarFunction}},
 )
     return true

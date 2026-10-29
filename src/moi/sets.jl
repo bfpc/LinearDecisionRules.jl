@@ -90,8 +90,8 @@ The stage of a decision or an uncertainty: the information of stage `t` is revea
 decisions of stage `t`, and the decisions of stage 1 are made here-and-now.
 
 It is a `VariableIndex`-in-set constraint, so that stages show in `print(model)` and disappear
-with the variable on `delete`. It is also the tag of `@variable(model, x, Stage(t))`, and of
-`@constraint(model, expr, Stage(t))`, which is stored but not read yet. Stages start at 1.
+with the variable on `delete`. It is also the tag of `@variable(model, x, Stage(t))`. Constraints
+have no stage. Stages start at 1.
 
 See also [`FirstStage`](@ref), [`stage`](@ref), [`set_stage`](@ref), [`unset_stage`](@ref).
 """

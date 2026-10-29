@@ -192,8 +192,6 @@ function test_invalid_stage()
         @test err isa ArgumentError && occursin("stages start at 1", err.msg)
         err = error_of(() -> @variable(model, x in Uncertainty(Uniform(0, 1)), Stage(t)))
         @test err isa ArgumentError
-        err = error_of(() -> @constraint(model, 0 <= 1, Stage(t)))
-        @test err isa ArgumentError
     end
     @test num_variables(model) == 0
     return

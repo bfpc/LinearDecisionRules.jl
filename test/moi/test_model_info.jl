@@ -268,18 +268,6 @@ function test_breakpoints()
     return
 end
 
-function test_constraint_stage_is_ignored()
-    model = newsvendor_with_tags()
-    @constraint(model, model[:sell] <= 1000, Stage(2))
-    by_hand, info = newsvendor_by_hand()
-    @constraint(by_hand, by_hand[:sell] <= 1000)
-    @test same_form(
-        canonicalize(backend(model), info_of(model)),
-        canonicalize(backend(by_hand), info),
-    )
-    return
-end
-
 # A variable has one `Stage` constraint, whose index is that of the variable.
 function test_set_stage_replaces_the_stage()
     model = newsvendor_with_tags()

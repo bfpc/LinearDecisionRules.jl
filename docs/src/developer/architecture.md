@@ -91,7 +91,7 @@ included after it: `_resolve_support` (`support.jl`), `_condition` (`conditionin
 
 | When | Where | What |
 |---|---|---|
-| Declaration | JuMP's cache (an MOI model inside the caching optimizer) | Variables, constraints, the `Stage` and `Uncertainty` sets (as constraints), and the attributes `XiRole()`, `ConstraintStage()` and `BreakPoints()` |
+| Declaration | JuMP's cache (an MOI model inside the caching optimizer) | Variables, constraints, the `Stage` and `Uncertainty` sets (as constraints), and the attributes `XiRole()` and `BreakPoints()` |
 | Declaration | the `Optimizer` (optimizer attributes) | `InnerOptimizer()`, `Formulations()`, `TimeLimitSec()`, `Silent()`, the raw attributes, `RejectionSampling*()`. They survive `empty!` |
 | After `optimize!` | the `Optimizer` | `form`, `moments`, `results`, the maps `decision_rows` and `uncertainty_columns`, the parameter values, `solve_time`. `MOI.empty!` clears them at the start of each `optimize!` |
 | Across `optimize!` | the `Optimizer` | `moments_cache`: the estimates of conditioned laws, keyed by law, seed and number of draws. `inner_cache`: the inner problems and their fingerprint. Both survive `empty!` |

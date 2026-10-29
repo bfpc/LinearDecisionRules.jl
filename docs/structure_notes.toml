@@ -26,7 +26,7 @@
 "src/moi/optimizer.jl" = "`Optimizer`: attributes, supported constraints, and `MOI.optimize!`."
 "src/moi/results.jl" = "The results of the optimizer: statuses, values, bounds, slots, and internal attributes for the JuMP layer."
 "src/jump/variables.jl" = "`Stage` tags on variables, and `stage`/`set_stage`/`unset_stage`."
-"src/jump/constraints.jl" = "Tags on constraints (`ValidInequality()`, `Truncate()`, `Stage`)."
+"src/jump/constraints.jl" = "Tags on constraints (`ValidInequality()`, `Truncate()`), and the error of a `Stage` tag."
 "src/jump/checks.jl" = "Declaration-time checks of uncertainties and stages, and vector uncertainties over containers."
 "src/jump/model.jl" = "`LDRModel`."
 "src/jump/results.jl" = "JuMP functions per formulation (`objective_value(model, f)`, …), `is_certified` and `inner_model`."

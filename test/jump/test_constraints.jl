@@ -9,8 +9,7 @@ using JuMP
 using Test
 
 import LinearDecisionRules
-import LinearDecisionRules: ConstraintStage, Stage, Truncate, ValidInequality, XiRole
-import LinearDecisionRules: set_stage, stage, unset_stage
+import LinearDecisionRules: Stage, Truncate, ValidInequality, XiRole
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -33,7 +32,6 @@ function test_xi_roles()
     @test get_attribute(a, XiRole()) == ValidInequality()
     @test get_attribute(b, XiRole()) == Truncate()
     @test get_attribute(c, XiRole()) === nothing
-    @test get_attribute(a, ConstraintStage()) === nothing
     # The tag does not change the row.
     @test sprint(print, constraint_object(a).func) == "x + y"
     @test constraint_object(a).set == MOI.LessThan(3.0)
@@ -76,23 +74,26 @@ function test_xi_roles_on_vector_rows()
     return
 end
 
-function test_constraint_stage()
+# A constraint has no stage: the tag is an error, in every form of `@constraint`.
+function test_constraint_stage_is_an_error()
     model = Model()
     @variable(model, x)
-    a = @constraint(model, x <= 1, Stage(2))
-    b = @constraint(model, x >= 0)
-    @test stage(a) == 2
-    @test stage(b) === nothing
-    @test get_attribute(a, XiRole()) === nothing
-    set_stage(b, 3)
-    @test stage(b) == 3
-    set_stage(a, 1)
-    @test stage(a) == 1
-    unset_stage(a)
-    @test stage(a) === nothing
-    @test_throws ArgumentError set_stage(a, 0)
-    c = @constraint(model, [t = 1:2], x <= t, Stage(t))
-    @test stage.(c) == [1, 2]
+    @variable(model, y[1:2])
+    for build in (
+        () -> @constraint(model, x <= 1, Stage(2)),
+        () -> @constraint(model, 0 <= x <= 1, Stage(2)),
+        () -> @constraint(model, [t = 1:2], x <= t, Stage(t)),
+        () -> @constraint(model, [1; y] in SecondOrderCone(), Stage(2)),
+    )
+        err = try
+            build()
+        catch err
+            err
+        end
+        @test err isa ErrorException
+        @test occursin("tags variables, not constraints", err.msg)
+    end
+    @test num_constraints(model; count_variable_in_set_constraints = true) == 0
     return
 end
 
