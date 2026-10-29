@@ -40,7 +40,7 @@ flowchart TD
     jump -->|"3 names"| canonical
     jump -->|"7 names"| probability
     jump -->|"4 names"| formulations
-    jump -->|"22 names"| moi
+    jump -->|"23 names"| moi
 ```
 
 ## Include order
@@ -80,9 +80,9 @@ flowchart TD
 33. [`src/moi/inner_cache.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/inner_cache.jl): The cache of inner problems for re-solves, with its fingerprint.
 34. [`src/moi/optimizer.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/optimizer.jl): `Optimizer`: attributes, supported constraints, and `MOI.optimize!`.
 35. [`src/moi/results.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/results.jl): The results of the optimizer: statuses, values, bounds, slots, and internal attributes for the JuMP layer.
-36. [`src/jump/variables.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/variables.jl): `Stage` tags on variables, and `stage`/`set_stage`/`unset_stage`.
+36. [`src/jump/variables.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/variables.jl): `Stage` tags on variables, vector uncertainties over containers, and `stage`/`set_stage`/`unset_stage`.
 37. [`src/jump/constraints.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/constraints.jl): Tags on constraints (`ValidInequality()`, `Truncate()`), and the error of a `Stage` tag.
-38. [`src/jump/checks.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/checks.jl): Declaration-time checks of uncertainties and stages, and vector uncertainties over containers.
+38. [`src/jump/checks.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/checks.jl): Declaration-time checks of uncertainties and stages.
 39. [`src/jump/model.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/model.jl): `LDRModel`.
 40. [`src/jump/results.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/results.jl): JuMP functions per formulation (`objective_value(model, f)`, …), `is_certified` and `inner_model`.
 41. [`src/jump/rules.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/rules.jl): `decision_rule`, `expected_value`, `rule_coefficient`, `rule_matrix`.
@@ -566,7 +566,7 @@ Uses:
 - `probability/laws`: `_support_bounds`
 - `canonical/read`: `_is_metadata_constraint`
 
-Used by: `moi/model_info` (2), `moi/optimizer` (4), `jump/variables` (1), `jump/constraints` (1), `jump/checks` (4).
+Used by: `moi/model_info` (2), `moi/optimizer` (4), `jump/variables` (2), `jump/constraints` (1), `jump/checks` (4).
 
 ### `moi/attributes`
 
@@ -695,16 +695,16 @@ Used by: `jump/simulate` (2).
 
 ### `jump/variables`
 
-`Stage` tags on variables, and `stage`/`set_stage`/`unset_stage`.
+`Stage` tags on variables, vector uncertainties over containers, and `stage`/`set_stage`/`unset_stage`.
 
-[`src/jump/variables.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/variables.jl): 148 lines.
+[`src/jump/variables.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/variables.jl): 193 lines.
 
 Defines:
-`_StagedVariable` (L11), `_StagedVariables` (L17), `JuMP.build_variable` (L22) (7 methods), `_build_staged_variables` (L51), `JuMP.add_variable` (L72) (3 methods), `_stage_constraint` (L96), **`stage` (L112)**†, **`set_stage` (L124)**†, **`unset_stage` (L142)**†.
+`_StagedVariable` (L11), `_StagedVariables` (L17), `JuMP.build_variable` (L22) (9 methods), `_build_staged_variables` (L51), `JuMP.add_variable` (L72) (4 methods), `_ArrayOfVariables` (L98), `_components` (L121) (2 methods), `_like` (L125) (2 methods), `_stage_constraint` (L141), **`stage` (L157)**†, **`set_stage` (L169)**†, **`unset_stage` (L187)**†.
 
 Uses:
 
-- `moi/sets`: `Stage`
+- `moi/sets`: `MultivariateUncertainty`, `Stage`
 
 Used by: `jump/checks` (2).
 
@@ -724,12 +724,12 @@ Uses:
 
 ### `jump/checks`
 
-Declaration-time checks of uncertainties and stages, and vector uncertainties over containers.
+Declaration-time checks of uncertainties and stages.
 
-[`src/jump/checks.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/checks.jl): 135 lines.
+[`src/jump/checks.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/checks.jl): 90 lines.
 
 Defines:
-`_error_two_stages` (L9), `JuMP.build_variable` (L13) (8 methods), `_variable_info` (L26) (3 methods), `_check_uncertainty_declaration` (L32), `_ArrayOfVariables` (L96), `_components` (L119) (2 methods), `_like` (L123) (2 methods), `JuMP.add_variable` (L129).
+`_error_two_stages` (L9), `JuMP.build_variable` (L13) (6 methods), `_variable_info` (L26) (3 methods), `_check_uncertainty_declaration` (L32).
 
 Uses:
 
