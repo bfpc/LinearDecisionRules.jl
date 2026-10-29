@@ -12,14 +12,13 @@ import HiGHS
 import LinearAlgebra
 import LinearDecisionRules
 import LinearDecisionRules: PrimalLDR, SampledLDR, moments, second_moment, solve_formulation
-import TOML
 
 const LDR = LinearDecisionRules
 
 include(joinpath(@__DIR__, "..", "problems", "library.jl"))
 import .Problems: solve
 
-const LEGACY = TOML.parsefile(joinpath(@__DIR__, "..", "reference", "legacy_values.toml"))
+include(joinpath(@__DIR__, "..", "problems", "legacy.jl"))
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -36,7 +35,7 @@ end
 function test_legacy_value()
     result = solve(Problems.newsvendor(), SampledLDR(1000))
     @test result.termination_status == MOI.OPTIMAL
-    @test result.objective_value ≈ LEGACY["sampled_newsvendor_N1000_seed1234"]["sampled"]
+    @test result.objective_value ≈ Legacy.VALUES["sampled_newsvendor_N1000_seed1234"]["sampled"]
     return
 end
 

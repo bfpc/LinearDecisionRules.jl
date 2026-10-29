@@ -14,11 +14,9 @@ using Test
 
 import HiGHS
 import LinearDecisionRules: DualLDR, PrimalLDR, SampledLDR, moments, solve_formulation
-import TOML
 
 include(joinpath(@__DIR__, "..", "problems", "library.jl"))
-
-const LEGACY = TOML.parsefile(joinpath(@__DIR__, "..", "reference", "legacy_values.toml"))
+include(joinpath(@__DIR__, "..", "problems", "legacy.jl"))
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -37,40 +35,12 @@ function solve(p::Problems.Problem, f)
     return form, Problems.solve(form, f)
 end
 
-# `x1` in the legacy file is `x[1]` here, and `buy` of a one-product model can be `buy[1]`.
-function _index(names, legacy::String)
-    for name in (legacy, replace(legacy, r"^([a-z_]+)(\d+)$" => s"\1[\2]"), "$legacy[1]")
-        i = findfirst(==(name), names)
-        i === nothing || return i
-    end
-    return error("No decision or uncertainty is named $legacy.")
-end
-
-# The legacy rule on ξ = (1, η) of each decision listed in `legacy_values.toml`. The coefficient
-# of a lifted uncertainty is the vector of its coefficients on its pieces.
-function legacy_rules(form, rules)
-    return map(collect(rules)) do (name, rule)
-        x = zeros(1 + length(form.uncertainties))
-        x[1] = rule["constant"]
-        for (u, coefficient) in rule["coefficients"]
-            if coefficient isa Vector
-                for (k, c) in enumerate(coefficient)
-                    x[1+_index(form.uncertainty_names, "$u[piece $k]")] = c
-                end
-            else
-                x[1+_index(form.uncertainty_names, u)] = coefficient
-            end
-        end
-        return _index(form.decision_names, name) => x
-    end
-end
-
 # The rules of `solved` are the legacy ones. When they differ, the inner problem is degenerate
 # (or solved to a tolerance) if the legacy rules are optimal too: fixing them keeps the value. This
 # is the case of the dual of `inventory_T8` and the primal of `newsvendor_mv_discrete` (degenerate)
 # and of the primal of `hydro_toy_fixed_volume` (a QP solved to a tolerance).
 function check_rules(p, form, f, solved, rules)
-    legacy = legacy_rules(form, rules)
+    legacy = Legacy.rules(form.decision_names, form.uncertainty_names, rules)
     if all(isapprox(solved.X[i, :], x; atol = 1e-6) for (i, x) in legacy)
         for (i, x) in legacy
             @test solved.X[i, :] ≈ x atol = 1e-6
@@ -107,7 +77,7 @@ function test_known_values()
             isnan(p.primal) || @test Problems.matches(primal.objective_value, p.primal, p)
             isnan(p.dual) || @test Problems.matches(dual.objective_bound, p.dual, p)
             if !isempty(p.legacy)
-                legacy = LEGACY[p.legacy]
+                legacy = Legacy.VALUES[p.legacy]
                 @test Problems.matches(primal.objective_value, legacy["primal"], p)
                 @test Problems.matches(dual.objective_bound, legacy["dual"], p)
                 check_rules(p, form, PrimalLDR(), primal, legacy["rules"]["primal"])

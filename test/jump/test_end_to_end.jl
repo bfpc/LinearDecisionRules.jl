@@ -24,10 +24,11 @@ import LinearDecisionRules:
     ValidInequality,
     decision_rule,
     expected_value,
+    rule_matrix,
     stage
-import TOML
 
-const LEGACY = TOML.parsefile(joinpath(@__DIR__, "..", "reference", "legacy_values.toml"))
+include(joinpath(@__DIR__, "..", "problems", "legacy.jl"))
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -54,26 +55,21 @@ import .TaggedProblems:
     newsvendor_three_stages,
     newsvendor_two_products
 
-newsvendor(; integer = false) = TaggedProblems.newsvendor(ldr_model(); integer)
-
-# `x1` in the legacy file is `x[1]` here.
-function variable_by_legacy_name(model, name)
-    x = variable_by_name(model, name)
-    if x === nothing
-        m = match(r"^([a-z_]+)(\d+)$", name)
-        x = variable_by_name(model, "$(m[1])[$(m[2])]")
-    end
-    return x
+function newsvendor(; integer = false, points = nothing)
+    return TaggedProblems.newsvendor(ldr_model(); integer, points)
 end
 
+# The name of a column of the rule matrix, as in the canonical form: `demand[piece k]` for the
+# `k`-th piece of a lifted `demand`.
+column_name(label::VariableRef) = name(label)
+column_name((d, k)::Tuple) = "$(name(d))[piece $k]"
+
+# The rules of `model` are the legacy rules `rules`, coefficient by coefficient.
 function check_rules(model, rules)
-    for (name, rule) in rules
-        r = decision_rule(variable_by_legacy_name(model, name))
-        @test r.constant ≈ rule["constant"] atol = 1e-6
-        for (u, coefficient) in rule["coefficients"]
-            d = variable_by_legacy_name(model, u)
-            @test get(r.coefficients, d, 0.0) ≈ coefficient atol = 1e-6
-        end
+    R = rule_matrix(model)
+    legacy = Legacy.rules(name.(R.decisions), column_name.(R.columns[2:end]), rules)
+    for (i, x) in legacy
+        @test R.matrix[i, :] ≈ x atol = 1e-6
     end
     return
 end
@@ -89,13 +85,19 @@ const GOLDEN = [
     ("hydro_toy_fixed_volume", hydro_toy, false),
     ("newsvendor_mv_discrete", newsvendor_mv_discrete, false),
     ("newsvendor_discrete_demand", newsvendor_discrete_demand, false),
+    [
+        ("newsvendor_breakpoints_$k", () -> newsvendor(; points), true) for
+        (k, (points, _, _)) in enumerate(Problems.NEWSVENDOR_BREAKPOINTS)
+    ]...,
+    ("newsvendor_breakpoint_critical", () -> newsvendor(; points = [760 / 7]), true),
 ]
 
-# The previous version's values, from models written with the tags.
+# The previous version's values, from models written with the tags, and its primal rules (with the
+# coefficients of each piece of a lifted uncertainty) when they are unique.
 function test_golden_values()
     for (name, build, with_rules) in GOLDEN
         @testset "$name" begin
-            legacy = LEGACY[name]
+            legacy = Legacy.VALUES[name]
             model = build()
             optimize!(model)
             @test termination_status(model) == MOI.OPTIMAL

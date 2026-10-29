@@ -17,18 +17,14 @@ import LinearDecisionRules:
     DualLDR,
     Formulations,
     LDRModel,
-    LiftedTerm,
     PrimalLDR,
     SampledLDR,
     decision_rule,
     expected_value,
     moments,
     solve_formulation
-import TOML
 
 include(joinpath(@__DIR__, "..", "problems", "library.jl"))
-
-const LEGACY = TOML.parsefile(joinpath(@__DIR__, "..", "reference", "legacy_values.toml"))
 
 include(joinpath(@__DIR__, "..", "common.jl"))
 import .TestCommon: error_message
@@ -61,33 +57,17 @@ function library_values(p)
     return primal.objective_value, dual.objective_value
 end
 
-const GOLDEN = ["newsvendor_breakpoints_$k" => Problems.NEWSVENDOR_BREAKPOINTS[k][1] for k in 1:4]
-
-# The previous version's primal and dual values and primal rules, per piece; the primal values
-# increase and the dual values decrease over the nested breakpoints.
-function test_golden_values()
+# Over the nested breakpoints of the library, the primal values increase and the dual values
+# decrease. The values and the rules are the golden values of `test_end_to_end.jl`.
+function test_nested_breakpoints()
     primal, dual = Float64[], Float64[]
-    for (name, points) in [GOLDEN; "newsvendor_breakpoint_critical" => [760 / 7]]
-        @testset "$name" begin
-            legacy = LEGACY[name]
-            model = newsvendor()
-            demand = model[:demand]
-            set_attribute(demand, BreakPoints(), points)
-            optimize!(model)
-            @test termination_status(model) == MOI.OPTIMAL
-            @test objective_value(model) ≈ legacy["primal"] rtol = 1e-7
-            @test objective_bound(model) ≈ legacy["dual"] rtol = 1e-7
-            for (x, rule) in legacy["rules"]["primal"]
-                r = decision_rule(model[Symbol(x)])
-                @test r.constant ≈ rule["constant"] atol = 1e-6
-                expected = rule["coefficients"]["demand"]
-                zero_term = LiftedTerm(AxisPiecewise(points), zero(expected))
-                @test get(r.lifted, demand, zero_term).coefficients ≈ expected atol = 1e-6
-            end
-            name == "newsvendor_breakpoint_critical" && continue
-            push!(primal, objective_value(model))
-            push!(dual, objective_bound(model))
-        end
+    for (points, _, _) in Problems.NEWSVENDOR_BREAKPOINTS
+        model = newsvendor()
+        set_attribute(model[:demand], BreakPoints(), points)
+        optimize!(model)
+        @test termination_status(model) == MOI.OPTIMAL
+        push!(primal, objective_value(model))
+        push!(dual, objective_bound(model))
     end
     @test all(diff(primal) .>= -1e-7)
     @test all(diff(dual) .<= 1e-7)

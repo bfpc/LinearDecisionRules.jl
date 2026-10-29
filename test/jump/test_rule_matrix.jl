@@ -12,11 +12,9 @@ import LinearDecisionRules
 import LinearDecisionRules:
     DualLDR, PrimalLDR, RuleMatrix, decision_rule, lift, rule_coefficient, rule_matrix
 import MathOptInterface as MOI
-import TOML
 
 include(joinpath(@__DIR__, "..", "problems", "library.jl"))
-
-const LEGACY = TOML.parsefile(joinpath(@__DIR__, "..", "reference", "legacy_values.toml"))
+include(joinpath(@__DIR__, "..", "problems", "legacy.jl"))
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -100,7 +98,7 @@ end
 function test_breakpoints()
     for k in 1:4
         points, _ = Problems.NEWSVENDOR_BREAKPOINTS[k]
-        legacy = LEGACY["newsvendor_breakpoints_$k"]["rules"]
+        legacy = Legacy.VALUES["newsvendor_breakpoints_$k"]["rules"]
         for (formulation, key) in ((PrimalLDR(), "primal"), (DualLDR(), "dual"))
             model = newsvendor(; points)
             optimize!(model)
