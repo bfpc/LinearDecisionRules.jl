@@ -116,7 +116,6 @@ function shared_stock(optimizer, α; support = :auto, covariance = Σ)
     @constraint(model, sum(sell) <= buy)
     @constraint(model, sell .<= d)
     @objective(model, Max, -10buy + 15sell[1] + 12sell[2])
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end

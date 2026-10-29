@@ -67,8 +67,8 @@ using Random
 
 # ## Part 1: a single breakpoint
 
-# The newsvendor, as a function of the breakpoints of the demand. We ask for the primal rule and
-# the dual bound with the [`Formulations`](@ref) attribute.
+# The newsvendor, as a function of the breakpoints of the demand. `optimize!` solves the primal
+# rule and the dual bound, the default of the [`Formulations`](@ref) attribute.
 
 function newsvendor(breakpoints = nothing)
     model = LDRModel(HiGHS.Optimizer)
@@ -81,7 +81,6 @@ function newsvendor(breakpoints = nothing)
     @constraint(model, sell <= d)
     @objective(model, Max, -10buy + 8ret + 15sell)
     set_attribute(d, BreakPoints(), breakpoints)
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end

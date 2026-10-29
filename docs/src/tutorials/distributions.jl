@@ -36,9 +36,9 @@ using LinearDecisionRules
 # * **Salvage value**: 8 per unsold unit
 # * **Demand**: uncertain, with a law that varies
 
-# The helper function solves it with a given law of the demand, and returns the model. We ask for
-# the primal rule (a policy, whose value is the `objective_value`) and for the dual rule, which
-# gives the bound `objective_bound`.
+# The helper function solves it with a given law of the demand, and returns the model. By default,
+# `optimize!` solves the primal rule (a policy, whose value is the `objective_value`) and the dual
+# rule, which gives the bound `objective_bound`.
 
 function solve_inventory(demand_law)
     model = LDRModel(HiGHS.Optimizer)
@@ -50,7 +50,6 @@ function solve_inventory(demand_law)
     @constraint(model, sell + salvage <= buy)
     @constraint(model, sell <= demand)
     @objective(model, Max, -10buy + 15sell + 8salvage)
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end
@@ -163,7 +162,6 @@ function solve_two_products(demand_law)
     @constraint(model, [i in 1:2], sell[i] + salvage[i] <= buy[i])
     @constraint(model, [i in 1:2], sell[i] <= demand[i])
     @objective(model, Max, sum(-10buy[i] + 15sell[i] + 8salvage[i] for i in 1:2))
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end

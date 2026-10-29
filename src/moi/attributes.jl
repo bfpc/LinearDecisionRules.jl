@@ -104,7 +104,7 @@ struct InnerOptimizer <: MOI.AbstractOptimizerAttribute end
     Formulations()
 
 An optimizer attribute: the vector of formulations that `optimize!` solves, at most one of each
-type.
+type; `[PrimalLDR(), DualLDR()]` by default, the rule and its bound.
 
 The results do not depend on the order: result 1 is always the rule of [`PrimalLDR`](@ref) and
 result 2 the rule of [`SampledLDR`](@ref), with status `NO_SOLUTION` when their formulation was not
@@ -114,7 +114,7 @@ The bound of [`DualLDR`](@ref) is `objective_bound`.
 ## Example
 
 ```julia
-set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
+set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(100)])
 ```
 """
 struct Formulations <: MOI.AbstractOptimizerAttribute end

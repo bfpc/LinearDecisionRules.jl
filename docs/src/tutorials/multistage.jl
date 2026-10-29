@@ -62,7 +62,6 @@ function inventory(T; breakpoints = nothing)
     if breakpoints !== nothing
         set_attribute(d[2], BreakPoints(), breakpoints)
     end
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end

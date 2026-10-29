@@ -70,7 +70,6 @@ function newsvendor(tag)
     elseif tag == :valid
         @constraint(model, 80 <= d <= 120, ValidInequality())
     end
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end
@@ -134,7 +133,6 @@ function shared_stock(tag)
     elseif tag == :valid
         @constraint(model, d[1] + d[2] <= 100, ValidInequality())
     end
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end
@@ -188,7 +186,6 @@ function two_products(; total = nothing)
     if total !== nothing
         @constraint(model, d[1] + d[2] <= total, Truncate())
     end
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end
@@ -261,7 +258,6 @@ function reservoirs()
     ## The water balance.
     @constraint(model, [i in 1:3], release[i] + spill[i] <= storage[i] + inflow[i])
     @objective(model, Max, sum(benefit[i] * release[i] - spill[i] for i in 1:3))
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end
@@ -289,7 +285,6 @@ function discrete_with_truncate(total)
     @constraint(model, [i in 1:2], sell[i] <= d[i])
     @objective(model, Max, sum(-10buy[i] + 8ret[i] + 15sell[i] for i in 1:2))
     @constraint(model, d[1] + d[2] <= total, Truncate())
-    set_attribute(model, Formulations(), [PrimalLDR(), DualLDR()])
     optimize!(model)
     return model
 end
