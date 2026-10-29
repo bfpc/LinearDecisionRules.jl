@@ -93,42 +93,28 @@ function lift(form::CanonicalForm, liftings::AbstractDict{MOI.VariableIndex,<:Ab
         R,
     )
     Rηt = SparseArrays.sparse(transpose(Rη))
-    return CanonicalForm(
-        form.decisions,
-        form.decision_names,
-        form.decision_stages,
-        form.integer,
-        form.binary,
-        form.lower,
-        form.upper,
-        [form.uncertainties[j-1] for (j, _) in coordinates],
-        names,
-        stages,
+    # The decisions, the matrices `A`, `P`, the constant `f` and the parameters do not change: the
+    # first column of `R` is the first unit vector, so `B[:, 1]` is unchanged.
+    return _replace(
+        form;
+        uncertainties = [form.uncertainties[j-1] for (j, _) in coordinates],
+        uncertainty_names = names,
+        uncertainty_stages = stages,
         laws,
-        form.num_stages,
-        form.A_e,
-        form.B_e * R,
-        form.e_constraints,
-        form.A_u,
-        form.B_u * R,
-        form.u_constraints,
-        form.A_l,
-        form.B_l * R,
-        form.l_constraints,
-        vcat(form.W_valid * Rη, W_hull),
-        vcat(form.h_valid, h_hull),
-        vcat(form.valid_constraints, fill(nothing, length(h_hull))),
-        vcat(form.conditioning, falses(length(h_hull))),
-        [ConicRow(r.W * Rη, r.h, r.cone, r.constraint, r.conditioning) for r in form.conic_rows],
-        form.sense,
-        form.P,
-        form.C * R,
-        Rηt * form.Q * Rη,
-        Vector(Rηt * form.d),
-        form.f,
+        B_e = form.B_e * R,
+        B_u = form.B_u * R,
+        B_l = form.B_l * R,
+        W_valid = vcat(form.W_valid * Rη, W_hull),
+        h_valid = vcat(form.h_valid, h_hull),
+        valid_constraints = vcat(form.valid_constraints, fill(nothing, length(h_hull))),
+        conditioning = vcat(form.conditioning, falses(length(h_hull))),
+        conic_rows = [
+            ConicRow(r.W * Rη, r.h, r.cone, r.constraint, r.conditioning) for r in form.conic_rows
+        ],
+        C = form.C * R,
+        Q = Rηt * form.Q * Rη,
+        d = Vector(Rηt * form.d),
         lifting,
-        # The first column of `R` is the first unit vector, so `B[:, 1]` is unchanged.
-        form.parameters,
     )
 end
 

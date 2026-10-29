@@ -240,8 +240,13 @@ struct CanonicalForm
     parameters::ParameterTerms
 end
 
-# `form` with some fields replaced, such as `_replace(form; laws = laws)`.
+# `form` with some fields replaced, such as `_replace(form; laws = laws)`. A keyword that is not a
+# field is an error, so that a misspelled one does not leave its field unchanged.
 function _replace(form::CanonicalForm; kwargs...)
+    unknown = setdiff(keys(kwargs), fieldnames(CanonicalForm))
+    if !isempty(unknown)
+        throw(ArgumentError("`CanonicalForm` has no fields $(join(unknown, ", "))."))
+    end
     fields = map(name -> get(kwargs, name, getfield(form, name)), fieldnames(CanonicalForm))
     return CanonicalForm(fields...)
 end

@@ -584,6 +584,19 @@ function test_outside_cone()
     return
 end
 
+function test_replace()
+    model, info = newsvendor()
+    form = canonicalize(backend(model), info)
+    replaced = LinearDecisionRules._replace(form; f = 1.0, d = [2.0])
+    @test replaced.f == 1.0 && replaced.d == [2.0]
+    for name in fieldnames(CanonicalForm)
+        name in (:f, :d) || @test getfield(replaced, name) === getfield(form, name)
+    end
+    # A misspelled keyword is an error, not a field left unchanged.
+    @test_throws ArgumentError LinearDecisionRules._replace(form; lwas = form.laws)
+    return
+end
+
 end # module TestForm
 
 TestForm.runtests()
