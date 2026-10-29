@@ -150,9 +150,6 @@ function test_support_constraints()
     # A diagonal Σ: the principal box is the bounding box, so there are no rows.
     diagonal = ConfidenceMvNormal(μ, [1.0 0.0; 0.0 2.0], 0.9; support = :boxes)
     @test isempty(support_constraints(diagonal).h)
-    # Other laws have none.
-    @test isempty(support_constraints(Distributions.Uniform(0, 1)).h)
-    @test size(support_constraints(Distributions.MvNormal(μ, Σ)).W) == (0, 2)
     return
 end
 

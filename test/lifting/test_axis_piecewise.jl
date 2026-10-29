@@ -3,7 +3,7 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
-module TestLifting
+module TestAxisPiecewise
 
 using Test
 
@@ -112,6 +112,6 @@ function test_breakpoints_outside_support()
     return
 end
 
-end # module TestLifting
+end # module TestAxisPiecewise
 
-TestLifting.runtests()
+TestAxisPiecewise.runtests()
