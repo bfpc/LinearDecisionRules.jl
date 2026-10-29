@@ -1,22 +1,24 @@
 # Generates `legacy_values.toml`: golden values from the LEGACY implementation of
 # LinearDecisionRules.jl (branch `Multistage` of the old repository, version 0.3.1, old API:
-# `LDRModel`, `Uncertainty`, `Stage`, `get_decision`, ...). It does NOT run against this repository.
+# `LDRModel`, `Uncertainty`, `Stage`, `get_decision`, ...). It does NOT run against the package
+# of this repository.
 #
-# To run it, from the old repository checkout (an environment with the old package developed
-# plus HiGHS, Ipopt, Distributions, JuMP, TOML; `spike/legacy_env` there is one):
+# To run it from this repository, make an environment with the legacy package developed from a
+# checkout of commit 17ce1eb, plus the packages of `spike/legacy_env/Project.toml`:
 #
-#   julia --project=<old repo>/spike/legacy_env test/reference/generate_legacy_values.jl [out.toml]
+#   cp -r spike/legacy_env <env>
+#   julia --project=<env> -e 'import Pkg; Pkg.develop(path = "<old checkout>"); Pkg.instantiate()'
+#   julia --project=<env> test/reference/generate_legacy_values.jl [out.toml]
 #
 # The output defaults to `legacy_values.toml` next to this script. Every entry has a `description`
 # precise enough to rebuild the model in another API, the `primal` and `dual` objective values
 # (user's sense), optionally `sampled`, and `rules`: for a few variables the constant and the
 # coefficients on the uncertainties of the primal (and dual) decision rule. Models come from the
 # legacy tests (test_core.jl, test_stages.jl, distributions.jl, sampled_mode.jl), the
-# tutorials and benchmark/timing.jl. HiGHS solves everything; Ipopt is only used if HiGHS fails.
+# tutorials and benchmark/timing.jl. HiGHS solves everything.
 
 import TOML
 import HiGHS
-import Ipopt
 import Distributions
 import LinearDecisionRules as LDR
 using JuMP
@@ -380,6 +382,7 @@ function main()
     result = Dict{String,Any}(
         "meta" => Dict{String,Any}(
             "generator" => "test/reference/generate_legacy_values.jl",
+            "legacy_commit" => "17ce1eb (branch Multistage)",
             "legacy_package" => "LinearDecisionRules.jl 0.3.1, branch Multistage",
             "solver" => "HiGHS",
         ),

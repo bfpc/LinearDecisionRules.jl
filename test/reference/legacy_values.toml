@@ -102,6 +102,7 @@ termination_status = "OPTIMAL"
 
 [meta]
 generator = "test/reference/generate_legacy_values.jl"
+legacy_commit = "17ce1eb (branch Multistage)"
 legacy_package = "LinearDecisionRules.jl 0.3.1, branch Multistage"
 solver = "HiGHS"
 
