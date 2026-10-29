@@ -131,6 +131,9 @@ laws, and the objective uses the empirical moments of the outcomes.
 
 Outcomes are drawn with `Random.Xoshiro(seed)`, one draw per declaration per scenario. Equality rows
 hold for every outcome, as in [`PrimalLDR`](@ref). The rule is feasible on the drawn outcomes only.
+
+Results are read with the same number of scenarios and seed: after solving `SampledLDR(100)`,
+`objective_value(model, SampledLDR(10))` is an error.
 """
 struct SampledLDR <: AbstractFormulation
     num_scenarios::Int
@@ -145,6 +148,11 @@ struct SampledLDR <: AbstractFormulation
 end
 
 SampledLDR(num_scenarios::Integer; seed::Integer = 1234) = SampledLDR(num_scenarios, seed)
+
+function Base.show(io::IO, f::SampledLDR)
+    print(io, "SampledLDR(", f.num_scenarios, "; seed = ", f.seed, ")")
+    return
+end
 
 """
     FormulationCapabilities

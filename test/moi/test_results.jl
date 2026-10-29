@@ -160,6 +160,13 @@ function test_sampled_is_result_two()
     # The rule of the sample is feasible on the sample only: it can do better.
     @test objective_value(model; result = 2) >= 460 - 1e-6
     @test objective_value(model, SampledLDR(200)) == objective_value(model; result = 2)
+    # Another sample is another formulation, even a smaller one.
+    err = error_of(() -> objective_value(model, SampledLDR(10)))
+    @test occursin(
+        "SampledLDR(10; seed = 1234) was not solved (only SampledLDR(200; seed = 1234) was)",
+        sprint(showerror, err),
+    )
+    @test_throws MOI.GetAttributeNotAllowed objective_value(model, SampledLDR(200; seed = 1))
     @test value(model[:buy]; result = 1) ≈ 120
     @test value(model[:buy]; result = 2) ≈
           decision_rule(model[:buy]; formulation = SampledLDR(200)).constant

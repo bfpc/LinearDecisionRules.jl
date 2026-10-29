@@ -142,14 +142,15 @@ function MOI.get(o::Optimizer, attr::MOI.VariablePrimal, vi::MOI.VariableIndex)
 end
 
 function _require_result(o::Optimizer, attr::FormulationAttribute)
-    r = _find_result(o, attr.formulation)
+    f = attr.formulation
+    r = _find_result(o, f)
     if r === nothing
-        throw(
-            MOI.GetAttributeNotAllowed(
-                attr,
-                "$(attr.formulation) was not solved: add it to `Formulations()` and solve again.",
-            ),
-        )
+        # Another sample (size or seed) is another formulation: name the ones that were solved.
+        solved = [s.formulation for s in o.results if typeof(s.formulation) == typeof(f)]
+        msg = "$f was not solved"
+        isempty(solved) || (msg *= " (only $(join(solved, ", ", " and ")) was)")
+        msg *= ": add it to `Formulations()` and solve again."
+        throw(MOI.GetAttributeNotAllowed(attr, msg))
     end
     return r
 end

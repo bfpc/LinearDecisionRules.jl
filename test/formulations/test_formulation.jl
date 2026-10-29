@@ -41,6 +41,7 @@ function test_sampled_ldr()
     @test SampledLDR(100) == SampledLDR(100, 1234)
     @test SampledLDR(10; seed = 5).seed == 5
     @test SampledLDR(10; seed = 5).num_scenarios == 10
+    @test sprint(show, SampledLDR(10; seed = 5)) == "SampledLDR(10; seed = 5)"
     @test_throws ArgumentError SampledLDR(0)
     return
 end
