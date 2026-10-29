@@ -109,7 +109,7 @@ function decision_rule(x::JuMP.VariableRef; formulation::AbstractFormulation = P
     end
     map = MOI.get(model, UncertaintyLifting())
     # The column of ξ̃ of each uncertainty that is not lifted, 0 for a lifted one.
-    column(j) = map.kept[1+j]
+    column(j) = _column_of(map, 1 + j)
     coefficients = Dict{JuMP.VariableRef,Float64}(
         JuMP.VariableRef(model, v) => rule[column(j)] for
         (j, v) in enumerate(uncertainties) if column(j) > 0 && !iszero(rule[column(j)])
@@ -118,8 +118,7 @@ function decision_rule(x::JuMP.VariableRef; formulation::AbstractFormulation = P
     for block in map.blocks
         c = rule[block.columns]
         all(iszero, c) && continue
-        # `AxisPiecewise` lifts one uncertainty.
-        d = JuMP.VariableRef(model, uncertainties[only(block.inputs)-1])
+        d = JuMP.VariableRef(model, uncertainties[_input(block)-1])
         lifted[d] = LiftedTerm(block.lifting, c .+ 0.0)
     end
     return DecisionRule(rule[1] + 0.0, coefficients, lifted)
@@ -228,11 +227,9 @@ function rule_coefficient(
     end
     j = findfirst(==(JuMP.index(η)), MOI.get(model, UncertaintyVariables()))
     map = MOI.get(model, UncertaintyLifting())
-    if map.kept[1+j] > 0
-        return rule[map.kept[1+j]] + 0.0
-    end
-    block = only(b for b in map.blocks if (1 + j) in b.inputs)
-    return rule[block.columns] .+ 0.0
+    c = _column_of(map, 1 + j)
+    c > 0 && return rule[c] + 0.0
+    return rule[_block_of(map, 1 + j).columns] .+ 0.0
 end
 
 """
@@ -323,15 +320,5 @@ function rule_matrix(model::JuMP.GenericModel; formulation::AbstractFormulation 
     end
     uncertainties = [JuMP.VariableRef(model, v) for v in MOI.get(model, UncertaintyVariables())]
     map = MOI.get(model, UncertaintyLifting())
-    columns = Vector{Any}(undef, size(matrix, 2))
-    columns[1] = :constant
-    for (j, d) in enumerate(uncertainties)
-        if map.kept[1+j] > 0
-            columns[map.kept[1+j]] = d
-        end
-    end
-    for block in map.blocks, (k, c) in enumerate(block.columns)
-        columns[c] = (uncertainties[only(block.inputs)-1], k)
-    end
-    return RuleMatrix(matrix, decisions, columns, formulation, map)
+    return RuleMatrix(matrix, decisions, _column_labels(map, uncertainties), formulation, map)
 end

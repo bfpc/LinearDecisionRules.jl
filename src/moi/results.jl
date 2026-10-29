@@ -223,10 +223,7 @@ function MOI.get(o::Optimizer, attr::RuleCoefficients, vi::MOI.VariableIndex)
     return _rule_coefficients(o, r, vi)
 end
 
-function MOI.get(o::Optimizer, ::UncertaintyVariables)
-    lifting = o.form.lifting
-    return copy(lifting === nothing ? o.form.uncertainties : lifting.uncertainties)
-end
+MOI.get(o::Optimizer, ::UncertaintyVariables) = copy(_original_uncertainties(o.form))
 
 MOI.get(o::Optimizer, ::DecisionVariables) = copy(o.form.decisions)
 

@@ -56,15 +56,15 @@ end
 # The laws of the original uncertainties, from the laws of the form, which are lifted if there are
 # breakpoints.
 function _original_laws(form::CanonicalForm)
-    lifting = form.lifting
-    if lifting === nothing
-        return [_OriginalLaw(law.distribution, law.columns) for law in form.laws]
-    end
-    original = Dict(k => j for (j, k) in enumerate(lifting.kept) if j > 1 && k > 0)
+    lifting = _lifting_map(form)
+    # The column of ξ of each column of ξ̃ that is not lifted.
+    original = Dict(
+        _column_of(lifting, j) => j for j in 2:length(lifting.kept) if _column_of(lifting, j) > 0
+    )
     pieces = Dict(block.columns => block for block in lifting.blocks)
     return map(form.laws) do law
         if law.distribution isa LiftedDistribution
-            return _OriginalLaw(law.distribution.original, pieces[law.columns].inputs)
+            return _OriginalLaw(law.distribution.original, [_input(pieces[law.columns])])
         end
         return _OriginalLaw(law.distribution, [original[c] for c in law.columns])
     end
@@ -111,9 +111,8 @@ function MOI.get(o::Optimizer, attr::SimulationData)
         throw(MOI.GetAttributeNotAllowed(attr, "$(attr.formulation) has no solution."))
     end
     form = o.form
-    lifting = form.lifting
-    uncertainties = copy(lifting === nothing ? form.uncertainties : lifting.uncertainties)
-    names = copy(lifting === nothing ? form.uncertainty_names : lifting.uncertainty_names)
+    uncertainties = copy(_original_uncertainties(form))
+    names = copy(_original_names(form))
     laws = _original_laws(form)
     lower, upper = fill(-Inf, 1 + length(uncertainties)), fill(Inf, 1 + length(uncertainties))
     for law in laws

@@ -96,6 +96,32 @@ end
 
 retraction(map::LiftingMap) = map.R
 
+# The column of ξ̃ of the column `j` of ξ, or 0 if it is lifted.
+_column_of(map::LiftingMap, j::Int) = map.kept[j]
+
+# The block that lifts the column `j` of ξ.
+_block_of(map::LiftingMap, j::Int) = only(b for b in map.blocks if j in b.inputs)
+
+# The column of ξ that `block` lifts. Every lifting of 0.4 lifts one uncertainty (`_num_inputs`):
+# the rules and the results read the input of a block only here.
+_input(block::LiftingBlock) = only(block.inputs)
+
+# The label of each column of ξ̃, from the label `labels[j - 1]` of each column `j` of ξ: `:constant`,
+# the label of a column that is not lifted, and `(label, k)` for the `k`-th lifted coordinate of
+# a column.
+function _column_labels(map::LiftingMap, labels::AbstractVector)
+    columns = Vector{Any}(undef, size(map.R, 2))
+    columns[1] = :constant
+    for j in 2:length(map.kept)
+        c = _column_of(map, j)
+        c > 0 && (columns[c] = labels[j-1])
+    end
+    for block in map.blocks, (k, c) in enumerate(block.columns)
+        columns[c] = (labels[_input(block)-1], k)
+    end
+    return columns
+end
+
 """
     lift(map::LiftingMap, ξ::AbstractVector{<:Real}) -> Vector{Float64}
     lift(map::LiftingMap, ξ::AbstractMatrix{<:Real}) -> Matrix{Float64}

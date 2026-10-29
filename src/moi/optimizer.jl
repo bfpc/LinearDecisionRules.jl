@@ -387,8 +387,8 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     dest.form, dest.moments, dest.results = form, mom, results
     dest.parameters = _parameter_values(src)
     dest.decision_rows = Dict(v => i for (i, v) in enumerate(form.decisions))
-    uncertainties = form.lifting === nothing ? form.uncertainties : form.lifting.uncertainties
-    dest.uncertainty_columns = Dict(v => 1 + j for (j, v) in enumerate(uncertainties))
+    dest.uncertainty_columns =
+        Dict(v => 1 + j for (j, v) in enumerate(_original_uncertainties(form)))
     dest.solve_time = _seconds_since(start)
     return _identity_map(src), false
 end
