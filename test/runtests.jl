@@ -4,7 +4,8 @@
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 # Every file named `test_*.jl` under `test/` is a module with a `runtests()` function that runs
-# its own `test_*` functions. Set `LDR_TEST_FILES="a.jl,b.jl"` to run only some files.
+# its own `test_*` functions. Set `LDR_TEST_FILES="a.jl,b.jl"` to run only some files, and
+# `LDR_SKIP_TUTORIALS=true` or `LDR_SKIP_AQUA=true` to skip the two slowest ones.
 
 using Test
 
