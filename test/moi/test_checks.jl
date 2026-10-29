@@ -12,7 +12,14 @@ import Distributions
 import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules:
-    BreakPoints, DualLDR, FirstStage, LDRModel, MvDiscreteNonParametric, PrimalLDR, Uncertainty
+    BreakPoints,
+    DualLDR,
+    FirstStage,
+    LDRModel,
+    MvDiscreteNonParametric,
+    PrimalLDR,
+    Uncertainty,
+    is_certified
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -47,6 +54,9 @@ function test_nonconvex_objective_warns()
     warning = (:warn, r"quadratic objective of this minimization is not convex.*decisions x, y")
     model = quadratic_model(MIN_SENSE, (x, y) -> x^2 - y^2)
     @test_logs warning match_mode = :any optimize!(model)
+    # The bound is not certified; the value of the primal rule is still that of its rule.
+    @test [r.certified for r in unsafe_backend(model).results] == [true, false]
+    @test endswith(raw_status(model, DualLDR()), "[not certified: the objective is not convex]")
     warning = (:warn, r"of this maximization is not convex: the matrix -P .*decisions x, y")
     model = quadratic_model(MAX_SENSE, (x, y) -> x^2 + y^2)
     @test_logs warning match_mode = :any optimize!(model)
@@ -66,7 +76,9 @@ function test_convex_objective_does_not_warn()
         (MAX_SENSE, (x, y) -> -(x - y)^2),
         (MIN_SENSE, (x, y) -> 0.0 * x),
     )
-        @test_logs optimize!(quadratic_model(sense, q))
+        model = quadratic_model(sense, q)
+        @test_logs optimize!(model)
+        @test is_certified(model)
     end
     return
 end

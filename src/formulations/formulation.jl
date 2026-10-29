@@ -214,9 +214,10 @@ The result of [`solve_formulation`](@ref).
    is a bound. It is `false` when they use moments estimated by rejection sampling (laws
    conditioned by constraints tagged [`Truncate`](@ref)), for a bound when a law spanning several
    stages does not have, or is not known to have, linear conditional expectations of its later
-   stages given its earlier ones (see [`DualLDR`](@ref)) or the second-moment matrix is singular,
-   and for a rule that is feasible on drawn outcomes only ([`SampledLDR`](@ref)). Except
-   for the latter, `raw_status` then ends with `[not certified: <reason>]`.
+   stages given its earlier ones (see [`DualLDR`](@ref)), the second-moment matrix is singular or
+   the quadratic objective is not convex, and for a rule that is feasible on drawn outcomes only
+   ([`SampledLDR`](@ref)). Except for the latter, `raw_status` then ends with
+   `[not certified: <reason>]`.
  * `solve_time::Float64`: wall-clock seconds of the inner `optimize!` (zero if it was not built).
  * `X::Matrix{Float64}`: the decision rules, `decisions × (1 + uncertainties)`, with zeros in the
    columns that a decision does not observe; all `NaN` unless `primal_status == FEASIBLE_POINT`.
@@ -425,7 +426,9 @@ function _certification(f::AbstractFormulation, form::CanonicalForm, mom::Moment
         push!(reasons, "moments of conditioned laws estimated by rejection sampling")
     end
     if capabilities(f).bound
-        # The dual bound needs `M ≻ 0` (the proof inverts it) and linear conditional expectations.
+        # The dual bound needs a convex objective, `M ≻ 0` (the proof inverts it) and linear
+        # conditional expectations.
+        _nonconvex_decisions(form) === nothing || push!(reasons, "the objective is not convex")
         isempty(_singular_blocks(mom)) || push!(reasons, "the second-moment matrix is singular")
         nonlinear, unknown = _stage_dependent_laws(form)
         if !isempty(nonlinear)

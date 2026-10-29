@@ -93,10 +93,11 @@ its objective value is the expected value of its rule. It is the attribute
 
 The values are not certified when they use moments estimated by rejection sampling (a law
 conditioned by constraints tagged [`Truncate`](@ref) that is not exact), and, for the bound of
-`DualLDR`, when the second-moment matrix is singular or a law spanning several stages is not known
-to have linear conditional expectations (see [`DualLDR`](@ref)). `raw_status(model, formulation)`
-then ends with the reason, `[not certified: <reason>]`. The values of [`SampledLDR`](@ref) are
-estimates by construction: they are never certified, and have no such reason.
+`DualLDR`, when the second-moment matrix is singular, the quadratic objective is not convex, or a
+law spanning several stages is not known to have linear conditional expectations (see
+[`DualLDR`](@ref)). `raw_status(model, formulation)` then ends with the reason, `[not certified:
+<reason>]`. The values of [`SampledLDR`](@ref) are estimates by construction: they are never
+certified, and have no such reason.
 
 It is an error if `formulation` was not solved, or before `optimize!`.
 

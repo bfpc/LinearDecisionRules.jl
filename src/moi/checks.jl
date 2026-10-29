@@ -38,8 +38,8 @@ function _check_convex_objective(form::CanonicalForm)
     names = _name_list(form.decision_names[involved])
     @warn(
         "The quadratic objective of this $what is not convex: the matrix $sign of its terms in " *
-        "the decisions $names is not positive semidefinite. The bound of DualLDR() is no " *
-        "longer proven, and the inner problems are nonconvex.",
+        "the decisions $names is not positive semidefinite. The bound of DualLDR() is not " *
+        "certified, and the inner problems are nonconvex.",
     )
     return
 end

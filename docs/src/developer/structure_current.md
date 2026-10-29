@@ -26,7 +26,7 @@ flowchart TD
     probability -->|"1 names, 1 to later files"| formulations
     formulations -->|"20 names"| canonical
     formulations -->|"7 names"| probability
-    formulations -->|"2 names, 2 to later files"| moi
+    formulations -->|"3 names, 3 to later files"| moi
     moi -->|"2 names"| lifting
     moi -->|"19 names"| canonical
     moi -->|"7 names"| probability
@@ -89,7 +89,7 @@ These uses work because Julia resolves names in function bodies when the functio
 | `canonical/conditioning` | `probability/distributions/mv_discrete_non_parametric` | `MvDiscreteNonParametric` |
 | `probability/moments` | `formulations/formulation` | `_seconds_since` |
 | `formulations/formulation` | `formulations/dual` | `_stage_dependent_laws` |
-| `formulations/formulation` | `moi/checks` | `_singular_blocks` |
+| `formulations/formulation` | `moi/checks` | `_nonconvex_decisions`, `_singular_blocks` |
 | `formulations/dual` | `moi/checks` | `_name_list` |
 
 ## Cycles between files
@@ -304,10 +304,10 @@ Used by: `moi/results` (1).
 
 The formulation types, capabilities, `FormulationResult`, `solve_formulation`, the inner problem, the shared rows and objective.
 
-[`src/formulations/formulation.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/formulation.jl): 785 lines.
+[`src/formulations/formulation.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/formulation.jl): 788 lines.
 
 Defines:
-**`AbstractFormulation` (L15)**†, **`PrimalLDR` (L42)**† (2 methods), **`DualLDR` (L91)**† (2 methods), `_attribute_pairs` (L97), `Base.==` (L100) (2 methods), `Base.hash` (L104) (2 methods), `Base.show` (L108) (3 methods), `_formulation_attributes` (L122) (2 methods), **`SampledLDR` (L138)**† (2 methods), `FormulationCapabilities` (L171)†, `capabilities` (L181)† (3 methods), `FormulationResult` (L226)†, `solve_formulation` (L282)†, `_InnerProblem` (L303), `_build_inner` (L313), `_solve_inner!` (L345), `_with_parameter_decisions` (L373), `_with_constant_column` (L406), `_certification` (L419), `_raw_status` (L440), `_seconds_since` (L445), `_time_limit_result` (L448), `_build!` (L467), `_rule_variables!` (L477), `_LinearRow` (L507), `_structural_columns` (L517), `_is_deterministic` (L521), `_linear_rows` (L525), `_Inequality` (L536), `_inequalities` (L543), `_add_row_column!` (L558), `_add_equalities!` (L568), `_add_deterministic!` (L577), `_objective_constant` (L584), `_set_objective!` (L599), `_add_quadratic_terms!` (L633), `_decision_means!` (L667), `_has_integers` (L685), `_is_linear_program` (L692), `_dual_objective_or` (L704), `_objective_bound` (L718), `_NO_SOLUTION_STATUS` (L745), `_formulation_result` (L748).
+**`AbstractFormulation` (L15)**†, **`PrimalLDR` (L42)**† (2 methods), **`DualLDR` (L91)**† (2 methods), `_attribute_pairs` (L97), `Base.==` (L100) (2 methods), `Base.hash` (L104) (2 methods), `Base.show` (L108) (3 methods), `_formulation_attributes` (L122) (2 methods), **`SampledLDR` (L138)**† (2 methods), `FormulationCapabilities` (L171)†, `capabilities` (L181)† (3 methods), `FormulationResult` (L227)†, `solve_formulation` (L283)†, `_InnerProblem` (L304), `_build_inner` (L314), `_solve_inner!` (L346), `_with_parameter_decisions` (L374), `_with_constant_column` (L407), `_certification` (L420), `_raw_status` (L443), `_seconds_since` (L448), `_time_limit_result` (L451), `_build!` (L470), `_rule_variables!` (L480), `_LinearRow` (L510), `_structural_columns` (L520), `_is_deterministic` (L524), `_linear_rows` (L528), `_Inequality` (L539), `_inequalities` (L546), `_add_row_column!` (L561), `_add_equalities!` (L571), `_add_deterministic!` (L580), `_objective_constant` (L587), `_set_objective!` (L602), `_add_quadratic_terms!` (L636), `_decision_means!` (L670), `_has_integers` (L688), `_is_linear_program` (L695), `_dual_objective_or` (L707), `_objective_bound` (L721), `_NO_SOLUTION_STATUS` (L748), `_formulation_result` (L751).
 
 Uses:
 
@@ -315,7 +315,7 @@ Uses:
 - `canonical/information`: `InformationStructure`, `visible_columns`
 - `probability/moments`: `Moments`, `_is_estimated`
 - `formulations/dual` (included later): `_stage_dependent_laws`
-- `moi/checks` (included later): `_singular_blocks`
+- `moi/checks` (included later): `_nonconvex_decisions`, `_singular_blocks`
 
 Used by: `probability/moments` (1), `formulations/primal` (11), `formulations/dual` (11), `formulations/sampled` (8), `moi/attributes` (1), `moi/inner_cache` (2), `moi/optimizer` (8), `moi/results` (5), `jump/results` (1), `jump/rules` (1), `jump/simulate` (2).
 
@@ -436,7 +436,7 @@ Uses:
 - `canonical/form`: `CanonicalForm`
 - `probability/moments`: `CovarianceBlock`, `Moments`
 
-Used by: `formulations/formulation` (1), `formulations/dual` (1), `moi/optimizer` (2).
+Used by: `formulations/formulation` (2), `formulations/dual` (1), `moi/optimizer` (2).
 
 ### `moi/inner_cache`
 
@@ -558,10 +558,10 @@ Uses:
 
 JuMP functions per formulation (`objective_value(model, f)`, …), `is_certified` and `inner_model`.
 
-[`src/jump/results.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/results.jl): 140 lines.
+[`src/jump/results.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/jump/results.jl): 141 lines.
 
 Defines:
-`_formulation_attribute` (L9), `_optimize_not_called` (L15), `JuMP.termination_status` (L25)†, `JuMP.primal_status` (L39)†, `JuMP.objective_value` (L54)†, `JuMP.objective_bound` (L63)†, `JuMP.raw_status` (L72)†, `JuMP.solve_time` (L82)†, **`is_certified` (L107)**†, **`inner_model` (L138)**†.
+`_formulation_attribute` (L9), `_optimize_not_called` (L15), `JuMP.termination_status` (L25)†, `JuMP.primal_status` (L39)†, `JuMP.objective_value` (L54)†, `JuMP.objective_bound` (L63)†, `JuMP.raw_status` (L72)†, `JuMP.solve_time` (L82)†, **`is_certified` (L108)**†, **`inner_model` (L139)**†.
 
 Uses:
 
