@@ -9,8 +9,10 @@ using JuMP
 using Test
 
 import Distributions
-import LinearDecisionRules:
-    InformationStructure, ModelInfo, UncertaintyDeclaration, canonicalize, observes, visible_columns
+import LinearDecisionRules: InformationStructure, ModelInfo, canonicalize, observes, visible_columns
+
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
+import .Problems: declare
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -21,10 +23,6 @@ function runtests()
         end
     end
     return
-end
-
-function declare(dist, vars...; stages)
-    return UncertaintyDeclaration(dist, collect(index.(vars)), stages)
 end
 
 function test_three_stages()

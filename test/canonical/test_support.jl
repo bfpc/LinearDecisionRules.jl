@@ -15,13 +15,15 @@ import LinearDecisionRules:
     ModelInfo,
     MvDiscreteNonParametric,
     SupportBlock,
-    UncertaintyDeclaration,
     canonicalize,
     support_blocks,
     support_constraints
 
 include(joinpath(@__DIR__, "..", "common.jl"))
 import .TestCommon: error_of
+
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
+import .Problems: declare
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -34,34 +36,8 @@ function runtests()
     return
 end
 
-declare(dist, vars...) = UncertaintyDeclaration(dist, collect(index.(vars)))
-
-# Two products with independent demands, and optionally `d[1] + d[2] <= 230` as a valid row.
-function two_demands(; valid::Bool)
-    model = Model()
-    @variable(model, buy >= 0)
-    @variable(model, sell[1:2] >= 0)
-    @variable(model, d[1:2])
-    @constraint(model, sum(sell) <= buy)
-    @constraint(model, sell .<= d)
-    @objective(model, Max, -10buy + 15sum(sell))
-    rows = Set{MOI.ConstraintIndex}()
-    if valid
-        push!(rows, index(@constraint(model, total, d[1] + d[2] <= 230)))
-    end
-    info = ModelInfo(;
-        uncertainties = [
-            declare(Distributions.Uniform(80, 120), d[1]),
-            declare(Distributions.Uniform(80, 120), d[2]),
-        ],
-        decision_stages = Dict(index(buy) => 1),
-        valid_rows = rows,
-    )
-    return model, canonicalize(backend(model), info)
-end
-
 function test_independent_demands()
-    _, form = two_demands(; valid = false)
+    form = Problems.form(Problems.shared_stock(; valid = false))
     blocks = support_blocks(form)
     @test length(blocks) == 2
     for (b, block) in enumerate(blocks)
@@ -77,7 +53,8 @@ function test_independent_demands()
 end
 
 function test_coupled_demands()
-    model, form = two_demands(; valid = true)
+    p = Problems.shared_stock(; valid = true)
+    form = Problems.form(p)
     blocks = support_blocks(form)
     @test length(blocks) == 1
     block = only(blocks)
@@ -86,7 +63,7 @@ function test_coupled_demands()
     @test block.h == [80, -120, 80, -120, -230]
     @test block.cones == [MOI.Nonnegatives(5)]
     @test block.roles == [:box, :box, :box, :box, :valid]
-    @test block.constraints == [nothing, nothing, nothing, nothing, index(model[:total])]
+    @test block.constraints == [nothing, nothing, nothing, nothing, only(p.info.valid_rows)]
     return
 end
 

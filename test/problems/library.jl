@@ -121,7 +121,9 @@ function newsvendor_two_products()
     return Problem(name, name, model, info, 920, 2920 / 3)
 end
 
-function newsvendor_three_stages()
+# With `unmarked_ret3`, `ret3` has no stage (its stage is inferred, with a warning); with
+# `out_of_order`, the uncertainties are declared out of stage order, `demand3` first.
+function newsvendor_three_stages(; unmarked_ret3::Bool = false, out_of_order::Bool = false)
     model = Model()
     @variable(model, buy >= 0)
     @variable(model, sell2 >= 0)
@@ -137,13 +139,16 @@ function newsvendor_three_stages()
     @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
     @constraint(model, sell3 <= demand3)
     @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
+    uncertainties = [
+        declare(Distributions.Uniform(80, 120), demand2; stages = [2]),
+        declare(Distributions.Uniform(8, 14), buy_cost2; stages = [2]),
+        declare(Distributions.Uniform(80, 120), demand3; stages = [3]),
+    ]
+    decision_stages = stages(buy => 1, sell2 => 2, ret2 => 2, buy2 => 2, sell3 => 3, ret3 => 3)
+    unmarked_ret3 && delete!(decision_stages, index(ret3))
     info = ModelInfo(;
-        uncertainties = [
-            declare(Distributions.Uniform(80, 120), demand2; stages = [2]),
-            declare(Distributions.Uniform(8, 14), buy_cost2; stages = [2]),
-            declare(Distributions.Uniform(80, 120), demand3; stages = [3]),
-        ],
-        decision_stages = stages(buy => 1, sell2 => 2, ret2 => 2, buy2 => 2, sell3 => 3, ret3 => 3),
+        uncertainties = out_of_order ? uncertainties[[3, 1, 2]] : uncertainties,
+        decision_stages,
     )
     name = "newsvendor_three_stages"
     return Problem(name, name, model, info, 940, 1000)

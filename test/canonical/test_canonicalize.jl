@@ -15,6 +15,9 @@ import LinearDecisionRules: CanonicalForm, ModelInfo, UncertaintyDeclaration, ca
 include(joinpath(@__DIR__, "..", "common.jl"))
 import .TestCommon: error_message
 
+include(joinpath(@__DIR__, "..", "problems", "library.jl"))
+import .Problems: declare
+
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -31,24 +34,10 @@ struct MetadataTag <: MOI.AbstractScalarSet end
 struct OtherTag <: MOI.AbstractScalarSet end
 LinearDecisionRules._is_metadata_constraint(::Type{MOI.VariableIndex}, ::Type{MetadataTag}) = true
 
-function declare(dist, vars...; stages = fill(nothing, length(vars)))
-    return UncertaintyDeclaration(dist, collect(index.(vars)), stages)
-end
-
+# The model and the `ModelInfo` of the newsvendor of the problem library.
 function newsvendor(; integer = false)
-    model = Model()
-    @variable(model, buy >= 0, integer = integer)
-    @variable(model, sell >= 0)
-    @variable(model, ret >= 0)
-    @variable(model, d)
-    @constraint(model, sell + ret <= buy)
-    @constraint(model, sell <= d)
-    @objective(model, Max, -10buy + 8ret + 15sell)
-    info = ModelInfo(;
-        uncertainties = [declare(Distributions.Uniform(80, 120), d)],
-        decision_stages = Dict(index(buy) => 1),
-    )
-    return model, info
+    p = Problems.newsvendor(; integer)
+    return p.model, p.info
 end
 
 function test_newsvendor()
@@ -58,8 +47,8 @@ function test_newsvendor()
     @test form.decisions == index.([model[:buy], model[:sell], model[:ret]])
     @test form.decision_names == ["buy", "sell", "ret"]
     @test form.decision_stages == [1, 2, 2]
-    @test form.uncertainties == [index(model[:d])]
-    @test form.uncertainty_names == ["d"]
+    @test form.uncertainties == [index(model[:demand])]
+    @test form.uncertainty_names == ["demand"]
     @test form.uncertainty_stages == [2]
     @test form.num_stages == 2
     @test form.integer == falses(3)
@@ -85,7 +74,7 @@ function test_bare_moi_model()
     model, _ = newsvendor()
     src = MOI.Utilities.Model{Float64}()
     map = MOI.copy_to(src, backend(model))
-    d = map[index(model[:d])]
+    d = map[index(model[:demand])]
     info = ModelInfo(;
         uncertainties = [UncertaintyDeclaration(Distributions.Uniform(80, 120), [d])],
         decision_stages = Dict(map[index(model[:buy])] => 1),
@@ -103,34 +92,10 @@ function test_bare_moi_model()
     return
 end
 
+# The three-stage newsvendor, declared out of stage order to check that columns are sorted by stage.
 function three_stage_newsvendor(; unmarked_ret3 = false)
-    model = Model()
-    @variable(model, buy >= 0)
-    @variable(model, sell2 >= 0)
-    @variable(model, ret2 >= 0)
-    @variable(model, demand2)
-    @variable(model, buy2 >= 0)
-    @variable(model, buy_cost2)
-    @variable(model, sell3 >= 0)
-    @variable(model, ret3 >= 0)
-    @variable(model, demand3)
-    @constraint(model, sell2 + ret2 <= buy + buy2)
-    @constraint(model, sell2 <= demand2)
-    @constraint(model, sell2 + ret2 + sell3 + ret3 <= buy + buy2)
-    @constraint(model, sell3 <= demand3)
-    @objective(model, Max, -10buy - buy_cost2 * buy2 + 8ret2 + 15sell2 + 8ret3 + 15sell3)
-    stages = Dict(index(buy) => 1, index(sell3) => 3)
-    for v in (sell2, ret2, buy2)
-        stages[index(v)] = 2
-    end
-    unmarked_ret3 || (stages[index(ret3)] = 3)
-    # Declared out of stage order, to check that columns are sorted by stage.
-    uncertainties = [
-        declare(Distributions.Uniform(80, 120), demand3; stages = [3]),
-        declare(Distributions.Uniform(80, 120), demand2; stages = [2]),
-        declare(Distributions.Uniform(8, 14), buy_cost2; stages = [2]),
-    ]
-    return model, ModelInfo(; uncertainties, decision_stages = stages)
+    p = Problems.newsvendor_three_stages(; unmarked_ret3, out_of_order = true)
+    return p.model, p.info
 end
 
 function test_three_stage_newsvendor()
@@ -346,15 +311,15 @@ end
 
 function test_error_uncertainty_only_row()
     model, info = newsvendor()
-    @constraint(model, cap, model[:d] <= 115)
+    @constraint(model, cap, model[:demand] <= 115)
     msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("The constraint cap involves only uncertainties (d)", msg)
+    @test occursin("The constraint cap involves only uncertainties (demand)", msg)
     @test occursin("ValidInequality()", msg) && occursin("Truncate()", msg)
     # Unnamed constraints are printed.
     model, info = newsvendor()
-    @constraint(model, model[:d] <= 115)
+    @constraint(model, model[:demand] <= 115)
     msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("The constraint `d <= 115` involves only uncertainties (d)", msg)
+    @test occursin("The constraint `demand <= 115` involves only uncertainties (demand)", msg)
     return
 end
 
@@ -392,13 +357,13 @@ function test_error_truncate()
     texts = (
         "cap is tagged `Truncate()`, but it is an equality",
         "cap is tagged `Truncate()`, but it has decisions",
-        "The constraints cap tagged `Truncate()` condition the law of the uncertainty d on " *
+        "The constraints cap tagged `Truncate()` condition the law of the uncertainty demand on " *
         "[100.0, 90.0], whose probability is zero.",
         "on [130.0, 120.0], whose probability is zero",
     )
     for (add, text) in zip(cases, texts)
         model, info = newsvendor()
-        cap = add(model, model[:d])
+        cap = add(model, model[:demand])
         info = ModelInfo(;
             uncertainties = info.uncertainties,
             decision_stages = info.decision_stages,
@@ -411,7 +376,7 @@ end
 
 function test_valid_rows()
     model, info = newsvendor()
-    cap = @constraint(model, cap, 85 <= model[:d] <= 115)
+    cap = @constraint(model, cap, 85 <= model[:demand] <= 115)
     valid = Set{MOI.ConstraintIndex}([index(cap)])
     info = ModelInfo(; uncertainties = info.uncertainties, valid_rows = valid)
     form = canonicalize(backend(model), info)
@@ -420,7 +385,7 @@ function test_valid_rows()
     @test size(form.A_u, 1) == 2
     # Tagged rows with decisions, equalities, or violated at the mean are errors.
     model, _ = newsvendor()
-    d, sell = model[:d], model[:sell]
+    d, sell = model[:demand], model[:sell]
     tests = (
         :vx => @build_constraint(d + sell <= 115),
         :veq => @build_constraint(d == 100),
@@ -442,12 +407,15 @@ end
 
 function test_error_bound_on_uncertainty()
     model, info = newsvendor()
-    set_lower_bound(model[:d], 0)
+    set_lower_bound(model[:demand], 0)
     msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("The uncertainty d has a bound or integrality constraint", msg)
+    @test occursin("The uncertainty demand has a bound or integrality constraint", msg)
     model, info = newsvendor()
-    set_integer(model[:d])
-    @test occursin("The uncertainty d", error_message(() -> canonicalize(backend(model), info)))
+    set_integer(model[:demand])
+    @test occursin(
+        "The uncertainty demand",
+        error_message(() -> canonicalize(backend(model), info)),
+    )
     return
 end
 
@@ -469,9 +437,12 @@ end
 
 function test_error_random_recourse()
     model, info = newsvendor()
-    @constraint(model, rr, model[:d] * model[:sell] <= 1000)
+    @constraint(model, rr, model[:demand] * model[:sell] <= 1000)
     msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("rr multiplies the decision sell by the uncertainty d (random recourse)", msg)
+    @test occursin(
+        "rr multiplies the decision sell by the uncertainty demand (random recourse)",
+        msg,
+    )
     return
 end
 
@@ -481,8 +452,11 @@ function test_error_quadratic_constraint()
     msg = error_message(() -> canonicalize(backend(model), info))
     @test occursin("The constraint q has the product of sell and sell; quadratic constraints", msg)
     model, info = newsvendor()
-    @constraint(model, q, model[:d]^2 + model[:sell] <= 1)
-    @test occursin("product of d and d", error_message(() -> canonicalize(backend(model), info)))
+    @constraint(model, q, model[:demand]^2 + model[:sell] <= 1)
+    @test occursin(
+        "product of demand and demand",
+        error_message(() -> canonicalize(backend(model), info)),
+    )
     return
 end
 
@@ -506,42 +480,42 @@ end
 
 function test_error_unobservable_equality()
     model, info = newsvendor()
-    @constraint(model, eq, model[:buy] == model[:d])
+    @constraint(model, eq, model[:buy] == model[:demand])
     msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("The equality constraint eq has the uncertainty d (Stage(2))", msg)
+    @test occursin("The equality constraint eq has the uncertainty demand (Stage(2))", msg)
     @test !occursin("Integer", msg)
     # A stage-2 decision observes it.
     model, info = newsvendor()
-    @constraint(model, eq, model[:buy] + model[:sell] == model[:d])
+    @constraint(model, eq, model[:buy] + model[:sell] == model[:demand])
     @test size(canonicalize(backend(model), info).A_e) == (1, 3)
     # An integer decision observes no uncertainty, even of stage 1.
     model, info = newsvendor(; integer = true)
-    @constraint(model, eq, model[:buy] == model[:d])
-    info.uncertainties[1] = declare(Distributions.Uniform(80, 120), model[:d]; stages = [1])
+    @constraint(model, eq, model[:buy] == model[:demand])
+    info.uncertainties[1] = declare(Distributions.Uniform(80, 120), model[:demand]; stages = [1])
     msg = error_message(() -> canonicalize(backend(model), info))
-    @test occursin("eq has the uncertainty d (Stage(1))", msg)
+    @test occursin("eq has the uncertainty demand (Stage(1))", msg)
     @test occursin("Integer decisions observe none.", msg)
     return
 end
 
 function test_error_declarations()
     model, info = newsvendor()
-    d, buy = index(model[:d]), index(model[:buy])
+    d, buy = index(model[:demand]), index(model[:buy])
     bad = (
         ModelInfo(;
             uncertainties = [UncertaintyDeclaration(Distributions.Uniform(0, 1), [d, buy])],
         ) => "has dimension 1, but 2 variables",
         ModelInfo(;
             uncertainties = [info.uncertainties[1], info.uncertainties[1]],
-        ) => "d is declared as an uncertainty twice",
+        ) => "demand is declared as an uncertainty twice",
         ModelInfo(;
             uncertainties = info.uncertainties,
             decision_stages = Dict(d => 1),
-        ) => "The uncertainty d has a decision stage",
+        ) => "The uncertainty demand has a decision stage",
         ModelInfo(; decision_stages = Dict(buy => 0)) => "buy has Stage(0)",
         ModelInfo(;
-            uncertainties = [declare(Distributions.Uniform(0, 1), model[:d]; stages = [0])],
-        ) => "d has Stage(0)",
+            uncertainties = [declare(Distributions.Uniform(0, 1), model[:demand]; stages = [0])],
+        ) => "demand has Stage(0)",
         ModelInfo(;
             uncertainties = [
                 UncertaintyDeclaration(Distributions.Uniform(0, 1), [MOI.VariableIndex(99)]),
@@ -552,7 +526,7 @@ function test_error_declarations()
         ) => "The variable with index 99 has a stage, but it is not in the model",
         ModelInfo(;
             breakpoints = Dict(d => [100.0]),
-        ) => "The variable d has breakpoints, but it is not an uncertainty",
+        ) => "The variable demand has breakpoints, but it is not an uncertainty",
         ModelInfo(;
             uncertainties = [UncertaintyDeclaration(Distributions.Wishart(3, [1.0 0; 0 1]), [d])],
         ) => "univariate or multivariate",
