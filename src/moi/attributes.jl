@@ -40,7 +40,7 @@ exactly (`Distributions.truncated`). Otherwise, the declarations coupled by such
 one law. When all their laws have finitely many atoms (such as [`MvDiscreteNonParametric`](@ref)
 or `DiscreteNonParametric`), it is exact: the atoms of their product that satisfy the constraints,
 with their probabilities renormalized. Otherwise it is a [`ConditionedDistribution`](@ref), whose
-moments are estimated by rejection sampling (see [`moments`](@ref)); the values that use them,
+moments are estimated by rejection sampling (see [`RejectionSamplingMaxSamples`](@ref)); the values that use them,
 such as the bound of [`DualLDR`](@ref), are then estimates. [`SampledLDR`](@ref) and
 [`simulate`](@ref) draw from the conditioned law. The constraint must not be an equality, since Ξ
 must be full-dimensional.
@@ -126,7 +126,7 @@ An optimizer attribute: the seed, an `Int`, of the rejection sampling that estim
 the laws conditioned by constraints tagged [`Truncate`](@ref); `1234` by default.
 
 Each conditioned law draws from its own stream, whose seed is derived from this one and from its
-rank among the conditioned laws (see [`moments`](@ref)), so that two laws do not share their
+rank among the conditioned laws, so that two laws do not share their
 draws. The estimates are cached: a new `optimize!` samples again only the laws whose distributions,
 conditioning rows, seed or sample size changed. [`SampledLDR`](@ref) and [`simulate`](@ref) draw
 their scenarios with their own seeds.

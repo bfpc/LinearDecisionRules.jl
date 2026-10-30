@@ -41,8 +41,7 @@ the formulations see it:
  * `:auto` (the default): `:ellipsoid` if the inner optimizer supports second-order cone
    constraints and the model has no integer decisions, and `:boxes` otherwise (a mixed-integer
    second-order cone program is much harder than a mixed-integer linear one). `optimize!` decides,
-   and asks the inner optimizer only when some law has `support = :auto`; outside of `optimize!`,
-   [`canonicalize`](@ref) takes the choice of the optimizer as its keyword `conic_support`, and
+   and asks the inner optimizer only when some law has `support = :auto`. Outside of `optimize!`,
    `support_constraints` of a law with `support = :auto` is the ellipsoid.
 
 ## Fields

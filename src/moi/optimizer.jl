@@ -13,44 +13,59 @@ An MOI optimizer for the linear decision rules of a JuMP model. `inner_factory`,
 Use it without bridges, since a bridge would add variables that have no stage:
 `Model(() -> Optimizer(HiGHS.Optimizer); add_bridges = false)`, or [`LDRModel`](@ref).
 
-It supports what [`canonicalize`](@ref) reads, and the sets of the metadata, [`Uncertainty`](@ref)
-and [`Stage`](@ref): affine and quadratic rows in `LessThan`, `GreaterThan`, `EqualTo` and
-`Interval`; affine vector rows in `Nonnegatives`, `Nonpositives` and `Zeros`, read one output at a
-time; affine vector rows in `SecondOrderCone` over the uncertainties, tagged
-[`ValidInequality`](@ref) or [`Truncate`](@ref) (they describe the support Ξ); variable bounds,
-`Integer`, `ZeroOne` and `Parameter`; an affine or quadratic objective. Other constraints are
-rejected when they are added to the model. A product in a row is read only when one of its factors
-is a JuMP `Parameter`; any other product is an error of `optimize!` that names the constraint
-(random recourse, or a quadratic constraint).
+## What a model may contain
+
+ * **Decisions**, each in a stage, tagged with [`Stage`](@ref) or [`FirstStage`](@ref); an
+   untagged variable is in the last stage. Bounds are allowed, and `Integer` or `ZeroOne` only on
+   the decisions of stage 1.
+ * **Uncertainties**, declared with [`Uncertainty`](@ref), whose laws have a bounded support. They
+   have no bounds and are not integer: their law says where they are.
+ * **Constraints** `LessThan`, `GreaterThan`, `EqualTo` and `Interval`, and vector constraints in
+   `Nonnegatives`, `Nonpositives` and `Zeros`, affine in the decisions and the uncertainties. The
+   coefficients of the decisions are fixed (fixed recourse): a product of a decision and an
+   uncertainty (random recourse), or of two decisions (a quadratic constraint), is an error of
+   `optimize!` that names the constraint. An equality cannot involve an uncertainty that none of
+   its decisions observe, since it could not hold for every outcome.
+ * **Constraints over the uncertainties only**, which describe their support Ξ: they are tagged
+   [`ValidInequality`](@ref) (the law already satisfies them) or [`Truncate`](@ref) (they
+   condition the law). They are inequalities, since Ξ must be full-dimensional, linear or in
+   `SecondOrderCone`; a second-order cone is allowed only over the uncertainties.
+ * **JuMP parameters**. A parameter alone in a constraint or in the objective, such as
+   `buy <= capacity`, stays a parameter of the inner problems (see the re-solve rule below);
+   multiplied by a variable, or in a constraint tagged `ValidInequality()` or `Truncate()`, it is
+   replaced by its value.
+ * **An affine or quadratic objective**, with products of decisions, of decisions and
+   uncertainties, and of uncertainties. A quadratic objective must be convex (concave for `Max`)
+   in the decisions for the bound of [`DualLDR`](@ref) to be certified (see
+   [`is_certified`](@ref)).
+
+Other constraint types are rejected when they are added to the model. The other conditions for a
+certified bound are in [`DualLDR`](@ref).
 
 ## Optimizer attributes
 
  * [`InnerOptimizer`](@ref)`()`: the factory of the inner optimizer.
- * [`Formulations`](@ref)`()`: the formulations solved by `optimize!`, `[PrimalLDR(), DualLDR()]`
-   by default.
+ * [`Formulations`](@ref)`()`: the formulations solved by `optimize!`.
  * `MOI.Silent` and `MOI.RawOptimizerAttribute` are kept and forwarded to the inner optimizers.
  * `MOI.TimeLimitSec` limits the whole `optimize!`, rejection sampling included: each
    formulation, built and solved in turn, gets the time that remains, and a formulation reached
    after the limit has status `TIME_LIMIT`.
  * [`RejectionSamplingSeed`](@ref)`()`, [`RejectionSamplingTimeLimit`](@ref)`()` and
    [`RejectionSamplingMaxSamples`](@ref)`()`: the rejection sampling of the laws conditioned by
-   constraints tagged [`Truncate`](@ref), `1234` and `10_000` draws by default. Without
-   `RejectionSamplingTimeLimit()`, the sampling gets half of the time that remains of
-   `MOI.TimeLimitSec`, shared by the conditioned laws, or 10 seconds per law without
-   `MOI.TimeLimitSec`. Its estimates are kept from one `optimize!` to the next while their inputs
-   do not change.
+   constraints tagged [`Truncate`](@ref). Its estimates are kept from one `optimize!` to the next
+   while their inputs do not change.
 
 ## Re-solving with parameters
 
 The inner problems of the last `optimize!` are kept, and the next `optimize!` solves them again,
 from the solution of the inner solver, when nothing changed but the values of JuMP parameters
-alone in rows or in the objective, such as `buy <= capacity` or `inventory[1] == x0 - d[1]` with
-the parameters `capacity` and `x0` (see [`ParameterTerms`](@ref)): the inner problems carry these
-parameters as fixed variables, fixed again to the new values. Any other change (a coefficient, a
-bound, a constraint, a law, a formulation or its attributes, the inner optimizer or its
-attributes, a parameter multiplied by a variable) builds them again; the comparison reads the
-whole canonical form, which is rebuilt at every `optimize!`. Distributions are compared by value and treated as
-immutable: replace a law, rather than changing it in place.
+alone in constraints or in the objective, such as `buy <= capacity` or `inventory[1] == x0 - d[1]`
+with the parameters `capacity` and `x0`: the inner problems carry these parameters as fixed
+variables, fixed again to the new values. Any other change (a coefficient, a bound, a constraint,
+a law, a formulation or its attributes, the inner optimizer or its attributes, a parameter that
+is replaced by its value) builds them again. The comparison reads the whole model at every
+`optimize!`, so the results never depend on whether the inner problems were kept. Distributions
+are compared by value and treated as immutable: replace a law, rather than changing it in place.
 """
 mutable struct Optimizer <: MOI.AbstractOptimizer
     inner_factory::Any
@@ -346,9 +361,8 @@ _parameter_values(src::MOI.ModelLike) = Dict(zip(_parameter_list(src)...))
 Read the model `src` in place, and solve each of the [`Formulations`](@ref) of `dest` for it.
 
 A law with a choice of representation for its support, such as a [`ConfidenceMvNormal`](@ref)
-with `support = :auto`, gets second-order cone rows when the inner optimizer supports them (with
-bridges) and no decision is integer, and linear rows otherwise; the inner optimizer is
-instantiated to ask, only for such a law.
+with `support = :auto`, is given one here, by the rule of its docstring; the inner optimizer is
+instantiated to ask whether it supports second-order cones (with bridges), only for such a law.
 
 The results are kept in `dest`. The index map is the identity, and `false` means that `dest` does
 not hold a copy of the model, so that the next call reads `src` again.

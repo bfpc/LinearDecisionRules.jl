@@ -174,10 +174,10 @@ Used by: `canonical/checks` (1), `canonical/conditioning` (3), `lifting/lifted_f
 
 `ConfidenceMvNormal`: a normal law truncated to a confidence ellipsoid.
 
-[`src/probability/distributions/confidence_mv_normal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/confidence_mv_normal.jl): 186 lines.
+[`src/probability/distributions/confidence_mv_normal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/confidence_mv_normal.jl): 185 lines.
 
 Defines:
-**`ConfidenceMvNormal` (L62)**†, `Base.length` (L99), `Base.eltype` (L101), `Distributions.params` (L103), `Distributions.mean` (L105), `Distributions.cov` (L107), `Distributions.var` (L109), `Base.minimum` (L111), `Base.maximum` (L113), `Base.==` (L116), `Base.hash` (L120), `Base.show` (L124), `Distributions.insupport` (L132), `Distributions._rand!` (L138), **`support_constraints` (L154)** (extends `probability/laws`), `_linear_conditional_expectations` (L179) (extends `probability/laws`), `_has_auto_representation` (L181) (extends `probability/laws`), `_resolve_representation` (L183) (extends `probability/laws`).
+**`ConfidenceMvNormal` (L61)**†, `Base.length` (L98), `Base.eltype` (L100), `Distributions.params` (L102), `Distributions.mean` (L104), `Distributions.cov` (L106), `Distributions.var` (L108), `Base.minimum` (L110), `Base.maximum` (L112), `Base.==` (L115), `Base.hash` (L119), `Base.show` (L123), `Distributions.insupport` (L131), `Distributions._rand!` (L137), **`support_constraints` (L153)** (extends `probability/laws`), `_linear_conditional_expectations` (L178) (extends `probability/laws`), `_has_auto_representation` (L180) (extends `probability/laws`), `_resolve_representation` (L182) (extends `probability/laws`).
 
 Uses:
 
@@ -641,10 +641,10 @@ Used by: `moi/optimizer` (5).
 
 `Optimizer`: attributes, supported constraints, and `MOI.optimize!`.
 
-[`src/moi/optimizer.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/optimizer.jl): 394 lines.
+[`src/moi/optimizer.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/optimizer.jl): 408 lines.
 
 Defines:
-`Optimizer` (L55)†, `MOI.is_empty` (L101), `MOI.empty!` (L103), `MOI.get` (L114) (10 methods), `MOI.supports_incremental_interface` (L117), `MOI.supports_constraint` (L120) (5 methods), `MOI.supports` (L146) (6 methods), `MOI.set` (L206) (9 methods), `_inner_factory` (L290), `MOI.copy_to` (L301), `_identity_map` (L306), `_check_bounded_support` (L320), `_inner_supports_cones` (L334), `_parameter_values` (L341), `MOI.optimize!` (L356)†.
+`Optimizer` (L70)†, `MOI.is_empty` (L116), `MOI.empty!` (L118), `MOI.get` (L129) (10 methods), `MOI.supports_incremental_interface` (L132), `MOI.supports_constraint` (L135) (5 methods), `MOI.supports` (L161) (6 methods), `MOI.set` (L221) (9 methods), `_inner_factory` (L305), `MOI.copy_to` (L316), `_identity_map` (L321), `_check_bounded_support` (L335), `_inner_supports_cones` (L349), `_parameter_values` (L356), `MOI.optimize!` (L370)†.
 
 Uses:
 

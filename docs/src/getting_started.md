@@ -159,14 +159,9 @@ map([0.0, 30.0, -20.0]) do value
 end
 ```
 
-The inner problems are kept only while the parameters are all that changes. A parameter is kept
-symbolic where it appears alone, in a constraint or in the objective (see
-[`ParameterTerms`](@ref)); multiplied by a variable, it is replaced by its value, so a change of its
-value builds the inner problems again, as does any other change of the model, of its laws, or of
-the attributes of the optimizer or of the formulations. Each `optimize!` compares the whole
-canonical form of the model with the one of the previous solve, so the results never depend on
-whether the inner problems were kept. Distributions are treated as immutable values: to change a
-law, set a new one rather than modifying it in place.
+The inner problems are kept only while the values of such parameters are all that changes, and
+the results never depend on whether they were kept. The [`Optimizer`](@ref) states which
+parameters are kept and what builds the inner problems again.
 
 ## Correlated demands: an ellipsoidal support
 
@@ -196,8 +191,8 @@ The formulations see the ellipsoid through [`support_constraints`](@ref): with
 `support = :ellipsoid`, as a second-order cone, so the inner problems are second-order cone
 programs; with `support = :boxes`, as its box along the principal axes, a polyhedron around it,
 so they stay linear programs with a feasible primal rule and a valid, looser dual bound. The
-default, `:auto`, takes the ellipsoid when the inner optimizer supports second-order cones and no
-decision is integer. HiGHS solves linear programs only, so it gets the boxes:
+default, `:auto`, chooses from the inner optimizer (see [`ConfidenceMvNormal`](@ref)). HiGHS
+solves linear programs only, so it gets the boxes:
 
 ```@example conic
 shared_stock(HiGHS.Optimizer)
@@ -212,6 +207,21 @@ shared_stock(Clarabel.Optimizer)
 A constraint in `SecondOrderCone` over the uncertainties, tagged [`ValidInequality`](@ref) or
 [`Truncate`](@ref), describes the support in the same way, such as the disc
 `@constraint(model, [20; d .- 100] in SecondOrderCone(), Truncate())`.
+
+## What can be modelled
+
+A model may contain:
+
+* decisions in stages, with bounds; integer or binary decisions in the first stage only;
+* uncertainties whose laws have a bounded support, such as `Uniform`, a `truncated` normal or a
+  discrete law;
+* linear constraints, in which a decision is multiplied by a constant, not by an uncertainty;
+* constraints over the uncertainties only, which describe their support, tagged
+  [`ValidInequality`](@ref) or [`Truncate`](@ref);
+* JuMP parameters, and a linear or quadratic objective.
+
+The [`Optimizer`](@ref) lists the exact rules. A model outside them is an error, whose message
+names the constraint or the variable involved.
 
 ## Where to go next
 

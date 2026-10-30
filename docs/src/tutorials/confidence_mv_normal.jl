@@ -77,8 +77,7 @@ end
 #   These are linear rows, so that the inner problems stay linear programs (LP), solved by HiGHS,
 #   for instance. The boxes are an outer approximation of the ellipsoid: the primal rule is still
 #   feasible on the ellipsoid, and the dual bound is valid, but both are looser.
-# * `support = :auto` (the default): the ellipsoid when the inner optimizer supports second-order
-#   cones and no decision is integer, and the boxes otherwise.
+# * `support = :auto` (the default): the optimizer chooses, as the next sections show.
 
 # The cones that the formulations see are in `support_constraints`: one second-order cone for the
 # ellipsoid, and four linear inequalities for the boxes (two sides for each of the two axes).
@@ -167,9 +166,8 @@ end
 
 # ## The `:auto` heuristic
 
-# By default, `support = :auto` lets the optimizer choose. It takes the ellipsoid when the inner
-# optimizer supports second-order cone constraints and no decision is integer, and the boxes
-# otherwise:
+# By default, `support = :auto` lets the optimizer choose, by the rule of
+# [`ConfidenceMvNormal`](@ref):
 # * HiGHS does not solve second-order cone programs, so `:auto` gives the boxes and the same
 #   values as `:boxes`;
 # * Clarabel does, so `:auto` gives the ellipsoid;

@@ -71,8 +71,8 @@ end
 
 # ## Part 1: a sampled solution
 
-# `SampledLDR(N; seed)` takes the number of scenarios and the seed of their draws (1234 by
-# default), so that a solution can be reproduced. It is a formulation like the others: we ask for
+# `SampledLDR(N; seed)` takes the number of scenarios and the seed of their draws, so that a
+# solution can be reproduced. It is a formulation like the others: we ask for
 # it in the [`Formulations`](@ref) attribute, beside the primal and the dual.
 
 sampled = SampledLDR(500; seed = 1)

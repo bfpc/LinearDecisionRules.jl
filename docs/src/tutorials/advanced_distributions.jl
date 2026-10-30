@@ -204,11 +204,10 @@ objective_value(model), objective_bound(model)
 # The moments of this law (the mean, and the covariance, which is negative off the diagonal) are
 # estimated by rejection sampling: the law of the demands is drawn, and the draws that satisfy the
 # constraint are kept. The estimates are cached, and they are controlled by the optimizer
-# attributes [`RejectionSamplingMaxSamples`](@ref) (the number of draws kept, 10 000 by default),
-# [`RejectionSamplingSeed`](@ref) and [`RejectionSamplingTimeLimit`](@ref) (by default, half of
-# what remains of the time limit of the solve, `set_time_limit_sec`, or 10 seconds per law without
-# one). The values are estimates, so the primal value is not exactly the expected profit of the
-# rule and the dual is not exactly a bound, which the status reports:
+# attributes [`RejectionSamplingMaxSamples`](@ref) (the number of draws kept),
+# [`RejectionSamplingSeed`](@ref) and [`RejectionSamplingTimeLimit`](@ref), whose docstrings give
+# their defaults. The values are estimates, so the primal value is not exactly the expected profit
+# of the rule and the dual is not exactly a bound, which the status reports:
 
 raw_status(model, PrimalLDR())
 
