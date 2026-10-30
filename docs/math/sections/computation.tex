@@ -106,11 +106,16 @@ There, presolve reduces the dense dual much more (from 200,648 to 33,455 rows, m
 and the dual simplex needs four times more iterations.
 The cause is the auxiliary $u_r = S_r\mub$: substituting it out gives back the presolved model and the iteration counts of the dense dual on the hydrothermal problem (39 s instead of 145 s at $T = 8$),
 but makes the inventory dual 20 times slower (15.2 s instead of 0.72 s at $T = 64$), where the denser rows cost more than the rows saved.
-Neither form is better in general; a density rule choosing per row whether to keep $u_r$ is planned.
+Neither form is better in general, and the package keeps $u_r$.
+A density rule choosing per row whether to keep it is not implemented:
+the two problems above point in opposite directions, and a threshold on the number of columns of a row would need more instances to be chosen
+(\file{benchmark/README.md}, ``Past studies'').
 \item \emph{Solver mode for the bound.} The dual approximation is solved for its value only, and its rule is not a policy, so no basis is needed.
 HiGHS's interior-point method without crossover solved the hydrothermal dual at $T = 8$ in 8.0 s instead of 145 s,
 with an objective equal to the simplex one to a relative $2\cdot10^{-10}$, but was slower on the inventory dual (1.2 s against 0.72 s).
-Solver hints per formulation are planned.
+Each formulation takes raw attributes of its inner solver, for itself only,
+such as \code{DualLDR(; attributes = ["solver" => "ipm", "run\_crossover" => "off"])};
+none is the default, since the names are those of one solver and the best mode depends on the problem.
 A bound taken from an inexact solve is safest when it is the inner solver's dual objective value, which bounds the inner optimum by weak duality;
 the package uses the optimal value for an optimal status, and the dual objective value when the solve stopped early.
 \end{itemize}

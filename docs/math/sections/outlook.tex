@@ -2,7 +2,8 @@
 \label{sec:outlook}
 
 The structured formulations make problems with hundreds of thousands of rule coefficients routine.
-For larger ones, the following directions follow from the structure described above; none is implemented.
+For larger ones, the following directions follow from the structure described above; none is implemented,
+except for the parts of the last two paragraphs that are said to be done.
 
 \paragraph{Decomposition.}
 The reformulations are block-angular:
@@ -24,13 +25,15 @@ its rule gives a primal feasible point, and its active multipliers suggest the c
 The same holds along a sequence of nested breakpoints, and could guide where to add them.
 
 \paragraph{Solver-aware formulations.}
-Two choices measured in \cref{sec:computation} are planned:
-a density rule deciding, row by row, whether to keep the auxiliary $u_r$ of the dual,
-and hints to the inner solver per formulation, such as the interior-point method without crossover for the dual, whose value only is needed.
-The closed form of the robust counterpart over box blocks, and JuMP parameters to re-solve with new data without rebuilding, belong to the same phase.
+Of the two choices measured in \cref{sec:computation}, the attributes of the inner solver per formulation are done
+(such as the interior-point method without crossover for the dual, whose value only is needed),
+and so are the closed form of the robust counterpart over box blocks and JuMP parameters to re-solve with new data without rebuilding.
+A density rule deciding, row by row, whether to keep the auxiliary $u_r$ of the dual is not:
+the measurements point in opposite directions on the two benchmarks, and choosing the rule needs more instances.
 
 \paragraph{Conic supports and random recourse.}
-Second-order cone rows of $\Xis$, needed for the exact ellipsoid of \cref{sec:confidence-normal}, extend both approximations by conic duality \citep[Theorem~2.1]{GWK2015}.
+Second-order cone rows of $\Xis$, needed for the exact ellipsoid of \cref{sec:confidence-normal}, are done:
+they extend both approximations by conic duality \citep[Theorem~2.1]{GWK2015} (\cref{sec:support}).
 Random recourse (an uncertainty multiplying a decision in a constraint) makes the robust counterparts quadratic in $\xi$:
 \citet[Section~3]{KWG2011} treat it by the S-lemma, exactly for an ellipsoidal support and conservatively for polyhedra.
 It is cheap in two cases: when the decision is a first-stage constant, the product is linear in $\xi$;

@@ -3,8 +3,6 @@
 
 The formulations use the law only through $\mub$ and the covariance blocks, and the support only through $\Xis \supseteq \supp\law$.
 This section describes where both come from.
-The conditioning of laws (\code{Truncate()}) is on the branch being merged, and \code{ConfidenceMvNormal} is being ported from the previous version;
-we describe both as part of the package.
 
 \subsection{Roles of the rows of \texorpdfstring{$\Xis$}{the support}}
 
@@ -148,7 +146,10 @@ An exact alternative without rejection draws a direction uniformly on the sphere
 and a radius $r$ with $r^2 = \Fchi{d}^{-1}(\alpha U)$, $U$ uniform on $(0,1)$.
 
 \paragraph{Two representations of the support.}
-The support $\mathcal{E}$ is not a polyhedron, and the design plans two representations, chosen by the user (with a default to be decided from the inner solver, the dimension and the presence of integers):
+The support $\mathcal{E}$ is not a polyhedron, and the package has two representations of it, the rows of $\Xis$ that the law adds beyond its box
+(\code{support\_constraints}, with the role \code{:law}), chosen by the keyword \code{support = :ellipsoid} or \code{:boxes}.
+The default, \code{:auto}, takes the ellipsoid when the inner solver supports second-order cones and no decision is integer, and the boxes otherwise;
+the dimension of the law does not enter the choice.
 \begin{description}[nosep]
 \item[Ellipsoid.] The exact set, as the second-order cone row $(\rho,\ L^{-1}(\eta - \mu)) \in \mathcal{L}^{d+1}$,
 which makes the support block conic and the formulations second-order cone programs.

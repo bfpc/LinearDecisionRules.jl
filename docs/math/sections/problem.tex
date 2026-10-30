@@ -2,7 +2,7 @@
 \label{sec:problem}
 
 This section fixes the class of problems that the package accepts,
-in the canonical form built by \code{canonicalize} (\file{src/canonical/form.jl}).
+in the canonical form built by \code{canonicalize} (\file{src/canonical/canonicalize.jl}).
 
 \subsection{Uncertainty, stages and laws}
 
@@ -88,7 +88,7 @@ Decision $i$ observes column $j$ of $\xi$ if $\stage_j \le \dstage_i$, except th
 \nvis(\dstage_i) = \max\{\, j : \stage_j \le \dstage_i \,\} & \text{otherwise.}
 \end{cases}
 \]
-Since the columns are sorted by stage, the observed columns of every decision form the prefix $1{:}\nvis_i$ (\code{InformationStructure}, \file{src/canonical/information.jl}).
+Since the columns are sorted by stage, the observed columns of every decision form the prefix $1{:}\nvis_i$ (\code{InformationStructure}, \file{src/canonical/information\_structure.jl}).
 Integer decisions are therefore here-and-now constants, even when some uncertainties are in stage 1.
 % This should probably trigger a warning or error.
 
