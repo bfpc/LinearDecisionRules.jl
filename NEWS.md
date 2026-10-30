@@ -42,12 +42,13 @@ decision_rule(sell)       # sell = d, callable on a scenario
 |---|---|
 | `LinearDecisionRules.LDRModel(opt)`, a wrapper with its own methods | `LDRModel(opt)`, a plain `JuMP.Model`; names are now exported |
 | `@variable(m, x, LinearDecisionRules.FirstStage)` | `@variable(m, x, Stage(1))` (`FirstStage` remains as an alias of `Stage(1)`) |
+| `set_attribute(x, Stage(t))` after the declaration | `@variable(m, x[t = 1:T], Stage(t))` at the declaration, or `set_stage(x, t)` |
 | `@variable(m, d in Uncertainty(distribution = law, stage = t))` | `@variable(m, d in Uncertainty(law), Stage(t))`; per component with containers: `@variable(m, w[t = 2:5] in Uncertainty(law), Stage(t))` |
 | An unmarked variable was in stage 2 | An unmarked variable is in the last stage T = max(2, largest declared stage), with a warning when T > 2 |
 | A constraint over uncertainties only silently conditioned the law (rejection sampling) | It must be tagged: `@constraint(m, expr, Truncate())` conditions the law; `@constraint(m, expr, ValidInequality())` only tightens the support; untagged, it is an error |
 | `set_attribute(m, SolvePrimal(), b)`, `SolveDual()`, `SolveSampled()`, `NumScenarios()` | `set_attribute(m, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(N; seed)])` |
-| `objective_value(m; dual = true)`, `objective_value(m; sampled = true)` | `objective_bound(m)` for the dual; `objective_value(m; result = 2)` for the sampled rule; any formulation: `objective_value(m, DualLDR())`, `termination_status(m, f)` |
-| `get_decision(m, x, η; dual, piece)` | `decision_rule(x; formulation)` (a callable rule), `rule_coefficient(x, η; formulation)` (one coefficient per piece for a lifted η), `rule_matrix(m; formulation)` |
+| `objective_value(m; dual = true)`, `objective_value(m; sampled = true)` | `objective_bound(m)` for the dual (an error when the dual has no result: check `termination_status(m, DualLDR())` first); `objective_value(m; result = 2)` for the sampled rule; any formulation: `objective_value(m, DualLDR())`, `termination_status(m, f)` |
+| `get_decision(m, x, η; dual, piece)` | `decision_rule(x; formulation)` (a callable rule), `rule_coefficient(x, η; formulation)` (one coefficient per piece for a lifted η), `rule_matrix(m; formulation)`; `value(x)` for a first-stage decision (an error when the primal rule has no solution, where 0.3 returned values: check `has_values(m)` first) |
 | `set_optimizer(m, opt)` changed the inner solver | `set_attribute(m, InnerOptimizer(), opt)` (`set_optimizer` would replace the reformulating optimizer) |
 | `SlackAsExpr()` | Removed: slacks are always expressions |
 | `RejectionSamplingTimeLimit()`, `RejectionSamplingSeed()`, `RejectionSamplingMaxIterations()`, `RejectionSamplingWarnAttempts()` | `RejectionSamplingTimeLimit()` (default: half of the remaining `TimeLimitSec`, else 10 s per law), `RejectionSamplingSeed()`, `RejectionSamplingMaxSamples()` (default 10,000); the warning attempts are gone |
@@ -75,7 +76,8 @@ decision_rule(sell)       # sell = d, callable on a scenario
   filtering) under `Truncate()`; rejection sampling with a seed per law and a cache.
 - **Breakpoints** (`set_attribute(d, BreakPoints(), points)`) work in multistage models and on
   uncertainties in the objective; `AxisPiecewise` liftings are public, with `lift` and
-  `retraction`.
+  `retraction`. As before, `points` is a count `n` (equally spaced) or a vector of positions;
+  `0` or `nothing` mean no breakpoints.
 - **Re-solves:** parameters in right-hand sides and the objective stay symbolic; when only their
   values change, `optimize!` updates the kept inner problems instead of rebuilding them (45× faster
   for the primal, 148× for the dual on the inventory benchmark at T = 64).
