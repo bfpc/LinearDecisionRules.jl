@@ -34,7 +34,7 @@ and a row of $\Wp$ gets a slack term only from the structural columns that share
 In a multistage problem the history grows with the stage, so even the structured formulations grow quadratically with $T$ when the stage dimension is fixed:
 a stage-$t$ decision has $1 + \sum_{s \le t}(\text{dimension of stage } s)$ coefficients.
 For the inventory problem the counts are exact polynomials (\cref{app:sizes}):
-the structured primal has $\tfrac{11}{2}T^2 + \tfrac72 T$ variables and $\tfrac52 T^2 + \tfrac{11}{2}T - 2$ constraints,
+the structured primal has $\tfrac{11}{2}T^2 + \tfrac72 T$ variables with multipliers on the boxes ($\tfrac72 T^2 + \tfrac72 T$ with the closed form, the default) and $\tfrac52 T^2 + \tfrac{11}{2}T - 2$ constraints,
 the structured dual $\tfrac72T^2 + \tfrac{23}{2}T - 4$ variables and $\tfrac{13}{2}T^2 + \tfrac{19}{2}T - 4$ constraints,
 all matching the measured models;
 the nonzeros of the dense dual of the previous version grow as $T^3$ (279 thousand, 2.17 million and 17.0 million at $T = 32$, 64 and 128),
@@ -49,8 +49,9 @@ the objective values agree (to 12 digits on the hydrothermal problem).
 \centering
 \caption[Inventory problem]{Inventory problem, $T = 128$: size of the inner problem (constraints without variable bounds) and HiGHS time.
 The legacy rows are the previous version, with explicit slacks (default) or slacks as expressions (\code{SlackAsExpr});
-the hand-written model uses the closed form of the box counterparts.
-Times are HiGHS's run time on the exported models, except for the hand-written model, whose time is the solver time through JuMP (\file{benchmark/results/timings.csv}).
+the hand-written model uses the closed form of the box counterparts, as the default 0.4 primal does;
+``0.4 primal, multipliers'' is \code{PrimalLDR(; box\_closed\_form = false)}, with multipliers on the boxes.
+Times are HiGHS's run time on the exported models, except for the hand-written model and the default 0.4 primal, whose time is the solver time through JuMP (\file{benchmark/results/timings.csv}).
 Source: \file{benchmark/README.md}, ``Past studies''.}
 \label{tab:inventory}
 \begin{tabular}{lrrrr}
@@ -60,7 +61,8 @@ Model & Variables & Constraints & Nonzeros & HiGHS (s) \\
 legacy primal & 223,168 & 149,120 & 471,231 & 0.61 \\
 legacy primal, \code{SlackAsExpr} & 157,120 & 83,072 & 339,135 & 0.72 \\
 hand-written robust LP & 57,792 & 74,432 & 271,807 & 1.9 \\
-0.4 primal & 90,560 & 41,662 & 206,013 & 0.63 \\
+0.4 primal & 57,792 & 41,662 & 189,757 & 1.3 \\
+0.4 primal, multipliers & 90,560 & 41,662 & 206,013 & 0.63 \\
 legacy dual (dense) & 91,072 & 213,632 & 17,049,279 & 1048 \\
 0.4 dual (structured) & 58,812 & 107,708 & 273,079 & 6.9 \\
 \bottomrule
@@ -72,6 +74,7 @@ legacy dual (dense) & 91,072 & 213,632 & 17,049,279 & 1048 \\
 \caption[Hydrothermal problem]{Hydrothermal problem, $T = 12$, no breakpoints.
 Build is everything but the inner solve (for the previous version, its build and canonicalization);
 times of the previous version come from another run and are indicative.
+``0.4 primal, multipliers'' is \code{PrimalLDR(; box\_closed\_form = false)}, with multipliers on the boxes.
 Source: \file{benchmark/hydro/README.md}.}
 \label{tab:hydro-legacy}
 \begin{tabular}{lrrrrr}
@@ -79,14 +82,15 @@ Source: \file{benchmark/hydro/README.md}.}
 Model & Variables & Constraints & Nonzeros & Build (s) & Solve (s) \\
 \midrule
 legacy primal & 356,208 & 166,044 & 758,328 & 5.2 & 103 \\
-0.4 primal & 195,024 & 82,784 & 435,668 & 0.1 & 131 \\
+0.4 primal & 117,936 & 82,784 & 358,580 & 0.1 & 91.6 \\
+0.4 primal, multipliers & 195,024 & 82,784 & 435,668 & 0.1 & 131 \\
 legacy dual (dense) & 198,528 & 470,892 & 14,161,128 & -- & 230 \\
 0.4 dual (structured) & 124,360 & 240,172 & 1,062,008 & 0.4 & 152 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The structured primal has 41\% to 55\% of the variables of the legacy one, and the structured dual 13 to 62 times fewer nonzeros;
+The structured primal has 26\% to 33\% of the variables of the legacy one with the closed form on the boxes (41\% to 55\% with multipliers), and the structured dual 13 to 62 times fewer nonzeros;
 building the reformulation takes a fraction of a second on all these instances.
 The spike of the previous version measured larger factors on the hydrothermal problem with breakpoints:
 13 to 19 times fewer nonzeros in the dual at $T = 12$ with 0 to 3 breakpoints per inflow, and 27 to 40 times at $T = 24$.
@@ -96,7 +100,7 @@ When one law couples all stages with a dense covariance, nothing collapses, the 
 
 Solve times do not follow the sizes, because presolve does much of the same work (\file{benchmark/README.md}, ``Past studies'').
 \begin{itemize}
-\item \emph{Primal.} After presolve, the 0.4 primal and the legacy primal with \code{SlackAsExpr} are the same linear program
+\item \emph{Primal.} After presolve, the 0.4 primal with multipliers on the boxes and the legacy primal with \code{SlackAsExpr} are the same linear program
 (at hydrothermal $T = 12$, both about 42.2 thousand rows, 150.5 thousand columns and 390.9 thousand nonzeros),
 and they take the same time (161 s and 168 s); differences of $\pm30\%$ in iterations come from the order of rows and columns alone.
 The smaller formulation saves the time to build and to read the model, and wins clearly without presolve (1.4 s against 6.8 s at inventory $T = 128$).
