@@ -10,8 +10,9 @@
 # ```
 
 # This tutorial introduces the **sampled** (Sample Average Approximation) formulation. Instead of
-# solving the robust primal and dual formulations, [`SampledLDR`](@ref) draws scenarios from the
-# laws of the uncertainties and optimizes the coefficients of the rule over them.
+# using the support and the moments of the laws, as the primal and dual formulations do,
+# [`SampledLDR`](@ref) draws scenarios from the laws of the uncertainties and optimizes the
+# coefficients of the rule over them.
 
 # We build on the newsvendor of [Getting started](@ref).
 
@@ -20,15 +21,17 @@
 # The primal and dual LDR formulations provide **bounds** on the optimal objective. The primal is
 # an inner approximation (a lower bound for a maximization), and the dual is an outer
 # approximation (an upper bound). Both rely on the second moment matrix
-# ``M = E[\xi \xi^\top]`` of the uncertainties, and enforce the constraints robustly over the
-# whole support.
+# ``M = E[\xi \xi^\top]`` of the uncertainties, and on the support ``\Xi``, but in different ways.
+# The primal enforces each constraint for every outcome in ``\Xi``, robustly. The dual relaxes
+# them: it keeps only the expected products of each constraint with the rows that describe
+# ``\Xi``, which is why it gives a bound rather than a policy.
 
 # The **sampled** formulation instead:
 # 1. draws ``N`` scenarios ``\xi_1, \dots, \xi_N`` from the laws;
 # 2. enforces the constraints **per scenario** (no dual multiplier matrices);
 # 3. optimizes the **average objective** over these scenarios.
 
-# This trades the conservatism of the robust formulation for a data-driven approach that handles
+# This trades the conservatism of the robust primal formulation for a data-driven approach that handles
 # complex laws naturally, at the expense of a possibly larger problem when many scenarios are
 # needed for high-dimensional uncertainty, and of the sensitivity of SAA to the exact scenarios
 # that were drawn.

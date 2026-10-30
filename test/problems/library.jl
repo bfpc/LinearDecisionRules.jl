@@ -495,7 +495,10 @@ end
 """
     edge_cases() -> Vector{Problem}
 
-The edge models of the Phase 1 review, with no known value: the dense oracles are the reference.
+Edge models of the structure of a problem (a law spanning stages, an uncertainty only in the
+objective, a valid row across declarations, an uncertainty in stage 1, and two of them with
+breakpoints),
+with no known value: the dense oracles are the reference.
 The dual bound of `law_spanning_stages` is certified: its correlated law has linear conditional
 expectations across its stages.
 """
