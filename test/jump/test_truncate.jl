@@ -5,7 +5,7 @@
 
 # Laws conditioned by constraints tagged `Truncate()`, end to end: the examples of
 # `test_newsvendor_with_rejection_sampling` (test_core.jl) and of the tutorial
-# `advanced_distributions.jl` of the previous version.
+# `docs/src/tutorials/advanced_distributions.jl`, whose parts are numbered as there.
 
 module TestTruncate
 
@@ -167,7 +167,7 @@ function test_separate_truncations_are_independent()
     return
 end
 
-# Part 2 of the tutorial: two demands in [40, 80] with a total of at most 120.
+# Part 3 of the tutorial: two demands in [40, 80] with a total of at most 120.
 function budget(; total = 120.0)
     model = ldr_model()
     @variable(model, buy[1:2] >= 0, FirstStage)
@@ -226,7 +226,7 @@ function test_scenarios_in_conditioning_set()
     return
 end
 
-# Part 3 of the tutorial: three reservoirs, with five constraints on their inflows.
+# Part 4 of the tutorial: three reservoirs, with five constraints on their inflows.
 function test_reservoir()
     model = ldr_model()
     capacity = [100.0, 80.0, 120.0]
@@ -257,7 +257,7 @@ function test_reservoir()
     return
 end
 
-# Part 4 of the tutorial: seven scenarios, the one with a total above 160 excluded.
+# Part 5 of the tutorial: seven scenarios, the one with a total above 160 excluded.
 function test_discrete_scenarios()
     scenarios = [[60.0, 60], [60, 80], [80, 60], [80, 80], [100, 60], [60, 100], [100, 100]]
     model = ldr_model()

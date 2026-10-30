@@ -23,6 +23,7 @@ using Clarabel
 using Distributions
 using LinearDecisionRules
 using Random
+using Test #src
 
 # ## What is `ConfidenceMvNormal`?
 
@@ -98,6 +99,8 @@ areas = (
     principal_box = 4 * law.ρ^2 * sqrt(detΣ),
     coordinate_box = prod(maximum(law) .- minimum(law)),
 )
+@test areas.principal_box / areas.ellipse ≈ 4 / π #src
+@test areas.coordinate_box > areas.principal_box #src
 
 # ## An inventory problem with correlated demands
 
@@ -124,9 +127,12 @@ end
 
 println("         boxes (HiGHS)         ellipsoid (Clarabel)")
 println("α      primal     dual       primal     dual")
+primals = Tuple{Float64,Float64}[] #src
 for α in [0.50, 0.80, 0.90, 0.95, 0.99]
     a = shared_stock(HiGHS.Optimizer, α; support = :boxes)
     b = shared_stock(Clarabel.Optimizer, α; support = :ellipsoid)
+    @test objective_value(b) > objective_value(a) && objective_bound(b) < objective_bound(a) #src
+    push!(primals, (objective_value(a), objective_value(b))) #src
     v =
         round.(
             [objective_value(a), objective_bound(a), objective_value(b), objective_bound(b)];
@@ -134,6 +140,7 @@ for α in [0.50, 0.80, 0.90, 0.95, 0.99]
         )
     println(rpad(α, 7), rpad(v[1], 11), rpad(v[2], 11), rpad(v[3], 11), v[4])
 end
+@test issorted(first.(primals); rev = true) && issorted(last.(primals); rev = true) #src
 
 # The ellipsoid is a smaller set than the boxes, so the primal value is **higher** (the rule has
 # fewer scenarios to be feasible for) and the dual bound is **lower**, hence tighter. For both,
@@ -179,6 +186,7 @@ end
 for (name, optimizer) in [("HiGHS", HiGHS.Optimizer), ("Clarabel", Clarabel.Optimizer)]
     auto = shared_stock(optimizer, 0.95; support = :auto)
     explicit = shared_stock(optimizer, 0.95; support = name == "HiGHS" ? :boxes : :ellipsoid)
+    @test objective_value(auto) ≈ objective_value(explicit) rtol = 1e-6 #src
     println(
         rpad(name, 10),
         round(objective_value(auto); digits = 4),
@@ -211,6 +219,7 @@ end
 
 model = shared_stock(Clarabel.Optimizer, 0.95; support = :ellipsoid)
 (objective_value(model), simulate(model, 10_000; rng = Xoshiro(1)).objective_mean)
+@test simulate(model, 10_000; rng = Xoshiro(1)).violation_fraction == 0 #src
 
 # ## What's next?
 

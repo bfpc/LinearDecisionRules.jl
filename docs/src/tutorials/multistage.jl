@@ -22,6 +22,7 @@ using HiGHS
 using Distributions
 using LinearDecisionRules
 using Random
+using Test #src
 
 # ## Stages and information
 
@@ -87,6 +88,8 @@ objective_value(model), objective_bound(model), relative_gap(model)
 println("T   primal   dual")
 for T in 2:2:8
     m = inventory(T)
+    @test objective_value(m) ≈ 90T + 20 rtol = 1e-6 #src
+    @test objective_bound(m) < objective_value(m) #src
     println(
         rpad(T, 4),
         rpad(round(objective_value(m); digits = 2), 9),
@@ -108,11 +111,13 @@ rule_matrix(model)
 # is also available alone:
 
 decision_rule(x[1]), decision_rule(x[3])
+@test all(rule_coefficient(x[t], d[t-1]) ≈ 1 for t in 2:4) #src
 
 # Here, the order of a period is the demand of the previous period. We can check that no rule uses
 # an uncertainty that its decision has not seen, with [`rule_coefficient`](@ref):
 
 all(rule_coefficient(x[t], d[s]) == 0 for t in 1:4 for s in t:4)
+@test all(rule_coefficient(x[t], d[s]) == 0 for t in 1:4 for s in t:4) #src
 
 # ## Breakpoints on a later stage
 
@@ -121,15 +126,19 @@ all(rule_coefficient(x[t], d[s]) == 0 for t in 1:4 for s in t:4)
 # of stage 3, the rules of stage 3 and later are piecewise linear on it, and the primal value
 # improves, as the dual bound does:
 
+refined = Tuple{Float64,Float64}[] #src
 println("breakpoints on d[2]   primal       dual")
 for n in [0, 1, 3, 7]
     m = inventory(4; breakpoints = n)
+    push!(refined, (objective_value(m), objective_bound(m))) #src
     println(
         rpad(n, 22),
         rpad(round(objective_value(m); digits = 3), 13),
         round(objective_bound(m); digits = 3),
     )
 end
+@test all(diff(first.(refined)) .<= 1e-6) && all(diff(last.(refined)) .>= -1e-6) #src
+@test first(refined[end]) < first(refined[1]) - 1e-3 #src
 
 # The pieces of `d[2]` are in the stage of `d[2]`: they are lifted coordinates, whose stage is the
 # stage of the uncertainty that they come from. Therefore the rules of stages 1 and 2 do not see
@@ -143,6 +152,7 @@ rule_matrix(model3)
 # gives the vector of the slopes on the pieces:
 
 rule_coefficient(model3[:x][2], model3[:d][2]), rule_coefficient(model3[:x][3], model3[:d][2])
+@test all(iszero, rule_coefficient(model3[:x][2], model3[:d][2])) #src
 
 # The new rule explains the improvement. The cost `y[2]` is the maximum of two lines in the
 # inventory `I[2]`, with a kink at `I[2] = 0`, and the rule makes `I[2] = 90 - d[2]`: its kink is at
@@ -150,6 +160,9 @@ rule_coefficient(model3[:x][2], model3[:d][2]), rule_coefficient(model3[:x][3], 
 # cost, -0.5 below 90 and 3 above (the backlog), where a linear rule could only have one slope:
 
 rule_coefficient(model3[:y][2], model3[:d][2])
+@test rule_coefficient(model3[:y][2], model3[:d][2]) ≈ [-0.5, -0.5, -0.5, 3] atol = 1e-6 #src
+@test rule_coefficient(model3[:I][2], model3[:d][2]) ≈ [-1, -1, -1, -1] atol = 1e-6 #src
+@test rule_coefficient(model3[:I][2]) ≈ 90 atol = 1e-6 #src
 
 # ## Simulating the policy
 
@@ -162,6 +175,8 @@ sim = simulate(model3, 10_000; keep_decisions = true, rng = Xoshiro(1))
 #-
 
 objective_value(model3), sim.objective_mean, sim.objective_stderr
+@test sim.violation_fraction == 0 #src
+@test abs(sim.objective_mean - objective_value(model3)) < 4 * sim.objective_stderr #src
 
 # With `keep_decisions = true`, the value of every decision at every scenario is kept. The mean
 # order of each period:

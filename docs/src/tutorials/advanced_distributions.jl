@@ -22,6 +22,7 @@ using HiGHS
 using Distributions
 using LinearDecisionRules
 using Random
+using Test #src
 
 # ## The challenge: constrained uncertainty regions
 
@@ -105,6 +106,12 @@ end
 
 model = newsvendor(:valid)
 simulate(model, 10_000; rng = Xoshiro(1)).violation_counts
+@test objective_bound(model) < objective_value(model) #src
+@test 0.28 < simulate(model, 10_000; rng = Xoshiro(1)).violation_fraction < 0.32 #src
+truncated_model = newsvendor(:truncate) #src
+@test expected_value(truncated_model[:d]^2) ≈ 30400 / 3 rtol = 1e-6 #src
+@test objective_value(truncated_model) ≈ 460 rtol = 1e-6 #src
+@test objective_bound(truncated_model) ≈ 1460 / 3 rtol = 1e-6 #src
 
 # !!! warning
 #     Use `ValidInequality()` only for a constraint that the law satisfies with probability one.
@@ -148,6 +155,9 @@ for (name, tag) in [("none", :none), ("ValidInequality", :valid), ("Truncate", :
         round(row[3]; digits = 2),
     )
 end
+@test objective_value(shared_stock(:none)) ≈ 0 atol = 1e-6 #src
+@test objective_value(shared_stock(:valid)) ≈ 188 rtol = 1e-6 #src
+@test rule_coefficient(shared_stock(:valid)[:buy]) ≈ 100 rtol = 1e-6 #src
 
 # Without the constraint, the rule has to be feasible on the whole box. Selling the demand would
 # then need a stock of 200, which costs more than it earns, so the best rule does nothing and the
@@ -163,6 +173,8 @@ end
 
 model = shared_stock(:truncate)
 is_certified(model, PrimalLDR()), is_certified(model, DualLDR())
+@test is_certified(model, PrimalLDR()) && is_certified(model, DualLDR()) #src
+@test objective_value(model) ≈ 188 rtol = 1e-6 #src
 
 # Prefer `ValidInequality()` for a constraint that is already satisfied by the law, and
 # `Truncate()` for one that cuts it: for a continuous law, `Truncate()` of a constraint on several
@@ -201,6 +213,8 @@ objective_value(model), objective_bound(model)
 
 model = two_products(; total = 120)
 objective_value(model), objective_bound(model)
+d1, d2 = model[:d] #src
+@test expected_value(d1 * d2) < value(d1) * value(d2) #src
 
 # The moments of this law (the mean, and the covariance, which is negative off the diagonal) are
 # estimated by rejection sampling: the law of the demands is drawn, and the draws that satisfy the
@@ -211,6 +225,7 @@ objective_value(model), objective_bound(model)
 # of the rule and the dual is not exactly a bound: they are not certified,
 
 is_certified(model, PrimalLDR()), is_certified(model, DualLDR())
+@test !is_certified(model, PrimalLDR()) && !is_certified(model, DualLDR()) #src
 
 # and the status of each formulation ends with the reason:
 

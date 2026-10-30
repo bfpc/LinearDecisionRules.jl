@@ -64,6 +64,7 @@ using HiGHS
 using Distributions
 using LinearDecisionRules
 using Random
+using Test #src
 
 # ## Part 1: a single breakpoint
 
@@ -115,6 +116,7 @@ decision_rule(sell)
 # in `min(buy, d)` for `buy = 100`, and 0 above it. The rule of `ret` is the mirror image:
 
 rule_coefficient(sell, model[:d]), rule_coefficient(ret, model[:d]), rule_coefficient(ret)
+@test rule_coefficient(sell, model[:d]) ≈ [1, 0] atol = 1e-6 #src
 
 # A rule is callable on a scenario, in the original coordinates, so that the lifting is done for
 # us:
@@ -138,6 +140,9 @@ function print_table(numbers)
 end
 
 print_table(0:10)
+nested = [objective_value(newsvendor(n)) for n in (0, 1, 3, 7)] #src
+@test all(diff(nested) .>= -1e-6) #src
+@test objective_value(newsvendor(4)) < objective_value(newsvendor(3)) #src
 
 # !!! tip
 #     As the breakpoints refine the support, the **primal value** (an inner approximation)
@@ -163,6 +168,7 @@ print_table(0:10)
 
 model = newsvendor([760 / 7])
 objective_value(model), 3300 / 7
+@test objective_value(model) ≈ 3300 / 7 rtol = 1e-6 #src
 
 # The primal value is now the optimal value of the problem, ``3300/7``, since the policy that
 # we know to be optimal is piecewise linear with this kink, and the rule finds it:
@@ -173,12 +179,16 @@ decision_rule(model[:buy]), decision_rule(model[:sell])
 #     The dual bound is not tight, even if the primal is optimal:
 
 objective_bound(model)
+@test objective_bound(model) > 3300 / 7 + 1e-3 #src
 
 # The dual LDR is a different approximation of the problem, so its bound does not close on the
 # optimum with the primal. More breakpoints, in a superset of `[760 / 7]`, bring it down:
 
 objective_bound(newsvendor([100.0, 760 / 7])),
 objective_bound(newsvendor([90.0, 100.0, 760 / 7, 110.0]))
+superset = objective_bound(newsvendor([100.0, 760 / 7])) #src
+@test objective_bound(newsvendor([90.0, 100.0, 760 / 7, 110.0])) < superset #src
+@test superset < objective_bound(model) #src
 
 # Another choice, with three breakpoints, at 90, 100 and 110:
 
@@ -193,6 +203,8 @@ objective_value(three), objective_bound(three)
 # 110 instead:
 
 rule_coefficient(three[:buy]), rule_coefficient(model[:buy])
+@test rule_coefficient(three[:buy]) ≈ 110 rtol = 1e-6 #src
+@test rule_coefficient(model[:buy]) ≈ 760 / 7 rtol = 1e-6 #src
 
 #-
 
@@ -208,12 +220,15 @@ for d in 80:5:120
         round(many; digits = 3),
     )
 end
+exact(d) = decision_rule(model[:sell])(model[:d] => d) ≈ min(760 / 7, d) #src
+@test all(exact, 80:5:120) #src
 
 # [`simulate`](@ref) applies the rule to scenarios drawn from the law of the demand. The mean of the
 # objective of the primal rule estimates `objective_value`, and the rule is feasible for all of
 # them.
 
 simulate(model, 10_000; rng = Xoshiro(1))
+@test simulate(model, 10_000; rng = Xoshiro(1)).violation_fraction == 0 #src
 
 # ## Part 4: comparing the formulations
 
@@ -240,6 +255,8 @@ end
 println("breakpoints   primal     dual       sampled    out of sample   violations")
 for n in (0, 1, 3, 7)
     r = compare(n)
+    @test r[1] <= 3300 / 7 + 1e-6 && 3300 / 7 <= r[2] + 1e-6 #src
+    n == 7 && @test r[3] > r[2] #src
     v = round.(r[1:4]; digits = 3)
     println(rpad(n, 14), rpad(v[1], 11), rpad(v[2], 11), rpad(v[3], 11), rpad(v[4], 16), r[5])
 end

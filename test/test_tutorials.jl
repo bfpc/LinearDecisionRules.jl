@@ -4,8 +4,10 @@
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 # Runs every tutorial of `docs/src/tutorials`, each in its own module, as a script: the code must
-# run and must not log a warning. Their text and tables are checked by reading the documentation;
-# the numbers that matter are tested in `test/jump`. Set `LDR_SKIP_TUTORIALS=true` to skip them.
+# run and must not log a warning. The claims of their text are `@test`s on lines that end with
+# `#src`, which Literate drops from the pages; with a seed, a claim is tested as an inequality.
+# The numbers that matter are also tested in `test/jump`. Set `LDR_SKIP_TUTORIALS=true` to skip
+# them.
 
 module TestTutorials
 

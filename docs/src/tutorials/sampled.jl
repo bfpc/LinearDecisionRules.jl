@@ -48,6 +48,7 @@ using HiGHS
 using Distributions
 using LinearDecisionRules
 using Random
+using Test #src
 
 # ## The newsvendor
 
@@ -83,6 +84,7 @@ result_count(model)
 # and objective value. The dual, which is a bound, is `objective_bound`:
 
 primal_status(model; result = 1), primal_status(model; result = 2)
+@test primal_status(model; result = 2) == UNKNOWN_RESULT_STATUS #src
 
 #-
 
@@ -100,6 +102,8 @@ decision_rule(buy; formulation = sampled), decision_rule(sell; formulation = sam
 #-
 
 rule_coefficient(buy; formulation = sampled), rule_coefficient(sell, d; formulation = sampled)
+@test rule_coefficient(sell, d; formulation = sampled) ≈ 1 rtol = 1e-6 #src
+@test 119 < rule_coefficient(buy; formulation = sampled) < 120 #src
 
 # The sampled rule is linear too: it sells `d`, and it buys the largest demand of the sample, which
 # is a little below 120, the largest demand of the law and the `buy` of the primal rule. (The
@@ -113,6 +117,9 @@ rule_coefficient(buy; formulation = sampled), rule_coefficient(sell, d; formulat
 # [`simulate`](@ref) draws new scenarios from the laws and applies the rule:
 
 simulate(model, 10_000; formulation = sampled, rng = Xoshiro(1))
+out = simulate(model, 10_000; formulation = sampled, rng = Xoshiro(1)) #src
+@test out.objective_mean < objective_value(model; result = 2) #src
+@test out.violation_fraction > 0 #src
 
 # The sample mean of the objective, the **out-of-sample** value of the rule, is below the sampled
 # objective. The rule also has violations out of sample: since `buy` is the largest sampled demand,
@@ -120,6 +127,7 @@ simulate(model, 10_000; formulation = sampled, rng = Xoshiro(1))
 # primal formulation has no violation, by construction:
 
 simulate(model, 10_000; rng = Xoshiro(1))
+@test simulate(model, 10_000; rng = Xoshiro(1)).violation_fraction == 0 #src
 
 # ## Part 3: the effect of the number of scenarios
 
@@ -140,9 +148,11 @@ function sampled_summary(N; seed = 1, evaluation = 10_000)
     return objective_value(model; result = 2), s.objective_mean, s.violation_fraction
 end
 
+fractions = Float64[] #src
 println("N      in sample   out of sample   violations")
 for N in [10, 25, 50, 100, 200, 500, 1000]
     in_sample, out_of_sample, violations = sampled_summary(N)
+    push!(fractions, violations) #src
     println(
         rpad(N, 7),
         rpad(round(in_sample; digits = 2), 12),
@@ -150,6 +160,7 @@ for N in [10, 25, 50, 100, 200, 500, 1000]
         round(violations; digits = 4),
     )
 end
+@test fractions[end] < fractions[1] #src
 
 # !!! tip
 #     With more scenarios the sampled value in the sample and out of the sample get closer, and
@@ -166,6 +177,7 @@ end
 println("N     smallest   mean       largest")
 for N in [2, 5, 10, 25]
     values = [sampled_summary(N; seed = 100N + k, evaluation = 1)[1] for k in 1:10]
+    N <= 10 && @test maximum(values) > objective_bound(reference) #src
     println(
         rpad(N, 6),
         rpad(round(minimum(values); digits = 1), 11),
@@ -173,6 +185,7 @@ for N in [2, 5, 10, 25]
         round(maximum(values); digits = 1),
     )
 end
+@test objective_bound(reference) ≈ 1460 / 3 rtol = 1e-6 #src
 
 # The sampled values scatter, and for up to 10 scenarios some of them are above the dual bound
 # 486.67, which is a bound for the true optimal value: for few scenarios, the in-sample value is

@@ -27,6 +27,7 @@ using JuMP
 using HiGHS
 using Distributions
 using LinearDecisionRules
+using Test #src
 
 # ## A simple inventory problem
 
@@ -129,6 +130,12 @@ for (name, law) in [
 ]
     print_row(name, law)
 end
+cases = [(Uniform(80.0, 120.0), 120, 460), (TriangularDist(70.0, 130.0, 100.0), 130, 440)] #src
+for (law, top, expected) in cases #src
+    m = solve_inventory(law) #src
+    @test rule_coefficient(m[:buy]) ≈ top rtol = 1e-6 #src
+    @test objective_value(m) ≈ expected rtol = 1e-6 #src
+end #src
 
 # The linear rule sells exactly the demand, and for that it buys the largest possible one: `buy`
 # is the maximum of the support, 120 or 130 here. Its value is then
