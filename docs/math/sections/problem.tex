@@ -109,12 +109,19 @@ A row is \emph{deterministic} if $\Jr_r = \{1\}$.
 The rules will be asked to satisfy the constraints on a set $\Xis$ that contains the support of $\law$.
 In the package,
 \[
-\Xis = \{\, \xi \in \R^k : \xi_1 = 1,\ W \eta \ge h \,\},
+\Xis = \{\, \xi \in \R^k : \xi_1 = 1,\ W \eta - h \in \mathcal{K} \,\},
 \]
-where the rows of $W\eta \ge h$ come from four sources (\cref{sec:laws}):
+where $\mathcal{K}$ is the product of a nonnegative orthant, one coordinate per linear row $W_p\eta \ge h_p$,
+and of one second-order cone $\mathcal{L}^{q} = \{(t, y) \in \R \times \R^{q-1} : t \ge \norm{y}_2\}$ per conic row of $q$ components.
+Without conic rows, $\Xis$ is the polyhedron $\{W\eta \ge h\}$ of \citet{KWG2011};
+the conic rows describe sets such as an ellipsoid, and extend both approximations by conic duality \citep[Theorem~2.1]{GWK2015}.
+Each of these cones is self-dual, $\mathcal{K}^* = \mathcal{K}$.
+The rows come from five sources (\cref{sec:laws}):
 the finite bounds of the laws (\code{minimum} and \code{maximum} of each distribution),
+the rows that a law adds beyond its bounds (\code{support\_constraints}, such as the ellipsoid of \code{ConfidenceMvNormal}),
 constraints over uncertainties only tagged \code{ValidInequality()} (they hold almost surely and only tighten $\Xis$),
 constraints tagged \code{Truncate()} (they condition the law, and the conditioned law is supported in them),
+both linear or in a second-order cone,
 and the convex-hull rows of the liftings (\cref{sec:liftings}).
 \citet{KWG2011} assume that $\Xis$ is the support itself, a compact polyhedron;
 the package only needs $\supp\law \subseteq \Xis$, and $\Xis$ may be unbounded in some directions,
@@ -127,9 +134,11 @@ Then
 \label{eq:product-support}
 \Xis = \{1\} \times \prod_{b} \Xib{b},
 \qquad
-\Xib{b} = \{\, \eta_b \in \R^{k_b} : W_b \eta_b \ge h_b \,\},
+\Xib{b} = \{\, \eta_b \in \R^{k_b} : W_b \eta_b - h_b \in \mathcal{K}_b \,\},
 \end{equation}
-where $\eta_b$ is the subvector of the $k_b$ coordinates of block $b$, and $(W_b, h_b)$ the $q_b$ rows of block $b$ restricted to its columns.
+where $\eta_b$ is the subvector of the $k_b$ coordinates of block $b$, $(W_b, h_b)$ the $q_b$ rows of block $b$ restricted to its columns,
+and $\mathcal{K}_b$ their cone; a conic row couples its coordinates, so it lies in one block.
+When $\mathcal{K}_b$ is a nonnegative orthant, we write $W_b\eta_b \ge h_b$.
 All blocks must be bounded, by assumption.
 Every block contains the mean of its coordinates:
 for the rows of the laws this holds by construction, and the valid rows are checked at the mean when the model is read.

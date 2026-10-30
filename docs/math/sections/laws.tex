@@ -6,10 +6,12 @@ This section describes where both come from.
 
 \subsection{Roles of the rows of \texorpdfstring{$\Xis$}{the support}}
 
-Each row of $W\eta \ge h$ has a role (\code{SupportBlock}, \file{src/canonical/support.jl}):
+Each row of $W\eta - h \in \mathcal{K}$ has a role, shared by the components of a conic row (\code{SupportBlock}, \file{src/canonical/support.jl}):
 \begin{description}[nosep,font=\normalfont\ttfamily]
 \item[:box] a finite bound of a law, from its \code{minimum} and \code{maximum}.
 A law without finite bounds gives none; an unbounded law is rejected when it is declared.
+\item[:law] a row that the law adds beyond its bounds (\code{support\_constraints}),
+linear or in a second-order cone, such as the ellipsoid of \cref{sec:confidence-normal}.
 \item[:valid] a constraint over uncertainties only, tagged \code{ValidInequality()}:
 it holds almost surely under the declared law and only tightens $\Xis$.
 Since it holds on the support, it holds at the mean, which the package checks;

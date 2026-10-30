@@ -35,6 +35,15 @@ So $\min_\Xis s \ge 0$ if and only if multipliers exist as in \eqref{eq:block-co
 The details, and the link with the dense form, are in \cref{app:primal}.
 \end{proof}
 
+\paragraph{Conic blocks.}
+When block $b$ has second-order cone rows, $\Xib{b} = \{\eta_b : W_b\eta_b - h_b \in \mathcal{K}_b\}$ (\cref{sec:support}),
+and \eqref{eq:block-counterpart} holds with $\lambda_b \in \mathcal{K}_b^* = \mathcal{K}_b$ in place of $\lambda_b \ge 0$:
+the multipliers of the linear rows are nonnegative, and those of each conic row lie in its second-order cone \citep[Theorem~2.1]{GWK2015}.
+Weak conic duality gives the ``if'' direction, so the primal rule is feasible on $\Xis$ in any case.
+The ``only if'' direction needs strong duality, which holds when some point of $\Xib{b}$ satisfies its conic rows strictly (Slater's condition),
+as the ellipsoid of \cref{sec:confidence-normal} does; without it, the counterpart may be conservative.
+With a conic row, the inner problem is a second-order cone program.
+
 For the inequality $r$, the package takes for $\Touch$ the set $\Touch_r$ of the blocks that meet its structural columns $\Jr_r \setminus \{1\}$ (\code{\_touched\_blocks}, \file{src/formulations/primal.jl}).
 Since blocks are sorted by their first column, those that meet the observed prefix $2{:}\nvis_r$ are exactly the blocks whose first column is at most $\nvis_r$, a prefix of the list of blocks;
 the blocks of the nonzeros of $b_r$ beyond $\nvis_r$ are added to it.

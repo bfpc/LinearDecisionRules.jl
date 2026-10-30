@@ -162,6 +162,17 @@ The auxiliary $u_r$ keeps each inequality \eqref{eq:dual-cone-row} as sparse as 
 substituting it out would add the $\abs{\Jr_r}$ terms $(\Wp\mub)_p\mub_j S_{rj}$ to every inequality of the row.
 Whether to keep it is a question of solver behaviour more than of size, discussed in \cref{sec:computation}.
 
+\paragraph{Conic blocks.}
+When $\Xis$ has second-order cone rows (\cref{sec:support}), the implication that defines $\Wp$ reads $\Wp\xi \in \bar{\mathcal{K}} \defeq \R_+ \times \mathcal{K}$,
+and the inequalities $S_r\Mom\Wp^\T \ge 0$ of \eqref{eq:DLDR} become $S_r\Mom\Wp^\T \in \bar{\mathcal{K}}$.
+\Cref{thm:dual-bound} holds with the same proof:
+$s_r(\xi)\,\Wp\xi$ lies in the closed convex cone $\bar{\mathcal{K}}$ almost surely, hence so does its expectation \citep[Theorem~2.1]{GWK2015}.
+In the structured form, the left-hand sides of \eqref{eq:dual-cone-row} over the components $p$ of one conic row of block $b$ form one vector,
+constrained to the second-order cone of that row;
+the constraint is dropped when all its slack terms are structurally zero, since $u_r \ge 0$ and $W_b\mu_b - h_b \in \mathcal{K}_b$ then imply it.
+The inner problem is then a second-order cone program.
+\Cref{prop:description} is stated for a polyhedral $\Xis$, where Farkas' lemma applies.
+
 \subsection{Reporting the bound}
 
 The rule $X$ of \eqref{eq:DLDR} is not a policy: it need not be feasible for any outcome.
