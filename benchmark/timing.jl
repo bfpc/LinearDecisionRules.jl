@@ -137,7 +137,7 @@ function main(sizes)
     for T in sizes
         expected = 90.0 * T + 20.0
         for (name, f) in VARIANTS
-            res = best_of(() -> f(T), REPS)
+            res, _ = best_of(() -> f(T), REPS)
             # The dual is a lower bound on the optimum, which the primal LDR attains here.
             ok = name == "ldr_dual" ? res.objective <= expected + 1e-6 * expected : isapprox(res.objective, expected; rtol = 1e-6)
             if !ok

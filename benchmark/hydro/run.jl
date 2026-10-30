@@ -133,15 +133,6 @@ const HEADER = [
     "src_commit", "highs",
 ]
 
-# Runs `f` once; if it is fast, twice more, and keeps the run with the smallest build + optimize.
-function best_run(f)
-    first_run = f()
-    GC.gc()
-    first_run.build + first_run.optimize > SLOW_S && return first_run, 1
-    runs = [first_run; [f() for _ in 2:REPS]]
-    return runs[argmin([r.build + r.optimize for r in runs])], REPS
-end
-
 function main(args)
     Ts = [parse(Int, a) for a in args if all(isdigit, a)]
     isempty(Ts) && (Ts = [4, 8, 12])
@@ -165,7 +156,7 @@ function main(args)
                 isempty(bps) || occursin("_bp", name)
             end
             run_it || continue
-            res, reps = best_run(f)
+            res, reps = best_of(f, REPS; slow = SLOW_S)
             b = name == "tree" ? branches : 0
             k = occursin("_bp", name) ? parse(Int, split(name, "_bp")[2]) : ""
             @printf(

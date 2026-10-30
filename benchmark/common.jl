@@ -47,8 +47,14 @@ function append_csv_row(path, header, row)
     return
 end
 
-# Run `f()` `reps` times and keep the run with the smallest build + optimize time.
-function best_of(f, reps)
-    runs = [f() for _ in 1:reps]
-    return runs[argmin([r.build + r.optimize for r in runs])]
+# Run `f()` `reps` times and keep the run with the smallest build + optimize time; also return the
+# number of runs. A first run slower than `slow` seconds is not repeated. The garbage of each run is
+# collected before the next one, so that it is not timed there.
+function best_of(f, reps; slow = Inf)
+    runs = [f()]
+    while length(runs) < reps && runs[1].build + runs[1].optimize <= slow
+        GC.gc()
+        push!(runs, f())
+    end
+    return runs[argmin([r.build + r.optimize for r in runs])], length(runs)
 end
