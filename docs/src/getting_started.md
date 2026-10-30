@@ -34,7 +34,7 @@ nothing # hide
 
 The primal linear decision rule is a feasible policy for every demand in the support,
 so its value is the objective value of the model.
-The dual rule gives a bound on the optimal value of any nonanticipative decision.
+The dual rule gives a bound on the best value that any nonanticipative policy can reach.
 
 ```@example newsvendor
 objective_value(model)
@@ -72,6 +72,18 @@ expected_value(d * sell)
 ```
 
 ## Decision rules
+
+!!! note "Notation"
+    The API pages write the rules as in the literature on linear decision rules:
+    * ``\eta`` is the vector of the uncertainties, and ``\xi = (1, \eta)`` puts a constant 1
+      before them;
+    * ``\Xi`` is the support of ``\xi``: where the laws of the uncertainties take their values,
+      cut by the constraints tagged [`ValidInequality`](@ref) or [`Truncate`](@ref);
+    * the rule of a decision is affine, ``x(\xi) = X \xi``, and ``X`` is the matrix of the rules
+      of all the decisions;
+    * with [`BreakPoints`](@ref), ``\tilde\eta`` are the lifted coordinates, one per piece, and
+      ``\tilde\xi = (1, \tilde\eta)``: the rules are affine in ``\tilde\xi``, so piecewise linear
+      in ``\eta``.
 
 For post-processing, the coefficients of the rules are available directly. `rule_coefficient(x, η)`
 is the coefficient of the uncertainty `η` in the rule of the decision `x`, and
