@@ -39,7 +39,7 @@ const μ, r = (LO + HI) / 2, (HI - LO) / 2
 const C_ORDER, H_HOLD, B_BACK = 1.0, 0.5, 3.0
 const XMAX, I0 = 150.0, 0.0
 const REPS = 3
-const RESULTS = joinpath(@__DIR__, "results", "timings.csv")
+const RESULTS = joinpath(RESULTS_DIR, "timings.csv")
 
 function build_ldr(T, formulation)
     return TaggedProblems.inventory(T, TaggedProblems.ldr_model(; formulations = [formulation]))

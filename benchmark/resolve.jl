@@ -32,7 +32,7 @@ include("common.jl")
 include("internals.jl")
 include("../test/problems/tagged.jl")
 
-const RESULTS = joinpath(@__DIR__, "results", "resolve.csv")
+const RESULTS = joinpath(RESULTS_DIR, "resolve.csv")
 
 function build(T, formulation)
     model = TaggedProblems.ldr_model(; formulations = [formulation])

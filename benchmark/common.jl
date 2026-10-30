@@ -9,6 +9,10 @@ import .TestCommon: model_size
 
 timestamp() = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS")
 
+# The folder of the CSV files: `results/` next to this file, unless the environment variable
+# `LDR_BENCHMARK_RESULTS` names another one (the smoke run of the CI writes to a temporary folder).
+const RESULTS_DIR = get(ENV, "LDR_BENCHMARK_RESULTS", joinpath(@__DIR__, "results"))
+
 # The measured code: the package and the benchmarked problems, which the tests share.
 const MEASURED = ["../src", "../Project.toml", "../test/problems"]
 

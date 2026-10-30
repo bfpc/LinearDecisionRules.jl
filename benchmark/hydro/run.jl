@@ -49,7 +49,7 @@ const LDR_TIME_LIMIT = 900.0
 const BP_TIME_LIMIT = 180.0 # the runs with breakpoints stop at 3 minutes (status TIME_LIMIT)
 const OOS_SCENARIOS = 2000
 const BRANCHES = Dict(4 => 3, 8 => 2, 12 => 2)
-const RESULTS = joinpath(@__DIR__, "..", "results", "hydro.csv")
+const RESULTS = joinpath(RESULTS_DIR, "hydro.csv")
 
 function run_plain(build, args...)
     t_build = @elapsed model = build(args...)

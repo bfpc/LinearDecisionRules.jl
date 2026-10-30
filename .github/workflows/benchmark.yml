@@ -1,0 +1,33 @@
+name: Benchmarks
+# A smoke run: the benchmark scripts at tiny sizes, so that a change of the package that breaks
+# them is seen. Nothing is timed or compared, and the CSV files go to a temporary folder.
+on:
+  push:
+    branches:
+      - main
+      - release-*
+  pull_request:
+    types: [opened, synchronize, reopened]
+# needed to allow julia-actions/cache to delete old caches that it has created
+permissions:
+  actions: write
+  contents: read
+jobs:
+  smoke:
+    name: Benchmark scripts at tiny sizes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - name: Instantiate the benchmark environment
+        run: julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
+      - name: Run the scripts
+        env:
+          LDR_BENCHMARK_RESULTS: ${{ runner.temp }}/benchmark-results
+        run: |
+          julia --project=benchmark benchmark/timing.jl 2 4
+          julia --project=benchmark benchmark/resolve.jl 4 2
+          julia --project=benchmark benchmark/hydro/run.jl 2 tree=2
