@@ -75,6 +75,9 @@ The lifting replaces $\eta$ by $n+1$ coordinates
 \leta_{n+1} = \max(\eta - b_n, 0),
 \end{equation}
 which is \citet[(3)]{GWK2015}, and the retraction is the row of ones, $\eta = \leta_1 + \dots + \leta_{n+1}$ \citep[(4)]{GWK2015}.
+% How much more (or less) notation (and code!) will that be if instead we write the retraction as
+% $\eta = v_0 + \sum_i \leta_i$?
+% It looks a bit more symmetric, starting from (0, 0, ..., 0) instead of (v_0, 0, ..., 0).
 The first piece contains the lower end of the support, so the retraction has no constant term and $\Retr = \blockdiag(1, \Retr_\eta)$.
 A rule $X_0 + \sum_i X_i\leta_i$ is continuous and piecewise affine in $\eta$, with slope $X_i$ on the $i$-th piece;
 conversely, every such function is of this form \citep[Section~4.1]{GWK2015}.
@@ -96,6 +99,7 @@ which are affinely independent; in the coordinates $t$ they are $0$, $e_1$, $e_1
 the vertices of the simplex $\{1 \ge t_1 \ge \dots \ge t_{n+1} \ge 0\}$.
 \end{proof}
 
+% Do we really need the box?
 The package describes this simplex by the box of the lifted law,
 $\underline\eta \le \leta_1 \le b_1$ and $0 \le \leta_i \le \Delta_i$, which contains the two end inequalities,
 and by the $n$ \emph{hull rows} $t_i \ge t_{i+1}$, scaled by $\Delta_i\Delta_{i+1}$:
