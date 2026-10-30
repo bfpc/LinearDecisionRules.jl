@@ -96,3 +96,25 @@ allows a quadratic objective and integer first-stage decisions,
 treats the set $\Xis$ as a superset of the support of the law described by inequalities (possibly unbounded) rather than as the support itself,
 writes the lifted vector $\lxi$ where \citet{GWK2015} write $\xi'$,
 and indexes the information structure by prefixes of the columns of $\xi$ rather than by the truncation operators $P_t$ of the papers.
+\Cref{tab:notation} relates the notation to the names of the package, whose documentation uses the same symbols.
+
+\begin{table}[ht]
+\centering
+\caption{The notation of these notes and the names of the package.}
+\label{tab:notation}
+\begin{tabular}{lp{0.6\textwidth}}
+\toprule
+Notes & Package \\
+\midrule
+$\eta$, $\xi = (1, \eta)$ & the variables declared \code{in Uncertainty(law)}; the columns of \code{rule\_matrix}, constant first \\
+$\stage_j$, $\dstage_i$ & \code{Stage(t)}, \code{FirstStage}, \code{stage(x)} \\
+$\Xis$ & the bounds of the laws, their \code{support\_constraints}, and the constraints tagged \code{ValidInequality()} or \code{Truncate()} \\
+$X$, $x(\xi) = X\xi$ & \code{rule\_matrix(model)}, \code{decision\_rule(x)}, \code{rule\_coefficient(x, eta)} \\
+\eqref{eq:PLDR}, \eqref{eq:DLDR}, \cref{sec:sampled} & \code{PrimalLDR()}, \code{DualLDR()}, \code{SampledLDR(N; seed)} \\
+$\Vp$, $\Vd$ & \code{objective\_value(model)}, \code{objective\_bound(model)} \\
+a certified bound (\cref{sec:dual}) & \code{is\_certified(model)} \\
+$\leta$, $\lxi$, $\Lift$, $\Retr$ & \code{BreakPoints}, \code{AxisPiecewise}, \code{lift} \\
+$\mub$, $\Cv$, $\Mom$ & \code{Moments} (internal) \\
+\bottomrule
+\end{tabular}
+\end{table}
