@@ -30,6 +30,7 @@ import LinearDecisionRules:
     SampledLDR,
     Truncate,
     Uncertainty,
+    is_certified,
     simulate
 import Random
 
@@ -125,19 +126,20 @@ function test_newsvendor_mean()
     return
 end
 
-results_of(model) = JuMP.unsafe_backend(model).results
+# Whether the values of each formulation of `model` are certified, in the order of `Formulations`.
+certified(model) = [is_certified(model, f) for f in get_attribute(model, Formulations())]
 
 # Values computed with moments estimated by Monte Carlo are not certified; exact ones are.
 function test_certified()
     exact = exact_newsvendor()
     set_attribute(exact, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(100)])
     optimize!(exact)
-    @test [r.certified for r in results_of(exact)] == [true, true, false]
+    @test certified(exact) == [true, true, false]
     @test !occursin("not certified", raw_status(exact))
     rejection = rejection_newsvendor()
     set_attribute(rejection, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(100)])
     optimize!(rejection)
-    @test !any(r.certified for r in results_of(rejection))
+    @test !any(certified(rejection))
     note = "[not certified: moments of conditioned laws estimated by rejection sampling]"
     @test endswith(raw_status(rejection, DualLDR()), note)
     @test endswith(raw_status(rejection, PrimalLDR()), note)
@@ -273,7 +275,7 @@ function test_discrete_scenarios()
     mom = moments_of(model)
     @test mom.mean[2:3] ≈ sum(scenarios[1:6]) / 6
     @test only(mom.blocks).num_samples == 0
-    @test all(r.certified for r in results_of(model))
+    @test all(certified(model))
     @test !occursin("not certified", raw_status(model))
     # The law of the rejection sampling of the previous versions: the same within its error.
     rejection = ConditionedDistribution([law], [-1.0 -1.0], [-160.0])

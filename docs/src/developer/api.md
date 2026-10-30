@@ -68,9 +68,10 @@ and `Certified`, and some are internal ones defined in `moi/attributes.jl`:
 | `InnerModel()`, through `FormulationAttribute(f, InnerModel())` | `moi/results.jl` | `inner_model` |
 | `SimulationData(f)` | `jump/simulate.jl`, the only `::Optimizer` method outside `moi/` | `evaluate`, `simulate` |
 
-Some tests still read `unsafe_backend(model).results`, an undocumented field, for the solve time or
-the inner model of the only formulation. Prefer `solve_time(model, f)` and `inner_model(model, f)`,
-as the benchmarks do.
+Tests and benchmarks read the results of a formulation through these functions (`solve_time(model,
+f)`, `inner_model(model, f)`, `is_certified(model, f)`), not through the fields of the optimizer.
+Only the tests of the cache of inner problems and of the canonical form read the fields
+`inner_cache` and `form`; the benchmarks read the cache in one file, `benchmark/internals.jl`.
 
 ## Extensions of JuMP and MOI
 

@@ -29,6 +29,7 @@ using JuMP
 import LinearDecisionRules as LDR
 
 include("common.jl")
+include("internals.jl")
 include("../test/problems/tagged.jl")
 
 const RESULTS = joinpath(@__DIR__, "results", "resolve.csv")
@@ -48,15 +49,13 @@ function run(T, N, formulation, variant)
     objectives = Float64[]
     for value in initial_stocks(N)
         set_parameter_value(m[:stock], value)
-        if variant == "rebuild"
-            unsafe_backend(m).inner_cache = LDR._InnerCache()
-        end
-        before = unsafe_backend(m).inner_cache.num_builds
+        variant == "rebuild" && empty_cache!(m)
+        before = num_builds(m)
         start = time_ns()
         optimize!(m)
         total += (time_ns() - start) / 1e9
         solver += solve_time(m, formulation)
-        builds += unsafe_backend(m).inner_cache.num_builds - before
+        builds += num_builds(m) - before
         push!(objectives, objective_value(m, formulation))
     end
     return (; build = total - solver, solver, total, objectives, builds)
@@ -66,16 +65,15 @@ end
 function fingerprint_time(T, formulation)
     m = build(T, formulation)
     optimize!(m)
-    o = unsafe_backend(m)
-    old = o.inner_cache.fingerprint
+    old = fingerprint(m)
     set_parameter_value(m[:stock], 10.0)
     optimize!(m)
-    new = o.inner_cache.fingerprint
-    @assert LDR._same_problem(old, new)
+    new = fingerprint(m)
+    @assert same_problem(old, new)
     reps = 100
     start = time_ns()
     for _ in 1:reps
-        LDR._same_problem(old, new)
+        same_problem(old, new)
     end
     return (time_ns() - start) / 1e9 / reps
 end
@@ -96,7 +94,7 @@ function main(T, N)
     end
     for f in (LDR.PrimalLDR(), LDR.DualLDR())
         name = string(nameof(typeof(f)))
-        fingerprint = fingerprint_time(T, f)
+        fingerprint_s = fingerprint_time(T, f)
         runs = Dict(variant => run(T, N, f, variant) for variant in ("cached", "rebuild"))
         a, b = runs["cached"].objectives, runs["rebuild"].objectives
         if !isapprox(a, b; rtol = 1e-6)
@@ -106,13 +104,13 @@ function main(T, N)
             r = runs[variant]
             @printf(
                 "T=%-3d N=%-3d %-9s %-8s builds=%-3d build=%.3fs solver=%.3fs total=%.3fs fingerprint=%.2es\n",
-                T, N, name, variant, r.builds, r.build, r.solver, r.total, fingerprint,
+                T, N, name, variant, r.builds, r.build, r.solver, r.total, fingerprint_s,
             )
             append_csv_row(
                 RESULTS,
                 HEADER,
                 (stamp, commit, src_dirty, VERSION, T, N, name, variant, r.builds, r.build,
-                 r.solver, r.total, fingerprint, last(r.objectives), src_commit, highs),
+                 r.solver, r.total, fingerprint_s, last(r.objectives), src_commit, highs),
             )
         end
     end

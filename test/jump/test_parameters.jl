@@ -16,7 +16,17 @@ import Distributions: Uniform
 import HiGHS
 import LinearDecisionRules
 import LinearDecisionRules:
-    DualLDR, FirstStage, Formulations, LDRModel, PrimalLDR, SampledLDR, Uncertainty, ValidInequality
+    DualLDR,
+    FirstStage,
+    Formulations,
+    LDRModel,
+    PrimalLDR,
+    SampledLDR,
+    Uncertainty,
+    ValidInequality,
+    inner_model,
+    is_certified,
+    rule_matrix
 
 function runtests()
     for name in names(@__MODULE__; all = true)
@@ -36,8 +46,6 @@ include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
 ldr_model() = TaggedProblems.ldr_model(; formulations = FORMULATIONS)
 
 num_builds(model) = unsafe_backend(model).inner_cache.num_builds
-
-results(model) = unsafe_backend(model).results
 
 # The newsvendor with a capacity, a parameter alone in a row, and a fixed income `2 capacity` in
 # the objective; with `parameter = false`, the capacity is a number.
@@ -62,16 +70,21 @@ end
 
 # The same results, formulation by formulation: status, objective, bound and rules.
 function check_same_results(model, fresh)
-    @test length(results(model)) == length(results(fresh))
-    for (a, b) in zip(results(model), results(fresh))
-        @test a.formulation == b.formulation
-        @test a.termination_status == b.termination_status
-        @test a.primal_status == b.primal_status
-        scale = max(1.0, abs(b.objective_value))
-        @test isapprox(a.objective_value, b.objective_value; atol = 1e-6 * scale)
-        @test isapprox(a.objective_bound, b.objective_bound; atol = 1e-6 * scale)
-        @test isapprox(a.X, b.X; atol = 1e-6 * max(1.0, maximum(abs, b.X)))
-        @test a.certified == b.certified
+    @test get_attribute(model, Formulations()) == get_attribute(fresh, Formulations())
+    for f in get_attribute(fresh, Formulations())
+        @test termination_status(model, f) == termination_status(fresh, f)
+        @test primal_status(model, f) == primal_status(fresh, f)
+        expected = objective_value(fresh, f)
+        scale = max(1.0, abs(expected))
+        @test isapprox(objective_value(model, f), expected; atol = 1e-6 * scale)
+        @test isapprox(objective_bound(model, f), objective_bound(fresh, f); atol = 1e-6 * scale)
+        X = rule_matrix(fresh; formulation = f).matrix
+        @test isapprox(
+            rule_matrix(model; formulation = f).matrix,
+            X;
+            atol = 1e-6 * max(1.0, maximum(abs, X)),
+        )
+        @test is_certified(model, f) == is_certified(fresh, f)
     end
     @test isapprox(objective_value(model), objective_value(fresh); atol = 1e-6)
     @test isapprox(objective_bound(model), objective_bound(fresh); atol = 1e-6)
@@ -120,10 +133,10 @@ function test_warm_start()
     model = inventory(8, 0.0)
     set_attribute(model, Formulations(), [PrimalLDR()])
     optimize!(model)
-    inner = only(results(model)).model
+    inner = inner_model(model, PrimalLDR())
     set_parameter_value(model[:stock], 30.0)
     optimize!(model)
-    @test only(results(model)).model === inner
+    @test inner_model(model, PrimalLDR()) === inner
     @test MOI.Utilities.state(backend(inner)) == MOI.Utilities.ATTACHED_OPTIMIZER
     set_parameter_value(model[:stock], -10.0)
     optimize!(model)
@@ -131,7 +144,7 @@ function test_warm_start()
     fresh = inventory(8, -10.0)
     set_attribute(fresh, Formulations(), [PrimalLDR()])
     optimize!(fresh)
-    cold = simplex_iterations(only(results(fresh)).model)
+    cold = simplex_iterations(inner_model(fresh, PrimalLDR()))
     @test simplex_iterations(inner) < cold
     @test objective_value(model) ≈ objective_value(fresh)
     return
@@ -141,10 +154,10 @@ end
 function test_resolve_without_change()
     model = newsvendor(90.0)
     optimize!(model)
-    inner = [r.model for r in results(model)]
+    inner = [inner_model(model, f) for f in FORMULATIONS]
     optimize!(model)
     @test num_builds(model) == 3
-    @test all(r.model === m for (r, m) in zip(results(model), inner))
+    @test all(inner_model(model, f) === m for (f, m) in zip(FORMULATIONS, inner))
     @test objective_value(model) ≈ 595
     return
 end

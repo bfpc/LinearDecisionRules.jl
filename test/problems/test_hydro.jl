@@ -34,7 +34,7 @@ end
 function _solve(data, formulation)
     model = ldr_model(data, T; formulations = [formulation])
     optimize!(model)
-    return model, only(unsafe_backend(model).results)
+    return model, LDR.inner_model(model, formulation)
 end
 
 # Values and sizes were measured with this implementation at T = 3 (benchmark/results/hydro.csv
@@ -43,8 +43,8 @@ end
 # is convex in them), and here the dual bound is the average-scenario value.
 function test_ldr_values_and_sizes()
     data = hydro_thermal_data()
-    primal, primal_result = _solve(data, LDR.PrimalLDR())
-    dual, dual_result = _solve(data, LDR.DualLDR())
+    primal, primal_inner = _solve(data, LDR.PrimalLDR())
+    dual, dual_inner = _solve(data, LDR.DualLDR())
     average = average_scenario_model(data, T)
     optimize!(average)
     @test termination_status(primal) == MOI.OPTIMAL
@@ -54,9 +54,8 @@ function test_ldr_values_and_sizes()
     @test objective_value(average) ≈ 0.7352371632 rtol = 1e-6
     @test objective_bound(dual) <= objective_value(primal)
     @test objective_value(average) <= objective_value(primal)
-    @test model_size(primal_result.model) ==
-          (variables = 5724, constraints = 4223, nonzeros = 17129)
-    @test model_size(dual_result.model) == (variables = 6892, constraints = 11815, nonzeros = 50417)
+    @test model_size(primal_inner) == (variables = 5724, constraints = 4223, nonzeros = 17129)
+    @test model_size(dual_inner) == (variables = 6892, constraints = 11815, nonzeros = 50417)
     return
 end
 
@@ -65,11 +64,10 @@ end
 function test_box_closed_form()
     data = hydro_thermal_data()
     closed, _ = _solve(data, LDR.PrimalLDR())
-    general, general_result = _solve(data, LDR.PrimalLDR(; box_closed_form = false))
+    general, general_inner = _solve(data, LDR.PrimalLDR(; box_closed_form = false))
     @test termination_status(general) == MOI.OPTIMAL
     @test objective_value(general) ≈ objective_value(closed) rtol = 1e-7
-    @test model_size(general_result.model) ==
-          (variables = 9228, constraints = 4223, nonzeros = 20633)
+    @test model_size(general_inner) == (variables = 9228, constraints = 4223, nonzeros = 20633)
     return
 end
 

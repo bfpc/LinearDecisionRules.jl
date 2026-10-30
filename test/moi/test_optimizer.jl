@@ -242,7 +242,9 @@ function test_no_inner_optimizer()
     @test occursin("no inner optimizer", msg) && occursin("LDRModel(HiGHS.Optimizer)", msg)
     set_attribute(model, InnerOptimizer(), HiGHS.Optimizer)
     optimize!(model)
-    @test length(unsafe_backend(model).results) == 2
+    @test termination_status(model, PrimalLDR()) ==
+          termination_status(model, DualLDR()) ==
+          MOI.OPTIMAL
     return
 end
 
@@ -386,11 +388,11 @@ function test_time_limit_is_shared()
     set_time_limit_sec(model, 60)
     optimize!(model)
     @test objective_value(model) ≈ 460
-    results = unsafe_backend(model).results
-    for (k, r) in enumerate(results)
+    formulations = get_attribute(model, Formulations())
+    for (k, f) in enumerate(formulations)
         # The time of the earlier solves (and of the builds) is taken from the limit.
-        spent = sum(results[l].solve_time for l in 1:k-1; init = 0.0)
-        @test 0 < time_limit_sec(r.model) < 60 - spent
+        spent = sum(solve_time(model, formulations[l]) for l in 1:k-1; init = 0.0)
+        @test 0 < time_limit_sec(inner_model(model, f)) < 60 - spent
     end
     return
 end

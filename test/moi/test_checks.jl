@@ -55,7 +55,7 @@ function test_nonconvex_objective_warns()
     model = quadratic_model(MIN_SENSE, (x, y) -> x^2 - y^2)
     @test_logs warning match_mode = :any optimize!(model)
     # The bound is not certified; the value of the primal rule is still that of its rule.
-    @test [r.certified for r in unsafe_backend(model).results] == [true, false]
+    @test is_certified(model, PrimalLDR()) && !is_certified(model, DualLDR())
     @test endswith(raw_status(model, DualLDR()), "[not certified: the objective is not convex]")
     warning = (:warn, r"of this maximization is not convex: the matrix -P .*decisions x, y")
     model = quadratic_model(MAX_SENSE, (x, y) -> x^2 + y^2)
@@ -112,7 +112,7 @@ function test_singular_law_warns()
     @test_logs warning match_mode = :any optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
     # The primal is exact, and the bound is not certified.
-    @test [r.certified for r in unsafe_backend(model).results] == [true, false]
+    @test is_certified(model, PrimalLDR()) && !is_certified(model, DualLDR())
     @test endswith(
         raw_status(model, DualLDR()),
         "[not certified: the second-moment matrix is singular]",
