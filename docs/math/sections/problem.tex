@@ -28,10 +28,15 @@ The law of $\eta$ is given by \emph{declarations}:
 each declaration of variables \code{in Uncertainty(dist)}
 gives a group of columns with a joint law (univariate or multivariate),
 and distinct declarations are independent.
-% Examples of declarations are
-%  \code{@variable(m, d in Uncertainty(Uniform(80, 120))} and
-%  \code{@variable(m, (d1, d2) in Uncertainty(MvNormal([0, 0], [1 0.5; 0.5 1]))}.
-The components of one multivariate declaration may be in different stages;
+For example,
+\begin{itemize}[nosep]
+\item \code{@variable(m, d in Uncertainty(Uniform(80, 120)))} declares one uncertainty;
+\item \code{@variable(m, e[1:2] in Uncertainty(law))} declares two, with a joint bivariate law,
+such as \code{ConfidenceMvNormal}$(\mu, \Sigma, 0.95)$ (\cref{sec:confidence-normal});
+\item \code{@variable(m, w[t = 2:5] in Uncertainty(law), Stage(t))} declares four, one per stage, with a joint law of dimension~4.
+\end{itemize}
+Laws must have a bounded support (\cref{sec:support}): use \code{ConfidenceMvNormal}, not \code{MvNormal}.
+The components of one multivariate declaration may be in different stages, as in the third example;
 then the law itself links stages, and we will see in \cref{sec:dual} that its conditional expectations across stages matter for the dual bound.
 We write $\law$ for the law of $\eta$, and also of $\xi$.
 

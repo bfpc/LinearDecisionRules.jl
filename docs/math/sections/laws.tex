@@ -26,9 +26,20 @@ The two tags differ in what they mean for the law, not for $\Xis$:
 both give rows of $\Xis$, but only \code{Truncate()} changes $\law$,
 hence the moments and the draws.
 
-% What happens with Truncate() followed by lift, or lift followed by Truncate()?
+\paragraph{Conditioning and liftings.}
+Rows tagged \code{Truncate()} and breakpoints (\cref{sec:axis-lifting}) are both declarations, so the order in which a model states them does not matter:
+the package always conditions first, when it builds the canonical form, and then lifts the conditioned law.
+The other order would give the same lifted law:
+since $\Lift$ is injective and $\Retr\Lift(\xi) = \xi$, conditioning $\eta$ on $\{W\eta \ge h\}$ and then lifting it
+gives the law of $\leta$ conditioned on $\{W\Retr_\eta\leta \ge h\}$.
+In the package, a univariate law conditioned by rows on it alone is truncated exactly (\cref{sec:exact-truncation}) and can be lifted;
+its breakpoints must lie inside the truncated support, and a number $n$ of breakpoints is spaced over it.
+A law merged with others by \code{Truncate()} rows is multivariate, and cannot be lifted yet.
+For a law estimated by rejection, the moments of the lifted vector could be estimated from the same draws (\cref{sec:rejection});
+this is not done.
 
 \subsection{Exact truncation}
+\label{sec:exact-truncation}
 
 When a row tagged \code{Truncate()} involves only a univariate law,
 they define an interval $[\alpha, \beta]$,

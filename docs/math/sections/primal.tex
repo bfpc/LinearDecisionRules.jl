@@ -13,7 +13,6 @@ with one multiplier per row of $W$ and per inequality: a dense matrix $\Lambda \
 The product structure \eqref{eq:product-support} lets us do much better.
 Split a slack rule along the blocks, $s(\xi) = s_1 + \sum_b s_b^\T \eta_b$, where $s_b$ is the subvector of $S_r$ on the columns of block $b$.
 
-% How do we know that $s_b \ne 0$?
 \begin{proposition}[Block robust counterpart]
 \label{prop:block-counterpart}
 Let $\Touch$ be a set of support blocks that contains every block $b$ with $s_b \neq 0$.
@@ -34,6 +33,12 @@ both sides being $-\infty$ when the dual is infeasible.
 So $\min_\Xis s \ge 0$ if and only if multipliers exist as in \eqref{eq:block-counterpart}.
 The details, and the link with the dense form, are in \cref{app:primal}.
 \end{proof}
+
+The rule $s$ depends on $X$, which is not known when the problem is built, so neither are the blocks with $s_b \neq 0$.
+The proposition does not need them:
+a block of $\Touch$ with $s_b = 0$ admits $\lambda_b = 0$, which adds nothing to the coupling inequality.
+It is enough that $\Touch$ contain every block on which $s_b$ can be nonzero for some $X \in \Rules$,
+and the structure of the row gives such a set before $X$ is known (see $\Touch_r$ below).
 
 \paragraph{Conic blocks.}
 When block $b$ has second-order cone rows, $\Xib{b} = \{\eta_b : W_b\eta_b - h_b \in \mathcal{K}_b\}$ (\cref{sec:support}),

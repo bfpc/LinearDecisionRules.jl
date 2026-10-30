@@ -75,12 +75,52 @@ The lifting replaces $\eta$ by $n+1$ coordinates
 \leta_{n+1} = \max(\eta - b_n, 0),
 \end{equation}
 which is \citet[(3)]{GWK2015}, and the retraction is the row of ones, $\eta = \leta_1 + \dots + \leta_{n+1}$ \citep[(4)]{GWK2015}.
-% How much more (or less) notation (and code!) will that be if instead we write the retraction as
-% $\eta = v_0 + \sum_i \leta_i$?
-% It looks a bit more symmetric, starting from (0, 0, ..., 0) instead of (v_0, 0, ..., 0).
-The first piece contains the lower end of the support, so the retraction has no constant term and $\Retr = \blockdiag(1, \Retr_\eta)$.
+The first piece contains the lower end of the support, so the retraction has no constant term and $\Retr = \blockdiag(1, \Retr_\eta)$
+(\cref{rem:shifted-lifting} discusses the alternative).
 A rule $X_0 + \sum_i X_i\leta_i$ is continuous and piecewise affine in $\eta$, with slope $X_i$ on the $i$-th piece;
 conversely, every such function is of this form \citep[Section~4.1]{GWK2015}.
+
+\begin{remark}[Pieces that start at zero]
+\label{rem:shifted-lifting}
+One could also start every piece at zero:
+$\leta_1 = \min(\eta, b_1) - \underline\eta$, the other pieces unchanged, and $\eta = \underline\eta + \leta_1 + \dots + \leta_{n+1}$.
+Every piece then lies in $[0, \Delta_i]$, $t_i = \leta_i/\Delta_i$ for every $i$ in \cref{lem:hull},
+and the hull rows below lose their right-hand side $\Delta_2\underline\eta\,[i = 1]$.
+
+The approximations do not change.
+The change of coordinates $\lxi \mapsto T\lxi$ that subtracts $\underline\eta\,\lxi_1$ from the first piece is invertible,
+keeps $\lxi_1 = 1$ and the stage of every coordinate,
+and maps the rules to rules ($\lX \mapsto \lX T^{-1}$ has the same zero pattern),
+the lifted support to its image, and $\lM$ to $T\lM T^\T$;
+the primal and the dual approximations are invariant under such a map, so their values are the same.
+
+The retraction is still linear in $\lxi$, but it is no longer block diagonal: the row of $\eta$ is $(\underline\eta, 1, \dots, 1)$.
+Write $\eta = v + \Retr_\eta\leta$, where $v$ holds the lower ends of the lifted coordinates and zeros elsewhere.
+In the package, this would change:
+\begin{itemize}[nosep]
+\item \emph{The data written over $\eta$ alone.}
+$B \leftarrow B\Retr$ and $C \leftarrow C\Retr$ are unchanged, since they act on $\xi$,
+but in \eqref{eq:lifted-data} the support gets $h \leftarrow h - Wv$,
+and the objective $d \leftarrow \Retr_\eta^\T(d + 2Qv)$ and $f \leftarrow f + d^\T v + v^\T Q v$.
+\item \emph{The parameters.}
+The first column of $B\Retr$ is that of $B$ plus the columns of $B$ on $\eta$ times $v$,
+so the constants of \code{ParameterTerms} must absorb this term;
+today \code{lift} keeps them as they are, because the first column of $\Retr$ is $\eone$.
+\item \emph{The lifting.}
+$\Lift$ depends on the lower end of the support, which \code{AxisPiecewise} does not hold (it holds only the breakpoints),
+and \code{retraction} would no longer be a row of ones.
+Both are public, as is \code{LiftingMap}, so the change would be breaking for those who use them.
+\item \emph{The lifted law.}
+The mean of the first piece shifts by $\underline\eta$, its covariance is unchanged, and its box becomes $[0, \Delta_1]$.
+\item \emph{The reported rules.}
+The constant of a lifted rule absorbs $\underline\eta$ times its slope on the first piece,
+so \code{rule\_coefficient} and \code{rule\_matrix} would report another constant;
+the slopes, and the rule as a function of $\eta$ (\code{decision\_rule}), are unchanged.
+\item \emph{The tests} of the lifted coordinates, of the hull rows and of the lifted moments.
+\end{itemize}
+The gain is in the notation, the cost in the code and in the public API;
+the package keeps the convention of \citet[(3)--(4)]{GWK2015}, whose retraction is a row of ones.
+\end{remark}
 
 \begin{lemma}[Convex hull of the lifted segment {\citep[Lemma~4.3]{GWK2015}}]
 \label{lem:hull}
