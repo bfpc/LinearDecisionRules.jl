@@ -129,7 +129,8 @@ function hydro_toy(model = ldr_model())
     return model
 end
 
-# The tutorial newsvendor (buy 10, sell 15, salvage 5) with a discrete demand.
+# The newsvendor of the 0.3 tutorials (buy 10, sell 15, salvage 5; they now salvage at 8), with a
+# discrete demand.
 function newsvendor_discrete(law, model = ldr_model())
     k = length(law)
     @variable(model, buy[1:k] >= 0, FirstStage)

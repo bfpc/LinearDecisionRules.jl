@@ -193,6 +193,7 @@ end
 try
     shared_stock(HiGHS.Optimizer, 0.95; support = :ellipsoid)
 catch err
+    ## The message has the constraint type, then the explanation.
     println(split(sprint(showerror, err), "\n\n")[2])
 end
 

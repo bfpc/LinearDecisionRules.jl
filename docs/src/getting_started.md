@@ -44,6 +44,14 @@ objective_value(model)
 objective_bound(model)
 ```
 
+[`is_certified`](@ref) tells whether the bound holds exactly for the laws of the model. It does
+here; it does not when the moments of a law are estimated by sampling, for example, and
+`raw_status` then gives the reason.
+
+```@example newsvendor
+is_certified(model)
+```
+
 The policy is read with [`decision_rule`](@ref); `value` is the expected value of a decision, and
 [`expected_value`](@ref) is exact for affine and quadratic expressions.
 
@@ -121,11 +129,10 @@ on, and only there: `simulate` reports its violations out of sample, how often a
 sampled = SampledLDR(5; seed = 1)
 set_attribute(model, Formulations(), [PrimalLDR(), sampled])
 optimize!(model)
-simulate(model, 10_000; formulation = sampled, rng = Random.Xoshiro(1))
+s = simulate(model, 10_000; formulation = sampled, rng = Random.Xoshiro(1))
 ```
 
 ```@example newsvendor
-s = simulate(model, 10_000; formulation = sampled, rng = Random.Xoshiro(1))
 s.violation_counts
 ```
 

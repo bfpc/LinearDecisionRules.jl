@@ -158,10 +158,11 @@ end
 # `Truncate()` of the same constraint conditions the law on the set where it holds, which contains
 # all of the scenarios, so the law is the same. A discrete law is conditioned **exactly**: the
 # scenarios that satisfy the constraint are kept, with their probabilities renormalized. So the
-# values are those of `ValidInequality()`, and they are exact (no formulation is flagged as not
-# certified in its `raw_status`):
+# values are those of `ValidInequality()`, and they are exact, as [`is_certified`](@ref) says of
+# the primal value and of the dual bound:
 
-raw_status(shared_stock(:truncate))
+model = shared_stock(:truncate)
+is_certified(model, PrimalLDR()), is_certified(model, DualLDR())
 
 # Prefer `ValidInequality()` for a constraint that is already satisfied by the law, and
 # `Truncate()` for one that cuts it: for a continuous law, `Truncate()` of a constraint on several
@@ -207,7 +208,11 @@ objective_value(model), objective_bound(model)
 # attributes [`RejectionSamplingMaxSamples`](@ref) (the number of draws kept),
 # [`RejectionSamplingSeed`](@ref) and [`RejectionSamplingTimeLimit`](@ref), whose docstrings give
 # their defaults. The values are estimates, so the primal value is not exactly the expected profit
-# of the rule and the dual is not exactly a bound, which the status reports:
+# of the rule and the dual is not exactly a bound: they are not certified,
+
+is_certified(model, PrimalLDR()), is_certified(model, DualLDR())
+
+# and the status of each formulation ends with the reason:
 
 raw_status(model, PrimalLDR())
 

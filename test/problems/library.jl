@@ -304,7 +304,8 @@ function unbounded_without_rows()
     return Problem("unbounded_without_rows", "", model, info, NaN, NaN)
 end
 
-# The tutorial newsvendor (buy 10, sell 15, salvage 5) with a discrete demand.
+# The newsvendor of the 0.3 tutorials (buy 10, sell 15, salvage 5; they now salvage at 8), with a
+# discrete demand.
 function newsvendor_discrete(dist, name, primal, dual)
     model = Model()
     k = length(dist)

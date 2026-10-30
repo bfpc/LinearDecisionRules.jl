@@ -171,15 +171,14 @@ objective_value(model3), sim.objective_mean, sim.objective_stderr
 # [`evaluate`](@ref) applies the rule to one scenario, and gives the whole trajectory of the
 # decisions. Let us follow the orders and the inventory with the demands 70, 90, 70 and 80:
 
-scenario = model3[:d] .=> [70.0, 90.0, 70.0, 80.0]
-trajectory = evaluate(model3, scenario...)
+trajectory = evaluate(model3, model3[:d] => [70.0, 90.0, 70.0, 80.0])
 
 #-
 
 println("t   demand   order    inventory   cost")
 for t in 1:4
-    demand = trajectory[model3[:d][t]]
-    row = [trajectory[model3[v][t]] for v in (:x, :I, :y)]
+    demand = value(trajectory, model3[:d][t])
+    row = [value(trajectory, model3[v][t]) for v in (:x, :I, :y)]
     println(
         rpad(t, 4),
         rpad(demand, 9),

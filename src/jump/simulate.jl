@@ -439,7 +439,7 @@ listed in `violations`.
 optimize!(model)
 r = evaluate(model, d => 90.0)
 value(r, sell)       # the decision `sell` at d = 90
-r.objective_value
+objective_value(r)
 r.violations         # constraints violated by more than the tolerance
 ```
 """

@@ -96,12 +96,7 @@ try
     solve_inventory(Normal(100.0, 15.0))
 catch err
     ## The message has the location of the declaration, then the explanation.
-    println(last(split(
-        sprint(showerror, err),
-        "
-
-",
-    )))
+    println(split(sprint(showerror, err), "\n\n")[2])
 end
 
 # Use `truncated(law, lower, upper)` to bound an unbounded law, as above.

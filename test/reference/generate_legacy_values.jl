@@ -227,7 +227,7 @@ function problem_hydro_toy_fixed_volume()
     return Problem(d, m, rules, false, 0)
 end
 
-# Tutorial model (docs distributions.jl): buy 10, sell 15, salvage 5.
+# The model of the 0.3 tutorial `docs/src/tutorials/distributions.jl`: buy 10, sell 15, salvage 5.
 function _tutorial_inventory(m, dist; products = 1)
     if products == 1
         @variable(m, buy >= 0, LDR.FirstStage)
