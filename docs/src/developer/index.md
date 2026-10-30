@@ -18,8 +18,9 @@ Each kind of information has one home:
 
 - **Mathematics** (the primal and dual decision rules, the liftings, the moments, and why the
   bounds hold): the LaTeX notes of
-  [`docs/math`](https://github.com/bfpc/LinearDecisionRules.jl/tree/main/docs/math). Code comments
-  cite them by their labels, such as `thm:dual-bound`.
+  [`docs/math`](https://github.com/bfpc/LinearDecisionRules.jl/tree/main/docs/math), also
+  [as a PDF](../assets/ldr-math.pdf). Code comments cite them by their labels, such as
+  `thm:dual-bound`.
 - **Behaviour** (what a function accepts, does and returns): its docstring.
 - **Organization of the code**: these pages.
 - **Measurements** (sizes and solve times): the READMEs of

@@ -36,6 +36,21 @@ end
 # The license header of each file would be rendered as text.
 preprocess(content) = replace(content, r"\A# Copyright.*?\n\n"s => "")
 
+# The PDF of the math notes, which the developer overview links. The documentation workflow builds
+# it before this script, with `latexmk` in docs/math (which writes docs/math/build); do the same to
+# have it locally. Without it, a placeholder takes its place, so that the link resolves.
+const MATH_PDF = joinpath(@__DIR__, "math", "build", "ldr-math.pdf")
+const MATH_ASSET = joinpath(@__DIR__, "src", "assets", "ldr-math.pdf")
+
+if isfile(MATH_PDF)
+    cp(MATH_PDF, MATH_ASSET; force = true)
+elseif get(ENV, "CI", nothing) == "true"
+    error("The math notes are not built: run `latexmk` in docs/math before docs/make.jl.")
+else
+    @warn "The math notes are not built (`latexmk` in docs/math): the link goes to a placeholder."
+    write(MATH_ASSET, "The math notes were not built: run `latexmk` in docs/math.\n")
+end
+
 include(joinpath(@__DIR__, "structure.jl"))
 DeveloperStructure.main(String[])
 

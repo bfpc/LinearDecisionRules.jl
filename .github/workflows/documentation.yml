@@ -21,6 +21,12 @@ jobs:
         with:
           version: '1'
       - uses: julia-actions/cache@v2
+      # The PDF of the math notes, which docs/make.jl copies into the pages.
+      - name: Build the math notes
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: ldr-math.tex
+          working_directory: docs/math
       - name: Install dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Build and deploy
