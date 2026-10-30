@@ -1,12 +1,16 @@
 # Release notes
 
-## Version 0.4.0 (draft)
+## Version 0.4.0
 
 Version 0.4 is a rewrite. It keeps the mathematics of the previous versions — primal and dual
 linear decision rules (Kuhn, Wiesemann and Georghiou, 2011), piecewise linear liftings (Georghiou,
 Wiesemann and Kuhn, 2015), sampled rules, stages — and rebuilds everything around them: a plain
 JuMP model, a typed canonical form, and much smaller reformulations. Models written for 0.2 or 0.3
-need changes; the mapping is below. `docs/math/` explains the mathematics.
+need changes; the mapping is below. The mathematical notes (a PDF built from `docs/math/`) are
+linked from the developer documentation.
+
+Versions 0.1 and 0.2 were registered; their history is in the `legacy` branch. Version 0.3 was
+never registered: the tests compare 0.4 with values computed by 0.3.1.
 
 ### The new way to write a model
 
@@ -38,7 +42,7 @@ decision_rule(sell)       # sell = d, callable on a scenario
 |---|---|
 | `LinearDecisionRules.LDRModel(opt)`, a wrapper with its own methods | `LDRModel(opt)`, a plain `JuMP.Model`; names are now exported |
 | `@variable(m, x, LinearDecisionRules.FirstStage)` | `@variable(m, x, Stage(1))` (`FirstStage` remains as an alias of `Stage(1)`) |
-| `Uncertainty(distribution = law, stage = t)` | `@variable(m, d in Uncertainty(law), Stage(t))`; per component with containers: `@variable(m, w[t = 2:5] in Uncertainty(law), Stage(t))` |
+| `@variable(m, d in Uncertainty(distribution = law, stage = t))` | `@variable(m, d in Uncertainty(law), Stage(t))`; per component with containers: `@variable(m, w[t = 2:5] in Uncertainty(law), Stage(t))` |
 | An unmarked variable was in stage 2 | An unmarked variable is in the last stage T = max(2, largest declared stage), with a warning when T > 2 |
 | A constraint over uncertainties only silently conditioned the law (rejection sampling) | It must be tagged: `@constraint(m, expr, Truncate())` conditions the law; `@constraint(m, expr, ValidInequality())` only tightens the support; untagged, it is an error |
 | `set_attribute(m, SolvePrimal(), b)`, `SolveDual()`, `SolveSampled()`, `NumScenarios()` | `set_attribute(m, Formulations(), [PrimalLDR(), DualLDR(), SampledLDR(N; seed)])` |
@@ -58,8 +62,8 @@ decision_rule(sell)       # sell = d, callable on a scenario
   `LOCALLY_INFEASIBLE` when only the primal rule is infeasible.
 - **Certification:** `is_certified(model)` and the `Certified()` attribute say whether a value is
   exact for the law — not when moments are estimated by rejection sampling, when a law across
-  stages does not have linear conditional expectations, or when the second-moment matrix is
-  singular.
+  stages does not have linear conditional expectations, when the second-moment matrix is
+  singular, or, for the bound, when the quadratic objective is not convex.
 - **Simulation:** `evaluate(model, scenario)` applies a rule to one scenario (decisions, cost,
   violated constraints by name); `simulate(model, n)` draws from the declared laws and
   `simulate(model, scenarios)` takes scenarios from elsewhere (for example SDDP simulations).
@@ -78,21 +82,46 @@ decision_rule(sell)       # sell = d, callable on a scenario
 - **Solver settings per formulation:** `DualLDR(; attributes = ["solver" => "ipm",
   "run_crossover" => "off"])`, for example; `PrimalLDR(; box_closed_form = false)` turns off the
   closed form of box supports.
-- **Low-level access:** `canonicalize`, `moments`, `support_blocks`, `solve_formulation` and the
-  typed canonical form are public, for users who build their own formulations.
+- **Low-level access to the rules:** `rule_coefficient(x, η)` and `rule_matrix(model)`, whose
+  `RuleMatrix` carries the lifting map, so that the rules are `R.matrix * lift(R.lifting, ξ)`.
+  `inner_model(model, f)` returns the inner problem of a formulation, to inspect it or save it with
+  `write_to_file`.
+- **Internals:** the typed canonical form, `canonicalize`, `moments` and `solve_formulation` are
+  documented on the Internals page, but not exported: their contract may change until the
+  `Experimental` submodule makes it stable. `LinearDecisionRules.model_info(backend(model))` reads
+  the tags of a model for `canonicalize`.
+
+### Public names
+
+Exported:
+- **Modelling:** `LDRModel`, `Stage`, `FirstStage`, `stage`, `set_stage`, `unset_stage`,
+  `Uncertainty`, `ValidInequality`, `Truncate`, `BreakPoints`, `Formulations`, `InnerOptimizer`,
+  `RejectionSamplingSeed`, `RejectionSamplingTimeLimit`, `RejectionSamplingMaxSamples`.
+- **Results and rules:** `AbstractFormulation`, `PrimalLDR`, `DualLDR`, `SampledLDR`,
+  `FormulationAttribute`, `Certified`, `is_certified`, `inner_model`, `decision_rule`,
+  `DecisionRule`, `LiftedTerm`, `expected_value`, `rule_coefficient`, `rule_matrix`, `RuleMatrix`;
+  and methods of `termination_status`, `primal_status`, `objective_value`, `objective_bound`,
+  `raw_status` and `solve_time` that take a formulation.
+- **Simulation:** `evaluate`, `Evaluation`, `simulate`, `Simulation`.
+- **Distributions and liftings:** `ConditionedDistribution`, `ConfidenceMvNormal`,
+  `MvDiscreteNonParametric`, `LiftedDistribution`, `support_constraints`, `AbstractLifting`,
+  `AxisPiecewise`, `lift`, `retraction`, `LiftingMap`, `LiftingBlock`.
+
+Public, not exported: `LinearDecisionRules.Optimizer` (declared `public` on Julia 1.11 and later).
 
 ### Performance
 
 - The primal LDR uses multipliers per support block, and a closed form for box supports: on the
   inventory benchmark at T = 128 it has 57,792 variables, as many as a hand-written model, against
-  223,168 in 0.3; time outside the solver went from about 1.4 s to under 0.5 ms.
+  223,168 in 0.3; the time of `optimize!` outside the inner solver went from about 1.4 s to 0.04 s.
 - The dual LDR keeps the structure of the second-moment matrix: on the 12-stage hydrothermal model
   it has 1.06 million nonzeros against 14.2 million in 0.3, with the same value; the design
   measurements with 3 breakpoints per inflow give 15.5 million against 301 million at 12 stages,
   and 64.9 million against 2.6 billion at 24.
-- Smaller is not always faster for the solver: see `benchmark/README.md` and
-  `benchmark/compare/README.md`. For large duals, HiGHS's interior point without crossover is often
-  much faster (hydro, 8 stages: 5.4 s against 117 s), but it fails on some problems; it is opt-in.
+- Smaller is not always faster for the solver: see `benchmark/README.md`. For large duals, HiGHS's
+  interior point without crossover is often much faster (`optimize!` on the hydrothermal model
+  with 8 stages: 5.3 s against 116 s, in `benchmark/hydro/README.md`), but it fails on some
+  problems; it is opt-in.
 
 ### Fixed since 0.3
 
