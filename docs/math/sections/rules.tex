@@ -9,7 +9,7 @@ It respects the information structure if row $i$ of $X$ vanishes beyond the obse
 \Rules \defeq \{\, X \in \R^{n\times k} : X_{ij} = 0 \text{ for } j > \nvis_i \,\}.
 \]
 Nonanticipativity is thus a sparsity pattern, and the package only creates the variables $X_{ij}$, $j \le \nvis_i$ (\code{\_rule\_variables!}, \file{src/formulations/formulation.jl}):
-$\sum_i \nvis_i$ variables, instead of $nk$.
+$\sum_i \nvis_i$ variables, slightly less than $nk$.
 For an integer decision, $X_{i1}$ is an integer variable.
 Restricting \eqref{eq:SP} to these rules, and asking the constraints to hold on $\Xis$, gives the semi-infinite problem
 \begin{equation}
@@ -39,7 +39,7 @@ A linear function that vanishes on a set vanishes on its linear span, which is $
 For $j \notin \Jr_r$ both sides of $(a_r^\T X)_j = b_{rj}$ are zero by definition of $\Jr_r$.
 \end{proof}
 
-This is how \citet[Section~2.2]{KWG2011} eliminate the equalities $AX + S = B$.
+This is how \citet[Section~2.2]{KWG2011} obtain the equalities $AX + S = B$.
 The package adds them once per structural column (\code{\_add\_equalities!}), in all three formulations.
 If a row has $b_{rj} \neq 0$ for some $j > \nvis_r$,
 no rule of its decisions can match the coefficient of the unobserved column $j$, and the model is rejected when it is read:

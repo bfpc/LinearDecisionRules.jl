@@ -25,8 +25,10 @@ The dual approximation solved by the package is
 \tag{D-LDR}
 \begin{aligned}
 \opt_{X \in \Rules} \quad & \text{objective of \cref{prop:objective}} \\
-\text{s.t.} \quad & A_e X = B_e, \qquad S_{r1} \ge 0 \text{ for the deterministic } r \in \Rows,\\
-& S_r \Mom \Wp^\T \ge 0 \quad \text{for the other } r \in \Rows, \qquad S_r = \sigma_r(b_r^\T - a_r^\T X).
+\text{s.t.} \quad & A_e X = B_e, \\
+& S_r = \sigma_r(b_r^\T - a_r^\T X) \\
+& S_{r1} \ge 0 \text{ for the deterministic } r \in \Rows,\\
+& S_r \Mom \Wp^\T \ge 0 \quad \text{for the other } r \in \Rows.
 \end{aligned}
 \end{equation}
 The inequalities $S_r\Mom\Wp^\T \ge 0$ are $\E[s_r(\xi)\,(\Wp\xi)^\T] \ge 0$ for linear $s_r$:

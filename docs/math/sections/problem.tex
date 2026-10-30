@@ -1,7 +1,7 @@
-\section{The problem and its notation}
+\section{Problem and notation}
 \label{sec:problem}
 
-This section fixes the class of problems that the package reads,
+This section fixes the class of problems that the package accepts,
 in the canonical form built by \code{canonicalize} (\file{src/canonical/form.jl}).
 
 \subsection{Uncertainty, stages and laws}
@@ -28,6 +28,9 @@ The law of $\eta$ is given by \emph{declarations}:
 each declaration of variables \code{in Uncertainty(dist)}
 gives a group of columns with a joint law (univariate or multivariate),
 and distinct declarations are independent.
+% Examples of declarations are
+%  \code{@variable(m, d in Uncertainty(Uniform(80, 120))} and
+%  \code{@variable(m, (d1, d2) in Uncertainty(MvNormal([0, 0], [1 0.5; 0.5 1]))}.
 The components of one multivariate declaration may be in different stages;
 then the law itself links stages, and we will see in \cref{sec:dual} that its conditional expectations across stages matter for the dual bound.
 We write $\law$ for the law of $\eta$, and also of $\xi$.
@@ -37,7 +40,7 @@ We write $\law$ for the law of $\eta$, and also of $\xi$.
 The decisions are a vector $x \in \R^n$; decision $i$ has a stage $\dstage_i$.
 A decision without a stage tag is in the last stage $T = \max(2, \text{largest declared stage})$.
 Some decisions may be integer or binary; they must be in stage 1.
-The problem read by the package is
+\pkg{} accepts a multistage stochastic program with quadratic objective and linear constraints, with uncertain right-hand sides and costs, in the form
 \begin{equation}
 \label{eq:SP}
 \tag{SP}
@@ -49,8 +52,8 @@ The problem read by the package is
 \end{equation}
 where $\opt$ is $\min$ or $\max$, and the numbers $\nvis_i$ of observed columns are defined in \cref{sec:information}.
 The data are the sparse matrices
-$P \in \R^{n \times n}$ (symmetric),
-$C \in \R^{n \times k}$, whose first column holds the linear costs and the others the products of decisions and uncertainties,
+$P \in \R^{n \times n}$ (symmetric: quadratic costs on the decisions),
+$C \in \R^{n \times k}$ (random part of the decision costs, by assumption depending linearly on the uncertainties),
 $Q \in \R^{m \times m}$ (symmetric),
 $d \in \R^m$, $f \in \R$,
 $A_e, A_u, A_l$ with $n$ columns, and $B_e, B_u, B_l$ with $k$ columns,
@@ -73,7 +76,6 @@ A row may involve decisions and uncertainties of several stages.
 It is a pointwise constraint, required almost surely:
 in effect it is checked once all its decisions are taken and all the uncertainties that affect them are revealed,
 so its effective stage is the latest stage among its decisions and the uncertainties that appear in it.
-The package attaches no other stage to a row.
 
 \subsection{The information structure}
 \label{sec:information}
@@ -127,8 +129,8 @@ Then
 \Xib{b} = \{\, \eta_b \in \R^{k_b} : W_b \eta_b \ge h_b \,\},
 \end{equation}
 where $\eta_b$ is the subvector of the $k_b$ coordinates of block $b$, and $(W_b, h_b)$ the $q_b$ rows of block $b$ restricted to its columns.
-A block without rows is all of $\R^{k_b}$.
-Every block contains the mean of its coordinates when the mean is finite:
+All blocks must be bounded, by assumption.
+Every block contains the mean of its coordinates:
 for the rows of the laws this holds by construction, and the valid rows are checked at the mean when the model is read.
 Throughout, we assume the following.
 
@@ -156,9 +158,9 @@ Since declarations are independent,
 \Cv = \blockdiag_\ell(\Cvb{\ell}),
 \end{equation}
 with one \emph{covariance block} $\Cvb{\ell}$ per law (\code{Moments}, \file{src/probability/moments.jl}).
-The package stores $\mub$ and the blocks, never the dense matrix $\Mom$.
+The package stores $\mub$ and the blocks, not the dense matrix $\Mom$.
 
 The covariance blocks and the support blocks are two different partitions of the coordinates.
 A multivariate law whose support is a box has one covariance block but one support block per coordinate;
 a valid inequality that couples two independent declarations makes one support block out of two covariance blocks.
-Both partitions are used, and the formulations below never assume that they coincide.
+Both partitions are used, and the formulations below do not assume they coincide.

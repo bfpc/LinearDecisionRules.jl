@@ -14,40 +14,44 @@ Each row of $W\eta \ge h$ has a role (\code{SupportBlock}, \file{src/canonical/s
 A law without finite bounds gives none; an unbounded law is rejected when it is declared.
 \item[:valid] a constraint over uncertainties only, tagged \code{ValidInequality()}:
 it holds almost surely under the declared law and only tightens $\Xis$.
-Since it holds on the support it holds at the mean, which the package checks;
+Since it holds on the support, it holds at the mean, which the package checks;
 equalities are rejected, since $\Xis$ must have a nonempty interior.
 \item[:truncate] a constraint tagged \code{Truncate()}:
 it \emph{conditions} the law on the set $\mathcal{C}$ where such constraints hold,
 and the conditioned law is supported in $\mathcal{C}$, so the row also belongs to $\Xis$.
 \item[:hull] a convex-hull row of a lifting (\cref{sec:axis-lifting}).
 \end{description}
-A constraint over uncertainties only without a tag is an error that names both tags:
-in the previous version such a constraint silently conditioned the law, which proved error-prone.
+A constraint over uncertainties only without a tag is an error.
 The two tags differ in what they mean for the law, not for $\Xis$:
-both give rows of $\Xis$, but only \code{Truncate()} changes $\law$, hence the moments and the draws.
+both give rows of $\Xis$, but only \code{Truncate()} changes $\law$,
+hence the moments and the draws.
 
 \subsection{Exact truncation}
 
-When the rows tagged \code{Truncate()} that involve a univariate law involve it alone, they define an interval $[\alpha, \beta]$,
-and the law is truncated exactly (\code{\_condition}, \file{src/canonical/conditioning.jl}):
-a continuous law becomes \code{truncated(d, alpha, beta)}, whose mean and variance come from Distributions when it has them and from quadrature of the truncated density otherwise;
-a discrete law with a finite support becomes the law of its atoms in the interval, renormalized.
+When a row tagged \code{Truncate()} involves only a univariate law,
+they define an interval $[\alpha, \beta]$,
+and the law is truncated exactly (\code{\_condition}, \file{src/canonical/conditioning.jl}).
+A continuous law becomes \code{truncated(d, alpha, beta)},
+whose mean and variance come from Distributions when it has them,
+and from quadrature of the truncated density otherwise.
+A discrete law with a finite support becomes the law of its atoms in the interval, renormalized.
 The rows are then dropped: the box of the truncated law replaces them.
-A truncation of probability zero is an error that names the constraints.
+A truncation of probability zero is an error that points to the constraints.
 
 Rows tagged \code{Truncate()} that couple several declarations, or that involve a multivariate law, are handled by merging the declarations they couple, by union--find, into one law:
 the product of their laws conditioned on $\mathcal{C} = \{\eta : W_{\mathcal{C}}\eta \ge h_{\mathcal{C}}\}$, which has one covariance block.
 When all these laws have finitely many atoms (\code{MvDiscreteNonParametric}, or univariate laws with a finite support), so does their product,
 and the conditioned law is exact: the atoms of the product that lie in $\mathcal{C}$, with their probabilities renormalized, an \code{MvDiscreteNonParametric} (\code{\_discrete\_conditioned\_law}).
 The rows stay in $\Xis$, and its moments are exact sums, so the values that use them are certified.
-The product is enumerated up to $10^6$ atoms; no atom in $\mathcal{C}$ is an error that names the constraints.
+The product is enumerated up to $10^6$ atoms; no atom in $\mathcal{C}$ results in an error.
 
 \subsection{Conditioning by rejection sampling}
 \label{sec:rejection}
 
 Other conditioned laws have no closed form.
 Such a law is a \code{ConditionedDistribution},
-whose draws are obtained by rejection: draws of the product law are kept when they lie in $\mathcal{C}$.
+whose draws are obtained by rejection sampling:
+draws of the product law are kept when they lie in $\mathcal{C}$.
 
 Its moments are those of the empirical law of the kept draws.
 Up to $N_{\max}$ draws are kept (\code{RejectionSamplingMaxSamples()}, $10\,000$ by default), within a time limit:
@@ -64,17 +68,22 @@ the uniform law on the draws:
 the mean lies in $\Xis$ and $\hat\Mom$ is a second-moment matrix, so all the statements of \cref{sec:primal,sec:dual} hold for that law.
 Sums are accumulated relative to the first kept draw, for accuracy.
 
-The $k$-th conditioned law of a model draws from its own stream, seeded by the $k$-th entry of a vector of seeds drawn from the seed of the model (\code{RejectionSamplingSeed()}, 1234), so laws never share draws.
-Fewer than $\min(N_{\max}, 100)$ kept draws is an error, which names the constraints and the acceptance rate;
-the sampling stops early when even the upper bound of the acceptance rate given by the rule of three cannot reach that number in time.
+The $k$-th conditioned law of a model draws from its own stream,
+seeded by the $k$-th entry of a vector of seeds
+drawn from the seed of the model (\code{RejectionSamplingSeed()}, default 1234),
+so laws never share draws.
+Fewer than $\min(N_{\max}, 100)$ kept draws is an error, which also reports the acceptance rate;
+the sampling stops early when the estimated upper bound of the acceptance rate
+indicates it will not be able to reach that number in time.
 Fewer than $N_{\max}$ draws is a warning.
 The estimates are cached by the conditioned law, its seed and the sample size,
-so that a new solve of a model whose laws and conditioning rows did not change does not sample again.
+so that a new solve of a model whose laws and conditioning rows did not change
+does not sample again.
 A law conditioned by rejection cannot be lifted yet.
 
 The Monte Carlo error of these moments is of order $n^{-1/2}$:
-the standard error of the mean of a coordinate is $\sqrt{\hat\Cv_{jj}/n}$, one percent of its standard deviation with $10\,000$ draws (the default) and about three percent with $1\,000$,
-and an acceptance rate $\pi$ costs about $n/\pi$ draws of the product law.
+the standard error of the mean of a coordinate is $\sqrt{\hat\Cv_{jj}/n}$,
+one percent of its standard deviation with $10\,000$ draws (the default).
 What it means for the results:
 \begin{itemize}[nosep]
 \item the primal rule is still feasible on all of $\Xis$, since robust feasibility does not involve the moments;
@@ -87,11 +96,14 @@ and values of the sampled formulation never are, being estimates by construction
 
 \subsection{Discrete laws}
 
-\code{MvDiscreteNonParametric} is a law on finitely many joint outcomes (scenarios) with given probabilities.
-Its mean and covariance are exact sums, its draws are by inversion of the cumulative probabilities,
-and its box is the componentwise minimum and maximum of the atoms.
-$\Xis$ is then a box around the atoms, larger than their convex hull;
-valid inequalities can describe the hull more tightly, at the price of coupling the coordinates into one support block.
+\code{MvDiscreteNonParametric} is a law on finitely many joint outcomes (scenarios),
+with given probabilities.
+Its mean and covariance are exact sums,
+and random draws are obtained by inversion of the cumulative probabilities.
+Currently, the polyhedron $\Xis$ bounding the law
+is the box of componentwise minimum and maximum of the atoms;
+valid inequalities can describe the hull more tightly,
+at the price of coupling the support blocks of each coordinate.
 The law has $\Cv \succ 0$ only if its atoms are affinely independent enough, that is, if they span an affine space of full dimension.
 In the hydrothermal benchmark (\cref{sec:computation}), each stage has 82 joint outcomes of 4 inflows.
 
@@ -121,16 +133,17 @@ $\E[\eta_f \mid \eta_h] = \mu_f + \Sigma_{fh}\Sigma_{hh}^{-1}(\eta_h - \mu_h)$, 
 The proof is in \cref{app:moments}.
 The mean is $\mu$ by symmetry, and the covariance is $\Sigma$ scaled by the conditional mean of $\norm{z}^2/d$ on the ball,
 which a change of degrees of freedom of the $\chi^2$ density turns into $\Fchi{d+2}(\rho^2)/\alpha$.
-This is the formula of the previous version, which computed $\rho^2$ with \code{quantile(Chisq(d), alpha)} and $c_\alpha$ with \code{cdf(Chisq(d + 2), rho2) / alpha}.
 The second statement holds because, given $\eta_h$, the ellipsoid is an ellipsoid in $\eta_f$ centered at the conditional mean of the untruncated normal law (a Schur complement),
 and the conditional normal law is symmetric around that center.
 So a \code{ConfidenceMvNormal} whose components are in several stages satisfies the condition of \cref{thm:dual-bound},
 even though its components are correlated and dependent across stages (\cref{rem:lce}).
 
-Draws are by rejection in the standardized space: draw $z \sim \mathcal{N}(0, I_d)$ until $\norm{z} \le \rho$, and return $\mu + Lz$,
-with acceptance probability exactly $\alpha$ in any dimension, since $\norm{z}^2 \sim \chi^2_d$ and $\Prob(\norm{z}^2 \le \rho^2) = \Fchi{d}(\rho^2) = \alpha$:
-$1/\alpha$ attempts per draw on average, so that only a small $\alpha$ is costly.
-An exact alternative without rejection draws a direction uniformly on the sphere and a radius $r$ with $r^2 = \Fchi{d}^{-1}(\alpha U)$, $U$ uniform on $(0,1)$.
+Draws are by rejection in the standardized space:
+draw $z \sim \mathcal{N}(0, I_d)$ until $\norm{z} \le \rho$, and return $\mu + Lz$.
+The acceptance probability $\alpha$,
+so only a small $\alpha$ is costly, and that is not usually the case.
+An exact alternative without rejection draws a direction uniformly on the sphere
+and a radius $r$ with $r^2 = \Fchi{d}^{-1}(\alpha U)$, $U$ uniform on $(0,1)$.
 
 \paragraph{Two representations of the support.}
 The support $\mathcal{E}$ is not a polyhedron, and the design plans two representations, chosen by the user (with a default to be decided from the inner solver, the dimension and the presence of integers):

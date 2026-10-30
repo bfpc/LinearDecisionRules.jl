@@ -45,7 +45,7 @@ The primal approximation solved by the package is therefore
 \begin{aligned}
 \opt_{X \in \Rules,\ \lambda} \quad & \text{objective of \cref{prop:objective}} \\
 \text{s.t.} \quad & (a_r^\T X)_j = b_{rj}, \quad j \in \Jr_r, \quad \text{for the equality rows } r,\\
-& S_{r1} \ge 0 \quad \text{for the deterministic } r \in \Rows,\\
+& S_{r1} \ge 0 \quad \text{for the deterministic rows } r \in \Rows,\\
 & \lambda_{rb} \ge 0,\ W_b^\T\lambda_{rb} = S_{r,b}\ (b \in \Touch_r),\quad S_{r1} + \sum_{b\in\Touch_r} h_b^\T\lambda_{rb} \ge 0 \quad \text{for the other } r \in \Rows,
 \end{aligned}
 \end{equation}
