@@ -60,7 +60,8 @@ struct Truncate <: AbstractXiRole end
     XiRole()
 
 A constraint attribute: the [`AbstractXiRole`](@ref) of an uncertainty-only row, or `nothing`.
-It is set by `@constraint(model, expr, ValidInequality())` and read by `ModelInfo`.
+It is set by `@constraint(model, expr, ValidInequality())` or `Truncate()`, and read by
+`model_info`.
 """
 struct XiRole <: MOI.AbstractConstraintAttribute end
 

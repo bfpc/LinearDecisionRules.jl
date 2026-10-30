@@ -14,7 +14,8 @@
 
 # Structural equality: values of the same type whose fields, or elements, are equal recursively.
 # Objects that are not plain data (modules, pointers) compare by identity; a false `false` only
-# costs a rebuild. Distributions are compared by value, as in `_same_distribution`, and treated
+# costs a rebuild. Distributions are compared by value, field by field at every depth (unlike
+# `_same_distribution`, which tries `==` first and compares only the top-level fields), and treated
 # as immutable: a distribution changed in place, rather than replaced, is not seen.
 function _same_value(a, b, depth::Int = 0)
     a === b && return true

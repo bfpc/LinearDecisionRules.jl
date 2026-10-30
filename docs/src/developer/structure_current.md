@@ -159,10 +159,10 @@ Used by: `probability/distributions/lifted_distribution` (4), `lifting/lifted_fo
 
 `ConditionedDistribution`: laws conditioned by `Truncate()` rows, sampled by rejection.
 
-[`src/probability/distributions/conditioned_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/conditioned_distribution.jl): 197 lines.
+[`src/probability/distributions/conditioned_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/conditioned_distribution.jl): 205 lines.
 
 Defines:
-**`ConditionedDistribution` (L50)**†, `Base.length` (L97), `Base.eltype` (L99), `Distributions.params` (L101), `Base.minimum` (L103), `Base.maximum` (L107), `Base.==` (L113), `Base.hash` (L117), `Base.show` (L121), `_constraint_names` (L127), `_draw_candidates!` (L133), `_in_set` (L147), `_MAX_ATTEMPTS_PER_DRAW` (L156), `Distributions._rand!` (L158), **`support_constraints` (L179)** (extends `probability/laws`), `_has_auto_representation` (L191) (extends `probability/laws`), `_resolve_representation` (L193) (extends `probability/laws`).
+**`ConditionedDistribution` (L58)**†, `Base.length` (L105), `Base.eltype` (L107), `Distributions.params` (L109), `Base.minimum` (L111), `Base.maximum` (L115), `Base.==` (L121), `Base.hash` (L125), `Base.show` (L129), `_constraint_names` (L135), `_draw_candidates!` (L141), `_in_set` (L155), `_MAX_ATTEMPTS_PER_DRAW` (L164), `Distributions._rand!` (L166), **`support_constraints` (L187)** (extends `probability/laws`), `_has_auto_representation` (L199) (extends `probability/laws`), `_resolve_representation` (L201) (extends `probability/laws`).
 
 Uses:
 
@@ -202,10 +202,10 @@ Used by: `canonical/conditioning` (1).
 
 `LiftedDistribution`: the law of the lifted coordinates of an uncertainty.
 
-[`src/probability/distributions/lifted_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/lifted_distribution.jl): 112 lines.
+[`src/probability/distributions/lifted_distribution.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/probability/distributions/lifted_distribution.jl): 119 lines.
 
 Defines:
-**`LiftedDistribution` (L36)**† (2 methods), `Base.length` (L62), `Base.eltype` (L66), `Distributions.params` (L68), `Base.minimum` (L70), `Base.maximum` (L72), `Distributions.mean` (L74), `Distributions.cov` (L76), `Distributions.var` (L78), `Distributions._rand!` (L80), `Base.show` (L89), `_lifted_moments` (L96) (extends `lifting/axis_piecewise`).
+**`LiftedDistribution` (L43)**† (2 methods), `Base.length` (L69), `Base.eltype` (L73), `Distributions.params` (L75), `Base.minimum` (L77), `Base.maximum` (L79), `Distributions.mean` (L81), `Distributions.cov` (L83), `Distributions.var` (L85), `Distributions._rand!` (L87), `Base.show` (L96), `_lifted_moments` (L103) (extends `lifting/axis_piecewise`).
 
 Uses:
 
@@ -571,10 +571,10 @@ Used by: `moi/model_info` (2), `moi/optimizer` (4), `jump/variables` (2), `jump/
 
 The tags (`ValidInequality`, `Truncate`) and the MOI attributes, public and internal.
 
-[`src/moi/attributes.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/attributes.jl): 288 lines.
+[`src/moi/attributes.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/attributes.jl): 289 lines.
 
 Defines:
-`AbstractXiRole` (L12)†, `Base.broadcastable` (L15), **`ValidInequality` (L29)**†, **`Truncate` (L57)**†, `XiRole` (L65)†, **`BreakPoints` (L87)**†, **`InnerOptimizer` (L101)**†, **`Formulations` (L120)**†, **`RejectionSamplingSeed` (L134)**†, **`RejectionSamplingTimeLimit` (L162)**†, **`RejectionSamplingMaxSamples` (L185)**†, **`FormulationAttribute` (L200)**†, `MOI.is_set_by_optimize` (L205) (3 methods), **`Certified` (L220)**†, `RuleCoefficients` (L228), `UncertaintyVariables` (L234), `DecisionVariables` (L237), `UncertaintyLifting` (L240), `UncertaintyMoments` (L243), `SimulationData` (L246), `InnerModel` (L251), `_AttributesWithoutIndices` (L269), `MOI.Utilities.map_indices` (L288).
+`AbstractXiRole` (L12)†, `Base.broadcastable` (L15), **`ValidInequality` (L29)**†, **`Truncate` (L57)**†, `XiRole` (L66)†, **`BreakPoints` (L88)**†, **`InnerOptimizer` (L102)**†, **`Formulations` (L121)**†, **`RejectionSamplingSeed` (L135)**†, **`RejectionSamplingTimeLimit` (L163)**†, **`RejectionSamplingMaxSamples` (L186)**†, **`FormulationAttribute` (L201)**†, `MOI.is_set_by_optimize` (L206) (3 methods), **`Certified` (L221)**†, `RuleCoefficients` (L229), `UncertaintyVariables` (L235), `DecisionVariables` (L238), `UncertaintyLifting` (L241), `UncertaintyMoments` (L244), `SimulationData` (L247), `InnerModel` (L252), `_AttributesWithoutIndices` (L270), `MOI.Utilities.map_indices` (L289).
 
 Uses:
 
@@ -622,10 +622,10 @@ Used by: `moi/optimizer` (2).
 
 The cache of inner problems for re-solves, with its fingerprint.
 
-[`src/moi/inner_cache.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/inner_cache.jl): 129 lines.
+[`src/moi/inner_cache.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/inner_cache.jl): 130 lines.
 
 Defines:
-`_same_value` (L19), `_same_fields` (L26) (7 methods), `_same_except_constant` (L59), `_same_form` (L71), `_Fingerprint` (L90), `_same_problem` (L98), `_InnerCache` (L108) (2 methods), `_update!` (L117), `_cached_problem` (L126).
+`_same_value` (L20), `_same_fields` (L27) (7 methods), `_same_except_constant` (L60), `_same_form` (L72), `_Fingerprint` (L91), `_same_problem` (L99), `_InnerCache` (L109) (2 methods), `_update!` (L118), `_cached_problem` (L127).
 
 Uses:
 

@@ -17,14 +17,22 @@ The law of `η = (η₁, …, η_L)`, with independent `ηₗ ~ laws[l]`, condit
 and `MOI.SecondOrderCone`s whose dimensions add up to `length(h)`: by default, `C = {η : W η ≥ h}`.
 
 The components of `η` are those of the laws, in order: `W` has one column per component. `names`
-names the constraint of each row, for the messages. [`canonicalize`](@ref) builds it for the
-declarations coupled by constraints tagged [`Truncate`](@ref).
+names the constraint of each row, for the messages. `optimize!` builds it for the declarations
+coupled by constraints tagged [`Truncate`](@ref).
 
 Draws are by rejection: a draw of the product of the laws is kept if it is in `C` (up to a relative
-tolerance of `1e-9`). Its moments have no closed form: [`moments`](@ref) estimates them by
-rejection sampling. `minimum` and `maximum` are the boxes of the laws. When all the laws have
-finitely many atoms, [`canonicalize`](@ref) replaces it by the exact law of the atoms of their
-product in `C`, a [`MvDiscreteNonParametric`](@ref).
+tolerance of `1e-9`). Its moments have no closed form: `optimize!` estimates them by rejection
+sampling (see [`RejectionSamplingMaxSamples`](@ref)). `minimum` and `maximum` are the boxes of the
+laws.
+
+It is declared a `ContinuousMultivariateDistribution` whatever its laws, and this tag is nominal:
+its draws are vectors of `Float64`, it defines no density or mass function, and the package finds
+the atoms of a law from its type, never from this tag. When all the laws have finitely many atoms,
+the conditioned law is in fact discrete, and `optimize!` replaces it by the exact law of the atoms
+of their product in `C`, a [`MvDiscreteNonParametric`](@ref), as long as that product has at most
+a million atoms; only a larger product stays a `ConditionedDistribution`, whose moments are then
+estimated. A product of discrete and continuous laws is neither discrete nor continuous, and
+Distributions.jl has no tag for it.
 
 ## Fields
 

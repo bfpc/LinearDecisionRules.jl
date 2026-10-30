@@ -7,7 +7,8 @@
     LiftedDistribution(original::Distributions.UnivariateDistribution, lifting::AbstractLifting)
 
 The law of the lifted coordinates `lift(lifting, η)` of an uncertainty `η ~ original`, whose
-support must be bounded. It replaces `original` in a lifted [`CanonicalForm`](@ref).
+support must be bounded. `optimize!` uses it in the place of `original` for an uncertainty with
+[`BreakPoints`](@ref).
 
 Its mean and covariance are computed once, on construction:
 
@@ -18,6 +19,12 @@ Its mean and covariance are computed once, on construction:
 
 `minimum` and `maximum` are the box of the lifted support, and `rand` lifts a draw of `original`,
 so a sample of the lifted law uses one draw of `original` per outcome.
+
+It is declared a `ContinuousMultivariateDistribution` even when `original` is discrete, and this
+tag is nominal: the lifted law of a discrete `η` is discrete, with one atom `lift(lifting, x)` per
+atom `x` of `η` (its moments above are exact sums over them), but its draws are vectors of
+`Float64` either way, it defines no density or mass function, and the package reads the atoms from
+`original`, never from this tag.
 
 ## Fields
 

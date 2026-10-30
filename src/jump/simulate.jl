@@ -534,7 +534,7 @@ function Base.show(io::IO, s::Simulation)
     return
 end
 
-# The scenarios `first:last`, as the columns of a matrix of outcomes: drawn from the original laws.
+# `num` scenarios drawn from the original laws, as the columns of a matrix of outcomes `ξ`.
 function _draw_chunk(rng::Random.AbstractRNG, sim::_Simulator, num::Int)
     ξ = ones(1 + length(sim.uncertainties), num)
     for law in sim.laws
