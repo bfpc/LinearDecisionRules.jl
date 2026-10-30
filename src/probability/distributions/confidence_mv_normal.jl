@@ -173,8 +173,8 @@ end
 
 # Given some components `η_h`, the others `η_f` follow the conditional normal law, centered at the
 # affine `μ_f + Σ_fh Σ_hh⁻¹ (η_h - μ_h)`, restricted to an ellipsoid with the same center (a Schur
-# complement): a symmetric law about that center, whose mean is the center (`docs/math`,
-# Proposition "Moments of ConfidenceMvNormal").
+# complement): a symmetric law about that center, whose mean is the center
+# (`prop:confidence-moments` of `docs/math`).
 _linear_conditional_expectations(::ConfidenceMvNormal, ::AbstractVector) = true
 
 _has_auto_representation(d::ConfidenceMvNormal) = d.support == :auto

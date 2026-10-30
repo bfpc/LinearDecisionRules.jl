@@ -14,9 +14,16 @@ reports the results through JuMP. The pages below follow that path from differen
 | [Public and internal API](@ref developer_api) | Which names are exported, which are documented but internal, and how the JuMP layer talks to the optimizer. |
 | [Structure of `src/`](structure_current.md) | A generated reference: each file, what it defines, what it uses and what uses it. |
 
-The mathematics of the formulations (the primal and dual decision rules, the liftings, the moments)
-is in the LaTeX notes of
-[`docs/math`](https://github.com/bfpc/LinearDecisionRules.jl/tree/main/docs/math).
+Each kind of information has one home:
+
+- **Mathematics** (the primal and dual decision rules, the liftings, the moments, and why the
+  bounds hold): the LaTeX notes of
+  [`docs/math`](https://github.com/bfpc/LinearDecisionRules.jl/tree/main/docs/math). Code comments
+  cite them by their labels, such as `thm:dual-bound`.
+- **Behaviour** (what a function accepts, does and returns): its docstring.
+- **Organization of the code**: these pages.
+- **Measurements** (sizes and solve times): the READMEs of
+  [`benchmark`](https://github.com/bfpc/LinearDecisionRules.jl/tree/main/benchmark).
 
 ## Conventions
 

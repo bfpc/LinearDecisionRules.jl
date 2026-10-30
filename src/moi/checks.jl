@@ -6,7 +6,7 @@
 # Whole-model checks of the assumptions of the dual bound, run by `optimize!`: they warn, since the
 # primal rule and the sampled rule do not need them, and the inner solver has the last word.
 
-# The dual bound needs a convex objective (the dual bound theorem of `docs/math`); the inner
+# The dual bound needs a convex objective (`thm:dual-bound` of `docs/math`); the inner
 # problems of the other formulations are nonconvex too.
 function _check_convex_objective(form::CanonicalForm)
     involved = _nonconvex_decisions(form)
@@ -22,7 +22,7 @@ function _check_convex_objective(form::CanonicalForm)
 end
 
 # The second-moment matrix of the uncertainties must be positive definite for the dual bound
-# (the support assumption of `docs/math`). Without it, the primal and sampled rules are still
+# (`ass:support` of `docs/math`). Without it, the primal and sampled rules are still
 # feasible and their objectives are the expected values of the rule, so they are unaffected.
 function _warn_singular_moments(form::CanonicalForm, mom::Moments)
     laws = _singular_laws(form, mom)
