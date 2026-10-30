@@ -117,7 +117,9 @@ Each formulation takes raw attributes of its inner solver, for itself only,
 such as \code{DualLDR(; attributes = ["solver" => "ipm", "run\_crossover" => "off"])};
 none is the default, since the names are those of one solver and the best mode depends on the problem.
 A bound taken from an inexact solve is safest when it is the inner solver's dual objective value, which bounds the inner optimum by weak duality;
-the package uses the optimal value for an optimal status, and the dual objective value when the solve stopped early.
+the package uses it for a linear program solved to optimality and for a solve stopped by a limit with a dual feasible point (\cref{sec:dual}).
+Only an \code{OPTIMAL} status can be trusted, though: HiGHS may stop an interior point without crossover at an unknown status,
+with a wrong objective value or none, and the package then reports no bound.
 \end{itemize}
 
 \subsection{Breakpoints and solve time}

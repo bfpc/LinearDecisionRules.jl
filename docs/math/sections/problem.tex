@@ -61,7 +61,11 @@ and the bounds $\ell, u \in (\R \cup \{\pm\infty\})^n$.
 A constraint \code{lo <= a'x + b'eta <= hi} gives one row in $(A_u, B_u)$ and one in $(A_l, B_l)$,
 and an equality one row in $(A_e, B_e)$;
 the constant of the right-hand side is the first column of $B$.
-Parameters of JuMP are replaced by their values.
+A parameter of JuMP that appears alone in a row or in the objective stays symbolic:
+the first column of $B$ and the constant $f$ are affine functions of the vector $p$ of the parameter values,
+and the inner problems carry $p$ as variables fixed to its value, so that a new value of $p$ needs no new build.
+For the mathematics, $p$ is a constant.
+A parameter multiplied by a variable, or in a row over the uncertainties only, is replaced by its value.
 
 The data of \eqref{eq:SP} are those of \citet[(MSP)]{KWG2011} with three extensions:
 the objective may be quadratic in the decisions ($P$) and in the uncertainties ($Q$, which only adds a constant to the expected value),
@@ -153,7 +157,8 @@ Positive definiteness of $\Mom$ is equivalent to that of the covariance of $\eta
 that is, to $\eta$ not lying almost surely in a hyperplane.
 It implies that the support, hence $\Xis$, spans $\R^k$, which is the condition of \citet[Section~2]{KWG2011};
 when $\Xis$ is the support the two conditions are equivalent \citep[Proposition~2]{KWG2011}.
-The package rejects equality rows tagged \code{ValidInequality()} but does not check $\Mom \succ 0$;
+The package rejects tagged equality rows, and checks $\Mom \succ 0$ on each covariance block:
+when it fails, it warns, and the bound of the dual approximation is not certified (\cref{sec:dual});
 a law with fewer atoms than its dimension plus one, for instance, violates it.
 
 \subsection{The moments}

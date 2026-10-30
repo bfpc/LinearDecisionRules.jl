@@ -74,7 +74,8 @@ In particular, a linear objective ($P = 0$) is a linear function of $X$ with at 
 When the objective is quadratic,
 the problem \eqref{eq:PLDR} is convex if $P \succeq 0$ for a minimization ($P \preceq 0$ for a maximization),
 and this is also what the dual bound of \cref{sec:dual} needs;
-the package passes the quadratic objective to the inner solver without checking it.
+the package checks it on the decisions that the quadratic terms involve,
+and when it fails, it warns, and the bound of the dual approximation is not certified (the inner problems are then nonconvex).
 
 \subsection{Inequalities and bounds}
 

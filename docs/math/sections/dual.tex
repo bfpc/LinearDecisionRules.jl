@@ -177,10 +177,15 @@ The inner problem is then a second-order cone program.
 
 The rule $X$ of \eqref{eq:DLDR} is not a policy: it need not be feasible for any outcome.
 The package reports only its value, as the objective bound of the model, and the relative gap between it and the primal value.
-With integer decisions, the inner problem is a mixed-integer program, and the bound is the inner solver's bound, which needs no incumbent;
-for a linear program, it is the optimal value, or the dual objective value of the inner solver if the solve stopped early.
+The reported bound is one that the inner solver proves:
+with integer decisions, the inner problem is a mixed-integer program, and the bound is the inner solver's bound, which needs no incumbent;
+for a linear program solved to optimality, it is the dual objective value of the inner solver, a bound by weak duality even when the primal point is only feasible up to a tolerance (or the optimal value, if the solver gives no dual value);
+for a quadratic or conic program solved to optimality, it is the optimal value;
+for a solve stopped by a limit with a dual feasible point, it is the value of that point;
+an unbounded inner problem gives an infinite bound;
+and after any other stop, there is no bound, and it is reported as \code{NaN}.
 Since \eqref{eq:DLDR} is a relaxation, its infeasibility proves the infeasibility of \eqref{eq:SP} (under the conditions of \cref{thm:dual-bound}),
 while an infeasible primal approximation only shows that no linear rule is feasible:
 the package reports \code{INFEASIBLE} only on the evidence of the dual, and \code{LOCALLY\_INFEASIBLE} otherwise.
-The bound is \emph{certified} when the moments are exact, $\Mom \succ 0$, and every law spanning several stages is known to satisfy condition~\ref{it:lce} (\cref{rem:lce});
+The bound is \emph{certified} when the moments are exact, $\Mom \succ 0$, the objective satisfies condition~\ref{it:convex}, and every law spanning several stages is known to satisfy condition~\ref{it:lce} (\cref{rem:lce});
 otherwise the result says why it is not (\cref{sec:rejection}).
