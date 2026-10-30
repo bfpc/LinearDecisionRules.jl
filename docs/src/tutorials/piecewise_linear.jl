@@ -263,6 +263,5 @@ end
 
 # ## What's next?
 
-# * Learn about the other laws and supports of the uncertainties in [Distributions and liftings](@ref).
-# * The [multistage](@ref multistage_tutorial) tutorial puts breakpoints on an uncertainty of a later
-#   stage.
+# The [sampled](@ref sampled_tutorial) tutorial solves the rule on scenarios drawn from the laws
+# instead, and measures it on new scenarios.

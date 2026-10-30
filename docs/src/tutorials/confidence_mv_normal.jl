@@ -213,7 +213,4 @@ model = shared_stock(Clarabel.Optimizer, 0.95; support = :ellipsoid)
 
 # ## What's next?
 
-# * Constrain the support of any law with [`Truncate`](@ref) and [`ValidInequality`](@ref), as in
-#   the [advanced distributions](@ref advanced_distributions_tutorial) tutorial.
-# * Explore [piecewise linear decision rules](@ref piecewise_linear_tutorial) for tighter
-#   primal-dual gaps.
+# This is the last tutorial. The API pages, from [Modelling](@ref), document every function.

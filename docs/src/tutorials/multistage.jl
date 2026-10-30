@@ -199,6 +199,6 @@ simulate(model3, [Dict(model3[:d] => low), Dict(model3[:d] => high)])
 
 # ## What's next?
 
-# * Learn about the other laws in the [distributions](@ref distributions_tutorial) tutorial.
-# * See [`rule_matrix`](@ref), [`decision_rule`](@ref), [`evaluate`](@ref) and [`simulate`](@ref) in
-#   the API.
+# The tutorials so far use simple laws. The second group of tutorials is about modelling the
+# uncertainty, starting with the laws of Distributions.jl in the
+# [distributions](@ref distributions_tutorial) tutorial.

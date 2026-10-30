@@ -14,17 +14,24 @@ import Documenter
 import LinearDecisionRules
 import Literate
 
-# The tutorials, in the order of the manual (the names of the files in docs/src/tutorials).
+# The tutorials, in the order of the manual (the names of the files in docs/src/tutorials), in two
+# groups. The "What's next" section of each one points to the next.
 const TUTORIALS = [
-    "piecewise_linear",
-    "sampled",
-    "distributions",
-    "advanced_distributions",
-    "confidence_mv_normal",
-    "multistage",
+    "Rules" => ["piecewise_linear", "sampled", "multistage"],
+    "Modelling uncertainty" =>
+        ["distributions", "advanced_distributions", "confidence_mv_normal"],
 ]
 
 const TUTORIAL_DIR = joinpath(@__DIR__, "src", "tutorials")
+
+# test/test_tutorials.jl runs every file of the folder, so a tutorial missing here would be tested
+# but not in the manual.
+let listed = sort(reduce(vcat, last.(TUTORIALS)))
+    files = sort([first(splitext(f)) for f in readdir(TUTORIAL_DIR) if endswith(f, ".jl")])
+    if listed != files
+        error("The tutorials of make.jl, $listed, are not the files of $TUTORIAL_DIR, $files.")
+    end
+end
 
 # The license header of each file would be rendered as text.
 preprocess(content) = replace(content, r"\A# Copyright.*?\n\n"s => "")
@@ -32,7 +39,7 @@ preprocess(content) = replace(content, r"\A# Copyright.*?\n\n"s => "")
 include(joinpath(@__DIR__, "structure.jl"))
 DeveloperStructure.main(String[])
 
-for name in TUTORIALS
+for name in reduce(vcat, last.(TUTORIALS))
     file = joinpath(TUTORIAL_DIR, "$name.jl")
     Literate.markdown(file, TUTORIAL_DIR; documenter = true, credit = false, preprocess)
 end
@@ -40,7 +47,8 @@ end
 pages = [
     "Home" => "index.md",
     "Getting started" => "getting_started.md",
-    "Tutorials" => ["tutorials/$name.md" for name in TUTORIALS],
+    "Tutorials" =>
+        [group => ["tutorials/$name.md" for name in names] for (group, names) in TUTORIALS],
     "API" => [
         "Modelling" => "modelling.md",
         "Results and rules" => "results.md",

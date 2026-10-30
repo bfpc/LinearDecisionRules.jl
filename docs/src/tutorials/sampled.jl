@@ -192,5 +192,5 @@ end
 
 # ## What's next?
 
-# Now that you understand sampled decision rules, you can combine them with
-# [piecewise linear decision rules](@ref piecewise_linear_tutorial) for better approximations.
+# The [multistage](@ref multistage_tutorial) tutorial writes a problem over several periods, in
+# which each decision sees only the uncertainties revealed before it.
