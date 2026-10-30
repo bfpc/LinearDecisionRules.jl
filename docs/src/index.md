@@ -15,9 +15,9 @@ model into the primal and dual linear decision rule problems of Kuhn, Wiesemann 
   observed before it, feasible for every outcome, and its expected value is the objective value;
 * The **dual** rule gives a bound on the best value that any policy can reach.
 
-The gap between the two bounds how much is lost by restricting the policy to linear rules. Piecewise
-linear rules, with breakpoints on the uncertainties, close it: see the
-[piecewise linear](@ref piecewise_linear_tutorial) tutorial.
+The gap between the two bounds how much is lost by restricting the policy to linear rules.
+Piecewise linear rules, with breakpoints on the uncertainties, close it:
+see the [piecewise linear](@ref piecewise_linear_tutorial) tutorial.
 
 ## Installation
 
@@ -29,8 +29,8 @@ Pkg.add(["HiGHS", "Distributions"])  # a solver, and the laws of the uncertainti
 
 !!! note
     These pages document version 0.4, which is not released yet. Until it is, install it from
-    the `main` branch of the repository:
-    `Pkg.add(url = "https://github.com/bfpc/LinearDecisionRules.jl", rev = "main")`.
+    the `rewrite` branch of the repository:
+    `Pkg.add(url = "https://github.com/bfpc/LinearDecisionRules.jl", rev = "rewrite")`.
 
 ## A first example
 
@@ -60,16 +60,21 @@ themselves are read with [`decision_rule`](@ref): buy 120, and sell the demand.
 decision_rule(buy), decision_rule(sell)
 ```
 
-## The problems it solves
+## Problem class
 
-Multistage problems with linear constraints and a linear or convex quadratic objective.
+Multistage problems with linear constraints and a linear or quadratic objective.
 The uncertainties can appear in right-hand sides of constraints and costs,
 and their laws must have bounded support.
-Currently, we sup (a law of Distributions.jl, a
-discrete law, or a normal law on its confidence ellipsoid); constraints that describe or condition
-the support of the uncertainties; integer decisions in the first stage; and JuMP parameters, to
-solve the same model again with new data. A decision cannot be multiplied by an uncertainty in a
-constraint. [What can be modelled](@ref) in Getting started has the list.
+Currently, we accept laws from [`Distributions.jl`](https://github.com/JuliaStats/Distributions.jl),
+discrete multivariate laws [`MvDiscreteNonParametric`](@ref),
+or a normal law on its confidence ellipsoid [`ConfidenceMvNormal`](@ref).
+More complex laws can be obtained by imposing constraints on the support of a law,
+which amounts to conditioning it; see the tutorial on [advanced distributions](@ref advanced_distributions_tutorial).
+
+Integer decisions can appear in the first stage,
+and JuMP parameters can be used to solve the same model again with new data.
+
+[What can be modelled](@ref) in Getting started has the list.
 
 ## Reading path
 
