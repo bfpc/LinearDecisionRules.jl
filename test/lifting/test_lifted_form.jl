@@ -58,13 +58,16 @@ function test_newsvendor_structure()
     @test lifted.B_u == form.B_u * [1 0 0 0 0; 0 1 1 1 1]
     @test lifted.C[:, 1] == form.C[:, 1] && iszero(lifted.C[:, 2:end])
     @test lifted.f == form.f && lifted.d == zeros(4) && iszero(lifted.Q)
-    # The hull rows, with the support box of the lifted law.
+    # The hull rows, with the two bounds of the lifted law that they do not imply: `η̃₁ ≤ 90` and
+    # `η̃₄ ≥ 0`.
     @test lifted.W_valid == [10 -10 0 0; 0 10 -10 0; 0 0 10 -10]
     @test lifted.h_valid == [800, 0, 0]
     @test lifted.valid_constraints == [nothing, nothing, nothing]
     block = only(support_blocks(lifted))
     @test block.columns == 2:5
-    @test block.roles == [fill(:box, 8); fill(:hull, 3)]
+    @test block.roles == [:box, :box, :hull, :hull, :hull]
+    @test block.W[1:2, :] == [-1 0 0 0; 0 0 0 1]
+    @test block.h[1:2] == [-90, 0]
     # The map back to the original uncertainty.
     map = lifted.lifting
     @test map isa LiftingMap
@@ -142,7 +145,38 @@ function test_valid_row()
     blocks = support_blocks(form)
     # `d[2]` is coupled to no other coordinate by a row.
     @test [block.columns for block in blocks] == [[2, 4, 5, 6], [3]]
-    @test blocks[1].roles == [fill(:box, 8); :valid; :hull; :hull]
+    # The box of `d[1]`, and the two bounds of the pieces of `d[3]` that the hull rows do not imply.
+    @test blocks[1].roles == [fill(:box, 4); :valid; :hull; :hull]
+    return
+end
+
+# The bounds of the lifted coordinates that are not rows of their block are implied by the
+# others: over each block, every lifted coordinate ranges over the box of its law.
+function test_implied_bounds()
+    edge = only(filter(p -> p.name == "valid_row_breakpoints", Problems.edge_cases()))
+    for p in (Problems.newsvendor_breakpoints(2), edge)
+        form = Problems.form(p)
+        blocks = support_blocks(form)
+        for law in form.laws
+            law.distribution isa LiftedDistribution || continue
+            block = only(b for b in blocks if first(law.columns) in b.columns)
+            @test all(cone -> cone isa MOI.Nonnegatives, block.cones)
+            model = Model(HiGHS.Optimizer)
+            set_silent(model)
+            @variable(model, η[1:length(block.columns)])
+            @constraint(model, block.W * η .>= block.h)
+            columns = indexin(law.columns, block.columns)
+            lower, upper = minimum(law.distribution), maximum(law.distribution)
+            for (k, lo, hi) in zip(columns, lower, upper)
+                @objective(model, Min, η[k])
+                optimize!(model)
+                @test objective_value(model) ≈ lo atol = 1e-9
+                @objective(model, Max, η[k])
+                optimize!(model)
+                @test objective_value(model) ≈ hi atol = 1e-9
+            end
+        end
+    end
     return
 end
 

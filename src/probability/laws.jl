@@ -42,6 +42,10 @@ function _support_box(d::Distributions.Distribution)
     return bounds
 end
 
+# The bounds of a law that are rows of the support Ξ: its box, unless other rows of Ξ imply some
+# of them, as for a `LiftedDistribution`. The box itself stays that of the law.
+_box_rows(d::Distributions.Distribution) = _support_box(d)
+
 """
     support_constraints(d::Distributions.Distribution) -> NamedTuple
 
