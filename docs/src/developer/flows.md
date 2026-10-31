@@ -128,7 +128,7 @@ The three methods of `_build!` share one skeleton:
 | information | `InformationStructure(form)` | same | same |
 | rule variables | `_rule_variables!` (the stage mask) | same | same |
 | equalities | `_add_equalities!` (coefficient matching) | same | same |
-| Ξ | `support_blocks(form)`; the box bounds for the closed form | `_dual_cones(support_blocks(form), mom)` | `_sample_outcomes(form, f)` |
+| Ξ | `support_blocks(form; f.lifted_box)`; the box bounds for the closed form | `_dual_cones(support_blocks(form; f.lifted_box), mom)` | `_sample_outcomes(form, f)` |
 | each inequality | deterministic: `_add_deterministic!`; otherwise `_add_robust_counterpart!` (box closed form, or multipliers per block) | deterministic, or `_add_dual_cone!` | deterministic, or one row per outcome |
 | objective | `_set_objective!(model, form, mom, X)` | same | with `_empirical_moments(outcomes)` |
 

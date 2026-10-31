@@ -142,25 +142,27 @@ enter). Every primal run is also simulated on 2000 scenarios of the true joint l
 vectors per stage, independent across stages): `oos_mean` is the sample mean of the cost, and no
 constraint is violated in any of them.
 
-The table was recorded at 5f20d11, with the previous recording, 01c5f1c, in parentheses (values
-and sizes unchanged). At 7dbebf0 the k = 1 rows were run again: the closed form does not apply to
-breakpoint blocks, which are not boxes, so their sizes and values do not change; their solve times
-are 2.20 s (primal) and 6.03 s (dual) at T = 4, and 124.4 s and 64.0 s at T = 8.
+The table was recorded at 27b63fa, with the previous recording, 5f20d11, in parentheses (values
+unchanged). The machine was about 1.6 times slower that day: the dual with k = 1 at T = 4, the
+same model at both commits, took 10.3 s against 6.0 s at 7dbebf0. The primal is smaller since then:
+the closed form of box supports (7dbebf0) applies with k = 0, and with k ≥ 1 the primal leaves out
+of the support the bounds of the pieces that their convex-hull rows imply (`lifted_box`, see
+[Past studies](../README.md#redundant-box-rows-of-liftings-october-2026-lifted_box)).
 
 | T | k | Primal value | Out-of-sample mean | Dual bound | Primal variables | Primal solve | Dual solve |
 |--:|--:|--:|--:|--:|--:|--:|--:|
-| 4 | 0 | 3.7600 | 3.7587 ± 0.0124 | 0.9803 | 18,160 | 0.58 s (0.60) | 1.3 s (1.3) |
-| 4 | 1 | 1.8888 | 1.8875 ± 0.0150 | 0.9891 | 42,736 | 2.2 s (2.2) | 6.0 s (6.0) |
-| 4 | 2 | 1.5962 | 1.5991 ± 0.0135 | 0.9912 | 67,312 | 5.4 s (5.4) | 33 s (33) |
-| 8 | 0 | 94.875 | 95.584 ± 0.572 | 1.9606 | 83,168 | 13.5 s (13.3) | 65 s (64) |
-| 8 | 1 | 37.296 | 37.717 ± 0.548 | 1.9703 | 197,856 | 127 s (124) | 68 s (66) |
+| 4 | 0 | 3.7600 | 3.7587 ± 0.0124 | 0.9803 | 11,152 (18,160) | 0.53 s (0.58) | 2.4 s (1.3) |
+| 4 | 1 | 1.8888 | 1.8875 ± 0.0150 | 0.9891 | 28,720 (42,736) | 2.7 s (2.2) | 10.3 s (6.0) |
+| 4 | 2 | 1.5962 | 1.5991 ± 0.0135 | 0.9912 | 39,280 (67,312) | 6.4 s (5.4) | 53 s (33) |
+| 8 | 0 | 94.875 | 95.584 ± 0.572 | 1.9606 | 50,464 (83,168) | 18.1 s (13.5) | 103 s (65) |
+| 8 | 1 | 37.296 | 37.717 ± 0.548 | 1.9703 | 132,448 (197,856) | 104 s (127) | 105 s (68) |
 
 One breakpoint per inflow halves the primal value at T = 4 (3.76 to 1.89; two give 1.60) and cuts it by
 61% at T = 8, while the dual bound moves by 1% or less, so the bound goes from 26% to 52% (62% with two)
-of the value at T = 4 and from 2.1% to 5.3% at T = 8. The primal LP has 2.4 times the variables with
-one breakpoint and its solve takes 3.9 times as long at T = 4 and 9.4 times at T = 8 (127 s, under the
-3-minute limit of these runs). The out-of-sample means are within 1.3 standard errors of the primal
-values.
+of the value at T = 4 and from 2.1% to 5.3% at T = 8. The primal LP has 2.6 times the variables with
+one breakpoint and its solve takes 5.2 times as long at T = 4 and 5.8 times at T = 8 (104 s, under
+the 3-minute limit of these runs). The out-of-sample means are within 1.3 standard errors of the
+primal values.
 
 ## Against 0.3
 

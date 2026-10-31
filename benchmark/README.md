@@ -242,3 +242,43 @@ What it found:
   gives the presolved model of the dense 0.3 dual: 3.7 times faster at hydro T = 8 with the default
   dual simplex, but 20 times slower at inventory T = 64, and slower with the interior point. A rule
   to substitute `u` only where a row has few columns would need more instances.
+
+### Redundant box rows of liftings (October 2026, `lifted_box`)
+
+The question: the support of an uncertainty with `n` breakpoints is a simplex with `n + 2` facets,
+its hull rows and two bounds of the box of the lifted coordinates; should Ξ also keep the other
+`2n` bounds, which are implied? They change no value, but give the primal more multipliers and the
+dual more rows. Measured on 31 October 2026 at e26b0e5 (HiGHS 1.15.1, default dual simplex,
+Julia 1.12.6, Windows 11, a machine about 1.6 times slower that day than for the other tables),
+with the whole box ("with") and without the implied bounds ("without"); every value agrees to
+1e-12. The scripts were not kept: the setting is `lifted_box` of `PrimalLDR` and `DualLDR`, so the
+study can be re-run from the tree.
+
+Hydrothermal problem, `k` breakpoints per inflow (solver time; T = 8 with a limit of 600 s):
+
+| T | k | Primal variables | Primal, with | Primal, without | Dual rows | Dual, with | Dual, without |
+|--:|--:|--:|--:|--:|--:|--:|--:|
+| 4 | 1 | 42,736 → 28,720 | 3.5 s | 2.5 s | 51,276 → 37,260 | 10.3 s | 6.4 s |
+| 4 | 2 | 67,312 → 39,280 | 8.5 s | 6.5 s | 79,524 → 51,492 | 54.7 s | 28.9 s |
+| 8 | 1 | 197,856 → 132,448 | 187 s | 106 s | 235,104 → 169,696 | 105 s | 276 s |
+
+The T = 8 dual is slower without the implied bounds under every seed of HiGHS tried
+(`"random_seed" => 1, 2`: 110 s and 84 s with them, 303 s and 267 s without), and the T = 4 dual
+faster (seeds 0 to 3: 9.9 to 12.2 s with them, 6.4 to 7.5 s without).
+
+Inventory (`timing.jl`'s problem), `k` breakpoints per demand, solver time:
+
+| T | k | Primal variables | Primal, with | Primal, without | Dual rows | Dual, with | Dual, without |
+|--:|--:|--:|--:|--:|--:|--:|--:|
+| 16 | 1 | 3,392 → 2,368 | 0.02 s | 0.02 s | 3,996 → 2,972 | 0.13 s | 0.12 s |
+| 16 | 3 | 7,248 → 4,176 | 0.05 s | 0.04 s | 8,364 → 5,292 | 0.85 s | 0.69 s |
+| 32 | 1 | 13,440 → 9,344 | 0.10 s | 0.10 s | 15,676 → 11,580 | 1.98 s | 1.37 s |
+| 32 | 3 | 28,832 → 16,544 | 0.27 s | 0.22 s | 33,116 → 20,828 | 12.1 s | 11.2 s |
+| 64 | 1 | 53,504 → 37,120 | 0.57 s | 0.59 s | 62,076 → 45,692 | 14.7 s | 12.7 s |
+
+What it found: leaving the implied bounds out saved 30% to 43% of the primal variables and 26% to
+37% of the dual rows. It never slowed the primal down by more than the noise (0.57 s against
+0.59 s at inventory T = 64), and saved up to 43% of its solve time; it made the
+dual 8% to 47% faster, except on the hydro problem with T = 8, 2.6 times slower. So `PrimalLDR`
+leaves them out by default, and `DualLDR` keeps them (`DualLDR(; lifted_box = false)` leaves them
+out).

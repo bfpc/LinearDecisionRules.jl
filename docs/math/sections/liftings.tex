@@ -139,20 +139,24 @@ which are affinely independent; in the coordinates $t$ they are $0$, $e_1$, $e_1
 the vertices of the simplex $\{1 \ge t_1 \ge \dots \ge t_{n+1} \ge 0\}$.
 \end{proof}
 
-% Do we really need the box?
-The package describes this simplex by the box of the lifted law,
-$\underline\eta \le \leta_1 \le b_1$ and $0 \le \leta_i \le \Delta_i$, which contains the two end inequalities,
-and by the $n$ \emph{hull rows} $t_i \ge t_{i+1}$, scaled by $\Delta_i\Delta_{i+1}$:
+The package describes this simplex by its $n+2$ facets:
+the two bounds $\leta_1 \le b_1$ and $\leta_{n+1} \ge 0$ of the box of the lifted law, that is $t_1 \le 1$ and $t_{n+1} \ge 0$,
+and the $n$ \emph{hull rows} $t_i \ge t_{i+1}$, scaled by $\Delta_i\Delta_{i+1}$:
 \[
 \Delta_{i+1}\leta_i - \Delta_i\leta_{i+1} \ge \Delta_2\underline\eta\, [i = 1], \qquad i = 1, \dots, n
 \]
 (\code{\_hull\_rows}).
-\citet[Lemma~4.3]{GWK2015} write the same facets normalized by the $\Delta$'s, without the redundant box rows.
-By \cref{prop:description} neither the scaling nor the redundant rows change the dual bound, and they do not change the primal approximation either;
+The other bounds of the box, $\leta_1 \ge \underline\eta$ and $0 \le \leta_i \le \Delta_i$ otherwise, follow from the chain $1 \ge t_1 \ge \dots \ge t_{n+1} \ge 0$:
+they remain bounds of the lifted law, for its draws and the checks of scenarios.
+\citet[Lemma~4.3]{GWK2015} write the same facets normalized by the $\Delta$'s.
+By \cref{prop:description} neither the scaling nor redundant rows change the dual bound, and they do not change the primal approximation either;
 the scaling keeps the coefficients of the order of the data.
-The lifted coordinates of one uncertainty form one support block, with $n+1$ columns and $2(n+1) + n$ rows.
+The lifted coordinates of one uncertainty form one support block, with $n+1$ columns and $n+2$ rows,
+or $3n+2$ with the $2n$ redundant bounds.
+Each formulation chooses (\code{lifted\_box} of \code{PrimalLDR} and \code{DualLDR}, in \code{support\_blocks}):
+the primal approximation leaves the redundant bounds out, and the dual approximation keeps them, for the speed of the solver (\cref{sec:faster}).
 
-When the lifted coordinate is coupled to others by valid rows, the lifted support is described by the lifted valid rows $W\Retr_\eta\leta \ge h$ and the hull rows of each lifted coordinate.
+When the lifted coordinate is coupled to others by valid rows, the lifted support is described by the lifted valid rows $W\Retr_\eta\leta \ge h$ and the rows above of each lifted coordinate.
 This is the outer approximation of \citet[(10)]{GWK2015} of the convex hull of the lifted support, exact when $\Xis$ is a box \citep[Theorem~4.4]{GWK2015}.
 
 \subsection{The lifted form}

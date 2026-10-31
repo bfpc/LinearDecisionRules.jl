@@ -83,7 +83,9 @@ decision_rule(sell)       # sell = d, callable on a scenario
   for the primal, 148× for the dual on the inventory benchmark at T = 64).
 - **Solver settings per formulation:** `DualLDR(; attributes = ["solver" => "ipm",
   "run_crossover" => "off"])`, for example; `PrimalLDR(; box_closed_form = false)` turns off the
-  closed form of box supports.
+  closed form of box supports; `lifted_box` chooses whether the support of an uncertainty with
+  breakpoints keeps the bounds that its convex-hull rows imply (by default, the primal leaves them
+  out and the dual keeps them: see "Past studies" in `benchmark/README.md`).
 - **Low-level access to the rules:** `rule_coefficient(x, η)` and `rule_matrix(model)`, whose
   `RuleMatrix` carries the lifting map, so that the rules are `R.matrix * lift(R.lifting, ξ)`.
   `inner_model(model, f)` returns the inner problem of a formulation, to inspect it or save it with
