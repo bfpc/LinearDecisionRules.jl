@@ -138,6 +138,15 @@ function test_box_closed_form_switch()
     return
 end
 
+function test_lifted_box_switch()
+    @test !PrimalLDR().lifted_box
+    f = PrimalLDR(; lifted_box = true)
+    @test f.lifted_box
+    @test f == PrimalLDR()
+    @test sprint(show, f) == "PrimalLDR(lifted_box = true)"
+    return
+end
+
 # Whether the rule `X` is optimal for `f`: fixed in the inner problem of `f`, it keeps the value.
 function attains(form, mom, f, X, value, optimizer; rtol)
     model = Model(optimizer)

@@ -43,21 +43,22 @@ function _cone_rows(block::SupportBlock)
 end
 
 """
-    support_blocks(form::CanonicalForm) -> Vector{SupportBlock}
+    support_blocks(form::CanonicalForm; lifted_box::Bool = true) -> Vector{SupportBlock}
 
 Return the support Ξ of the uncertainties of `form` as a product of [`SupportBlock`](@ref)s.
 
 The rows of Ξ are the finite bounds of the distributions (`minimum` and `maximum`) and their
 [`support_constraints`](@ref), the rows tagged `ValidInequality()` or `Truncate()`, linear or in a
-second-order cone, and the convex-hull rows of the liftings. The bounds of lifted coordinates
-that the convex-hull rows imply are left out: an [`AxisPiecewise`](@ref) lifting with `n`
-breakpoints gives `n + 2` rows, its `n` hull rows and two bounds. The blocks are the connected
+second-order cone, and the convex-hull rows of the liftings. With `lifted_box = false`, the bounds
+of lifted coordinates that the convex-hull rows imply are left out: an [`AxisPiecewise`](@ref)
+lifting with `n` breakpoints then gives `n + 2` rows, its `n` hull rows and two bounds, instead of
+`3n + 2`. Ξ is the same either way. The blocks are the connected
 components of the coordinates coupled by some row, so every uncertainty column is in exactly one
 block; blocks are sorted by their first column. Every block contains the mean of its coordinates
 (checked by [`canonicalize`](@ref) when the mean is finite; the estimated mean of a conditioned
 law is that of draws in the conditioning set), so it is nonempty.
 """
-function support_blocks(form::CanonicalForm)
+function support_blocks(form::CanonicalForm; lifted_box::Bool = true)
     m = length(form.uncertainties)
     lo, hi = fill(-Inf, m), fill(Inf, m)
     for law in form.laws
@@ -67,7 +68,7 @@ function support_blocks(form::CanonicalForm)
                 error("The support of the uncertainty $(form.uncertainty_names[j-1]) is empty.")
             end
         end
-        l, u = _box_rows(law.distribution)
+        l, u = _box_rows(law.distribution, lifted_box)
         for (k, j) in enumerate(law.columns)
             lo[j-1], hi[j-1] = l[k], u[k]
         end

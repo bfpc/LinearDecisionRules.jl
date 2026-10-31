@@ -4,7 +4,7 @@
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 """
-    PrimalLDR(; attributes = [], box_closed_form::Bool = true)
+    PrimalLDR(; attributes = [], box_closed_form::Bool = true, lifted_box::Bool = false)
 
 The primal linear decision rule: every constraint holds for every outcome in the support Ξ.
 
@@ -17,6 +17,12 @@ program. On a block that is a box (finite bounds of its coordinates, no other ro
 multipliers are replaced by the closed form `min(lo s_j, hi s_j)` of each coefficient `s_j` of the
 slack, with one auxiliary variable per coefficient; `box_closed_form = false` keeps the
 multipliers, to compare both forms.
+
+The support of an uncertainty with `n` [`BreakPoints`](@ref) is described by `n + 2` rows: the
+convex-hull rows of its pieces, and the two bounds of their box that these rows do not imply.
+`lifted_box = true` adds the other `2n` bounds of the box, which leaves the support and the value
+unchanged, with more multipliers: on inventory and hydro problems with breakpoints (HiGHS 1.15),
+leaving them out saves 30% to 43% of the variables, and up to 43% of the solve time.
 
 `attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
 of the optimizer, for this formulation only: `PrimalLDR(; attributes = ["solver" => "ipx"])`.
@@ -31,10 +37,15 @@ cost 3 to 16 times more on the larger inventory problem, or fail on the hydro on
 struct PrimalLDR <: AbstractFormulation
     attributes::Vector{Pair{String,Any}}
     box_closed_form::Bool
+    lifted_box::Bool
 end
 
-function PrimalLDR(; attributes = Pair{String,Any}[], box_closed_form::Bool = true)
-    return PrimalLDR(_attribute_pairs(attributes), box_closed_form)
+function PrimalLDR(;
+    attributes = Pair{String,Any}[],
+    box_closed_form::Bool = true,
+    lifted_box::Bool = false,
+)
+    return PrimalLDR(_attribute_pairs(attributes), box_closed_form, lifted_box)
 end
 
 # The formulations of a type are the same formulation whatever their attributes.
@@ -212,7 +223,7 @@ function _build!(model::JuMP.Model, f::PrimalLDR, form::CanonicalForm, mom::Mome
     observed = InformationStructure(form)
     X = _rule_variables!(model, form, observed)
     _add_equalities!(model, form, observed, X)
-    blocks = support_blocks(form)
+    blocks = support_blocks(form; f.lifted_box)
     block_of = _block_of_columns(blocks, 1 + length(form.uncertainties))
     first_columns = [first(block.columns) for block in blocks]
     # The bounds of the box blocks, for their closed form; `nothing` for the general form.

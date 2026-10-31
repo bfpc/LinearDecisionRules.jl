@@ -79,9 +79,10 @@ Base.minimum(d::LiftedDistribution) = copy(d.lower)
 Base.maximum(d::LiftedDistribution) = copy(d.upper)
 
 # The lifted support of an `AxisPiecewise` lifting is a simplex whose facets are its hull rows and
-# the bounds `η̃₁ ≤ upper[1]` and `η̃ₙ₊₁ ≥ lower[n + 1]` (`lem:hull` of `docs/math`): its other
-# bounds are implied, and are not rows of Ξ.
-function _box_rows(d::LiftedDistribution{<:Any,AxisPiecewise})
+# the bounds `η̃₁ ≤ upper[1]` and `η̃ₙ₊₁ ≥ lower[n + 1]` (`lem:hull` of `docs/math`): without
+# `lifted_box`, its other bounds, which are implied, are not rows of Ξ.
+function _box_rows(d::LiftedDistribution{<:Any,AxisPiecewise}, lifted_box::Bool)
+    lifted_box && return _support_box(d)
     lower, upper = fill(-Inf, length(d.lower)), fill(Inf, length(d.upper))
     lower[end], upper[1] = d.lower[end], d.upper[1]
     return lower, upper

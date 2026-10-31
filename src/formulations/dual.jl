@@ -4,7 +4,7 @@
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 """
-    DualLDR(; attributes = [])
+    DualLDR(; attributes = [], lifted_box::Bool = true)
 
 The dual linear decision rule: a relaxation whose objective value bounds the optimal value of the
 stochastic program (an upper bound of a maximization, a lower bound of a minimization).
@@ -27,6 +27,13 @@ such a law does not have it or is not known to.
 of the optimizer, for this formulation only. Formulations are compared by type: the attributes are
 settings, not part of the identity.
 
+The support of an uncertainty with `n` [`BreakPoints`](@ref) is described by the convex-hull rows
+of its pieces and the box of the pieces. `lifted_box = false` leaves out the `2n` bounds of the box
+that the hull rows imply, which leaves the support and the bound unchanged, with fewer
+constraints. On inventory problems with breakpoints, and on a hydro problem with 4 stages
+(HiGHS 1.15, dual simplex), it was 8% to 47% faster, but 2.6 times slower on the hydro problem
+with 8 stages, so it is not the default.
+
 The dual needs its bound only, not a basis. With HiGHS, its interior point method without
 crossover is often much faster on large problems:
 
@@ -45,9 +52,12 @@ test library, so keep the default for small models.
 """
 struct DualLDR <: AbstractFormulation
     attributes::Vector{Pair{String,Any}}
+    lifted_box::Bool
 end
 
-DualLDR(; attributes = Pair{String,Any}[]) = DualLDR(_attribute_pairs(attributes))
+function DualLDR(; attributes = Pair{String,Any}[], lifted_box::Bool = true)
+    return DualLDR(_attribute_pairs(attributes), lifted_box)
+end
 
 # The formulations of a type are the same formulation whatever their attributes.
 Base.:(==)(::DualLDR, ::DualLDR) = true
@@ -62,6 +72,9 @@ function Base.show(io::IO, f::Union{PrimalLDR,DualLDR})
     end
     if f isa PrimalLDR && !f.box_closed_form
         push!(settings, "box_closed_form = false")
+    end
+    if f.lifted_box != typeof(f)().lifted_box
+        push!(settings, "lifted_box = $(f.lifted_box)")
     end
     print(io, nameof(typeof(f)), "(", join(settings, ", "), ")")
     return
@@ -184,12 +197,12 @@ function _warn_stage_dependence(form::CanonicalForm)
     return
 end
 
-function _build!(model::JuMP.Model, ::DualLDR, form::CanonicalForm, mom::Moments)
+function _build!(model::JuMP.Model, f::DualLDR, form::CanonicalForm, mom::Moments)
     _warn_stage_dependence(form)
     observed = InformationStructure(form)
     X = _rule_variables!(model, form, observed)
     _add_equalities!(model, form, observed, X)
-    cones = _dual_cones(support_blocks(form), mom)
+    cones = _dual_cones(support_blocks(form; f.lifted_box), mom)
     # The cones whose rows involve each column of ξ.
     cones_of = [Int[] for _ in mom.mean]
     for (b, cone) in enumerate(cones), j in unique(SparseArrays.rowvals(cone.V))
