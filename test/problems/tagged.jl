@@ -102,9 +102,12 @@ end
 
 # The inventory with backlog of the benchmarks (`benchmark/timing.jl`), whose primal value is
 # 90T + 20 for an initial stock `x0 = 0`. With `parameter = true`, `x0` is the value of the JuMP
-# parameter `stock`.
-function inventory(T::Int, model = ldr_model(); x0 = 0.0, parameter = false)
+# parameter `stock`; `points` are the breakpoints of every demand.
+function inventory(T::Int, model = ldr_model(); x0 = 0.0, parameter = false, points = nothing)
     @variable(model, d[t = 1:T] in Uncertainty(Uniform(60, 100)), Stage(t + 1))
+    if points !== nothing
+        set_attribute.(d, BreakPoints(), points)
+    end
     @variable(model, 0 <= x[t = 1:T] <= 150, Stage(t))
     @variable(model, I[t = 1:T], Stage(t + 1))
     @variable(model, y[t = 1:T], Stage(t + 1))
