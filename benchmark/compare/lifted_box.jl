@@ -25,6 +25,7 @@
 # Usage (from the repository root):
 #   julia --project=benchmark benchmark/compare/lifted_box.jl hydro T=4,6,8 k=1,3 solver=simplex,ipx
 #   julia --project=benchmark benchmark/compare/lifted_box.jl kwg T=24 k=1 solver=ipopt limit=300
+#   julia --project=benchmark benchmark/compare/lifted_box.jl kwg T=48 k=3 kind=dual lifted_box=false
 
 using Printf
 using JuMP
@@ -132,13 +133,15 @@ function main(args)
     ks = parse.(Int, split(get(options, "k", "1"), ","))
     solvers = split(get(options, "solver", "simplex"), ",")
     limit = parse(Float64, get(options, "limit", "600"))
+    kinds = split(get(options, "kind", "primal,dual"), ",")
+    boxes = parse.(Bool, split(get(options, "lifted_box", "true,false"), ","))
     (; commit, src_commit, src_dirty) = git_info()
     highs = highs_version()
     for problem in problems, solver in solvers
-        for kind in ("primal", "dual")  # compile
+        for kind in kinds  # compile
             run_one(problem, 2, 1, kind, true, solver, limit)
         end
-        for T in Ts, k in ks, kind in ("primal", "dual"), lifted_box in (true, false)
+        for T in Ts, k in ks, kind in kinds, lifted_box in boxes
             r = run_one(problem, T, k, kind, lifted_box, solver, limit)
             @printf(
                 "%-10s T=%-3d k=%d %-6s lifted_box=%-5s %-7s vars=%-7d cons=%-7d nnz=%-8d value=%-16.8g solver=%7.1fs %s\n",
