@@ -78,6 +78,11 @@ decision_rule(sell)       # sell = d, callable on a scenario
   uncertainties in the objective; `AxisPiecewise` liftings are public, with `lift` and
   `retraction`. As before, `points` is a count `n` (equally spaced) or a vector of positions;
   `0` or `nothing` mean no breakpoints.
+- **Breakpoints on combinations (experimental):** `Experimental.set_breakpoints(model, d[1] +
+  d[2], points)` makes the rules piecewise affine in a combination of uncertainties, such as the
+  total demand served from one stock (the `CombinationPiecewise` lifting). The primal rule works
+  with any combination; the dual bound needs the uncertainties of the combination to be in one
+  stage. It works best with few uncertainties per combination: see the Experimental page.
 - **Re-solves:** parameters in right-hand sides and the objective stay symbolic; when only their
   values change, `optimize!` updates the kept inner problems instead of rebuilding them (45× faster
   for the primal, 148× for the dual on the inventory benchmark at T = 64).
@@ -111,7 +116,9 @@ Exported:
   `MvDiscreteNonParametric`, `LiftedDistribution`, `support_constraints`, `AbstractLifting`,
   `AxisPiecewise`, `lift`, `retraction`, `LiftingMap`, `LiftingBlock`.
 
-Public, not exported: `LinearDecisionRules.Optimizer` (declared `public` on Julia 1.11 and later).
+Public, not exported: `LinearDecisionRules.Optimizer` and the submodule
+`LinearDecisionRules.Experimental`, with `Experimental.set_breakpoints` (declared `public` on
+Julia 1.11 and later).
 
 ### Performance
 
@@ -145,5 +152,7 @@ Public, not exported: `LinearDecisionRules.Optimizer` (declared `public` on Juli
 - Fixed recourse: an uncertainty may multiply a decision in the objective, not in a constraint.
 - Breakpoints apply to uncertainties whose law is univariate and not coupled to others by
   `Truncate()` rows.
-- No expected-value constraints yet; the value-function recursion (LFDR) and new liftings are
-  planned for an `Experimental` submodule.
+- No expected-value constraints yet; the value-function recursion (LFDR) and nonlinear liftings
+  are planned for the `Experimental` submodule.
+- Breakpoints on a combination of uncertainties of several stages have no dual bound, and their
+  moments integrate over every continuous uncertainty of the combination (slow beyond about 3).

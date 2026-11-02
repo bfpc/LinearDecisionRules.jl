@@ -4,7 +4,7 @@ This page explains what users can rely on and what may still change. The package
 names (`src/LinearDecisionRules.jl`), grouped by the page of the manual that documents them, and
 `Optimizer` is public without being exported. The canonical layer, the typed description of the
 problem that the formulations work on, is documented on the Internals page but not exported: its
-design may still change, and it will become stable with a planned `Experimental` submodule.
+design may still change, and it will become stable through the `Experimental` submodule.
 
 The API pages list their names in explicit `@docs` blocks, and the documentation build fails if a
 docstring of the package is on no page (`checkdocs = :all`). So when you add a docstring, place it

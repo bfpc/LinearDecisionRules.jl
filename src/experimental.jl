@@ -6,7 +6,7 @@
 """
     LinearDecisionRules.Experimental
 
-Features whose interface may change between minor versions (decision 9 of the design notes):
+Features whose interface may change between minor versions:
 
  * [`Experimental.set_breakpoints`](@ref): breakpoints on a combination of uncertainties, with the
    [`CombinationPiecewise`](@ref) lifting.
@@ -33,10 +33,10 @@ breakpoints of the combination. Setting breakpoints on the same combination agai
 
 The pieces are in the last stage of the uncertainties of the combination. The laws of these
 uncertainties must be discrete with finitely many atoms, or continuous and univariate, and an
-uncertainty in a combination cannot have [`BreakPoints`](@ref) itself. With uncertainties of
-several stages, the combination is not supported by [`DualLDR`](@ref): the dual bound needs the
-conditional expectations of the later stages given the earlier ones to be linear, which the pieces
-are not.
+uncertainty in a combination cannot have [`BreakPoints`](@ref LinearDecisionRules.BreakPoints)
+itself. With uncertainties of several stages, the combination is not supported by
+[`DualLDR`](@ref LinearDecisionRules.DualLDR): the dual bound needs the conditional expectations
+of the later stages given the earlier ones to be linear, which the pieces are not.
 
 ## Example
 

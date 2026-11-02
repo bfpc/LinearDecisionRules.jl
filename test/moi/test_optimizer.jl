@@ -231,6 +231,7 @@ function test_public_names()
     @test !Base.isexported(LinearDecisionRules, :Optimizer)
     if VERSION >= v"1.11"
         @test Base.ispublic(LinearDecisionRules, :Optimizer)
+        @test Base.ispublic(LinearDecisionRules, :Experimental)
         @test !Base.ispublic(LinearDecisionRules, :CanonicalForm)
     end
     return

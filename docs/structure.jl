@@ -364,7 +364,10 @@ struct PackageStructure
 end
 
 function layer(file)
-    return file == MODULE_FILE ? "module" : file == "src/utils.jl" ? "utils" : split(file, '/')[2]
+    file == MODULE_FILE && return "module"
+    file == "src/utils.jl" && return "utils"
+    file == "src/experimental.jl" && return "experimental"
+    return split(file, '/')[2]
 end
 
 function owners(s::PackageStructure)
@@ -560,8 +563,17 @@ end
 _short(f) = replace(f, r"^src/" => "", r"\.jl$" => "")
 _id(f) = replace(_short(f), r"[^A-Za-z0-9]" => "_")
 
-const LAYERS =
-    ["module", "utils", "lifting", "canonical", "probability", "formulations", "moi", "jump"]
+const LAYERS = [
+    "module",
+    "utils",
+    "lifting",
+    "canonical",
+    "probability",
+    "formulations",
+    "moi",
+    "jump",
+    "experimental",
+]
 
 function layer_graph(s::PackageStructure, edges)
     order = Dict(f => i for (i, f) in enumerate(s.files))
@@ -578,7 +590,7 @@ function layer_graph(s::PackageStructure, edges)
     println(io, "flowchart TD")
     for l in present
         n = count(f -> layer(f) == l, s.files)
-        label = l == "utils" ? "utils.jl" : "$l/ ($n file$(n == 1 ? "" : "s"))"
+        label = l in ("utils", "experimental") ? "$l.jl" : "$l/ ($n file$(n == 1 ? "" : "s"))"
         println(io, "    $l[\"$label\"]")
     end
     k = 0

@@ -4,7 +4,7 @@
 CurrentModule = LinearDecisionRules
 ```
 
-This page looks under the hood: what the optimizer reads from a model, and what the formulations work on (the canonical form, the information structure, the support blocks and the moments). These names are not exported, so write them qualified, as in `LinearDecisionRules.canonicalize`. They are documented for reference and for debugging; their design may still change, and they will become stable with a planned `Experimental` submodule.
+This page looks under the hood: what the optimizer reads from a model, and what the formulations work on (the canonical form, the information structure, the support blocks and the moments). These names are not exported, so write them qualified, as in `LinearDecisionRules.canonicalize`. They are documented for reference and for debugging; their design may still change, and they will become stable through the `Experimental` submodule.
 
 ## Reading a model
 
@@ -54,6 +54,7 @@ CovarianceBlock
 Moments
 moments
 second_moment
+_CombinationLaw
 ```
 
 ## Solving one formulation

@@ -122,9 +122,10 @@ export ConditionedDistribution,
     LiftingBlock
 
 # `LDRModel(optimizer)` is `Model(() -> LinearDecisionRules.Optimizer(optimizer))`: the optimizer
-# is public, but not exported. The keyword `public` needs Julia 1.11.
+# is public, but not exported, and so is the `Experimental` submodule. The keyword `public` needs
+# Julia 1.11.
 if VERSION >= v"1.11"
-    eval(Expr(:public, :Optimizer))
+    eval(Expr(:public, :Optimizer, :Experimental))
 end
 
 end # module LinearDecisionRules

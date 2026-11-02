@@ -69,6 +69,7 @@ pages = [
         "Results and rules" => "results.md",
         "Simulation" => "simulation.md",
         "Distributions and liftings" => "distributions.md",
+        "Experimental" => "experimental.md",
         "Internals" => "internals.md",
     ],
     "Developer documentation" => [
