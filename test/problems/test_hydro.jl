@@ -16,7 +16,7 @@ include(joinpath(@__DIR__, "..", "common.jl"))
 # 5 subsystems, T = 3 stages (2 uncertain vectors of 4 inflows, 82 joint scenarios each).
 include(joinpath(@__DIR__, "hydro.jl"))
 
-import .TestCommon: model_size
+import .TestCommon: error_message, model_size
 
 const T = 3
 
@@ -81,6 +81,29 @@ function test_average_scenario_and_tree_sizes()
     optimize!(tree)
     @test termination_status(tree) == MOI.OPTIMAL
     @test objective_value(tree) ≈ 0.741309440590 rtol = 1e-6
+    return
+end
+
+# Breakpoints on combinations of inflows (`set_combinations!`), with values measured with this
+# implementation. At T = 3, the pieces of the total inflow of a stage do not improve the linear
+# rules (their coefficients are zero): the costs depend on each reservoir, and the outer
+# approximation of the hull of a combination of four inflows is loose. The inflow of each reservoir
+# over two stages improves the primal rule a lot, but spans two stages, so it has no dual.
+function test_combinations()
+    data = hydro_thermal_data()
+    both = [LDR.PrimalLDR(), LDR.DualLDR()]
+    stage = ldr_model(data, T; formulations = both, combinations = (:stage, 5))
+    optimize!(stage)
+    @test objective_value(stage) ≈ 1.888358847336 rtol = 1e-6
+    @test objective_bound(stage) ≈ 0.7352371632 rtol = 1e-6
+    @test LDR.is_certified(stage)
+    pairs = ldr_model(data, T; combinations = (:reservoir_pair, 5))
+    optimize!(pairs)
+    @test termination_status(pairs) == MOI.OPTIMAL
+    @test objective_value(pairs) ≈ 1.116113618296 rtol = 1e-6
+    refused = ldr_model(data, T; formulations = both, combinations = (:pair, 5))
+    message = error_message(() -> optimize!(refused))
+    @test occursin("DualLDR() does not support breakpoints on a combination", message)
     return
 end
 

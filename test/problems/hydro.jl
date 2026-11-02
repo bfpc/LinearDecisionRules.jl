@@ -146,11 +146,69 @@ function independent_inflows!(m, data, t, k)
     return inflow
 end
 
+# The law of a sum of independent discrete outcomes: `values[j]` are the equiprobable outcomes of
+# the `j`-th term.
+function sum_law(values::AbstractVector{<:Real}...)
+    weight = Dict{Float64,Float64}()
+    for outcome in Iterators.product(values...)
+        s = sum(outcome)
+        weight[s] = get(weight, s, 0.0) + prod(1 / length(v) for v in values)
+    end
+    support = sort!(collect(keys(weight)))
+    return Distributions.DiscreteNonParametric(support, [weight[s] for s in support])
+end
+
+# The total inflow of stage t >= 2 in each of its scenarios, and the inflow of reservoir i.
+function stage_totals(data, t)
+    return [sum(data.inflow_scenarios[i][inflow_month(t)][ω] for i in REES) for ω in 1:82]
+end
+
+reservoir_inflows(data, t, i) = Vector{Float64}(data.inflow_scenarios[i][inflow_month(t)])
+
+# Breakpoints on combinations of inflows (`LDR.Experimental.set_breakpoints`), `k` of them at the
+# equiprobable quantiles of the law of the combination:
+#
+#   (:stage, k)           the total inflow of each stage t >= 2
+#   (:pair, k)            the total inflow of stages t - 1 and t, for each t >= 3
+#   (:reservoir_pair, k)  the inflow of each reservoir in stages t - 1 and t, for each t >= 3
+#
+# The pairs span two stages, so `DualLDR` refuses them.
+function set_combinations!(m, data, T, combinations)
+    kind, k = combinations
+    inflow(t) = m[Symbol("inflow$t")]
+    set!(f, law) = LDR.Experimental.set_breakpoints(m, f, breakpoint_positions(law, k))
+    if kind == :stage
+        for t in 2:T
+            set!(sum(inflow(t)), sum_law(stage_totals(data, t)))
+        end
+    elseif kind == :pair
+        for t in 3:T
+            law = sum_law(stage_totals(data, t - 1), stage_totals(data, t))
+            set!(sum(inflow(t - 1)) + sum(inflow(t)), law)
+        end
+    elseif kind == :reservoir_pair
+        for t in 3:T, i in REES
+            law = sum_law(reservoir_inflows(data, t - 1, i), reservoir_inflows(data, t, i))
+            set!(inflow(t - 1)[i] + inflow(t)[i], law)
+        end
+    else
+        error("Unknown combinations $kind.")
+    end
+    return
+end
+
 # The monolithic multistage model. `formulations` is the list given to `LDR.Formulations`. The
 # inflows of stage t are in `m[Symbol("inflow$t")]`. With `breakpoints = k`, the law of each stage
 # is the product of the four marginals (independent reservoirs) and each inflow has `k`
-# breakpoints; with `nothing`, it is the joint law.
-function ldr_model(data, T; formulations = [LDR.PrimalLDR()], breakpoints = nothing)
+# breakpoints; with `nothing`, it is the joint law. `combinations` puts breakpoints on combinations
+# of the inflows of the joint laws (see `set_combinations!`).
+function ldr_model(
+    data,
+    T;
+    formulations = [LDR.PrimalLDR()],
+    breakpoints = nothing,
+    combinations = nothing,
+)
     m = LDR.LDRModel(HiGHS.Optimizer)
     set_silent(m)
     set_attribute(m, LDR.Formulations(), formulations)
@@ -180,6 +238,10 @@ function ldr_model(data, T; formulations = [LDR.PrimalLDR()], breakpoints = noth
         stored_in = v.stored
     end
     @objective(m, Min, cost)
+    if combinations !== nothing
+        breakpoints === nothing || error("Combinations need the joint law of the inflows.")
+        set_combinations!(m, data, T, combinations)
+    end
     return m
 end
 
