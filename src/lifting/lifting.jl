@@ -99,16 +99,19 @@ retraction(map::LiftingMap) = map.R
 # The column of ξ̃ of the column `j` of ξ, or 0 if it is lifted.
 _column_of(map::LiftingMap, j::Int) = map.kept[j]
 
-# The block that lifts the column `j` of ξ.
-_block_of(map::LiftingMap, j::Int) = only(b for b in map.blocks if j in b.inputs)
+# The block that replaces the column `j` of ξ by its lifted coordinates.
+function _block_of(map::LiftingMap, j::Int)
+    return only(b for b in map.blocks if !_keeps_inputs(b.lifting) && j in b.inputs)
+end
 
-# The column of ξ that `block` lifts. Every lifting of 0.4 lifts one uncertainty (`_num_inputs`):
-# the rules and the results read the input of a block only here.
+# The column of ξ that `block` lifts, for a lifting of one uncertainty (`AxisPiecewise`): the rules
+# and the results read the input of such a block only here.
 _input(block::LiftingBlock) = only(block.inputs)
 
 # The label of each column of ξ̃, from the label `labels[j - 1]` of each column `j` of ξ: `:constant`,
-# the label of a column that is not lifted, and `(label, k)` for the `k`-th lifted coordinate of
-# a column.
+# the label of a column that is not lifted, `(label, k)` for the `k`-th lifted coordinate of a
+# column, and `((label₁, label₂, …), k)` for the `k`-th piece of a combination of columns, whose
+# pieces are numbered from 2 (see `CombinationPiecewise`).
 function _column_labels(map::LiftingMap, labels::AbstractVector)
     columns = Vector{Any}(undef, size(map.R, 2))
     columns[1] = :constant
@@ -117,7 +120,11 @@ function _column_labels(map::LiftingMap, labels::AbstractVector)
         c > 0 && (columns[c] = labels[j-1])
     end
     for block in map.blocks, (k, c) in enumerate(block.columns)
-        columns[c] = (labels[_input(block)-1], k)
+        columns[c] = if _keeps_inputs(block.lifting)
+            (Tuple(labels[j-1] for j in block.inputs), k + 1)
+        else
+            (labels[_input(block)-1], k)
+        end
     end
     return columns
 end

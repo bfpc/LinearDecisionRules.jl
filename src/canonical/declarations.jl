@@ -42,6 +42,7 @@ end
         valid_rows = Set{MOI.ConstraintIndex}(),
         truncate_rows = Set{MOI.ConstraintIndex}(),
         breakpoints = Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}}(),
+        combinations = Pair{MOI.ScalarAffineFunction{Float64},Union{Int,Vector{Float64}}}[],
     )
 
 The linear-decision-rule metadata of an MOI model, read by [`canonicalize`](@ref).
@@ -62,6 +63,10 @@ decision.
    [`AxisPiecewise`](@ref) lifting of an uncertainty declared alone (with a univariate law): the
    interior breakpoints, or their number `n`, for `n` equally spaced breakpoints inside the
    support. An empty vector or `0` means no lifting.
+ * `combinations::Vector{Pair{MOI.ScalarAffineFunction{Float64},Union{Int,Vector{Float64}}}}`: the
+   combinations of uncertainties with breakpoints, each with its breakpoints or their number, for
+   the [`CombinationPiecewise`](@ref) liftings of `Experimental` (see
+   [`Experimental.set_breakpoints`](@ref)).
 """
 Base.@kwdef struct ModelInfo
     uncertainties::Vector{UncertaintyDeclaration} = UncertaintyDeclaration[]
@@ -70,4 +75,6 @@ Base.@kwdef struct ModelInfo
     truncate_rows::Set{MOI.ConstraintIndex} = Set{MOI.ConstraintIndex}()
     breakpoints::Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}} =
         Dict{MOI.VariableIndex,Union{Int,Vector{Float64}}}()
+    combinations::Vector{Pair{MOI.ScalarAffineFunction{Float64},Union{Int,Vector{Float64}}}} =
+        Pair{MOI.ScalarAffineFunction{Float64},Union{Int,Vector{Float64}}}[]
 end

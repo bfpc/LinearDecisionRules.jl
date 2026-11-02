@@ -87,5 +87,7 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo; conic_support::Bool =
     _check_valid_rows_at_mean(src, form)
     _check_observable_equalities(src, form)
     liftings = _breakpoint_liftings(src, form, info.breakpoints)
-    return isempty(liftings) ? form : lift(form, liftings)
+    combinations = _combination_liftings(src, form, info.combinations)
+    isempty(liftings) && isempty(combinations) && return form
+    return lift(form, liftings, combinations)
 end
