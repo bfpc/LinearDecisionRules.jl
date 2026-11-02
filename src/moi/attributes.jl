@@ -88,6 +88,20 @@ set_attribute(d, BreakPoints(), nothing)  # no lifting
 struct BreakPoints <: MOI.AbstractVariableAttribute end
 
 """
+    CombinationBreakPoints()
+
+A model attribute of `Experimental`: the combinations of uncertainties with breakpoints, as a
+vector of pairs `f => points`, where `f` is a `MOI.ScalarAffineFunction{Float64}` of uncertainties
+and `points` its interior breakpoints or their number (see
+[`Experimental.set_breakpoints`](@ref), which sets it).
+"""
+struct CombinationBreakPoints <: MOI.AbstractModelAttribute end
+
+function MOI.Utilities.map_indices(f::Function, ::CombinationBreakPoints, x)
+    return [MOI.Utilities.map_indices(f, g) => points for (g, points) in x]
+end
+
+"""
     InnerOptimizer()
 
 An optimizer attribute: the factory of the optimizer that solves the reformulated models, for

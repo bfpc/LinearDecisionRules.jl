@@ -189,6 +189,8 @@ end
 
 MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
 
+MOI.supports(::Optimizer, ::CombinationBreakPoints) = true
+
 MOI.supports(::Optimizer, ::Union{MOI.VariableName,BreakPoints}, ::Type{MOI.VariableIndex}) = true
 
 function MOI.supports(
@@ -374,6 +376,7 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     info = model_info(src)
     _check_bounded_support(src, info)
     form = canonicalize(src, info; conic_support = _inner_supports_cones(factory, info))
+    _check_combinations_across_stages(form, dest.formulations)
     # Without `RejectionSamplingTimeLimit()`, the sampling gets half of what remains of
     # `TimeLimitSec`, and the formulations the rest.
     budget = nothing

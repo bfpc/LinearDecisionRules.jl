@@ -73,6 +73,18 @@ function _breakpoints(src::MOI.ModelLike)
     return breakpoints
 end
 
+# The combinations with breakpoints of `Experimental.set_breakpoints`.
+function _combinations(src::MOI.ModelLike)
+    out = Pair{MOI.ScalarAffineFunction{Float64},Union{Int,Vector{Float64}}}[]
+    if !(CombinationBreakPoints() in MOI.get(src, MOI.ListOfModelAttributesSet()))
+        return out
+    end
+    for (f, points) in something(MOI.get(src, CombinationBreakPoints()), [])
+        push!(out, f => (points isa Integer ? Int(points) : Vector{Float64}(points)))
+    end
+    return out
+end
+
 """
     model_info(src::MOI.ModelLike) -> ModelInfo
 
@@ -103,5 +115,6 @@ function model_info(src::MOI.ModelLike)
         valid_rows,
         truncate_rows,
         breakpoints = _breakpoints(src),
+        combinations = _combinations(src),
     )
 end

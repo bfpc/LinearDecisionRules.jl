@@ -183,6 +183,30 @@ function _stage_dependent_laws(form::CanonicalForm)
     return nonlinear, unknown
 end
 
+# A combination with breakpoints of uncertainties of several stages breaks the linear conditional
+# expectations that the dual bound needs: its pieces are not affine in the earlier uncertainties
+# (see `CombinationPiecewise`). `optimize!` checks it before solving any formulation.
+function _check_combinations_across_stages(form::CanonicalForm, formulations)
+    any(f -> f isa DualLDR, formulations) || return
+    form.lifting === nothing && return
+    map = form.lifting
+    across = String[]
+    for block in map.blocks
+        _keeps_inputs(block.lifting) || continue
+        stages = sort!(unique(map.uncertainty_stages[j-1] for j in block.inputs))
+        length(stages) > 1 || continue
+        names = _name_list([map.uncertainty_names[j-1] for j in block.inputs])
+        push!(across, "$names (stages $(join(stages, ", ")))")
+    end
+    isempty(across) && return
+    return error(
+        "DualLDR() does not support breakpoints on a combination of uncertainties of several " *
+        "stages, as for $(join(across, "; ")): the pieces of the combination are not affine in " *
+        "the uncertainties of the earlier stages, so the dual would not be a bound. Use " *
+        "PrimalLDR() or SampledLDR() for this model, or combinations within one stage.",
+    )
+end
+
 function _warn_stage_dependence(form::CanonicalForm)
     nonlinear, unknown = _stage_dependent_laws(form)
     isempty(nonlinear) && isempty(unknown) && return

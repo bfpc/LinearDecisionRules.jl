@@ -19,18 +19,44 @@ end
 (term::LiftedTerm)(η::Real) = LinearAlgebra.dot(term.coefficients, lift(term.lifting, η))
 
 """
+    CombinationTerm(
+        lifting::CombinationPiecewise,
+        inputs::Vector{JuMP.VariableRef},
+        coefficients::Vector{Float64},
+    )
+
+The term `coefficients ⋅ lift(lifting, [d₁, d₂, …])` of a [`DecisionRule`](@ref) in a combination of
+the uncertainties `inputs` with breakpoints (see [`Experimental.set_breakpoints`](@ref)):
+`coefficients[k]` is the coefficient of the rule on the piece `k + 1` of the combination. Call it
+with a scenario of the inputs, a `Dict`.
+"""
+struct CombinationTerm
+    lifting::CombinationPiecewise
+    inputs::Vector{JuMP.VariableRef}
+    coefficients::Vector{Float64}
+end
+
+function (term::CombinationTerm)(scenario::AbstractDict)
+    η = [scenario[d] for d in term.inputs]
+    return LinearAlgebra.dot(term.coefficients, lift(term.lifting, η))
+end
+
+"""
     DecisionRule(
         constant::Float64,
         coefficients::Dict{JuMP.VariableRef,Float64},
         lifted::Dict{JuMP.VariableRef,LiftedTerm} = Dict{JuMP.VariableRef,LiftedTerm}(),
+        combinations::Vector{CombinationTerm} = CombinationTerm[],
     )
 
-The decision rule `x(η) = constant + Σ coefficients[d] * d + Σ lifted[d](d)`, over the
-uncertainties `d` of the model. Build it with [`decision_rule`](@ref).
+The decision rule `x(η) = constant + Σ coefficients[d] * d + Σ lifted[d](d) + Σ c(η)` over the
+uncertainties `d` of the model, with `c` in `combinations`. Build it with
+[`decision_rule`](@ref).
 
 An uncertainty with [`BreakPoints`](@ref) is in `lifted`, with the coefficients of the rule on
 its pieces (see [`LiftedTerm`](@ref)), so the rule is piecewise affine in it; the others are in
-`coefficients`.
+`coefficients`. A combination with breakpoints of `Experimental` is in `combinations` (see
+[`CombinationTerm`](@ref)).
 
 Call it with a scenario of the uncertainties of the model: a `Dict` of the value of each
 uncertainty, or pairs.
@@ -48,10 +74,15 @@ struct DecisionRule
     constant::Float64
     coefficients::Dict{JuMP.VariableRef,Float64}
     lifted::Dict{JuMP.VariableRef,LiftedTerm}
+    combinations::Vector{CombinationTerm}
 end
 
-function DecisionRule(constant::Float64, coefficients::Dict{JuMP.VariableRef,Float64})
-    return DecisionRule(constant, coefficients, Dict{JuMP.VariableRef,LiftedTerm}())
+function DecisionRule(
+    constant::Float64,
+    coefficients::Dict{JuMP.VariableRef,Float64},
+    lifted::Dict{JuMP.VariableRef,LiftedTerm} = Dict{JuMP.VariableRef,LiftedTerm}(),
+)
+    return DecisionRule(constant, coefficients, lifted, CombinationTerm[])
 end
 
 function (rule::DecisionRule)(scenario::AbstractDict)
@@ -61,6 +92,9 @@ function (rule::DecisionRule)(scenario::AbstractDict)
     end
     for (d, term) in rule.lifted
         value += term(scenario[d])
+    end
+    for term in rule.combinations
+        value += term(scenario)
     end
     return value
 end
@@ -76,6 +110,9 @@ function Base.show(io::IO, rule::DecisionRule)
     end
     for (d, term) in _by_index(rule.lifted)
         print(io, " + ", term.coefficients, " ⋅ lift(", term.lifting, ", ", d, ")")
+    end
+    for term in rule.combinations
+        print(io, " + ", term.coefficients, " ⋅ lift(", term.lifting, ", ", term.inputs, ")")
     end
     return
 end
@@ -115,13 +152,19 @@ function decision_rule(x::JuMP.VariableRef; formulation::AbstractFormulation = P
         (j, v) in enumerate(uncertainties) if column(j) > 0 && !iszero(rule[column(j)])
     )
     lifted = Dict{JuMP.VariableRef,LiftedTerm}()
+    combinations = CombinationTerm[]
     for block in map.blocks
         c = rule[block.columns]
         all(iszero, c) && continue
+        if _keeps_inputs(block.lifting)
+            inputs = [JuMP.VariableRef(model, uncertainties[j-1]) for j in block.inputs]
+            push!(combinations, CombinationTerm(block.lifting, inputs, c .+ 0.0))
+            continue
+        end
         d = JuMP.VariableRef(model, uncertainties[_input(block)-1])
         lifted[d] = LiftedTerm(block.lifting, c .+ 0.0)
     end
-    return DecisionRule(rule[1] + 0.0, coefficients, lifted)
+    return DecisionRule(rule[1] + 0.0, coefficients, lifted, combinations)
 end
 
 _a_variable(::Real) = nothing

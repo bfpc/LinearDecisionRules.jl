@@ -62,12 +62,22 @@ function _original_laws(form::CanonicalForm)
         _column_of(lifting, j) => j for j in 2:length(lifting.kept) if _column_of(lifting, j) > 0
     )
     pieces = Dict(block.columns => block for block in lifting.blocks)
-    return map(form.laws) do law
-        if law.distribution isa LiftedDistribution
-            return _OriginalLaw(law.distribution.original, [_input(pieces[law.columns])])
+    laws = _OriginalLaw[]
+    for law in form.laws
+        d = law.distribution
+        if d isa LiftedDistribution
+            push!(laws, _OriginalLaw(d.original, [_input(pieces[law.columns])]))
+        elseif d isa _CombinationLaw
+            # The laws merged by combinations, each on its own columns.
+            for (k, original_law) in enumerate(d.laws)
+                columns = law.columns[d.offsets[k].+(1:_dimension(original_law))]
+                push!(laws, _OriginalLaw(original_law, [original[c] for c in columns]))
+            end
+        else
+            push!(laws, _OriginalLaw(d, [original[c] for c in law.columns]))
         end
-        return _OriginalLaw(law.distribution, [original[c] for c in law.columns])
     end
+    return laws
 end
 
 function _stack_rows(form::CanonicalForm)

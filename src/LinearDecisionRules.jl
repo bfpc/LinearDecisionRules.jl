@@ -65,6 +65,7 @@ include("jump/model.jl")
 include("jump/results.jl")
 include("jump/rules.jl")
 include("jump/simulate.jl")
+include("experimental.jl")
 
 # The user API, by the page of the manual that documents it. The canonical form, the moments and
 # `solve_formulation` are documented on the Internals page but not exported: their contract may
