@@ -3,7 +3,7 @@
 
 The structured formulations make problems with hundreds of thousands of rule coefficients routine.
 For larger ones, the following directions follow from the structure described above; none is implemented,
-except for the parts of the last two paragraphs that are said to be done.
+except for the parts of the paragraphs on solver-aware formulations, conic supports and combinations that are said to be done.
 
 \paragraph{Decomposition.}
 The reformulations are block-angular:
@@ -39,7 +39,19 @@ Random recourse (an uncertainty multiplying a decision in a constraint) makes th
 It is cheap in two cases: when the decision is a first-stage constant, the product is linear in $\xi$;
 and in the sampled formulation, where each outcome gives a constraint linear in $X$.
 
+\paragraph{Combinations of uncertainties.}
+Breakpoints on combinations are experimental (\cref{sec:combination-lifting}), and three of their limits are open.
+The outer approximation of the lifted support is loose with several inputs, since its fibers depend on the uncertainties only through the combination:
+a tighter description, between it and the intractable convex hull, would make the pieces more useful.
+The moments integrate over every continuous input;
+the law of the combination, by convolution, would reduce them to integrals of one or two dimensions.
+And a combination over several stages has no dual bound, because condition~\ref{it:lce} of \cref{thm:dual-bound} fails.
+One way to restore it is to lift, as coordinates of the earlier stages, the conditional expectations $g_t = \E[p \mid \xi_{1:\nvis(t)}]$ of the pieces given the history,
+which are smooth functions with their own hull rows and moments;
+for the cumulative sums of $T$ stages this adds $O(T^2)$ coordinates,
+so the size grows quickly with the horizon.
+
 \paragraph{Richer rules.}
-Liftings of linear combinations of several uncertainties and nonlinear liftings \citep[Section~5]{GWK2015} fit the framework of \cref{sec:liftings} with new maps $\Lift$ and $\Retr$;
+Nonlinear liftings \citep[Section~5]{GWK2015} fit the framework of \cref{sec:liftings} with new maps $\Lift$ and $\Retr$;
 expected-value constraints at a given stage \citep[(MSP)]{KWG2011} fit the canonical form with new rows;
 and two-stage linear decision rules \citep{BodurLuedtke2022} combine linear rules with an exact recourse at each stage, at the price of a decomposition.

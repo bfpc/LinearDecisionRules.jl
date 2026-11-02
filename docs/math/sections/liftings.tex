@@ -57,8 +57,8 @@ by the hypothesis on $\Retr$ it respects the lifted information structure, and \
 \end{proof}
 
 The package states the stage rule of the proposition in general (\code{AbstractLifting}, \file{src/lifting/lifting.jl}).
-For liftings of one coordinate, the only ones implemented, it is the axiom (A5) of \citet{GWK2015};
-for liftings of linear combinations of several coordinates (a future feature), it is the history-dependent lifting of \citet[Remark~6.5]{GWK2015},
+For liftings of one coordinate, it is the axiom (A5) of \citet{GWK2015};
+for liftings of linear combinations of several coordinates (\cref{sec:combination-lifting}), it is the history-dependent lifting of \citet[Remark~6.5]{GWK2015},
 which is enough for the primal approximation but not, in general, for the dual one.
 
 \subsection{Axis-aligned piecewise linear liftings}
@@ -226,3 +226,123 @@ note that the equally spaced breakpoints of $n$ and $n+1$ points are not nested,
 The primal rule also gives a warm start of the finer problem: the rule $\lX$ of the coarse lifting is the rule $\lX\Retr'$ of the fine one, where $\Retr'$ maps the fine pieces to the coarse ones.
 \citet[Theorem~4.4]{GWK2015} show that the sizes stay polynomial in the number of breakpoints;
 \cref{sec:computation} reports what that means in practice.
+
+\subsection{Liftings of combinations of uncertainties (experimental)}
+\label{sec:combination-lifting}
+
+An axis lifting makes a rule piecewise affine in one uncertainty.
+Often the decisions react to a combination of uncertainties instead:
+the total inflow of a stage, the inflows of one reservoir over two stages, the demand of two periods.
+The package puts breakpoints on such a combination, as an experimental feature
+(\code{CombinationPiecewise}, \file{src/lifting/combination_piecewise.jl}, set with \code{Experimental.set\_breakpoints}).
+
+Let $J$ be a set of uncertainties, $a \in \R^J$ nonzero, $c \in \R$, and $s = c + a^\T\eta_J$.
+Let $[s_{\min}, s_{\max}]$ be the range of $s$ on the support
+(on the atoms of the laws with finitely many, on the box of the others),
+let $s_{\min} < b_1 < \dots < b_n < s_{\max}$ be breakpoints,
+and let $v_i$ and $\Delta_i$ be as in \cref{sec:axis-lifting}, for $s$.
+The lifting appends the pieces of $s$ after the first to the uncertainties, which it keeps:
+\[
+\Lift(\xi) = \bigl(\xi,\ p_2(s), \dots, p_{n+1}(s)\bigr),
+\]
+with
+\[
+p_k = \min\bigl(\max(s - b_{k-1}, 0),\ \Delta_k\bigr) \ (2 \le k \le n), \qquad
+p_{n+1} = \max(s - b_n, 0).
+\]
+The first piece, $\min(s, b_1) = s - p_2 - \dots - p_{n+1}$, is affine in the lifted vector,
+so it is not a coordinate: the components of $\Lift$ would not be linearly independent.
+The retraction keeps $\xi$ and drops the pieces, $\Retr = [\eye\ \ 0]$,
+and each piece is in the largest stage of the uncertainties of $J$.
+A rule linear in $\Lift(\xi)$ is
+\[
+x(\xi) = X_0 + X_\eta\,\eta + \textstyle\sum_{k=2}^{n+1} X_k\,p_k(s),
+\]
+an affine function of $\eta$ plus a continuous piecewise affine function of $s$, with breakpoints $b_1, \dots, b_n$.
+With one input ($s = \eta_j$), the lifted vector $(\eta, p_2, \dots, p_{n+1})$ is the image of the axis lifting of $\eta_j$
+by an invertible linear map that keeps $\lxi_1$ and the stages ($\eta_j = \leta_1 + \dots + \leta_{n+1}$, $p_k = \leta_k$),
+so by the argument of \cref{rem:shifted-lifting} both approximations are those of \code{AxisPiecewise};
+the test suite checks it.
+
+\paragraph{The lifted support.}
+Following \citet{GWK2015}, for whom the exact convex hull is intractable for a general segmentation, the package uses an outer approximation:
+\[
+\lXi = \bigl\{ (\eta, p) : \eta \in \Xis,\ (s - p_2 - \dots - p_{n+1},\ p_2, \dots, p_{n+1}) \in S \bigr\},
+\]
+where $S$ is the simplex of \cref{lem:hull} for $s$ on $[s_{\min}, s_{\max}]$.
+It contains $\Lift(\Xis)$, since $s \in [s_{\min}, s_{\max}]$ on $\Xis$, so the primal rule is feasible and the dual bound valid (\cref{prop:lifted}).
+Its rows are those of $\Xis$ and the facets of $S$ written with the first piece above:
+\[
+\Delta_2\bigl(s - \textstyle\sum_k p_k - s_{\min}\bigr) - \Delta_1 p_2 \ge 0, \qquad
+\Delta_{k+1}p_k - \Delta_k p_{k+1} \ge 0 \ (2 \le k \le n), \qquad
+b_1 - s + \textstyle\sum_k p_k \ge 0,
+\]
+and the bound $p_{n+1} \ge 0$ (\code{\_hull\_rows}).
+This bound is a facet of $S$, so the box of the lifted law keeps it even when \code{lifted\_box} is false;
+the other bounds of the pieces are implied, as for the axis lifting.
+
+With one input, $\lXi$ is the description of \cref{sec:axis-lifting}.
+With several, it is not the convex hull of $\Lift(\Xis)$: its fibers depend on $\eta$ only through $s$.
+For example, let $\eta$ be uniform on $[0, 1]^2$, $s = \eta_1 + \eta_2$, and $b_1 = 1$.
+Above the vertex $\eta = (1, 0)$ of $\Xis$, the convex hull has the single point $p_2 = 0$, because a vertex is not a convex combination of other points of $\Xis$;
+the fiber of $\lXi$ is $\{p_2 : 1 \ge 1 - p_2 \ge p_2 \ge 0\} = [0, 1/2]$.
+A robust constraint of the primal approximation must hold on the whole fiber,
+so the pieces help less than they would with the exact hull, and the measurements below suggest that the gap grows with the number of inputs.
+
+\paragraph{The dual approximation.}
+When the uncertainties of $J$ are in several stages, the pieces are in the last one,
+and their conditional expectation given the earlier stages is a nonlinear function of the observed uncertainties:
+condition~\ref{it:lce} of \cref{thm:dual-bound} fails, and the dual approximation is not known to bound the problem.
+The primal approximation needs no such condition: this is the history-dependent lifting of \citet[Remark~6.5]{GWK2015}.
+So \code{DualLDR} refuses these combinations before any solve; a combination within one stage keeps the dual bound,
+since its law is then in one stage (\cref{rem:lce}).
+
+\paragraph{The lifted law and its moments.}
+A combination couples the laws of its inputs, so these laws, with the pieces of every combination over them, form one law
+(\code{\_CombinationLaw}, \file{src/probability/distributions/combination_law.jl});
+combinations that share an input share this law, which is one support block and one covariance block.
+The laws must be independent declarations, each discrete with finitely many atoms or continuous and univariate (product laws are split into their components).
+The formulations need $\E[p_k]$, $\E[p_k\eta_j]$ and $\E[p_kp_l]$, also between pieces of two combinations that share an input.
+For discrete laws, the package sums over the joint atoms of the laws involved (at most $10^7$);
+for continuous laws, it nests adaptive quadratures over the inputs (QuadGK),
+split at the values where $s$ crosses a breakpoint, so that the integrand is smooth on each cell;
+for a mix, it sums over the discrete laws and integrates over the continuous ones.
+The cost of the quadrature grows exponentially with the number of continuous inputs:
+a combination of five uniform demands takes minutes.
+The moments of the pieces depend only on the law of $s$, and $\E[p_k\eta_j]$ on that of $(\eta_j, s - a_j\eta_j)$,
+so the law of a sum, by convolution, would make them one- and two-dimensional integrals.
+
+\paragraph{Measurements.}
+\Cref{tab:combinations} gives the primal values of the two benchmark problems of \cref{sec:computation},
+with 5 breakpoints per combination for the hydrothermal problem, at the equiprobable quantiles of its law,
+and 1 for the inventory, in the middle of its range.
+Combinations of two inputs help the most, those of four or eight inputs less (not at all at $T = 3$),
+and the cumulative demand of the inventory, its natural state, not at all.
+A chain of combinations over consecutive stages merges the laws of all the stages into one support block:
+the hydrothermal problem with the inflows of each reservoir over two stages takes 404~s at $T = 5$ (about 50~s of moments and 300~s of solver),
+against 1.3~s without breakpoints.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{3}{c}{hydrothermal} & inventory \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-5}
+Breakpoints & $T = 3$ & $T = 4$ & $T = 5$ & $T = 4$ \\
+\midrule
+none (linear rules) & 1.888 & 3.760 & 7.947 & 380.0 \\
+total inflow of a stage (4 inflows) & 1.888 & 3.284 & 6.795 & \\
+total inflow of two stages (8 inflows, $t \ge 3$) & & 3.182 & 6.518 & \\
+inflow of each reservoir over two stages (2 inflows) & 1.116 & 1.627 & 2.463 & \\
+demands of two consecutive periods & & & & 373.3 \\
+cumulative demand & & & & 380.0 \\
+each demand (\code{BreakPoints}, 3 per demand) & & & & 365.6 \\
+\bottomrule
+\end{tabular}
+\caption[Breakpoints on combinations]{Primal values (costs, to minimize) with breakpoints on combinations of uncertainties.
+The dual bounds of the hydrothermal problem do not change with the totals of a stage (0.7352 at $T = 3$, 0.9803 at $T = 4$);
+the other combinations span two stages and have no dual.
+Source: \file{test/problems/test_hydro.jl}, \file{test/jump/test_experimental.jl}, and runs of \file{test/problems/hydro.jl} at $T = 4$ and $5$.}
+\label{tab:combinations}
+\end{table}
