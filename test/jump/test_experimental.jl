@@ -178,6 +178,27 @@ function test_with_breakpoints()
     return
 end
 
+include(joinpath(@__DIR__, "..", "problems", "tagged.jl"))
+
+# The inventory of the benchmarks over T = 4 periods, whose linear rules cost 380, with values
+# measured with this implementation. The demands of two consecutive periods improve the primal rule;
+# the cumulative demand, the natural state of the problem, does not: the outer approximation of the
+# hull of a combination of many uncertainties is loose. The breakpoints of each demand
+# (`BreakPoints`) do better than both.
+function test_inventory()
+    function primal(; kwargs...)
+        model = TaggedProblems.ldr_model(; formulations = [PrimalLDR()])
+        TaggedProblems.inventory(4, model; kwargs...)
+        optimize!(model)
+        return objective_value(model)
+    end
+    @test primal() ≈ 380
+    @test primal(; combinations = (:pair, 1)) ≈ 1120 / 3
+    @test primal(; combinations = (:cumulative, 1)) ≈ 380
+    @test primal(; points = 3) ≈ 365.625
+    return
+end
+
 end # module TestExperimental
 
 TestExperimental.runtests()
