@@ -204,6 +204,83 @@ function test_moments_mixed()
     return
 end
 
+# The moments by laws of sums against those by enumeration and nested quadrature.
+function both_moments(laws, liftings, inputs)
+    laws = Vector{Distributions.Distribution}(laws)
+    offsets = LDR._offsets(laws)
+    m = offsets[end] + LDR._dimension(laws[end])
+    sums = LDR._combination_moments(laws, offsets, m, liftings, inputs)
+    quadrature = LDR._combination_moments(laws, offsets, m, liftings, inputs; quadrature = true)
+    return sums, quadrature
+end
+
+function test_moments_by_laws_of_sums()
+    U = Distributions.Uniform
+    atoms = [[80.0, 30.0], [100.0, 60.0], [120.0, 40.0], [90.0, 70.0], [110.0, 20.0], [95.0, 45.0]]
+    joint = MvDiscreteNonParametric(atoms, [0.1, 0.2, 0.3, 0.15, 0.15, 0.1])
+    single = Distributions.DiscreteNonParametric([0.0, 1.0, 3.0], [0.2, 0.5, 0.3])
+    pair(a, b; constant = 0.0) = CombinationPiecewise(a, b; constant)
+    cases = [
+        # Uniform laws, with a negative coefficient and a constant.
+        (
+            [U(0, 1), U(0, 2), U(1, 4)],
+            [pair([1.0, 2.0, -1.0], [0.0, 1.5, 3.0]; constant = 0.5)],
+            [[1, 2, 3]],
+        ),
+        # Widths of very different sizes, whose closed form is computed in BigFloat.
+        ([U(0, 1e-3), U(0, 1e3)], [pair([1.0, 1.0], [400.0, 999.9995])], [[1, 2]]),
+        # One coordinate of a joint law, whose other coordinate is not an input, and a uniform law.
+        ([joint, U(0, 10)], [pair([1.0, 1.0], [95.0, 110.0])], [[1, 3]]),
+        # Pairs that share one uniform law, and a lifting of another law.
+        (
+            [U(0, 10) for _ in 1:4],
+            [pair([1.0, 1.0], [8.0, 12.0]), pair([1.0, 2.0], [15.0]), pair([1.0], [5.0])],
+            [[1, 2], [2, 3], [4]],
+        ),
+        # Cumulative sums, which share two uniform laws with the same coefficients.
+        (
+            [U(0, 1), U(0, 2), U(0, 3)],
+            [pair([1.0, 1.0], [1.0, 2.0]), pair([1.0, 1.0, 1.0], [2.5, 4.0])],
+            [[1, 2], [1, 2, 3]],
+        ),
+        # Liftings that share two uniform laws with other coefficients: their covariance is by
+        # quadrature.
+        (
+            [U(0, 1), U(0, 2), U(0, 3)],
+            [pair([1.0, 2.0], [1.5]), pair([1.0, 1.0, 1.0], [3.0])],
+            [[1, 2], [1, 2, 3]],
+        ),
+        # Liftings that share a joint law, with a discrete law and a uniform one.
+        (
+            [single, joint, U(0, 5)],
+            [pair([1.0, 1.0], [100.0]), pair([1.0, 1.0, 1.0], [60.0])],
+            [[1, 2], [3, 4, 2]],
+        ),
+    ]
+    for (laws, liftings, inputs) in cases
+        (μ, Σ), (μq, Σq) = both_moments(laws, liftings, inputs)
+        @test isapprox(μ, μq; rtol = 1e-10, atol = 1e-10)
+        @test isapprox(Σ, Σq; rtol = 1e-10, atol = 1e-9 * maximum(abs, Σq))
+    end
+    return
+end
+
+# Eight uniform demands, which nested quadrature would take hours for: the covariance of the
+# pieces with the total `s = Σ ηⱼ`, from the integrals over each demand, agrees with the one from
+# the law of `s` alone, since `E[s (s - b)₊] = E[(s - b)₊²] + b E[(s - b)₊]`.
+function test_moments_many_uniforms()
+    laws = [Distributions.Uniform(80 + 5i, 120 + 3i) for i in 1:8]
+    l = CombinationPiecewise(ones(8), [850.0, 880.0, 910.0])
+    d = LDR._CombinationLaw(laws, [l], [collect(1:8)])
+    terms = [LDR._UniformTerm(Float64(u.a), Float64(u.b - u.a)) for u in laws]
+    s = LDR._SumLaw(0.0, terms)
+    Esh = [LDR._stop_loss(s, 2, x) + x * LDR._stop_loss(s, 1, x) for x in l.breakpoints]
+    expected = LDR._pieces_of_hinges(3) * Esh - d.mean[9:11] * sum(d.mean[1:8])
+    @test vec(sum(d.covariance[9:11, 1:8]; dims = 2)) ≈ expected rtol = 1e-10
+    @test LinearAlgebra.isposdef(LinearAlgebra.Symmetric(d.covariance))
+    return
+end
+
 function test_law_errors()
     l = CombinationPiecewise([1.0, 1.0], [1.0])
     normal = Distributions.MvNormal(zeros(2), [1.0 0; 0 1])

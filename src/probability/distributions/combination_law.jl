@@ -7,18 +7,16 @@
 # their uncertainties. A lifting couples the laws of its inputs, which may be in several stages, so
 # they are merged into one law with its pieces; liftings that share a law share the merged law.
 
-# The largest number of outcomes that the moments of a lifting enumerate: the product of the
-# atoms of the discrete laws of its inputs (of the inputs of two liftings, for their covariance).
-const _MAX_COMBINATION_ATOMS = 10^7
-
 """
     _CombinationLaw
 
 The law of `(η, p₁, …, p_L)`, where `η` gathers the uncertainties of independent `laws` and `pₗ`
 are the pieces of the `l`-th [`CombinationPiecewise`](@ref) lifting, whose inputs are the
-coordinates `inputs[l]` of `η`. Its mean and covariance are computed once, on construction: by
-enumeration of the atoms for discrete laws, by quadrature (QuadGK, split at the breakpoints) for
-continuous univariate laws, and both for a mix of them. Other laws are not supported yet.
+coordinates `inputs[l]` of `η`. Its mean and covariance are computed once, on construction. When
+the laws are discrete with finitely many atoms or uniform, they are exact, from the laws of sums
+of the terms of the combinations (integrals of dimension one, at most two for two liftings);
+otherwise, by enumeration of the atoms of the discrete laws and nested quadrature (QuadGK, split at
+the breakpoints) over the continuous univariate ones. Other laws are not supported yet.
 
 `minimum` and `maximum` are the box of the laws and of the pieces, and `rand` draws each law and
 lifts. It is a nominal `ContinuousMultivariateDistribution`, as [`LiftedDistribution`](@ref).
@@ -56,6 +54,16 @@ function _laws_of(offsets::Vector{Int}, laws, positions)
     return sort!(unique([findlast(<(p), offsets) for p in positions]))
 end
 
+# The coefficients of `a ⋅ η[positions]` on the coordinates of the law `k`.
+function _local_coefficients(laws, offsets::Vector{Int}, k::Int, positions, a)
+    local_a = zeros(_dimension(laws[k]))
+    for (p, w) in zip(positions, a)
+        i = p - offsets[k]
+        1 <= i <= length(local_a) && (local_a[i] += w)
+    end
+    return local_a
+end
+
 # The range of `c + a ⋅ η[positions]` on the support of the laws: on the atoms of a law with
 # finitely many, on its box otherwise.
 function _combination_range(
@@ -68,11 +76,7 @@ function _combination_range(
     s_min, s_max = c, c
     for k in _laws_of(offsets, laws, positions)
         d = laws[k]
-        local_a = zeros(_dimension(d))
-        for (p, w) in zip(positions, a)
-            i = p - offsets[k]
-            1 <= i <= length(local_a) && (local_a[i] += w)
-        end
+        local_a = _local_coefficients(laws, offsets, k, positions, a)
         atoms = _finite_atoms(d)
         if atoms === nothing
             lo, hi = _support_box(d)
@@ -142,7 +146,9 @@ function _piece_positions(m::Int, liftings::Vector{CombinationPiecewise})
     return [s .+ (1:n) for (s, n) in zip(starts, sizes)]
 end
 
-function _combination_moments(laws, offsets, m, liftings, inputs)
+# With `quadrature = true`, every moment is by enumeration and nested quadrature, which the tests
+# compare with the laws of sums.
+function _combination_moments(laws, offsets, m, liftings, inputs; quadrature::Bool = false)
     pieces = _piece_positions(m, liftings)
     n = m + sum(_num_lifted, liftings)
     μ = zeros(n)
@@ -158,13 +164,20 @@ function _combination_moments(laws, offsets, m, liftings, inputs)
         ks = lifted_laws[l]
         J = reduce(vcat, [collect(offsets[k] .+ (1:_dimension(laws[k]))) for k in ks])
         np, nj = _num_lifted(lifting), length(J)
-        values = _expectation(laws, offsets, ks, [l], liftings, inputs) do η
-            p = lift(lifting, view(η, inputs[l]))
-            return vcat(p, vec(p * view(η, J)'), vec(p * p'))
+        hinges = quadrature ? nothing : _hinge_moments(laws, offsets, ks, lifting, inputs[l])
+        if hinges === nothing
+            values = _expectation(laws, offsets, ks, [l], liftings, inputs) do η
+                p = lift(lifting, view(η, inputs[l]))
+                return vcat(p, vec(p * view(η, J)'), vec(p * p'))
+            end
+            Ep = values[1:np]
+            Epη = reshape(values[np.+(1:np*nj)], np, nj)
+            Epp = reshape(values[np+np*nj+1:end], np, np)
+        else
+            Eh, Ehη, Ehh = hinges
+            D = _pieces_of_hinges(np)
+            Ep, Epη, Epp = D * Eh, D * Ehη, D * Ehh * D'
         end
-        Ep = values[1:np]
-        Epη = reshape(values[np.+(1:np*nj)], np, nj)
-        Epp = reshape(values[np+np*nj+1:end], np, np)
         μ[pieces[l]] = Ep
         Σ[pieces[l], J] = Epη - Ep * μ[J]'
         Σ[J, pieces[l]] = Σ[pieces[l], J]'
@@ -173,18 +186,174 @@ function _combination_moments(laws, offsets, m, liftings, inputs)
     # Two liftings that share a law are correlated; the others are independent.
     for l in eachindex(liftings), r in l+1:length(liftings)
         isempty(intersect(lifted_laws[l], lifted_laws[r])) && continue
-        ks = sort!(union(lifted_laws[l], lifted_laws[r]))
-        values = _expectation(laws, offsets, ks, [l, r], liftings, inputs) do η
-            p = lift(liftings[l], view(η, inputs[l]))
-            q = lift(liftings[r], view(η, inputs[r]))
-            return vec(p * q')
+        nl, nr = _num_lifted(liftings[l]), _num_lifted(liftings[r])
+        cross = nothing
+        if !quadrature
+            cross = _hinge_cross_moments(laws, offsets, lifted_laws, liftings, inputs, l, r)
         end
-        C = reshape(values, _num_lifted(liftings[l]), _num_lifted(liftings[r]))
+        if cross === nothing
+            ks = sort!(union(lifted_laws[l], lifted_laws[r]))
+            values = _expectation(laws, offsets, ks, [l, r], liftings, inputs) do η
+                p = lift(liftings[l], view(η, inputs[l]))
+                q = lift(liftings[r], view(η, inputs[r]))
+                return vec(p * q')
+            end
+            C = reshape(values, nl, nr)
+        else
+            C = _pieces_of_hinges(nl) * cross * _pieces_of_hinges(nr)'
+        end
         C -= μ[pieces[l]] * μ[pieces[r]]'
         Σ[pieces[l], pieces[r]] = C
         Σ[pieces[r], pieces[l]] = C'
     end
     return μ, _symmetric(Σ)
+end
+
+# The moments by laws of sums (`docs/math/lifted-moments.tex`) are those of the hinges
+# `hᵢ = (s - bᵢ)₊` of the combination `s` at its breakpoints, and the pieces are `p = D h`:
+# `pᵢ = hᵢ - hᵢ₊₁` for `i < n` and `pₙ = hₙ`.
+function _pieces_of_hinges(n::Int)
+    D = Matrix{Float64}(LinearAlgebra.I, n, n)
+    for i in 1:n-1
+        D[i, i+1] = -1.0
+    end
+    return D
+end
+
+# The term `a ⋅ η_K` of the law `d` in a sum, with the coefficients `a` of its coordinates, or
+# `nothing` for a law that is neither discrete with finitely many atoms nor uniform.
+function _sum_term(d::Distributions.Distribution, a::Vector{Float64})
+    atoms = _finite_atoms(d)
+    if atoms !== nothing
+        return _DiscreteTerm(vec(a' * atoms[1]), atoms[2])
+    elseif d isa Distributions.Uniform
+        lo, hi = a[1] * d.a, a[1] * d.b
+        return _UniformTerm(min(lo, hi), abs(hi - lo))
+    end
+    return nothing
+end
+
+# `E[h]`, `E[h ηᵀ]` for the coordinates of the laws `ks` of the lifting, in order, and `E[h hᵀ]`
+# (`prop:one-combination`), or `nothing` unless every law of `ks` has a term.
+function _hinge_moments(laws, offsets, ks, lifting::CombinationPiecewise, positions)
+    coefficients =
+        [_local_coefficients(laws, offsets, k, positions, lifting.coefficients) for k in ks]
+    terms = [_sum_term(laws[k], a) for (k, a) in zip(ks, coefficients)]
+    any(isnothing, terms) && return nothing
+    b, c = lifting.breakpoints, lifting.constant
+    s = _SumLaw(c, terms)
+    π1 = [_stop_loss(s, 1, x) for x in b]
+    π2 = [_stop_loss(s, 2, x) for x in b]
+    # For b ≤ b′, (s - b)₊ (s - b′)₊ = (s - b′)₊² + (b′ - b) (s - b′)₊.
+    Ehh =
+        [π2[max(i, j)] + abs(b[i] - b[j]) * π1[max(i, j)] for i in eachindex(b), j in eachindex(b)]
+    blocks = map(eachindex(ks)) do t
+        rest = _SumLaw(c, terms[[1:t-1; t+1:end]])
+        return _hinge_coordinate_moments(laws[ks[t]], terms[t], coefficients[t], rest, b)
+    end
+    return π1, reduce(hcat, blocks), Ehh
+end
+
+# `E[hᵢ η_m]` for the coordinates `m` of the law `d` of the term `term`, with `rest` the law of the
+# rest of the combination, independent of `d`: `E[η_m π₁(bᵢ - a ⋅ η_K)]` for the stop-loss
+# transform `π₁` of `rest`, a sum over the atoms of `d`.
+function _hinge_coordinate_moments(d, term::_DiscreteTerm, ::Vector{Float64}, rest, b)
+    A, p = _finite_atoms(d)
+    E = zeros(length(b), size(A, 1))
+    for (k, v) in enumerate(term.values), (i, x) in enumerate(b)
+        E[i, :] .+= (p[k] * _stop_loss(rest, 1, x - v)) .* view(A, :, k)
+    end
+    return E
+end
+
+# For a uniform `d`, an integral over `d` for each atom `z` of the discrete part of `rest`, whose
+# integrand is a polynomial between the knots where `bᵢ - a x - z` crosses those of the uniform
+# part.
+function _hinge_coordinate_moments(
+    d::Distributions.Uniform,
+    ::_UniformTerm,
+    coefficients::Vector{Float64},
+    rest,
+    b,
+)
+    a = coefficients[1]
+    E = zeros(length(b), 1)
+    lo, hi = Float64(d.a), Float64(d.b)
+    degree = length(rest.widths) + 2
+    for (z, q) in zip(rest.atoms, rest.probabilities), (i, x) in enumerate(b)
+        shift = x - rest.offset - z
+        knots = [(shift - k) / a for k in rest.knots]
+        g(y) = y * _uniform_stop_loss(rest, 1, shift - a * y)
+        E[i, 1] += q * _piecewise_integral(g, lo, hi, knots, degree) / (hi - lo)
+    end
+    return E
+end
+
+# `E[hᵢ(s) h′ⱼ(s′)]` for the liftings `l` and `r`, which share laws (`prop:two-combinations`): with
+# `s = A + Y` and `s′ = A′ + Y′`, where `A`, `A′` are the terms of the shared laws, an expectation
+# of `π₁^Y(bᵢ - A) π₁^{Y′}(b′ⱼ - A′)` over the shared laws: a sum over the joint atoms of the
+# discrete ones and an integral over the uniform ones, whose terms in `A′` must be `λ` times those
+# in `A`. `nothing` for other laws, or uniform laws that are not shared that way.
+function _hinge_cross_moments(laws, offsets, lifted_laws, liftings, inputs, l::Int, r::Int)
+    ks_l, ks_r = lifted_laws[l], lifted_laws[r]
+    shared = intersect(ks_l, ks_r)
+    coefficients(k, t) = _local_coefficients(laws, offsets, k, inputs[t], liftings[t].coefficients)
+    all(
+        k -> _sum_term(laws[k], coefficients(k, k in ks_l ? l : r)) !== nothing,
+        union(ks_l, ks_r),
+    ) || return nothing
+    function rest(t, ks)
+        return _SumLaw(
+            liftings[t].constant,
+            [_sum_term(laws[k], coefficients(k, t)) for k in setdiff(ks, shared)],
+        )
+    end
+    Y, Y′ = rest(l, ks_l), rest(r, ks_r)
+    uniform = [k for k in shared if _finite_atoms(laws[k]) === nothing]
+    a = Float64[coefficients(k, l)[1] for k in uniform]
+    a′ = Float64[coefficients(k, r)[1] for k in uniform]
+    (any(iszero, a) || any(iszero, a′)) && return nothing
+    λ = isempty(uniform) ? 0.0 : a′[1] / a[1]
+    isapprox(a′, λ .* a; rtol = 1e-12) || return nothing
+    # The values of `(A, A′)` on the joint atoms of the shared discrete laws.
+    joint = Dict((0.0, 0.0) => 1.0)
+    for k in shared
+        k in uniform && continue
+        A, p = _finite_atoms(laws[k])
+        count = Float64(length(joint)) * length(p)
+        count > _MAX_COMBINATION_ATOMS && _too_many_atoms(count)
+        u, v = vec(coefficients(k, l)' * A), vec(coefficients(k, r)' * A)
+        next = Dict{Tuple{Float64,Float64},Float64}()
+        for ((x, y), q) in joint, j in eachindex(p)
+            key = (x + u[j] + 0.0, y + v[j] + 0.0)
+            next[key] = get(next, key, 0.0) + q * p[j]
+        end
+        joint = next
+    end
+    b, b′ = liftings[l].breakpoints, liftings[r].breakpoints
+    E = zeros(length(b), length(b′))
+    if isempty(uniform)
+        for ((x, y), q) in joint, (i, β) in enumerate(b), (j, β′) in enumerate(b′)
+            E[i, j] += q * _stop_loss(Y, 1, β - x) * _stop_loss(Y′, 1, β′ - y)
+        end
+        return E
+    end
+    # The uniform part of `A` is `U = U.offset + τ`, with the density of the sum of the uniform
+    # laws for `τ`, and that of `A′` is `λ U`.
+    U = _SumLaw(0.0, [_sum_term(laws[k], [w]) for (k, w) in zip(uniform, a)])
+    degree = length(U.widths) - 1 + length(Y.widths) + length(Y′.widths) + 2
+    knots_Y, knots_Y′ = _stop_loss_knots(Y), _stop_loss_knots(Y′)
+    for ((x, y), q) in joint, (i, β) in enumerate(b), (j, β′) in enumerate(b′)
+        knots = [U.knots; [β - x - U.offset - k for k in knots_Y]]
+        append!(knots, [(β′ - y - k) / λ - U.offset for k in knots_Y′])
+        function g(τ)
+            return _uniform_density(U, τ) *
+                   _stop_loss(Y, 1, β - x - U.offset - τ) *
+                   _stop_loss(Y′, 1, β′ - y - λ * (U.offset + τ))
+        end
+        E[i, j] += q * _piecewise_integral(g, 0.0, U.width, knots, degree)
+    end
+    return E
 end
 
 # `E[f(η)]` over the independent laws `laws[ks]`, where `f` reads the coordinates of these laws in a
@@ -196,13 +365,7 @@ function _expectation(f, laws, offsets, ks, active, liftings, inputs)
     discrete = [k for k in ks if _finite_atoms(laws[k]) !== nothing]
     continuous = [k for k in ks if !(k in discrete)]
     count = prod(Float64(length(_finite_atoms(laws[k])[2])) for k in discrete; init = 1.0)
-    if count > _MAX_COMBINATION_ATOMS
-        error(
-            "The moments of a combination lifting enumerate $(Int(count)) outcomes, more than " *
-            "$_MAX_COMBINATION_ATOMS: use fewer uncertainties with finitely many atoms in " *
-            "combinations that share them.",
-        )
-    end
+    count > _MAX_COMBINATION_ATOMS && _too_many_atoms(count)
     η = fill(NaN, offsets[end] + _dimension(laws[end]))
     atoms = [_finite_atoms(laws[k]) for k in discrete]
     total = nothing
