@@ -8,6 +8,7 @@ The benchmarks of this folder time the package on problems that the tests share
 | `timing.jl` | the T-period inventory: `PrimalLDR`, `DualLDR` and the same robust LP written by hand | `results/timings.csv` | [Inventory](#inventory-timingjl) |
 | `resolve.jl` | the inventory re-solved after a change of a JuMP parameter, with and without the cache of inner problems | `results/resolve.csv` | [Re-solves](#re-solves-with-a-parameter-resolvejl) |
 | `hydro/run.jl` | the 4-reservoir hydrothermal problem: the LDR models, the average scenario and a scenario tree, with breakpoints and out-of-sample simulations | `results/hydro.csv` | [`hydro/README.md`](hydro/README.md) |
+| `compare/lifted_box.jl` | a decision study: the implied box rows of lifted coordinates (`lifted_box`) on four problems and four solvers of HiGHS | `compare/results/lifted_box.csv` | [`compare/README.md`](compare/README.md) |
 | [`PROBLEMS.md`](PROBLEMS.md) | the catalogue of the LDR test problems found in this package, the legacy repository, `CasosLDR` and the papers (data, known values, solver notes, candidates to port) | | |
 
 Each README has the same sections: **Current** (the last recording), **Against 0.3** (the previous
@@ -281,4 +282,5 @@ What it found: leaving the implied bounds out saved 30% to 43% of the primal var
 0.59 s at inventory T = 64), and saved up to 43% of its solve time; it made the
 dual 8% to 47% faster, except on the hydro problem with T = 8, 2.6 times slower. So `PrimalLDR`
 leaves them out by default, and `DualLDR` keeps them (`DualLDR(; lifted_box = false)` leaves them
-out).
+out). A wider study, on four problems and four solvers, followed in
+[`compare/README.md`](compare/README.md).
