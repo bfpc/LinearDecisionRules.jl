@@ -303,14 +303,19 @@ A combination couples the laws of its inputs, so these laws, with the pieces of 
 combinations that share an input share this law, which is one support block and one covariance block.
 The laws must be independent declarations, each discrete with finitely many atoms or continuous and univariate (product laws are split into their components).
 The formulations need $\E[p_k]$, $\E[p_k\eta_j]$ and $\E[p_kp_l]$, also between pieces of two combinations that share an input.
-For discrete laws, the package sums over the joint atoms of the laws involved (at most $10^7$);
-for continuous laws, it nests adaptive quadratures over the inputs (QuadGK),
-split at the values where $s$ crosses a breakpoint, so that the integrand is smooth on each cell;
-for a mix, it sums over the discrete laws and integrates over the continuous ones.
-The cost of the quadrature grows exponentially with the number of continuous inputs:
-a combination of five uniform demands takes minutes.
-The moments of the pieces depend only on the law of $s$, and $\E[p_k\eta_j]$ on that of $(\eta_j, s - a_j\eta_j)$,
-so the law of a sum, by convolution, would make them one- and two-dimensional integrals.
+The pieces are differences of hinges $(s - b)_+$, so the moments of the pieces depend only on the law of $s$,
+$\E[p_k\eta_j]$ on that of $(\eta_j, s - a_j\eta_j)$, and those of two combinations on the laws they share and on the laws of the two rests.
+When the laws are discrete with finitely many atoms or uniform, the package computes the moments exactly from the laws of these sums:
+the convolution of the discrete terms, and a closed form for the sum of the uniform ones,
+with one-dimensional integrals over the law of an input or over the shared laws
+(\code{\_SumLaw}, \file{src/probability/distributions/sum_law.jl}).
+A combination of five uniform demands then takes a millisecond.
+For other continuous laws, and for two combinations whose shared uniform laws have coefficients that are not proportional,
+it sums over the joint atoms of the discrete laws involved (at most $10^7$)
+and nests adaptive quadratures over the continuous inputs (QuadGK),
+split at the values where $s$ crosses a breakpoint, so that the integrand is smooth on each cell:
+the cost grows exponentially with the number of continuous inputs, 12~seconds for five uniform demands.
+A separate note, \file{docs/math/lifted-moments.tex}, states the hypotheses on the laws and derives both computations.
 
 \paragraph{Measurements.}
 \Cref{tab:combinations} gives the primal values of the two benchmark problems of \cref{sec:computation},

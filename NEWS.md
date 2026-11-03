@@ -159,5 +159,6 @@ Julia 1.11 and later).
   `Truncate()` rows.
 - No expected-value constraints yet; the value-function recursion (LFDR) and nonlinear liftings
   are planned for the `Experimental` submodule.
-- Breakpoints on a combination of uncertainties of several stages have no dual bound, and their
-  moments integrate over every continuous uncertainty of the combination (slow beyond about 3).
+- Breakpoints on a combination of uncertainties of several stages have no dual bound. The moments
+  of a combination are exact and fast for discrete and uniform laws, but integrate over every
+  uncertainty of the combination with another continuous law (slow beyond about 3).

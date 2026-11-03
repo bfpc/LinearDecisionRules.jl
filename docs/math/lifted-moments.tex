@@ -1,5 +1,5 @@
-% Moments of the lifted laws of LinearDecisionRules.jl: hypotheses on the laws, the computation of
-% the code, and a proposal by laws of sums.
+% Moments of the lifted laws of LinearDecisionRules.jl: hypotheses on the laws, and their
+% computation by nested quadrature and by laws of sums.
 %
 % Build: `latexmk lifted-moments.tex` in this folder; the PDF is written to build/.
 % Source conventions: those of ldr-math.tex (semantic line breaks, the macros of macros.tex).
@@ -39,8 +39,8 @@
 \newcommand{\Hyp}[1]{\textup{(H#1)}}    % a hypothesis on the laws
 
 \title{Moments of the lifted laws of \pkg{}\\[0.5ex]
-\large Hypotheses on the laws, the computation of version 0.4,\\
-and a proposal by laws of sums}
+\large Hypotheses on the laws,\\
+and the computation by nested quadrature and by laws of sums}
 \author{Notes for the development of the package}
 \date{Draft, November 2026}
 
@@ -54,13 +54,15 @@ This note separates three things that the main notes (\file{ldr-math.tex}) descr
 the hypotheses on the original uncertainties,
 the moments that each lifting needs,
 and how they are computed.
-For each lifting, it states the moments, how the code of version 0.4 computes them, and a proposal.
-The proposal rests on one observation:
+For each lifting, it states the moments and two ways to compute them.
+The first, by enumeration of the atoms of the discrete laws and nested quadrature over the continuous ones, was the only one of the first version of the combinations, and is now the fallback.
+The second rests on one observation:
 every moment that a piecewise affine lifting needs is an expectation of a product of at most two hinges $\pos{s - b}$ and one coordinate,
 so it depends on the joint law of at most two linear forms of the uncertainties, and of one coordinate.
 Under independence, these are one- or two-dimensional integrals of the stop-loss transforms $\E[\pos{Y - t}^q]$, $q = 1, 2$, of sums $Y$ of independent terms,
 which are exact sums for discrete laws and closed-form piecewise polynomials for uniform laws.
-The cost of the current nested quadrature, exponential in the number of continuous inputs, would become polynomial for these laws.
+The package uses it for these laws, and the cost, exponential in the number of continuous inputs by quadrature, becomes polynomial:
+a combination of five uniform demands takes a millisecond instead of 12 seconds.
 \end{abstract}
 
 \tableofcontents
@@ -220,18 +222,18 @@ The moments of a \code{ConditionedDistribution} are those of the empirical law o
 \section{Lifting by lifting}
 \label{sec:liftings}
 
-For each lifting: the moments it needs, the hypotheses of the code of version 0.4 and how it computes them, and the proposal.
+For each lifting: the moments it needs, and how the package computes them, with the hypotheses that each computation uses.
+For the combinations, two computations: by enumeration and nested quadrature, the fallback, and by laws of sums, for discrete and uniform laws.
 
 \subsection{No lifting}
 
 \emph{Moments.} The mean and the covariance of each law.
 
-\emph{Now.} \code{mean} and \code{cov} (or \code{var}) of Distributions, for every law (\code{\_law\_mean}, \code{\_law\_covariance}, \file{src/probability/laws.jl});
+\emph{In the package} (\code{\_law\_mean} and \code{\_law\_covariance}, \file{src/probability/laws.jl}).
+\code{mean} and \code{cov} (or \code{var}) of Distributions, for every law;
 for a continuous truncated law without them in Distributions, quadrature of its density (QuadGK, relative tolerance $10^{-12}$);
 for a \code{ConditionedDistribution}, the empirical moments of its draws.
 The covariance is block diagonal by \Hyp{I}. Nothing else is assumed.
-
-\emph{Proposal.} Nothing to change.
 
 \subsection{The axis lifting of a univariate law}
 \label{sec:axis}
@@ -240,7 +242,9 @@ The covariance is block diagonal by \Hyp{I}. Nothing else is assumed.
 by \cref{lem:hinges,prop:one-variable}, $\E[\eta]$, $\Var(\eta)$, and $\slt\eta1(b_i)$, $\slt\eta2(b_i)$ for $i = 1, \dots, n$.
 By \Hyp{I}, the covariance with the other coordinates is zero.
 
-\emph{Now} (\code{LiftedDistribution}, \file{src/probability/distributions/lifted_distribution.jl} and \file{src/lifting/axis_piecewise.jl}).
+\emph{In the package,} the moments are computed by \code{\_lifted\_moments} (\file{src/lifting/axis_piecewise.jl})
+when the law \code{LiftedDistribution} is built, in the file
+\file{src/probability/distributions/lifted_distribution.jl}.
 The uncertainty must be declared alone, with a univariate law (\Hyp{B} and \Hyp{D} or \Hyp{C}).
 \begin{itemize}[nosep]
 \item Under \Hyp{D}: $\E[\leta] = \sum_k w_k\Lift(x^k)$ and $\E[\leta\leta^\T] = \sum_k w_k\Lift(x^k)\Lift(x^k)^\T$, exact sums over the support.
@@ -249,7 +253,7 @@ The uncertainty must be declared alone, with a univariate law (\Hyp{B} and \Hyp{
 \end{itemize}
 Then the lifted moments follow from the piece moments (the proposition on lifted moments of the main notes): $n + 1$ one-dimensional integrals.
 
-\emph{Proposal.} The cost is already linear in $n$, so the only change would be to use the same $\slt{}q$ as the combinations, so that one code path serves both.
+\emph{Possible changes.} The cost is already linear in $n$, so the only change would be to use the same $\slt{}q$ as the combinations, so that one code path serves both.
 The axis lifting of a coordinate $\eta_j$ of a \emph{multivariate} law, which the package refuses, would also need $\E[\eta_m\hinge b(\eta_j)]$ for the other coordinates $m$ of the law.
 Under \Hyp{D} it is a sum over the atoms; for a \code{ConfidenceMvNormal}, by \Hyp{L} and \eqref{eq:regression},
 $\E[\eta_m\hinge b(\eta_j)] = \E[\eta_m]\slt{}1(b) + \beta_m(\E[\eta_j\hinge b] - \E[\eta_j]\slt{}1(b))$,
@@ -270,9 +274,9 @@ It needs, besides the moments of the laws:
 \end{enumerate}
 The pieces against the coordinates of other laws have zero covariance, by \Hyp{I}.
 
-\emph{Now} (\code{\_CombinationLaw}, \code{\_combination\_moments} and \code{\_expectation}, \file{src/probability/distributions/combination_law.jl}).
+\emph{By quadrature, the fallback} (\code{\_CombinationLaw}, \code{\_combination\_moments} and \code{\_expectation}, \file{src/probability/distributions/combination_law.jl}).
 Each law of $\mathcal{K}$ satisfies \Hyp{B} and \Hyp{D}, or \Hyp{B} and \Hyp{C}.
-The code computes the expectation of the vector $\phi(\eta) = (p,\ \operatorname{vec}(p\,\eta_{\mathcal K}^\T),\ \operatorname{vec}(pp^\T))$,
+When one of them satisfies \Hyp{C} but not \Hyp{U}, the package computes the expectation of the vector $\phi(\eta) = (p,\ \operatorname{vec}(p\,\eta_{\mathcal K}^\T),\ \operatorname{vec}(pp^\T))$,
 where $\eta_{\mathcal K}$ are all the coordinates of the laws of $\mathcal{K}$, over the product of these laws:
 \begin{itemize}[nosep]
 \item it enumerates the joint atoms of the laws with \Hyp{D}, whose number is the product of their numbers of atoms (at most $10^7$, \code{\_MAX\_COMBINATION\_ATOMS});
@@ -291,7 +295,8 @@ exponential in $d$, and about $15^d$ even with one cell per level.
 For other laws with \Hyp{C}, the integrand is smooth on the cells only if the densities are smooth on their supports;
 a kink of a density, such as the mode of a triangular law, is not a split, and QuadGK refines around it.
 
-\emph{Proposal.}
+\emph{By laws of sums} (\code{\_hinge\_moments} and \code{\_hinge\_coordinate\_moments}, \file{src/probability/distributions/combination_law.jl}),
+when every law of $\mathcal{K}$ satisfies \Hyp{D} or \Hyp{U}.
 Every moment is an expectation of a hinge of $s$, times a hinge of $s$ or a coordinate.
 
 \begin{proposition}[Moments of one combination]
@@ -334,10 +339,10 @@ Let $s = c + a^\T\eta$ and $s' = c' + a'^\T\eta$ be the combinations of two lift
 Their pieces are in one block, and need the cross moments $\E[\hinge b(s)\hinge{b'}(s')]$.
 (The pieces of two liftings whose laws do not intersect are independent, by \Hyp{I}, and the code skips them.)
 
-\emph{Now.} The same enumeration and nested quadrature as in \cref{sec:one-combination}, of $\operatorname{vec}(pp'^\T)$, over the laws of $\mathcal{K} \cup \mathcal{K}'$,
+\emph{By quadrature, the fallback.} The same enumeration and nested quadrature as in \cref{sec:one-combination}, of $\operatorname{vec}(pp'^\T)$, over the laws of $\mathcal{K} \cup \mathcal{K}'$,
 with the splits of both liftings: the cost is exponential in the number of continuous inputs of the two liftings together.
 
-\emph{Proposal.}
+\emph{By laws of sums} (\code{\_hinge\_cross\_moments}).
 Split the laws into the shared ones, $\mathcal{S} = \mathcal{K} \cap \mathcal{K}'$, and the others, and write
 \[
 s = c + A + Y, \qquad s' = c' + A' + Y',
@@ -364,6 +369,11 @@ The three are functions of disjoint sets of independent laws.
 Conditionally on $(A, A')$, the two hinges are functions of the independent $Y$ and $Y'$, so the conditional expectation of their product is the product of $\E[\pos{Y - (b - c - A)} \mid A]$ and its counterpart.
 \end{proof}
 
+The package enumerates the joint atoms of the shared discrete laws,
+and integrates over the shared uniform laws when their coefficients in $s'$ are $\lambda$ times those in $s$:
+the uniform part of $A$ is then a sum of uniform laws, with the piecewise polynomial density of \cref{sec:sums-uniform}, and that of $A'$ is $\lambda$ times it.
+Otherwise, when two shared uniform laws have coefficients that are not proportional, it falls back to the quadrature.
+
 \begin{example}[The chains of the benchmarks]
 \label{ex:chains}
 \emph{Consecutive pairs} $s_t = \eta_{t-1} + \eta_t$ and $s_{t+1} = \eta_t + \eta_{t+1}$ of univariate laws:
@@ -379,14 +389,14 @@ The pairs $s_{r,t} = x_{r,t-1} + x_{r,t}$ and $s_{r,t+1}$ share the law of stage
 $A = A' = x_{r,t}$, $Y = x_{r,t-1}$, $Y' = x_{r,t+1}$, a sum over the 82 atoms of stage $t$ of products of stop-loss transforms of two marginals,
 where the code enumerates the $82^3$ joint atoms of three stages.
 The pairs $s_{r,t}$ and $s_{r',t}$ of two reservoirs share the laws of stages $t - 1$ and $t$, with $Y = Y' = 0$:
-a sum over the $82^2$ atoms of the two stages, as now.
+a sum over the $82^2$ atoms of the two stages, as by quadrature.
 \end{example}
 
 %======================================================================================================
 \section{Laws of sums}
 \label{sec:sums}
 
-The proposal needs $\slt Y1$ and $\slt Y2$ for sums $Y = \sum_k Y_k$ of independent terms $Y_k = a_K^\T\eta_K$, each a linear form of one law:
+The laws of sums of \cref{sec:liftings} need $\slt Y1$ and $\slt Y2$ for sums $Y = \sum_k Y_k$ of independent terms $Y_k = a_K^\T\eta_K$, each a linear form of one law:
 $s$, the rests $R_K$, and the exclusive parts $Y$, $Y'$ of two combinations.
 A term of a univariate law is that law scaled; a term of a multivariate law with \Hyp{D} is discrete with at most $N$ atoms.
 
@@ -396,12 +406,13 @@ A term of a univariate law is that law scaled; a term of a multivariate law with
 If every term satisfies \Hyp{D}, $Y$ is discrete, and its law is the convolution of the laws of the terms:
 add the terms one at a time, merging the atoms with the same value.
 Then $\slt Yq(t) = \sum_y \Prob(Y = y)\pos{y - t}^q$, exactly.
-The number of atoms of $Y$ is at most the product of those of the terms, as for the enumeration of the code,
+The number of atoms of $Y$ is at most the product of those of the terms, as for the enumeration by quadrature,
 but it is often far smaller:
 for integer atoms and integer coefficients, the atoms of $Y$ are integers in its range, so their number grows additively with the terms
-(and the convolution can use the FFT).
-Merging atoms whose values differ by rounding needs a tolerance, or exact arithmetic on rational data;
-without merging, the convolution is the enumeration.
+(and the convolution could use the FFT).
+The package merges the atoms whose values are equal in floating point (\code{\_SumLaw}, \file{src/probability/distributions/sum_law.jl});
+merging atoms whose values differ by rounding would need a tolerance, or exact arithmetic on rational data,
+and without merging, the convolution is the enumeration.
 
 \subsection{Uniform terms}
 \label{sec:sums-uniform}
@@ -428,23 +439,28 @@ The second holds because $W - Y = \sum_i (w_i - X_i)$ has the law of $Y$, and $\
 
 A uniform input $\eta_i \sim \mathcal{U}[\ell_i, u_i]$ with coefficient $a_i$ is a constant plus $X_i$ with $w_i = \abs{a_i}(u_i - \ell_i)$,
 so $s = s_{\min} + Y$, and $\slt sq(t) = \slt Yq(t - s_{\min})$ is in closed form: a piecewise polynomial of degree $q + d$ with knots $s_{\min} + w_S$.
-These knots are the values of $s$ at the vertices of the box, which is why they are the splits of the code (\cref{sec:one-combination}).
-The cumulative distribution function is the case $q = 0$, the formula of the distribution of a sum of uniform laws (a box spline).
+These knots are the values of $s$ at the vertices of the box, which is why they are the splits of the quadrature (\cref{sec:one-combination}).
+The cumulative distribution function is the case $q = 0$, the formula of the distribution of a sum of uniform laws (a box spline),
+and its derivative is the density of $Y$, $\frac{1}{(d - 1)!\,\prod_i w_i}\sum_S (-1)^{\abs S}\pos{t - w_S}^{d-1}$, symmetric around $W/2$.
 
 \emph{Cost and accuracy.}
 The formula has $2^d$ terms, but only as many distinct knots as distinct values of $w_S$:
 $d + 1$ for equal widths, where it reduces to the Irwin--Hall law.
-It cancels: its terms are of the order of $W^{q+d}/((q + d)!\prod_i w_i)$, which for equal widths is $d^d/d! \approx e^d$ times $w^q$, while $\slt Yq$ is of the order of $w^q$ or smaller,
-so it loses about $d\log_{10}(2e) \approx 0.73d$ digits, 6 for $d = 8$.
-Near one end of the range the formula of that end has few nonzero terms;
-with $\pos{Y - t} = (Y - t) + \pos{t - Y}$ and $\pos{Y - t}^2 = (Y - t)^2 - \pos{t - Y}^2$, one can evaluate $\slt Yq(t)$ from whichever end of the range is closer.
-For larger $d$, a convolution of piecewise polynomials, one term at a time, in a stable basis on the knot intervals, avoids the cancellation, at the cost of $O(d)$ convolutions.
+It cancels when it is evaluated far from the end of the range that it starts from:
+at the other end its terms are of the order of $W^{q+d}/((q + d)!\prod_i w_i)$, which for equal widths is $d^d/d! \approx e^d$ times $w^q$, while $\slt Yq$ is of the order of $w^q$ or smaller.
+So the package evaluates it from the end of the range nearer to $t$,
+with $\pos{Y - t} = (Y - t) + \pos{t - Y}$ and $\pos{Y - t}^2 = (Y - t)^2 - \pos{t - Y}^2$ below $W/2$ and the second formula above,
+so that only the knots $w_S < W/2$ enter;
+for equal widths, the terms are then a few times the value (less than 4 times for $d = 8$ in the middle of the range).
+Widths of different orders of magnitude still cancel, since a narrow term acts as a divided difference of the others:
+when the sum of the absolute values of the terms exceeds 256 times the value, the package computes the formula again in 256-bit \code{BigFloat} arithmetic, with the knots $w_S$ exact (\code{\_uniform\_closed\_form}).
+A convolution of piecewise polynomials, one term at a time, in a stable basis on the knot intervals, would avoid both the $2^d$ terms and the cancellation, at the cost of $O(d)$ convolutions.
 
 \emph{The other moments.}
 The integrands of \cref{prop:one-combination}~(b) and \cref{prop:two-combinations} are then piecewise polynomials in one variable with known knots:
 $x\,\slt{R_K}1(b - a_jx)$ on $[\ell_j, u_j]$, and $\slt Y1(b - c - A)\slt{Y'}1(b' - c' - A)$ for one shared uniform law.
-Gauss--Legendre quadrature with $\lceil (\deg + 1)/2\rceil$ nodes on each knot interval integrates them exactly, up to rounding.
-So under \Hyp{U} every moment of a combination is exact, as now, with a cost polynomial in $d$ and $n$ (up to the $2^d$ terms of the formula, which the stable convolution avoids).
+Gauss--Legendre quadrature with $\lceil (\deg + 1)/2\rceil$ nodes on each knot interval integrates them exactly, up to rounding (\code{\_piecewise\_integral}).
+So under \Hyp{U} every moment of a combination is exact, as by quadrature, with a cost polynomial in $d$ and $n$ (up to the $2^d$ terms of the formula, which the stable convolution would avoid).
 
 \subsection{Discrete and continuous terms together}
 \label{sec:sums-mixed}
@@ -463,9 +479,9 @@ The options:
 representing each density by piecewise polynomials (for instance Chebyshev interpolants) on the intervals between the sums of the ends of the supports, where they are smooth if the densities of the terms are;
 each convolution is a family of one-dimensional integrals, so the cost is linear in $d$;
 \item work with the distribution functions instead, $F_{Y+X}(t) = \int F_Y(t - x)f_X(x)\,dx$, which are smoother, and get $\slt Y1$ and $\slt Y2$ by integrating $1 - F_Y$ (the definition of $\slt{}q$);
-\item keep the nested quadrature of the code for $d \le 3$, where it is fast enough.
+\item keep the nested quadrature, the fallback of the package, for $d \le 3$, where it is fast enough.
 \end{itemize}
-The first two are approximations with an error that depends on the representation, and need a tolerance as the quadrature does now.
+The first two are approximations with an error that depends on the representation, and need a tolerance as the quadrature does.
 
 \subsection{Linear forms of an elliptical law}
 \label{sec:sums-elliptical}
@@ -485,8 +501,9 @@ This would lift the restriction of the package to inputs that are univariate or 
 \label{sec:exactness}
 
 \paragraph{What is exact.}
-Under \Hyp{D} and \Hyp{U}, the code computes the moments exactly, up to rounding, and so does the proposal (\cref{sec:sums-discrete,sec:sums-uniform}).
-Under \Hyp{C}, both rely on a quadrature to a tolerance, $10^{-12}$ for the axis lifting and $10^{-10}$ for the combinations.
+Under \Hyp{D} and \Hyp{U}, both computations give the moments exactly, up to rounding (\cref{sec:sums-discrete,sec:sums-uniform});
+the tests of the package compare them, to $10^{-10}$.
+Under \Hyp{C}, the package relies on a quadrature to a tolerance, $10^{-12}$ for the axis lifting and $10^{-10}$ for the combinations.
 The tolerance of the combinations is on the norm of the vector $\phi$ of all the moments of a lifting,
 so a small entry, such as the mean of a piece of small probability, is accurate only relative to the largest entry.
 The package treats all these moments as exact: their covariance blocks have no sample size (\code{num\_samples = 0}), and the values computed with them are certified.
@@ -534,28 +551,32 @@ With several combinations in one block, the argument above applies to each combi
 \small
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{4.5cm}>{\raggedright\arraybackslash}p{4.5cm}@{}}
 \toprule
-Moment & Hypotheses & Now & Proposal \\
+Moment & Hypotheses & By quadrature (fallback) & By laws of sums (\Hyp{D}, \Hyp{U}) \\
 \midrule
-law: $\E[\eta_K]$, $\Cov(\eta_K)$ & \Hyp{I} & Distributions, quadrature for truncated laws & unchanged \\
-axis lifting & \Hyp{I}, \Hyp{B}, \Hyp{D} or \Hyp{C} & $n + 1$ quadratures (closed form under \Hyp{U}, sums under \Hyp{D}) & $\slt{\eta}1$, $\slt\eta2$ at $n$ points; also multivariate laws under \Hyp{D} or \Hyp{L} \\
+law: $\E[\eta_K]$, $\Cov(\eta_K)$ & \Hyp{I} & Distributions, quadrature for truncated laws & (the same) \\
+axis lifting & \Hyp{I}, \Hyp{B}, \Hyp{D} or \Hyp{C} & $n + 1$ quadratures (closed form under \Hyp{U}, sums under \Hyp{D}) & possible: $\slt{\eta}1$, $\slt\eta2$ at $n$ points; also multivariate laws under \Hyp{D} or \Hyp{L} \\
 one combination: $\E[p]$, $\E[pp^\T]$ & \Hyp{I}, \Hyp{B} & nested quadrature over the $d$ continuous inputs, about $\prod_k 15c_k$ evaluations, times the joint atoms & $\slt s1$, $\slt s2$ at $n$ points: law of $s$ \\
 one combination: $\E[p\,\eta_m]$ & \Hyp{I}, \Hyp{B} & (same pass) & one integral (or sum) over the law of $\eta_m$ per breakpoint, with $\slt{R_K}1$; none under \Hyp{L} \\
-two combinations: $\E[pp'^\T]$ & \Hyp{I}, \Hyp{B} & nested quadrature over the continuous inputs of both & one integral over the shared law (two if $A, A'$ not proportional), with $\slt Y1$, $\slt{Y'}1$ \\
-laws of sums & & (none) & \Hyp{D}: convolution, exact; \Hyp{U}: closed form, exact; \Hyp{C}: piecewise polynomial convolution, approximate \\
+two combinations: $\E[pp'^\T]$ & \Hyp{I}, \Hyp{B} & nested quadrature over the continuous inputs of both & one integral over the shared laws, with $\slt Y1$, $\slt{Y'}1$ (by quadrature if $A, A'$ are not proportional) \\
+laws of sums & & (none) & \Hyp{D}: convolution, exact; \Hyp{U}: closed form, exact; \Hyp{C}: not yet (a piecewise polynomial convolution, approximate) \\
 \bottomrule
 \end{tabular}
-\caption{The moments of the liftings, their hypotheses, and their computation now and in the proposal.
+\caption{The moments of the liftings, their hypotheses, and their two computations.
 $d$ is the number of continuous inputs of the moment, $n$ the number of breakpoints, and $c_k \le 1 + n2^{d-k}$ the number of cells at level $k$ of the nested quadrature.}
 \label{tab:cost}
 \end{table}
 
-In order, the proposal would:
+The package:
 \begin{enumerate}[nosep]
-\item compute the laws of the sums $s$, $R_K$, $Y$, $Y'$ that the liftings need, by exact convolution of the discrete terms and the closed form of the uniform ones (\cref{sec:sums-discrete,sec:sums-uniform,sec:sums-mixed});
-\item get every moment from \cref{prop:one-combination,prop:two-combinations}, with Gauss--Legendre quadrature on the knot intervals, exact for these laws;
-\item keep the nested quadrature for other continuous laws, until a convolution with a controlled error replaces it (\cref{sec:sums-general});
-\item test the new moments against the current ones, which are exact under \Hyp{D} and \Hyp{U}, and check \cref{prop:one-combination}~(c) on every combination.
+\item computes the laws of the sums $s$, $R_K$, $Y$, $Y'$ that the liftings need, by exact convolution of the discrete terms and the closed form of the uniform ones (\cref{sec:sums-discrete,sec:sums-uniform,sec:sums-mixed});
+\item gets every moment from \cref{prop:one-combination,prop:two-combinations}, with Gauss--Legendre quadrature on the knot intervals, exact for these laws;
+\item keeps the nested quadrature for other continuous laws, and for two combinations whose shared uniform laws have coefficients that are not proportional;
+\item tests the laws of sums against the quadrature, and \cref{prop:one-combination}~(c) on eight uniform inputs, beyond the reach of the quadrature.
 \end{enumerate}
+On the combinations of the tests, the two agree to about $10^{-14}$, and a combination of five uniform demands takes about a millisecond instead of 12 seconds.
+What remains open: a convolution with a controlled error for other continuous laws (\cref{sec:sums-general}),
+the two-dimensional case of \cref{prop:two-combinations},
+and the laws with \Hyp{L} (\cref{sec:sums-elliptical}).
 The hull of the lifted support (the outer approximation of the main notes) is independent of all this: the moments are those of the law, whatever rows describe its support.
 
 \bibliographystyle{abbrvnat}

@@ -43,8 +43,8 @@ and in the sampled formulation, where each outcome gives a constraint linear in 
 Breakpoints on combinations are experimental (\cref{sec:combination-lifting}), and three of their limits are open.
 The outer approximation of the lifted support is loose with several inputs, since its fibers depend on the uncertainties only through the combination:
 a tighter description, between it and the intractable convex hull, would make the pieces more useful.
-The moments integrate over every continuous input;
-the law of the combination, by convolution, would reduce them to integrals of one or two dimensions.
+The moments come from laws of sums for discrete and uniform laws, but other continuous laws are still integrated over every continuous input;
+a convolution of their densities with a controlled error would bring them to the laws of sums too.
 And a combination over several stages has no dual bound, because condition~\ref{it:lce} of \cref{thm:dual-bound} fails.
 One way to restore it is to lift, as coordinates of the earlier stages, the conditional expectations $g_t = \E[p \mid \xi_{1:\nvis(t)}]$ of the pieces given the history,
 which are smooth functions with their own hull rows and moments;
