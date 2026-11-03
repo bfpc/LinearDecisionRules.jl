@@ -96,6 +96,10 @@ end
 
 retraction(map::LiftingMap) = map.R
 
+# Whether the lifted coordinates come in addition to the inputs, which then stay columns of ξ̃
+# (`CombinationPiecewise`), or replace them (`AxisPiecewise`).
+_keeps_inputs(::AbstractLifting) = false
+
 # The column of ξ̃ of the column `j` of ξ, or 0 if it is lifted.
 _column_of(map::LiftingMap, j::Int) = map.kept[j]
 

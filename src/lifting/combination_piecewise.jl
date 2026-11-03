@@ -81,10 +81,6 @@ _num_inputs(l::CombinationPiecewise) = length(l.coefficients)
 
 _num_lifted(l::CombinationPiecewise) = length(l.breakpoints)
 
-# Whether the lifted coordinates come in addition to the inputs, which then stay columns of ξ̃
-# (`CombinationPiecewise`), or replace them (`AxisPiecewise`).
-_keeps_inputs(::AbstractLifting) = false
-
 _keeps_inputs(::CombinationPiecewise) = true
 
 function _combination(l::CombinationPiecewise, η::AbstractVector{<:Real})

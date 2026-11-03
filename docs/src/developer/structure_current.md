@@ -97,17 +97,11 @@ flowchart TD
 
 ## Uses of files included later
 
-These uses work because Julia resolves names in function bodies when the function first runs. They read as a layer calling the one above it.
-
-| File | uses, from a later file | names |
-|---|---|---|
-| `lifting/lifting` | `lifting/combination_piecewise` | `_keeps_inputs` |
+None: every file uses only names defined in files included before it.
 
 ## Cycles between files
 
-Groups of files that use each other, directly or through other files:
-
-- `lifting/lifting`, `lifting/axis_piecewise`, `lifting/combination_piecewise`
+None.
 
 ## Files
 
@@ -145,16 +139,12 @@ Used by: `probability/distributions/conditioned_distribution` (8), `probability/
 
 The lifting interface (`AbstractLifting`, `lift`, `retraction`), and `LiftingMap`.
 
-[`src/lifting/lifting.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/lifting.jl): 160 lines.
+[`src/lifting/lifting.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/lifting.jl): 164 lines.
 
 Defines:
-**`AbstractLifting` (L24)**†, **`lift` (L33)**† (4 methods), **`retraction` (L43)**† (2 methods), **`LiftingBlock` (L58)**†, **`LiftingMap` (L88)**†, `_column_of` (L100), `_block_of` (L103), `_input` (L109), `_column_labels` (L115).
+**`AbstractLifting` (L24)**†, **`lift` (L33)**† (4 methods), **`retraction` (L43)**† (2 methods), **`LiftingBlock` (L58)**†, **`LiftingMap` (L88)**†, `_keeps_inputs` (L101), `_column_of` (L104), `_block_of` (L107), `_input` (L113), `_column_labels` (L119).
 
-Uses:
-
-- `lifting/combination_piecewise` (included later): `_keeps_inputs`
-
-Used by: `lifting/axis_piecewise` (3), `lifting/combination_piecewise` (3), `probability/distributions/lifted_distribution` (2), `probability/distributions/combination_law` (1), `canonical/types` (1), `lifting/lifted_form` (5), `moi/results` (1), `jump/rules` (7), `jump/simulate` (3).
+Used by: `lifting/axis_piecewise` (3), `lifting/combination_piecewise` (4), `probability/distributions/lifted_distribution` (2), `probability/distributions/combination_law` (1), `canonical/types` (1), `lifting/lifted_form` (5), `formulations/dual` (1), `moi/results` (1), `jump/rules` (8), `jump/simulate` (3).
 
 ### `lifting/axis_piecewise`
 
@@ -176,17 +166,17 @@ Used by: `lifting/combination_piecewise` (5), `probability/distributions/lifted_
 
 `CombinationPiecewise` (experimental): the pieces of a combination of uncertainties, and the outer approximation of the hull of its lifted support.
 
-[`src/lifting/combination_piecewise.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/combination_piecewise.jl): 165 lines.
+[`src/lifting/combination_piecewise.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/lifting/combination_piecewise.jl): 161 lines.
 
 Defines:
-`CombinationPiecewise` (L43)†, `Base.==` (L70), `Base.hash` (L76), `_num_inputs` (L80) (extends `lifting/axis_piecewise`), `_num_lifted` (L82) (extends `lifting/axis_piecewise`), `_keeps_inputs` (L86) (2 methods), `_combination` (L90), **`lift` (L94)** (extends `lifting/lifting`), **`retraction` (L110)** (extends `lifting/lifting`), `_vertices` (L114) (extends `lifting/axis_piecewise`), `_lifted_bounds` (L127) (extends `lifting/axis_piecewise`), `_hull_rows` (L136) (extends `lifting/axis_piecewise`), `Base.show` (L160).
+`CombinationPiecewise` (L43)†, `Base.==` (L70), `Base.hash` (L76), `_num_inputs` (L80) (extends `lifting/axis_piecewise`), `_num_lifted` (L82) (extends `lifting/axis_piecewise`), `_keeps_inputs` (L84) (extends `lifting/lifting`), `_combination` (L86), **`lift` (L90)** (extends `lifting/lifting`), **`retraction` (L106)** (extends `lifting/lifting`), `_vertices` (L110) (extends `lifting/axis_piecewise`), `_lifted_bounds` (L123) (extends `lifting/axis_piecewise`), `_hull_rows` (L132) (extends `lifting/axis_piecewise`), `Base.show` (L156).
 
 Uses:
 
-- `lifting/lifting`: `AbstractLifting`, `lift`, `retraction`
+- `lifting/lifting`: `AbstractLifting`, `_keeps_inputs`, `lift`, `retraction`
 - `lifting/axis_piecewise`: `_hull_rows`, `_lifted_bounds`, `_num_inputs`, `_num_lifted`, `_vertices`
 
-Used by: `lifting/lifting` (1), `probability/distributions/combination_law` (1), `lifting/lifted_form` (1), `formulations/dual` (1), `jump/rules` (2).
+Used by: `probability/distributions/combination_law` (1), `lifting/lifted_form` (1), `jump/rules` (1).
 
 ### `probability/distributions/conditioned_distribution`
 
@@ -549,7 +539,7 @@ Uses:
 
 - `utils`: `_SparseMatrix`, `_name_list`
 - `probability/laws`: `_SupportCone`, `_linear_conditional_expectations`
-- `lifting/combination_piecewise`: `_keeps_inputs`
+- `lifting/lifting`: `_keeps_inputs`
 - `canonical/types`: `CanonicalForm`
 - `canonical/information_structure`: `InformationStructure`
 - `canonical/support`: `SupportBlock`, `_cone_rows`, `support_blocks`
@@ -842,8 +832,8 @@ Defines:
 
 Uses:
 
-- `lifting/lifting`: `AbstractLifting`, `LiftingMap`, `_block_of`, `_column_labels`, `_column_of`, `_input`, `lift`
-- `lifting/combination_piecewise`: `CombinationPiecewise`, `_keeps_inputs`
+- `lifting/lifting`: `AbstractLifting`, `LiftingMap`, `_block_of`, `_column_labels`, `_column_of`, `_input`, `_keeps_inputs`, `lift`
+- `lifting/combination_piecewise`: `CombinationPiecewise`
 - `probability/moments`: `_product_moment`
 - `formulations/interface`: `AbstractFormulation`
 - `moi/attributes`: `DecisionVariables`, `RuleCoefficients`, `UncertaintyLifting`, `UncertaintyMoments`, `UncertaintyVariables`
