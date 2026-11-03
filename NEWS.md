@@ -65,6 +65,10 @@ decision_rule(sell)       # sell = d, callable on a scenario
   exact for the law — not when moments are estimated by rejection sampling, when a law across
   stages does not have linear conditional expectations, when the second-moment matrix is
   singular, or, for the bound, when the quadratic objective is not convex.
+- **Where the time goes:** `time_breakdown(model)` and the `TimeBreakdown()` attribute split the
+  time of `optimize!` into reading the model, the moments, the checks, and the build, solve and
+  results of the inner problems; `time_breakdown(model, formulation)` gives the last three for one
+  formulation.
 - **Simulation:** `evaluate(model, scenario)` applies a rule to one scenario (decisions, cost,
   violated constraints by name); `simulate(model, n)` draws from the declared laws and
   `simulate(model, scenarios)` takes scenarios from elsewhere (for example SDDP simulations).
@@ -107,7 +111,8 @@ Exported:
   `Uncertainty`, `ValidInequality`, `Truncate`, `BreakPoints`, `Formulations`, `InnerOptimizer`,
   `RejectionSamplingSeed`, `RejectionSamplingTimeLimit`, `RejectionSamplingMaxSamples`.
 - **Results and rules:** `AbstractFormulation`, `PrimalLDR`, `DualLDR`, `SampledLDR`,
-  `FormulationAttribute`, `Certified`, `is_certified`, `inner_model`, `decision_rule`,
+  `FormulationAttribute`, `Certified`, `is_certified`, `TimeBreakdown`, `time_breakdown`,
+  `inner_model`, `decision_rule`,
   `DecisionRule`, `LiftedTerm`, `expected_value`, `rule_coefficient`, `rule_matrix`, `RuleMatrix`;
   and methods of `termination_status`, `primal_status`, `objective_value`, `objective_bound`,
   `raw_status` and `solve_time` that take a formulation.

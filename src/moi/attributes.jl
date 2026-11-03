@@ -206,8 +206,8 @@ A model attribute: the `attribute` of one formulation, for example
 `FormulationAttribute(DualLDR(), MOI.TerminationStatus())`.
 
 `attribute` is one of `MOI.TerminationStatus()`, `MOI.PrimalStatus()`, `MOI.ObjectiveValue()`,
-`MOI.ObjectiveBound()`, `MOI.RawStatusString()`, `MOI.SolveTimeSec()` and [`Certified`](@ref)`()`.
-The objective value of a formulation whose rule is not a policy, [`DualLDR`](@ref), is its bound.
+`MOI.ObjectiveBound()`, `MOI.RawStatusString()`, `MOI.SolveTimeSec()`, [`Certified`](@ref)`()`
+and [`TimeBreakdown`](@ref)`()`. The objective value of a formulation whose rule is not a policy, [`DualLDR`](@ref), is its bound.
 
 See also `JuMP.termination_status(model, formulation)`, [`is_certified`](@ref) and the other short
 helpers.
@@ -233,6 +233,41 @@ get_attribute(model, FormulationAttribute(DualLDR(), Certified()))  # is_certifi
 ```
 """
 struct Certified <: MOI.AbstractModelAttribute end
+
+"""
+    TimeBreakdown()
+
+A model attribute set by `optimize!`: where its wall-clock time went, in seconds, as a
+`NamedTuple` with the fields
+
+ * `canonicalize`: reading the model into its canonical form, with the checks of its declarations
+   and the liftings of its breakpoints, except their moments;
+ * `moments`: the moments of the laws, including those of lifted laws, and the rejection sampling
+   of laws conditioned by constraints tagged [`Truncate`](@ref);
+ * `checks`: the checks of the objective and of the moments, and the comparison with the inner
+   problems of the last `optimize!`;
+ * `build`, `solve` and `results`: over the formulations, building the inner problems (or setting
+   their parameters, when they are solved again), their `optimize!`, and reading their results;
+ * `total`: the whole `optimize!`, as `MOI.SolveTimeSec()`, which also includes what is left.
+
+Read through [`FormulationAttribute`](@ref), it is `(build, solve, results)` for one formulation.
+See [`time_breakdown`](@ref), its short helper.
+
+## Example
+
+```julia
+get_attribute(model, TimeBreakdown()).moments  # time_breakdown(model).moments
+```
+"""
+struct TimeBreakdown <: MOI.AbstractModelAttribute end
+
+MOI.is_set_by_optimize(::TimeBreakdown) = true
+
+const _TIME_PHASES = (:canonicalize, :moments, :checks, :build, :solve, :results, :total)
+
+const _TimeBreakdown = NamedTuple{_TIME_PHASES,NTuple{7,Float64}}
+
+_no_time_breakdown() = _TimeBreakdown(ntuple(_ -> NaN, 7))
 
 MOI.is_set_by_optimize(::Certified) = true
 

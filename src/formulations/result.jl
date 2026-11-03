@@ -36,6 +36,11 @@ The result of [`solve_formulation`](@ref).
    ([`SampledLDR`](@ref)). Except for the latter, `raw_status` then ends with
    `[not certified: <reason>]`.
  * `solve_time::Float64`: wall-clock seconds of the inner `optimize!` (zero if it was not built).
+ * `build_time::Float64`: wall-clock seconds to build the inner problem, and to set the values of
+   its parameters; only the latter when the optimizer solves again the inner problem of its last
+   `optimize!`, and zero if it was not built.
+ * `results_time::Float64`: wall-clock seconds to read the statuses, the values and the rules from
+   the inner problem after its `optimize!`.
  * `X::Matrix{Float64}`: the decision rules, `decisions × (1 + uncertainties)`, with zeros in the
    columns that a decision does not observe; all `NaN` unless `primal_status == FEASIBLE_POINT`.
  * `model::JuMP.Model`: the inner problem, for inspection and `write_to_file`; an empty model if
@@ -50,6 +55,8 @@ struct FormulationResult
     objective_bound::Float64
     certified::Bool
     solve_time::Float64
+    build_time::Float64
+    results_time::Float64
     X::Matrix{Float64}
     model::JuMP.Model
 end
@@ -101,6 +108,8 @@ function _time_limit_result(f::AbstractFormulation, form::CanonicalForm, mom::Mo
         NaN,
         NaN,
         certified,
+        0.0,
+        0.0,
         0.0,
         fill(NaN, length(form.decisions), k),
         JuMP.Model(),
@@ -175,9 +184,11 @@ function _formulation_result(
     form::CanonicalForm,
     mom::Moments,
     model::JuMP.Model,
-    X,
-    time::Float64,
+    X;
+    solve_time::Float64,
+    build_time::Float64,
 )
+    start = time_ns()
     termination = JuMP.termination_status(model)
     status = JuMP.primal_status(model)
     if termination in _NO_SOLUTION_STATUS && status == MOI.FEASIBLE_POINT
@@ -195,15 +206,19 @@ function _formulation_result(
         objective = NaN
     end
     certified, reason = _certification(f, form, mom)
+    raw = _raw_status(JuMP.raw_status(model), reason)
+    bound = _objective_bound(form, model, objective)
     return FormulationResult(
         f,
         termination,
         status,
-        _raw_status(JuMP.raw_status(model), reason),
+        raw,
         objective,
-        _objective_bound(form, model, objective),
+        bound,
         certified,
-        time,
+        solve_time,
+        build_time,
+        _seconds_since(start),
         values,
         model,
     )

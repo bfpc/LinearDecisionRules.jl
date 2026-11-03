@@ -60,6 +60,8 @@ function test_result()
     @test result.objective_value ≈ 460
     @test result.objective_bound ≈ 460
     @test result.solve_time >= 0
+    @test result.build_time > 0
+    @test result.results_time > 0
     # buy = 120, sell = demand, ret = 120 - demand.
     @test result.X ≈ [120 0; 0 1; 120 -1]
     @test result.model isa Model

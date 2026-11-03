@@ -75,6 +75,17 @@ form = LDR.canonicalize(backend(model), info)
 For an `LDRModel`, [`model_info`](@ref) reads `info` from the tags of the model.
 """
 function canonicalize(src::MOI.ModelLike, info::ModelInfo; conic_support::Bool = true)
+    return _canonicalize(src, info, Ref(0.0); conic_support)
+end
+
+# `canonicalize`, adding to `moment_seconds` the time of the moments of the lifted laws (see
+# `_lift`).
+function _canonicalize(
+    src::MOI.ModelLike,
+    info::ModelInfo,
+    moment_seconds::Base.RefValue{Float64};
+    conic_support::Bool = true,
+)
     variables = MOI.get(src, MOI.ListOfVariableIndices())
     parameters, values = _parameter_list(src)
     parameter = Dict(zip(parameters, values))
@@ -89,5 +100,5 @@ function canonicalize(src::MOI.ModelLike, info::ModelInfo; conic_support::Bool =
     liftings = _breakpoint_liftings(src, form, info.breakpoints)
     combinations = _combination_liftings(src, form, info.combinations)
     isempty(liftings) && isempty(combinations) && return form
-    return lift(form, liftings, combinations)
+    return _lift(form, liftings, combinations, moment_seconds)
 end

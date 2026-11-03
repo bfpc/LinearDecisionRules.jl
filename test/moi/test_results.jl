@@ -22,12 +22,14 @@ import LinearDecisionRules:
     RejectionSamplingMaxSamples,
     SampledLDR,
     Stage,
+    TimeBreakdown,
     Truncate,
     Uncertainty,
     decision_rule,
     inner_model,
     is_certified,
-    set_stage
+    set_stage,
+    time_breakdown
 
 include(joinpath(@__DIR__, "..", "common.jl"))
 import .TestCommon: error_of
@@ -93,6 +95,30 @@ function test_before_optimize()
     @test primal_status(model, PrimalLDR()) == MOI.NO_SOLUTION
     # Values throw, as `objective_value(model)` does.
     @test_logs (:warn,) @test_throws OptimizeNotCalled objective_value(model, DualLDR())
+    return
+end
+
+# Where the time of `optimize!` went, for the model and for one formulation.
+function test_time_breakdown()
+    model = newsvendor()
+    @test_throws OptimizeNotCalled time_breakdown(model)
+    optimize!(model)
+    t = time_breakdown(model)
+    @test keys(t) == (:canonicalize, :moments, :checks, :build, :solve, :results, :total)
+    @test all(>=(0), values(t))
+    @test t.total == solve_time(model)
+    @test t.canonicalize + t.moments + t.checks + t.build + t.solve + t.results <= t.total
+    for f in (PrimalLDR(), DualLDR())
+        tf = time_breakdown(model, f)
+        @test keys(tf) == (:build, :solve, :results)
+        @test tf.solve == solve_time(model, f)
+        @test tf.build > 0
+        @test get_attribute(model, FormulationAttribute(f, TimeBreakdown())) == tf
+    end
+    parts = [time_breakdown(model, f) for f in (PrimalLDR(), DualLDR())]
+    @test t.build ≈ sum(p.build for p in parts)
+    @test t.solve ≈ sum(p.solve for p in parts)
+    @test error_of(() -> time_breakdown(model, SampledLDR(10))) isa MOI.GetAttributeNotAllowed
     return
 end
 

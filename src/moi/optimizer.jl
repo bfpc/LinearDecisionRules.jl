@@ -89,6 +89,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     uncertainty_columns::Dict{MOI.VariableIndex,Int}
     results::Vector{FormulationResult}
     solve_time::Float64
+    time_breakdown::_TimeBreakdown
 
     function Optimizer(inner_factory = nothing)
         return new(
@@ -108,6 +109,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
             Dict{MOI.VariableIndex,Int}(),    # uncertainty_columns
             FormulationResult[],
             NaN,                              # solve_time
+            _no_time_breakdown(),
         )
     end
 end
@@ -123,6 +125,7 @@ function MOI.empty!(o::Optimizer)
     empty!(o.uncertainty_columns)
     empty!(o.results)
     o.solve_time = NaN
+    o.time_breakdown = _no_time_breakdown()
     return
 end
 
@@ -375,8 +378,13 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     factory = _inner_factory(dest)
     info = model_info(src)
     _check_bounded_support(src, info)
-    form = canonicalize(src, info; conic_support = _inner_supports_cones(factory, info))
+    # The moments of the lifted laws are computed when they are built, in `canonicalize`.
+    lifted_moments = Ref(0.0)
+    conic_support = _inner_supports_cones(factory, info)
+    form = _canonicalize(src, info, lifted_moments; conic_support)
     _check_combinations_across_stages(form, dest.formulations)
+    canonicalize_time = _seconds_since(start) - lifted_moments[]
+    moments_start = time_ns()
     # Without `RejectionSamplingTimeLimit()`, the sampling gets half of what remains of
     # `TimeLimitSec`, and the formulations the rest.
     budget = nothing
@@ -384,11 +392,14 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
         budget = max(0.0, dest.time_limit - _seconds_since(start)) / 2
     end
     mom = _moments(form, dest.rejection_sampling, dest.moments_cache; budget)
+    moments_time = lifted_moments[] + _seconds_since(moments_start)
+    checks_start = time_ns()
     _check_convex_objective(form)
     _warn_singular_moments(form, mom)
     cache = dest.inner_cache
     raw_attributes = copy(dest.raw_attributes)
     _update!(cache, _Fingerprint(form, mom, factory, dest.silent, raw_attributes))
+    checks_time = _seconds_since(checks_start)
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
         inner = _cached_problem(cache, f)
@@ -407,5 +418,14 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     dest.uncertainty_columns =
         Dict(v => 1 + j for (j, v) in enumerate(_original_uncertainties(form)))
     dest.solve_time = _seconds_since(start)
+    dest.time_breakdown = _TimeBreakdown((
+        canonicalize_time,
+        moments_time,
+        checks_time,
+        sum(r -> r.build_time, results; init = 0.0),
+        sum(r -> r.solve_time, results; init = 0.0),
+        sum(r -> r.results_time, results; init = 0.0),
+        dest.solve_time,
+    ))
     return _identity_map(src), false
 end

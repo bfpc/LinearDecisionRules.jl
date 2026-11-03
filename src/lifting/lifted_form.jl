@@ -40,6 +40,13 @@ function lift(
         CombinationPiecewise,
     }[],
 )
+    return _lift(form, liftings, combinations, Ref(0.0))
+end
+
+# `lift`, adding to `moment_seconds` the time of the moments of the lifted laws, which are computed
+# when they are built. The time is not kept in the laws: the inner cache compares them field by
+# field, and a time would differ at every `optimize!`.
+function _lift(form::CanonicalForm, liftings, combinations, moment_seconds::Base.RefValue{Float64})
     if form.lifting !== nothing
         error("The canonical form is already lifted.")
     end
@@ -102,7 +109,7 @@ function lift(
     end
     R = _sparse(R, 1 + m, 1 + m̃)
     Rη = R[2:end, 2:end]
-    laws, W_hull, h_hull = _lifted_laws(form, lifting_of, kept, pieces, m̃)
+    laws, W_hull, h_hull = _lifted_laws(form, lifting_of, kept, pieces, m̃, moment_seconds)
     if !isempty(combinations)
         liftings_c = [l for (_, l) in combinations]
         laws, W_c, h_c = _combination_laws(
@@ -113,6 +120,7 @@ function lift(
             combination_inputs,
             combination_pieces,
             m̃,
+            moment_seconds,
         )
         W_hull, h_hull = vcat(W_hull, W_c), vcat(h_hull, h_c)
     end
@@ -200,7 +208,7 @@ function _liftings_by_column(form::CanonicalForm, liftings)
 end
 
 # The laws of the lifted form, and the convex-hull rows `W η̃ ≥ h` of the liftings.
-function _lifted_laws(form::CanonicalForm, lifting_of, kept, pieces, m̃::Int)
+function _lifted_laws(form::CanonicalForm, lifting_of, kept, pieces, m̃::Int, moment_seconds)
     hull = _Triplets()
     h = Float64[]
     laws = map(form.laws) do law
@@ -210,7 +218,9 @@ function _lifted_laws(form::CanonicalForm, lifting_of, kept, pieces, m̃::Int)
         j = only(law.columns)
         l = lifting_of[j]
         name = form.uncertainty_names[j-1]
+        start = time_ns()
         d = _named_lifting_error(() -> LiftedDistribution(law.distribution, l), name)
+        moment_seconds[] += _seconds_since(start)
         lo, hi = _support_box(law.distribution)
         W, hl = _hull_rows(l, lo, hi)
         rows, cols, values = SparseArrays.findnz(W)
@@ -264,7 +274,7 @@ end
 # The laws of the lifted form with combinations: the laws of the inputs of the combinations that
 # share a law are merged with their pieces into one `_CombinationLaw`, in the place of the first of
 # them; and the outer approximation of the hull of each combination, as rows `W η̃ ≥ h`.
-function _combination_laws(form, laws, kept, liftings, inputs, pieces, m̃::Int)
+function _combination_laws(form, laws, kept, liftings, inputs, pieces, m̃::Int, moment_seconds)
     law_of_column = Dict(j => i for (i, law) in enumerate(form.laws) for j in law.columns)
     groups = _UnionFind(length(form.laws))
     for columns in inputs
@@ -287,11 +297,13 @@ function _combination_laws(form, laws, kept, liftings, inputs, pieces, m̃::Int)
         position = Dict(j => p for (p, j) in enumerate(columns))
         # A product of univariate laws is merged as its components, so that each is integrated or
         # enumerated on its own.
+        start = time_ns()
         d = _CombinationLaw(
             reduce(vcat, [_components(law.distribution) for law in originals]),
             liftings[combos],
             [[position[j] for j in inputs[c]] for c in combos],
         )
+        moment_seconds[] += _seconds_since(start)
         block_columns = vcat([kept[j] for j in columns], (pieces[c] for c in combos)...)
         block_stages = vcat(
             reduce(vcat, [law.stages for law in originals]),

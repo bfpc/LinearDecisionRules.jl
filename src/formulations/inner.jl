@@ -108,8 +108,10 @@ function _solve_inner!(
     form::CanonicalForm,
     mom::Moments;
     time_limit::Union{Nothing,Real} = nothing,
+    build_time::Float64 = 0.0,
 )
     model = inner.model
+    update_start = time_ns()
     for (p, value) in zip(inner.parameters, form.parameters.values)
         if p !== nothing && JuMP.fix_value(p) != value
             JuMP.fix(p, value)
@@ -119,9 +121,11 @@ function _solve_inner!(
         JuMP.set_time_limit_sec(model, time_limit)
         inner.time_limited = time_limit !== nothing
     end
+    build_time += _seconds_since(update_start)
     solve_start = time_ns()
     JuMP.optimize!(model)
-    return _formulation_result(f, form, mom, model, inner.X, _seconds_since(solve_start))
+    solve_time = _seconds_since(solve_start)
+    return _formulation_result(f, form, mom, model, inner.X; solve_time, build_time)
 end
 
 # Solve the inner problem of `f`, built by `build()` unless `inner` is given, within `time_limit`
@@ -140,11 +144,14 @@ function _solve!(
     if time_limit !== nothing && _seconds_since(start) >= time_limit
         return _time_limit_result(f, form, mom)
     end
+    build_time = 0.0
     if inner === nothing
+        build_start = time_ns()
         inner = build()
+        build_time = _seconds_since(build_start)
     end
     remaining = time_limit === nothing ? nothing : max(0.0, time_limit - _seconds_since(start))
-    return _solve_inner!(inner, f, form, mom; time_limit = remaining)
+    return _solve_inner!(inner, f, form, mom; time_limit = remaining, build_time)
 end
 
 # The form that the formulations build when constants depend on parameters (see `ParameterTerms`):

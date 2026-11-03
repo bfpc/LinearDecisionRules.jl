@@ -94,7 +94,7 @@ The include order (`src/LinearDecisionRules.jl`) is what loads:
 |---|---|---|
 | Declaration | JuMP's cache (an MOI model inside the caching optimizer) | Variables, constraints, the `Stage` and `Uncertainty` sets (as constraints), and the attributes `XiRole()` and `BreakPoints()` |
 | Declaration | the `Optimizer` (optimizer attributes) | `InnerOptimizer()`, `Formulations()`, `TimeLimitSec()`, `Silent()`, the raw attributes, `RejectionSampling*()`. They survive `empty!` |
-| After `optimize!` | the `Optimizer` | `form`, `moments`, `results`, the maps `decision_rows` and `uncertainty_columns`, the parameter values, `solve_time`. `MOI.empty!` clears them at the start of each `optimize!` |
+| After `optimize!` | the `Optimizer` | `form`, `moments`, `results`, the maps `decision_rows` and `uncertainty_columns`, the parameter values, `solve_time` and `time_breakdown`. `MOI.empty!` clears them at the start of each `optimize!` |
 | Across `optimize!` | the `Optimizer` | `moments_cache`: the estimates of conditioned laws, keyed by law, seed and number of draws. `inner_cache`: the inner problems and their fingerprint. Both survive `empty!` |
 
 The optimizer does not support incremental copy (`MOI.supports_incremental_interface` is `false`).

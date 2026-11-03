@@ -84,6 +84,32 @@ function JuMP.solve_time(model::JuMP.GenericModel, f::AbstractFormulation)
 end
 
 """
+    time_breakdown(model::JuMP.Model)
+    time_breakdown(model::JuMP.Model, formulation::AbstractFormulation)
+
+Where the wall-clock time of the last `optimize!` went, in seconds: a `NamedTuple` with the fields
+`canonicalize`, `moments`, `checks`, `build`, `solve`, `results` and `total` (see
+[`TimeBreakdown`](@ref)), or `build`, `solve` and `results` for one formulation.
+
+It is an error before `optimize!`, or if `formulation` was not solved.
+
+## Example
+
+```julia
+optimize!(model)
+time_breakdown(model)               # (canonicalize = 0.01, moments = 0.2, …, total = 1.3)
+time_breakdown(model, DualLDR()).solve
+```
+"""
+function time_breakdown(model::JuMP.GenericModel)
+    return MOI.get(model, TimeBreakdown())
+end
+
+function time_breakdown(model::JuMP.GenericModel, f::AbstractFormulation)
+    return _formulation_attribute(model, f, TimeBreakdown())
+end
+
+"""
     is_certified(model::JuMP.Model, formulation::AbstractFormulation = DualLDR()) -> Bool
 
 Whether the values of `formulation` are exact for the laws of the model: for [`DualLDR`](@ref),

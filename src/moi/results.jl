@@ -93,6 +93,15 @@ end
 
 MOI.get(o::Optimizer, ::MOI.SolveTimeSec) = o.solve_time
 
+MOI.get(o::Optimizer, ::TimeBreakdown) = o.time_breakdown
+
+# A breakdown has no indices for the caching optimizer of JuMP to map.
+MOI.Utilities.map_indices(::Any, ::TimeBreakdown, x::NamedTuple) = x
+
+function MOI.Utilities.map_indices(::Any, ::FormulationAttribute{TimeBreakdown}, x::NamedTuple)
+    return x
+end
+
 function MOI.get(o::Optimizer, attr::MOI.ObjectiveValue)
     return _solution_of_slot(o, attr).objective_value
 end
@@ -198,6 +207,11 @@ end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{MOI.SolveTimeSec})
     return _require_result(o, attr).solve_time
+end
+
+function MOI.get(o::Optimizer, attr::FormulationAttribute{TimeBreakdown})
+    r = _require_result(o, attr)
+    return (build = r.build_time, solve = r.solve_time, results = r.results_time)
 end
 
 function MOI.get(o::Optimizer, attr::FormulationAttribute{Certified})
