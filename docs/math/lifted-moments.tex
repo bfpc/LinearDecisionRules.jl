@@ -1,0 +1,564 @@
+% Moments of the lifted laws of LinearDecisionRules.jl: hypotheses on the laws, the computation of
+% the code, and a proposal by laws of sums.
+%
+% Build: `latexmk lifted-moments.tex` in this folder; the PDF is written to build/.
+% Source conventions: those of ldr-math.tex (semantic line breaks, the macros of macros.tex).
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,array}
+\usepackage{enumitem}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=green!40!black,urlcolor=blue!50!black]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+\usepackage{thmtools}
+
+\input{macros}
+
+\declaretheorem[name=Proposition,numberwithin=section]{proposition}
+\declaretheorem[name=Lemma,sibling=proposition]{lemma}
+\declaretheorem[name=Corollary,sibling=proposition]{corollary}
+\declaretheorem[name=Definition,sibling=proposition,style=definition]{definition}
+\declaretheorem[name=Remark,sibling=proposition,style=remark]{remark}
+\declaretheorem[name=Example,sibling=proposition,style=remark]{example}
+
+\numberwithin{equation}{section}
+
+% Notation of this note
+\newcommand{\pos}[1]{(#1)_+}            % positive part
+\newcommand{\hinge}[1]{h_{#1}}          % h_b(s) = (s - b)_+
+\newcommand{\slt}[2]{\pi^{#1}_{#2}}      % stop-loss transform π^Y_q(t) = E[(Y - t)_+^q]
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\Hyp}[1]{\textup{(H#1)}}    % a hypothesis on the laws
+
+\title{Moments of the lifted laws of \pkg{}\\[0.5ex]
+\large Hypotheses on the laws, the computation of version 0.4,\\
+and a proposal by laws of sums}
+\author{Notes for the development of the package}
+\date{Draft, November 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The formulations of \pkg{} use the law of the lifted uncertainties only through its mean and its covariance blocks.
+This note separates three things that the main notes (\file{ldr-math.tex}) describe together:
+the hypotheses on the original uncertainties,
+the moments that each lifting needs,
+and how they are computed.
+For each lifting, it states the moments, how the code of version 0.4 computes them, and a proposal.
+The proposal rests on one observation:
+every moment that a piecewise affine lifting needs is an expectation of a product of at most two hinges $\pos{s - b}$ and one coordinate,
+so it depends on the joint law of at most two linear forms of the uncertainties, and of one coordinate.
+Under independence, these are one- or two-dimensional integrals of the stop-loss transforms $\E[\pos{Y - t}^q]$, $q = 1, 2$, of sums $Y$ of independent terms,
+which are exact sums for discrete laws and closed-form piecewise polynomials for uniform laws.
+The cost of the current nested quadrature, exponential in the number of continuous inputs, would become polynomial for these laws.
+\end{abstract}
+
+\tableofcontents
+
+%======================================================================================================
+\section{What the formulations need}
+\label{sec:need}
+
+Let $\xi = (1, \eta)$, with $\eta \in \R^m$, and let a lifting \citep[Section~3]{GWK2015} replace $\xi$ by $\lxi = \Lift(\xi)$.
+The formulations use the law of $\lxi$ only through $\E[\lxi]$ and $\Cov(\lxi)$,
+in the structure $\E[\lxi\lxi^\T] = \E[\lxi]\E[\lxi]^\T + \blockdiag(\Cvb{1}, \dots, \Cvb{K})$:
+one covariance block per law of the canonical form, and zero covariance between blocks (\code{Moments}, \file{src/probability/moments.jl}).
+So for each lifting we need the mean of its coordinates,
+their covariance with each other,
+and their covariance with the other coordinates of their block.
+Coordinates of different blocks are independent, and their covariance is zero by construction.
+
+Two facts make the computation flexible.
+
+\begin{lemma}[Change of basis]
+\label{lem:basis}
+Let $u = Tw + t_0$ with $T$ invertible and $t_0$ constant.
+Then $\E[u] = T\E[w] + t_0$ and $\Cov(u) = T\Cov(w)T^\T$,
+and $\Cov(u, z) = T\Cov(w, z)$ for any other vector $z$.
+\end{lemma}
+
+So the moments can be computed in any basis of the span of $(1, \lxi)$, and mapped back.
+We use the basis of \emph{hinges} $\hinge b(s) = \pos{s - b}$.
+
+\begin{lemma}[Pieces as hinges]
+\label{lem:hinges}
+Let $b_1 < \dots < b_n$, $\Delta_k = b_k - b_{k-1}$ for $2 \le k \le n$, and $\hinge i = \hinge{b_i}(s)$.
+Then
+\[
+\min(\max(s - b_{k-1}, 0), \Delta_k) = \hinge{k-1} - \hinge k \quad (2 \le k \le n),
+\]
+and $\max(s - b_n, 0) = \hinge n$ and $\min(s, b_1) = s - \hinge 1$.
+So the pieces $(p_2, \dots, p_{n+1})$ of a combination lifting are $D(\hinge 1, \dots, \hinge n)$ with $D$ upper bidiagonal with unit diagonal, hence invertible,
+and the axis lifting $(\leta_1, \dots, \leta_{n+1})$ of a coordinate $\eta$ is an invertible linear map of $(\eta, \hinge 1, \dots, \hinge n)$.
+\end{lemma}
+
+\begin{proof}
+For $s \le b_{k-1}$ both sides of the first identity are $0$; for $b_{k-1} < s \le b_k$ both are $s - b_{k-1}$; for $s > b_k$ both are $\Delta_k$.
+The other two are immediate.
+\end{proof}
+
+\begin{definition}[Stop-loss transforms]
+For a random variable $Y$ with a finite second moment and $q \in \{0, 1, 2\}$, let
+\[
+\slt Y q(t) \defeq \E\bigl[\pos{Y - t}^q\bigr] \quad (\text{with } \pos{x}^0 = \ind{x > 0}).
+\]
+Then
+\[
+\slt Y 1(t) = \int_t^\infty \Prob(Y > u)\,du,
+\qquad
+\slt Y 2(t) = 2\int_t^\infty \slt Y 1(u)\,du .
+\]
+\end{definition}
+
+The products of hinges of one variable are hinges again:
+for $b \le b'$, $\pos{s - b}\pos{s - b'} = \pos{s - b'}^2 + (b' - b)\pos{s - b'}$,
+since where $s > b'$ both factors are positive and $s - b = (s - b') + (b' - b)$.
+Also $s\,\pos{s - b} = \pos{s - b}^2 + b\pos{s - b}$.
+Hence:
+
+\begin{proposition}[Moments of the hinges of one variable]
+\label{prop:one-variable}
+For $b \le b'$,
+\[
+\E[\hinge b(s)] = \slt s1(b), \qquad
+\E[\hinge b(s)\hinge{b'}(s)] = \slt s2(b') + (b' - b)\slt s1(b'), \qquad
+\E[s\,\hinge b(s)] = \slt s2(b) + b\,\slt s1(b) .
+\]
+So the mean and the covariance of $(s, \hinge{b_1}(s), \dots, \hinge{b_n}(s))$ are determined by $\E[s]$, $\Var(s)$, and the $2n$ numbers $\slt s1(b_i)$, $\slt s2(b_i)$.
+\end{proposition}
+
+The probability $\slt s0$ is not needed.
+The main notes (proposition on the lifted moments, in the section on liftings) write the same moments with the probability and the first two moments of each piece;
+the two are related by
+$p_i = \slt{}0(v_{i-1}) - \slt{}0(v_i)$,
+$m_i = \slt{}1(v_{i-1}) - \slt{}1(v_i) - \Delta_i\slt{}0(v_i)$ and
+$s_i = \slt{}2(v_{i-1}) - \slt{}2(v_i) - 2\Delta_i\slt{}1(v_i) - \Delta_i^2\slt{}0(v_i)$,
+and the terms in $\slt{}0$ cancel in the moments.
+
+%======================================================================================================
+\section{Hypotheses on the original uncertainties}
+\label{sec:hypotheses}
+
+The uncertainties are declared in groups, each with a law (a \emph{declaration}).
+A product of univariate laws is split into its components (\code{\_components}), so below a \emph{law} is either univariate or a multivariate law that is not a product.
+The hypotheses that the computations use are:
+\begin{description}[nosep,leftmargin=3em,labelwidth=2.5em]
+\item[\Hyp{I}] \emph{Independence.} Different laws are independent: the law of $\eta$ is the product of the laws.
+\item[\Hyp{B}] \emph{Bounded support.} Each law has a bounded box $[\ell, u]$ (\code{minimum}, \code{maximum}).
+\item[\Hyp{D}] \emph{Finitely many atoms.} The law is discrete with finitely many atoms $x^1, \dots, x^N$ of probabilities $w_1, \dots, w_N$ (\code{\_finite\_atoms}).
+\item[\Hyp{C}] \emph{A univariate density.} The law is univariate with a density $f$ on $[\ell, u]$, and its distribution function $F$ is available (\code{pdf}, \code{cdf}).
+\item[\Hyp{U}] \emph{Uniform.} The law is $\mathcal{U}[\ell, u]$, a special case of \Hyp{C} with closed forms.
+\item[\Hyp{L}] \emph{Linear regression on a combination.} For the combination $s$ of a lifting, $\E[\eta_K \mid s]$ is affine in $s$ for the coordinates $\eta_K$ of each law $K$ that $s$ involves.
+\end{description}
+
+\Hyp{I} and \Hyp{B} are checked or enforced by the package:
+independence is the definition of separate declarations (the support and the covariance are block diagonal by law),
+and a lifted law must be bounded, since the breakpoints must lie inside the range of the lifted quantity.
+\Hyp{L} is not a property of each law, but of the laws and the coefficients of $s$ together.
+By least squares, under \Hyp{L} the regression is
+\begin{equation}
+\label{eq:regression}
+\E[\eta \mid s] = \E[\eta] + \beta\bigl(s - \E[s]\bigr), \qquad \beta = \frac{\Cov(\eta, s)}{\Var(s)} = \frac{\Cv a}{a^\T\Cv a},
+\end{equation}
+where $\Cv$ is the covariance of the inputs and $a$ their coefficients.
+
+\begin{proposition}[Laws with \Hyp{L}]
+\label{prop:hyp-L}
+\Hyp{L} holds in each of these cases:
+\begin{enumerate}[label=(\alph*),nosep]
+\item $s$ has one input;
+\item the inputs are independent and identically distributed, and their coefficients are equal: then $\E[\eta_j \mid s] = (s - c)/(a\,\abs J)$;
+\item the inputs are the coordinates of one \code{ConfidenceMvNormal}, or more generally of an elliptical law $\mu + Lz$ with $z$ spherically symmetric.
+\end{enumerate}
+It fails in general for independent inputs with different laws:
+for $\eta_1 \sim \mathcal{U}[0, 1]$, $\eta_2 \sim \mathcal{U}[0, 2]$ and $s = \eta_1 + \eta_2$, $\E[\eta_1 \mid s] = s/2$ for $s \le 1$ and $1/2$ for $1 \le s \le 2$.
+\end{proposition}
+
+\begin{proof}
+(a) is trivial, and (b) follows from $\sum_j \E[\eta_j \mid s] = (s - c)/a$ and exchangeability.
+(c) With $s = c + a^\T\mu + (L^\T a)^\T z$, let $e = L^\T a/\norm{L^\T a}$, $\zeta = e^\T z$ and $z_\perp = z - \zeta e$.
+Given $\zeta$, the law of $z_\perp$ is invariant under the reflection $z_\perp \mapsto -z_\perp$ (a rotation that fixes $e$ composed with the symmetry of $z$),
+so $\E[z_\perp \mid \zeta] = 0$, $\E[z \mid s] = \zeta e$ and $\E[\eta \mid s] = \mu + Le\,\zeta$, affine in $s$.
+For the example, given $s \le 1$ the pair $(\eta_1, \eta_2)$ is uniform on the segment $\eta_1 + \eta_2 = s$ in the box, and given $1 \le s \le 2$ it is uniform on $\eta_1 \in [0, 1]$.
+\end{proof}
+
+\Cref{tab:laws} lists the laws of the package against the hypotheses.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+Law & \Hyp{B} & \Hyp{D} & \Hyp{C} & \Hyp{U} \\
+\midrule
+\code{Uniform} & yes & & yes & yes \\
+other bounded continuous univariate laws & yes & & yes & \\
+\code{truncated} continuous laws (exact truncation) & yes & & yes & \\
+discrete univariate laws with a finite support & yes & yes & & \\
+\code{MvDiscreteNonParametric} & yes & yes & & \\
+\code{ConditionedDistribution} (by rejection) & yes & its draws & & \\
+\code{ConfidenceMvNormal} & yes & & multivariate & \\
+\bottomrule
+\end{tabular}
+\caption{The laws of the package and the hypotheses of \cref{sec:hypotheses}.
+The moments of a \code{ConditionedDistribution} are those of the empirical law of its draws, which satisfies \Hyp{D}, but the law itself does not.
+\code{ConfidenceMvNormal} has a density on $\R^d$, not a univariate one, and satisfies \Hyp{L} for every combination of its coordinates (\cref{prop:hyp-L}).}
+\label{tab:laws}
+\end{table}
+
+%======================================================================================================
+\section{Lifting by lifting}
+\label{sec:liftings}
+
+For each lifting: the moments it needs, the hypotheses of the code of version 0.4 and how it computes them, and the proposal.
+
+\subsection{No lifting}
+
+\emph{Moments.} The mean and the covariance of each law.
+
+\emph{Now.} \code{mean} and \code{cov} (or \code{var}) of Distributions, for every law (\code{\_law\_mean}, \code{\_law\_covariance}, \file{src/probability/laws.jl});
+for a continuous truncated law without them in Distributions, quadrature of its density (QuadGK, relative tolerance $10^{-12}$);
+for a \code{ConditionedDistribution}, the empirical moments of its draws.
+The covariance is block diagonal by \Hyp{I}. Nothing else is assumed.
+
+\emph{Proposal.} Nothing to change.
+
+\subsection{The axis lifting of a univariate law}
+\label{sec:axis}
+
+\emph{Moments.} For $\eta$ with breakpoints $b_1 < \dots < b_n$ inside $[\ell, u]$:
+by \cref{lem:hinges,prop:one-variable}, $\E[\eta]$, $\Var(\eta)$, and $\slt\eta1(b_i)$, $\slt\eta2(b_i)$ for $i = 1, \dots, n$.
+By \Hyp{I}, the covariance with the other coordinates is zero.
+
+\emph{Now} (\code{LiftedDistribution}, \file{src/probability/distributions/lifted_distribution.jl} and \file{src/lifting/axis_piecewise.jl}).
+The uncertainty must be declared alone, with a univariate law (\Hyp{B} and \Hyp{D} or \Hyp{C}).
+\begin{itemize}[nosep]
+\item Under \Hyp{D}: $\E[\leta] = \sum_k w_k\Lift(x^k)$ and $\E[\leta\leta^\T] = \sum_k w_k\Lift(x^k)\Lift(x^k)^\T$, exact sums over the support.
+\item Under \Hyp{U}: the piece moments $p_i = \Delta_i/(u - \ell)$, $m_i = \Delta_i^2/(2(u - \ell))$, $s_i = \Delta_i^3/(3(u - \ell))$, exact.
+\item Under \Hyp{C}: $p_i = F(v_i) - F(v_{i-1})$ and $(m_i, s_i)$ by one adaptive quadrature of $f(x)\,(x - v_{i-1}, (x - v_{i-1})^2)$ on each piece (QuadGK, relative tolerance $10^{-12}$).
+\end{itemize}
+Then the lifted moments follow from the piece moments (the proposition on lifted moments of the main notes): $n + 1$ one-dimensional integrals.
+
+\emph{Proposal.} The cost is already linear in $n$, so the only change would be to use the same $\slt{}q$ as the combinations, so that one code path serves both.
+The axis lifting of a coordinate $\eta_j$ of a \emph{multivariate} law, which the package refuses, would also need $\E[\eta_m\hinge b(\eta_j)]$ for the other coordinates $m$ of the law.
+Under \Hyp{D} it is a sum over the atoms; for a \code{ConfidenceMvNormal}, by \Hyp{L} and \eqref{eq:regression},
+$\E[\eta_m\hinge b(\eta_j)] = \E[\eta_m]\slt{}1(b) + \beta_m(\E[\eta_j\hinge b] - \E[\eta_j]\slt{}1(b))$,
+with the law of $\eta_j$ a univariate law (\cref{sec:sums-elliptical}).
+
+\subsection{One combination lifting}
+\label{sec:one-combination}
+
+Let $s = c + a^\T\eta$ with inputs $J$, and let $\mathcal{K}$ be the laws that contain an input.
+Write $s = c + \sum_{K \in \mathcal{K}} a_K^\T\eta_K$, where $\eta_K$ are the coordinates of the law $K$ and $a_K$ their coefficients (zero for those that are not inputs),
+and let $R_K = s - a_K^\T\eta_K$ be the rest of $s$, which is independent of $\eta_K$ by \Hyp{I}.
+
+\emph{Moments.} The block of the lifting is that of the laws of $\mathcal{K}$ and of the pieces $p$.
+It needs, besides the moments of the laws:
+\begin{enumerate}[label=(\roman*),nosep]
+\item the pieces against the pieces, $\E[p]$ and $\E[pp^\T]$;
+\item the pieces against each coordinate $\eta_m$ of a law $K \in \mathcal{K}$, $\E[p\,\eta_m]$, including the coordinates of a multivariate law that are not inputs.
+\end{enumerate}
+The pieces against the coordinates of other laws have zero covariance, by \Hyp{I}.
+
+\emph{Now} (\code{\_CombinationLaw}, \code{\_combination\_moments} and \code{\_expectation}, \file{src/probability/distributions/combination_law.jl}).
+Each law of $\mathcal{K}$ satisfies \Hyp{B} and \Hyp{D}, or \Hyp{B} and \Hyp{C}.
+The code computes the expectation of the vector $\phi(\eta) = (p,\ \operatorname{vec}(p\,\eta_{\mathcal K}^\T),\ \operatorname{vec}(pp^\T))$,
+where $\eta_{\mathcal K}$ are all the coordinates of the laws of $\mathcal{K}$, over the product of these laws:
+\begin{itemize}[nosep]
+\item it enumerates the joint atoms of the laws with \Hyp{D}, whose number is the product of their numbers of atoms (at most $10^7$, \code{\_MAX\_COMBINATION\_ATOMS});
+\item for each joint atom, it integrates $\phi$ over the laws with \Hyp{C} by nested adaptive quadratures, one variable at a time (\code{\_integrate}, QuadGK, relative tolerance $10^{-10}$ on the norm of the vector),
+splitting the interval of the outer variable $x$ at the points where $s$, with $x$ and the outer coordinates fixed and the inner coordinates at a vertex of their box, equals a breakpoint.
+\end{itemize}
+The splits are the knots of the integrand.
+Under \Hyp{U}, the inner integral is a function of $s$ restricted to the outer variable: by \cref{prop:uniform-sum} below,
+$\int \pos{t - a_y^\T y}^q\,dy$ over the box of the inner coordinates $y$ is a piecewise polynomial in $t$ whose knots are the values of $a_y^\T y$ at the vertices of the box.
+So the integrand of each level is a polynomial on each cell, of degree at most $d + 2$ for $d$ continuous inputs
+($2$ from $pp^\T$, $1$ from $p\,\eta_m$, and $1$ per inner integration).
+The Gauss--Kronrod pair of QuadGK (7 and 15 points) integrates polynomials of degree up to 13 exactly,
+so for $d \le 11$ uniform inputs each cell costs 15 evaluations and no refinement.
+With $c_k$ cells at level $k$, at most $1 + n\,2^{d-k}$, the number of evaluations of $\phi$ is about $\prod_{k=1}^d 15\,c_k$, for each joint atom:
+exponential in $d$, and about $15^d$ even with one cell per level.
+For other laws with \Hyp{C}, the integrand is smooth on the cells only if the densities are smooth on their supports;
+a kink of a density, such as the mode of a triangular law, is not a split, and QuadGK refines around it.
+
+\emph{Proposal.}
+Every moment is an expectation of a hinge of $s$, times a hinge of $s$ or a coordinate.
+
+\begin{proposition}[Moments of one combination]
+\label{prop:one-combination}
+Under \Hyp{I}, with the notation above and $b \le b'$:
+\begin{enumerate}[label=(\alph*),nosep]
+\item $\E[\hinge b(s)] = \slt s1(b)$ and $\E[\hinge b(s)\hinge{b'}(s)] = \slt s2(b') + (b' - b)\slt s1(b')$;
+\item for a coordinate $\eta_m$ of a law $K \in \mathcal{K}$,
+\[
+\E[\eta_m\hinge b(s)] = \E\bigl[\eta_m\,\slt{R_K}1(b - a_K^\T\eta_K)\bigr],
+\]
+an expectation over the law $K$ alone: an integral of dimension one under \Hyp{C}, a sum over its atoms under \Hyp{D};
+\item $\sum_{j \in J} a_j\E[\eta_j\hinge b(s)] = \slt s2(b) + (b - c)\slt s1(b)$;
+\item under \Hyp{L}, with $\beta$ of \eqref{eq:regression},
+$\E[\eta_m\hinge b(s)] = \E[\eta_m]\slt s1(b) + \beta_m\bigl(\slt s2(b) + (b - \E[s])\slt s1(b)\bigr)$,
+which needs the law of $s$ only.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(a) is \cref{prop:one-variable}.
+(b) By \Hyp{I}, $R_K$ is independent of $\eta_K$, so by Fubini
+$\E[\eta_m\pos{a_K^\T\eta_K + R_K - b}] = \E_{\eta_K}\bigl[\eta_m\,\E_{R_K}[\pos{R_K - (b - a_K^\T\eta_K)}]\bigr]$.
+(c) The left side is $\E[(s - c)\hinge b(s)]$, and $s\,\hinge b = \hinge b^2 + b\,\hinge b$.
+(d) $\E[\eta_m\hinge b(s)] = \E[\E[\eta_m \mid s]\hinge b(s)]$, then \eqref{eq:regression} and $\E[s\,\hinge b] = \slt s2(b) + b\,\slt s1(b)$.
+\end{proof}
+
+So, under \Hyp{I}, the moments of one combination need
+the stop-loss transforms of $s$ at the $n$ breakpoints,
+and, for each law $K$ of the combination, those of the rest $R_K$ along the values of $b - a_K^\T\eta_K$: one integral over the law $K$ per breakpoint and per coordinate.
+Item (c) saves one of these integrals per breakpoint, or checks them.
+Under \Hyp{L}, the law of $s$ suffices.
+The laws of $s$ and of the $R_K$ are laws of sums of independent terms, the subject of \cref{sec:sums}.
+\Cref{tab:cost} compares the costs.
+
+\subsection{Two combination liftings that share a law}
+\label{sec:two-combinations}
+
+Let $s = c + a^\T\eta$ and $s' = c' + a'^\T\eta$ be the combinations of two liftings whose laws $\mathcal{K}$ and $\mathcal{K}'$ intersect.
+Their pieces are in one block, and need the cross moments $\E[\hinge b(s)\hinge{b'}(s')]$.
+(The pieces of two liftings whose laws do not intersect are independent, by \Hyp{I}, and the code skips them.)
+
+\emph{Now.} The same enumeration and nested quadrature as in \cref{sec:one-combination}, of $\operatorname{vec}(pp'^\T)$, over the laws of $\mathcal{K} \cup \mathcal{K}'$,
+with the splits of both liftings: the cost is exponential in the number of continuous inputs of the two liftings together.
+
+\emph{Proposal.}
+Split the laws into the shared ones, $\mathcal{S} = \mathcal{K} \cap \mathcal{K}'$, and the others, and write
+\[
+s = c + A + Y, \qquad s' = c' + A' + Y',
+\qquad\text{with}\qquad A = \sum_{K \in \mathcal{S}} a_K^\T\eta_K, \quad A' = \sum_{K \in \mathcal{S}} a_K'^\T\eta_K,
+\]
+\[
+Y = \sum_{K \in \mathcal{K}\setminus\mathcal{S}} a_K^\T\eta_K, \qquad Y' = \sum_{K \in \mathcal{K}'\setminus\mathcal{S}} a_K'^\T\eta_K .
+\]
+
+\begin{proposition}[Moments of two combinations]
+\label{prop:two-combinations}
+Under \Hyp{I}, $(A, A')$, $Y$ and $Y'$ are independent, and
+\[
+\E[\hinge b(s)\hinge{b'}(s')] = \E\bigl[\slt Y1(b - c - A)\,\slt{Y'}1(b' - c' - A')\bigr],
+\]
+an expectation over the joint law of $(A, A')$, that is, over the shared laws.
+It is one-dimensional when $A' = \lambda A$ for some $\lambda$, in particular when one univariate law is shared, or when $A' = A$;
+two-dimensional, over the law of $(A, A')$, otherwise;
+and a sum over the atoms when the shared laws satisfy \Hyp{D}.
+\end{proposition}
+
+\begin{proof}
+The three are functions of disjoint sets of independent laws.
+Conditionally on $(A, A')$, the two hinges are functions of the independent $Y$ and $Y'$, so the conditional expectation of their product is the product of $\E[\pos{Y - (b - c - A)} \mid A]$ and its counterpart.
+\end{proof}
+
+\begin{example}[The chains of the benchmarks]
+\label{ex:chains}
+\emph{Consecutive pairs} $s_t = \eta_{t-1} + \eta_t$ and $s_{t+1} = \eta_t + \eta_{t+1}$ of univariate laws:
+$A = A' = \eta_t$, $Y = \eta_{t-1}$, $Y' = \eta_{t+1}$, and
+$\E[\hinge b(s_t)\hinge{b'}(s_{t+1})] = \E[\slt{\eta_{t-1}}1(b - \eta_t)\,\slt{\eta_{t+1}}1(b' - \eta_t)]$, one integral over $\eta_t$.
+
+\emph{Cumulative sums} $S_t = \eta_1 + \dots + \eta_t$ and $S_{t'}$, $t < t'$:
+$A = A' = S_t$, $Y = 0$, $Y' = S_{t'} - S_t$, and
+$\E[\hinge b(S_t)\hinge{b'}(S_{t'})] = \E[\hinge b(S_t)\,\slt{Y'}1(b' - S_t)]$, one integral over the law of $S_t$.
+
+\emph{Reservoir pairs of the hydrothermal problem}, where the inflows $x_{r,t}$ of a stage are one \code{MvDiscreteNonParametric} law of 82 atoms.
+The pairs $s_{r,t} = x_{r,t-1} + x_{r,t}$ and $s_{r,t+1}$ share the law of stage $t$:
+$A = A' = x_{r,t}$, $Y = x_{r,t-1}$, $Y' = x_{r,t+1}$, a sum over the 82 atoms of stage $t$ of products of stop-loss transforms of two marginals,
+where the code enumerates the $82^3$ joint atoms of three stages.
+The pairs $s_{r,t}$ and $s_{r',t}$ of two reservoirs share the laws of stages $t - 1$ and $t$, with $Y = Y' = 0$:
+a sum over the $82^2$ atoms of the two stages, as now.
+\end{example}
+
+%======================================================================================================
+\section{Laws of sums}
+\label{sec:sums}
+
+The proposal needs $\slt Y1$ and $\slt Y2$ for sums $Y = \sum_k Y_k$ of independent terms $Y_k = a_K^\T\eta_K$, each a linear form of one law:
+$s$, the rests $R_K$, and the exclusive parts $Y$, $Y'$ of two combinations.
+A term of a univariate law is that law scaled; a term of a multivariate law with \Hyp{D} is discrete with at most $N$ atoms.
+
+\subsection{Discrete terms}
+\label{sec:sums-discrete}
+
+If every term satisfies \Hyp{D}, $Y$ is discrete, and its law is the convolution of the laws of the terms:
+add the terms one at a time, merging the atoms with the same value.
+Then $\slt Yq(t) = \sum_y \Prob(Y = y)\pos{y - t}^q$, exactly.
+The number of atoms of $Y$ is at most the product of those of the terms, as for the enumeration of the code,
+but it is often far smaller:
+for integer atoms and integer coefficients, the atoms of $Y$ are integers in its range, so their number grows additively with the terms
+(and the convolution can use the FFT).
+Merging atoms whose values differ by rounding needs a tolerance, or exact arithmetic on rational data;
+without merging, the convolution is the enumeration.
+
+\subsection{Uniform terms}
+\label{sec:sums-uniform}
+
+\begin{proposition}[Stop-loss transforms of a sum of uniform laws]
+\label{prop:uniform-sum}
+Let $X_1, \dots, X_d$ be independent, $X_i \sim \mathcal{U}[0, w_i]$, $Y = X_1 + \dots + X_d$, $W = w_1 + \dots + w_d$, and $w_S = \sum_{i \in S} w_i$ for $S \subseteq \{1, \dots, d\}$.
+For $q \ge 0$ and $t \in \R$,
+\[
+\E\bigl[\pos{t - Y}^q\bigr] = \frac{q!}{(q + d)!\,\prod_i w_i}\sum_{S} (-1)^{\abs S}\pos{t - w_S}^{q+d},
+\qquad
+\slt Yq(t) = \E\bigl[\pos{(W - t) - Y}^q\bigr].
+\]
+\end{proposition}
+
+\begin{proof}
+For $X \sim \mathcal{U}[0, w]$ and $r \ge 0$, substituting $v = t - x$,
+$\E[\pos{t - X}^r] = \frac1w\int_{t - w}^t \pos v^r\,dv = \frac{\pos t^{r+1} - \pos{t - w}^{r+1}}{(r + 1)\,w}$.
+The first formula follows by induction on $d$:
+conditioning on $X_d$, apply the formula for $d - 1$ terms at $t - X_d$, and then the identity above to each term, with $r = q + d - 1$;
+the terms of $S \subseteq \{1, \dots, d-1\}$ give those of $S$ and of $S \cup \{d\}$.
+The second holds because $W - Y = \sum_i (w_i - X_i)$ has the law of $Y$, and $\pos{Y - t} = \pos{(W - t) - (W - Y)}$.
+\end{proof}
+
+A uniform input $\eta_i \sim \mathcal{U}[\ell_i, u_i]$ with coefficient $a_i$ is a constant plus $X_i$ with $w_i = \abs{a_i}(u_i - \ell_i)$,
+so $s = s_{\min} + Y$, and $\slt sq(t) = \slt Yq(t - s_{\min})$ is in closed form: a piecewise polynomial of degree $q + d$ with knots $s_{\min} + w_S$.
+These knots are the values of $s$ at the vertices of the box, which is why they are the splits of the code (\cref{sec:one-combination}).
+The cumulative distribution function is the case $q = 0$, the formula of the distribution of a sum of uniform laws (a box spline).
+
+\emph{Cost and accuracy.}
+The formula has $2^d$ terms, but only as many distinct knots as distinct values of $w_S$:
+$d + 1$ for equal widths, where it reduces to the Irwin--Hall law.
+It cancels: its terms are of the order of $W^{q+d}/((q + d)!\prod_i w_i)$, which for equal widths is $d^d/d! \approx e^d$ times $w^q$, while $\slt Yq$ is of the order of $w^q$ or smaller,
+so it loses about $d\log_{10}(2e) \approx 0.73d$ digits, 6 for $d = 8$.
+Near one end of the range the formula of that end has few nonzero terms;
+with $\pos{Y - t} = (Y - t) + \pos{t - Y}$ and $\pos{Y - t}^2 = (Y - t)^2 - \pos{t - Y}^2$, one can evaluate $\slt Yq(t)$ from whichever end of the range is closer.
+For larger $d$, a convolution of piecewise polynomials, one term at a time, in a stable basis on the knot intervals, avoids the cancellation, at the cost of $O(d)$ convolutions.
+
+\emph{The other moments.}
+The integrands of \cref{prop:one-combination}~(b) and \cref{prop:two-combinations} are then piecewise polynomials in one variable with known knots:
+$x\,\slt{R_K}1(b - a_jx)$ on $[\ell_j, u_j]$, and $\slt Y1(b - c - A)\slt{Y'}1(b' - c' - A)$ for one shared uniform law.
+Gauss--Legendre quadrature with $\lceil (\deg + 1)/2\rceil$ nodes on each knot interval integrates them exactly, up to rounding.
+So under \Hyp{U} every moment of a combination is exact, as now, with a cost polynomial in $d$ and $n$ (up to the $2^d$ terms of the formula, which the stable convolution avoids).
+
+\subsection{Discrete and continuous terms together}
+\label{sec:sums-mixed}
+
+If $Y = Z + X$ with $Z$ discrete (\cref{sec:sums-discrete}) and $X$ independent with \Hyp{C}, then $Y$ is a finite mixture of shifts of $X$:
+$\slt Yq(t) = \sum_z \Prob(Z = z)\,\slt Xq(t - z)$.
+So the discrete terms are convolved exactly and enter as a sum over the atoms of $Z$, and the continuous terms as $\slt Xq$, from \cref{sec:sums-uniform} or \cref{sec:sums-general}.
+
+\subsection{Other continuous terms}
+\label{sec:sums-general}
+
+For terms with \Hyp{C} but not \Hyp{U}, the law of $Y$ has no closed form in general.
+The options:
+\begin{itemize}[nosep]
+\item convolve the densities one term at a time, $f_{Y + X}(t) = \int f_Y(t - x)f_X(x)\,dx$,
+representing each density by piecewise polynomials (for instance Chebyshev interpolants) on the intervals between the sums of the ends of the supports, where they are smooth if the densities of the terms are;
+each convolution is a family of one-dimensional integrals, so the cost is linear in $d$;
+\item work with the distribution functions instead, $F_{Y+X}(t) = \int F_Y(t - x)f_X(x)\,dx$, which are smoother, and get $\slt Y1$ and $\slt Y2$ by integrating $1 - F_Y$ (the definition of $\slt{}q$);
+\item keep the nested quadrature of the code for $d \le 3$, where it is fast enough.
+\end{itemize}
+The first two are approximations with an error that depends on the representation, and need a tolerance as the quadrature does now.
+
+\subsection{Linear forms of an elliptical law}
+\label{sec:sums-elliptical}
+
+For a \code{ConfidenceMvNormal}$(\mu, \Cv, \alpha)$ in $\R^d$ with $\Cv = LL^\T$, a combination of its coordinates is $s = c + a^\T\mu + \norm{L^\T a}\,\zeta$, where $\zeta$ is one coordinate of $z \sim \mathcal{N}(0, \eye_d)$ conditioned on $\norm z \le \rho$.
+Its density is
+\[
+f_\zeta(x) = \frac{\varphi(x)\,\Fchi{d-1}(\rho^2 - x^2)}{\alpha} \quad \text{on } [-\rho, \rho],
+\]
+where $\varphi$ is the standard normal density (and $\Fchi{0}(r) = 1$ for $r \ge 0$, the truncated normal law for $d = 1$):
+the density of $z$ is proportional to $\varphi(x)$ times that of the other coordinates, on the ball, and the latter integrate to the probability that $\chi^2_{d-1} \le \rho^2 - x^2$.
+So $s$ satisfies \Hyp{C}, and with \Hyp{L} (\cref{prop:hyp-L}) all the moments of a combination of the coordinates of one such law are one-dimensional integrals.
+This would lift the restriction of the package to inputs that are univariate or discrete, for this law.
+
+%======================================================================================================
+\section{Exactness, certification and positive definiteness}
+\label{sec:exactness}
+
+\paragraph{What is exact.}
+Under \Hyp{D} and \Hyp{U}, the code computes the moments exactly, up to rounding, and so does the proposal (\cref{sec:sums-discrete,sec:sums-uniform}).
+Under \Hyp{C}, both rely on a quadrature to a tolerance, $10^{-12}$ for the axis lifting and $10^{-10}$ for the combinations.
+The tolerance of the combinations is on the norm of the vector $\phi$ of all the moments of a lifting,
+so a small entry, such as the mean of a piece of small probability, is accurate only relative to the largest entry.
+The package treats all these moments as exact: their covariance blocks have no sample size (\code{num\_samples = 0}), and the values computed with them are certified.
+
+\paragraph{What the formulations assume.}
+The primal rule is feasible whatever the moments, since robust feasibility depends only on the support.
+The dual bound is valid for the law whose moments are used,
+so it is certified when the moments are those of a law supported in $\lXi$:
+exactly the lifted law, or, as for rejection sampling, the empirical law of draws.
+An approximate convolution (\cref{sec:sums-general}) gives neither, unless its error is bounded and propagated, or the moments are flagged as estimates as those of rejection sampling are.
+A \code{ConditionedDistribution} could be lifted by lifting its draws: the moments of the lifted empirical law are exact sums (\Hyp{D} for its draws), and the bound would be certified for that law, as it is now without breakpoints.
+
+\paragraph{Positive definiteness.}
+The formulations need $\Cov(\lxi) \succ 0$ block by block (the second-moment assumption of the main notes), and the package checks it after the moments are computed (\code{\_singular\_blocks}).
+For an axis lifting, the main notes give conditions.
+For a combination, a continuous input suffices.
+
+\begin{proposition}[A continuous input makes the block of a combination nonsingular]
+\label{prop:nonsingular}
+Let the laws of one combination lifting satisfy \Hyp{I}, with a covariance $\succ 0$ each.
+Suppose that some input $j$ satisfies \Hyp{C}, with a density positive almost everywhere on its interval, and $a_j \ne 0$,
+and that $s$ lies in the interior of each of its pieces $(v_{k-1}, v_k)$, $k = 1, \dots, n + 1$, with positive probability.
+Then the covariance of $(\eta_{\mathcal{K}}, p)$ is positive definite.
+\end{proposition}
+
+\begin{proof}
+Suppose $\alpha + \gamma^\T\eta_{\mathcal{K}} + \delta^\T p(s) = 0$ almost surely; we show that $\gamma$ and $\delta$ are zero.
+Write $\eta_{\mathcal{K}} = (\eta_j, y)$ and $s = \kappa(y) + a_j\eta_j$.
+By \Hyp{I} and Fubini, for almost every $y$, the function $x \mapsto \alpha + \gamma_j x + \gamma_y^\T y + \delta^\T p(\kappa(y) + a_jx)$ vanishes almost everywhere on the interval of $\eta_j$, hence everywhere, being continuous.
+It is piecewise affine in $x$, with slope $\gamma_j + a_j\delta_k$ while $s$ is in the piece $k$, where $\delta_1 = 0$ (the first piece is not a coordinate).
+By the hypothesis on the pieces, for each $k$ the set of $y$ for which $\kappa(y) + a_j\eta_j$ crosses the interior of the piece $k$ has positive probability,
+so every slope is zero: $\gamma_j = 0$ from $k = 1$, then $\delta_k = 0$ for $k \ge 2$.
+What remains, $\alpha + \gamma_y^\T y = 0$ almost surely, forces $\gamma_y = 0$, since the covariance of $y$ is block diagonal with blocks $\succ 0$.
+\end{proof}
+
+With only discrete inputs, the covariance is singular exactly when some $\gamma^\T\eta_{\mathcal{K}} + \delta^\T p$ with $(\gamma, \delta) \ne 0$ is constant on the joint atoms, a rank condition on the matrix of the lifted atoms.
+With several combinations in one block, the argument above applies to each combination with its own continuous input, if no other combination of the block uses that input.
+
+%======================================================================================================
+\section{Summary}
+\label{sec:summary}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{4.5cm}>{\raggedright\arraybackslash}p{4.5cm}@{}}
+\toprule
+Moment & Hypotheses & Now & Proposal \\
+\midrule
+law: $\E[\eta_K]$, $\Cov(\eta_K)$ & \Hyp{I} & Distributions, quadrature for truncated laws & unchanged \\
+axis lifting & \Hyp{I}, \Hyp{B}, \Hyp{D} or \Hyp{C} & $n + 1$ quadratures (closed form under \Hyp{U}, sums under \Hyp{D}) & $\slt{\eta}1$, $\slt\eta2$ at $n$ points; also multivariate laws under \Hyp{D} or \Hyp{L} \\
+one combination: $\E[p]$, $\E[pp^\T]$ & \Hyp{I}, \Hyp{B} & nested quadrature over the $d$ continuous inputs, about $\prod_k 15c_k$ evaluations, times the joint atoms & $\slt s1$, $\slt s2$ at $n$ points: law of $s$ \\
+one combination: $\E[p\,\eta_m]$ & \Hyp{I}, \Hyp{B} & (same pass) & one integral (or sum) over the law of $\eta_m$ per breakpoint, with $\slt{R_K}1$; none under \Hyp{L} \\
+two combinations: $\E[pp'^\T]$ & \Hyp{I}, \Hyp{B} & nested quadrature over the continuous inputs of both & one integral over the shared law (two if $A, A'$ not proportional), with $\slt Y1$, $\slt{Y'}1$ \\
+laws of sums & & (none) & \Hyp{D}: convolution, exact; \Hyp{U}: closed form, exact; \Hyp{C}: piecewise polynomial convolution, approximate \\
+\bottomrule
+\end{tabular}
+\caption{The moments of the liftings, their hypotheses, and their computation now and in the proposal.
+$d$ is the number of continuous inputs of the moment, $n$ the number of breakpoints, and $c_k \le 1 + n2^{d-k}$ the number of cells at level $k$ of the nested quadrature.}
+\label{tab:cost}
+\end{table}
+
+In order, the proposal would:
+\begin{enumerate}[nosep]
+\item compute the laws of the sums $s$, $R_K$, $Y$, $Y'$ that the liftings need, by exact convolution of the discrete terms and the closed form of the uniform ones (\cref{sec:sums-discrete,sec:sums-uniform,sec:sums-mixed});
+\item get every moment from \cref{prop:one-combination,prop:two-combinations}, with Gauss--Legendre quadrature on the knot intervals, exact for these laws;
+\item keep the nested quadrature for other continuous laws, until a convolution with a controlled error replaces it (\cref{sec:sums-general});
+\item test the new moments against the current ones, which are exact under \Hyp{D} and \Hyp{U}, and check \cref{prop:one-combination}~(c) on every combination.
+\end{enumerate}
+The hull of the lifted support (the outer approximation of the main notes) is independent of all this: the moments are those of the law, whatever rows describe its support.
+
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+
+\end{document}
