@@ -11,7 +11,9 @@ model is `inventory` of `test/problems/tagged.jl`, which the tests share.
 | `timing.jl` | the time to write the model, to reformulate it and to solve it, and the sizes of the solved model, against the same robust LP written by hand | T; `PrimalLDR`, `DualLDR` and the hand-written LP, each with its default settings and HiGHS's default options | `results/timings.csv` |
 | `resolve.jl` | the time of re-solves after a change of a JuMP parameter, the initial stock, with and without the cache of inner problems | `PrimalLDR` and `DualLDR`; the cache kept or emptied before each re-solve; T and the number of re-solves, 64 and 20 by default | `results/resolve.csv` |
 
-How to run them, and how their rows are tagged, is in [`../README.md`](../README.md#running):
+The decisions that these measurements informed are in the
+[table of decisions](../README.md#decisions-and-the-experiments-behind-them). How to run them, and
+how their rows are tagged, is in [`../README.md`](../README.md#running):
 
 ```
 julia --project=benchmark benchmark/inventory/timing.jl 4 8 16 32 64 128

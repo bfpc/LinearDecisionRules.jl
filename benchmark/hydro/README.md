@@ -17,6 +17,17 @@ Stage convention (that of the previous repository's `monolithic_vs_sddp.jl`): st
 its decisions are taken after the inflows of month t are known, stage 1 has the known inflows
 `inflow_initial`, so there are T - 1 uncertain vectors (`Uncertainty` with `Stage(t)`, t = 2:T).
 
+What `run.jl` measures, by variant (`only=` picks some of them, `bp=` adds the last ones); the
+decisions that these measurements informed are in the
+[table of decisions](../README.md#decisions-and-the-experiments-behind-them):
+
+| Variants | What they measure | What varies |
+|---|---|---|
+| `ldr_primal`, `ldr_dual` | the value of the primal rule, also simulated out of sample, the bound of the dual, the sizes of the solved models, and the time to write, reformulate and solve them | T; HiGHS's default options |
+| `average`, `tree` | the same for two plain JuMP models without the package, as references: the average scenario, a lower bound, and a scenario tree | T; the branches of the tree per stage |
+| `ldr_dual_ipm` | the dual under the solver mode that its docstring advises, `["solver" => "ipm", "run_crossover" => "off"]`, against the default dual simplex | T |
+| `ldr_primal_bp<k>`, `ldr_dual_bp<k>` | the gain of `k` breakpoints per inflow in value and bound, and its cost in size and time, with the inflows of a stage declared as independent marginals | T; `k`; HiGHS's default options |
+
 ```
 julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
 julia --project=benchmark benchmark/hydro/run.jl                  # T = 4, 8, 12

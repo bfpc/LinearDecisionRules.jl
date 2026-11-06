@@ -2,7 +2,9 @@
 
 Each script here answers one question with a grid of runs; its results are in `results/`, and
 its findings below. When a study is finished and its script can no longer run from the tree, it
-moves to "Past studies" in [`../README.md`](../README.md), with a tag that keeps it.
+moves to "Past studies" in [`../README.md`](../README.md), with a tag that keeps it. The decisions
+that each study informed, with the other experiments behind them, are in the
+[table of decisions](../README.md#decisions-and-the-experiments-behind-them).
 
 ## The implied box rows of lifted coordinates, across problems and solvers (`lifted_box.jl`)
 

@@ -22,6 +22,20 @@ The READMEs of `inventory/` and `hydro/` have the same sections: **Current** (th
 for comparison). [Past studies](#past-studies) are finished studies whose scripts are no longer in
 the tree.
 
+## Decisions and the experiments behind them
+
+The choices of the package that rest on measurements, with every experiment that informed each
+one. An experiment can serve several decisions, and cover several problems.
+
+| Decision | In the code | Experiments: script, problems, solvers | Recorded at | Details |
+|---|---|---|---|---|
+| The primal writes a box support in closed form: one auxiliary variable per row and box, instead of two multipliers | `PrimalLDR(; box_closed_form = true)`, the default | `inventory/timing.jl`, T = 4 to 128, and `hydro/run.jl`, T = 4, 8, 12; HiGHS's default options | 7dbebf0 against 5f20d11 | [inventory](inventory/README.md#history), [hydro](hydro/README.md#history) |
+| The formulations of 0.4 replace those of 0.3: a smaller primal and a structured dual. The dual keeps the auxiliary variables `u = S μ` of its cone rows; substituting them out is left open | no setting | the past study against 0.3: the inner LPs of both versions exported to MPS, inventory T = 32, 64, 128 and hydro T = 4, 8, 12; the modes of HiGHS and Ipopt. Also "Against 0.3" of `inventory/timing.jl` and `hydro/run.jl` | tag `study-0.3-comparison` | [past study](#solve-times-against-03-october-2026-tag-study-03-comparison), [inventory](inventory/README.md#against-03), [hydro](hydro/README.md#against-03) |
+| The solver advice of the docstrings: keep HiGHS's dual simplex for `PrimalLDR`; try the interior point without crossover for `DualLDR`, which is not the default. Open: the wider study of `lifted_box` found that the interior points without crossover fail too often to be a default, and that IPX with crossover is the fastest on the largest duals | the docstrings of `PrimalLDR` and `DualLDR` | the past study against 0.3 (above); `hydro/run.jl`, variant `ldr_dual_ipm`, T = 4, 8, 12; `compare/lifted_box.jl`, four problems under the simplex method, IPX with and without crossover, and HiPO | tag `study-0.3-comparison`; 7dbebf0; c55805e and 40ad9a2 | [past study](#solve-times-against-03-october-2026-tag-study-03-comparison), [hydro](hydro/README.md#current), [`compare/`](compare/README.md#what-it-found) |
+| The implied bounds of lifted coordinates: left out of the primal's support, kept in the dual's. Open for the dual: the wider study found it faster without them on 13 of 15 instances under IPX with crossover | `PrimalLDR(; lifted_box = false)` and `DualLDR(; lifted_box = true)`, the defaults | the first study: inventory T = 16 to 64 and hydro T = 4, 8, with 1 to 3 breakpoints, under the dual simplex; then `compare/lifted_box.jl`: inventory, kwg, hydro and production planning, under the simplex method, IPX with and without crossover, and HiPO | e26b0e5; c55805e and 40ad9a2 | [past study](#redundant-box-rows-of-liftings-october-2026-lifted_box), [`compare/`](compare/README.md) |
+| A re-solve fixes variables of the inner problem to the values of the parameters, instead of holding JuMP `Parameter`s, whose bridges for HiGHS made JuMP copy the whole model again at every re-solve | no setting (`src/formulations/inner.jl`) | `inventory/resolve.jl`, T = 64 and 20 re-solves, `PrimalLDR` and `DualLDR`; HiGHS's default options | f204dc1 against 423d23c | [inventory](inventory/README.md#history-1) |
+| The optimizer keeps its inner problems across re-solves when only the values of parameters change | no setting (`src/moi/inner_cache.jl`) | `inventory/resolve.jl`, as above, the cache kept or emptied | 7dbebf0; f204dc1 | [inventory](inventory/README.md#current-1) |
+
 ## Running
 
 The scripts share one environment, which uses the package of this repository (it needs Julia 1.11
@@ -34,6 +48,22 @@ julia --project=benchmark benchmark/inventory/timing.jl 4 8 16 32 64 128
 julia --project=benchmark benchmark/inventory/resolve.jl          # T = 64, N = 20
 julia --project=benchmark benchmark/hydro/run.jl                  # T = 4, 8, 12
 ```
+
+The machine itself drifts between days. On 31 October 2026 the same models took about 1.7 times as
+long as on 25 October and 5 November, while four rounds in a row on 5 November differed by 2 to 4%.
+So check its state on two models before a recording, and compare with the times of the machine of
+these READMEs (Windows 11, Julia 1.12.6, HiGHS 1.15.1, code of c359166, 5 November 2026):
+
+| Model | Command | Solver time |
+|---|---|--:|
+| the inventory dual, T = 128 | `inventory/timing.jl 128`, row `ldr_dual` | 7.1 to 7.4 s |
+| the hydro dual with 1 breakpoint, T = 4 | `hydro/run.jl 4 bp=1`, row `ldr_dual_bp1` | 5.8 to 6.0 s |
+
+If one of them is more than 10% slower, wait, or restart the machine and wait: on 5 November, a run
+soon after a restart was still 10 to 25% slower, and a run 1h45 later was not. A recording on a
+slower day is still kept, with a note of its speed, as in the
+[`lifted_box` study](#redundant-box-rows-of-liftings-october-2026-lifted_box). Update the table
+with each recording.
 
 Each script appends its rows to its CSV file, in the folder `results/` next to it, one row at a
 time, so that an interrupted run keeps its results. The environment variable
