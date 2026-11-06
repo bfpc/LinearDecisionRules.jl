@@ -28,6 +28,6 @@ jobs:
         env:
           LDR_BENCHMARK_RESULTS: ${{ runner.temp }}/benchmark-results
         run: |
-          julia --project=benchmark benchmark/timing.jl 2 4
-          julia --project=benchmark benchmark/resolve.jl 4 2
+          julia --project=benchmark benchmark/inventory/timing.jl 2 4
+          julia --project=benchmark benchmark/inventory/resolve.jl 4 2
           julia --project=benchmark benchmark/hydro/run.jl 2 tree=2

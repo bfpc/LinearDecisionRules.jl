@@ -13,7 +13,7 @@
 #
 #   hydro       the hydrothermal problem of `benchmark/hydro` (`hydro.jl`), whose four inflows of a
 #               stage are independent marginals once they have breakpoints
-#   inventory   the inventory with backlog of `benchmark/timing.jl` (`tagged.jl`)
+#   inventory   the inventory with backlog of `benchmark/inventory/timing.jl` (`tagged.jl`)
 #   kwg         the inventory of Kuhn, Wiesemann and Georghiou (2011) (`kwg.jl`)
 #   production  the production planning of Georghiou, Kuhn and Wiesemann (2019) (`production.jl`)
 #
@@ -39,8 +39,7 @@ include("../../test/problems/hydro.jl")
 include("../../test/problems/kwg.jl")
 include("../../test/problems/production.jl")
 
-const RESULTS =
-    joinpath(get(ENV, "LDR_BENCHMARK_RESULTS", joinpath(@__DIR__, "results")), "lifted_box.csv")
+const RESULTS = joinpath(results_dir(@__DIR__), "lifted_box.csv")
 
 const SOLVERS = Dict(
     "simplex" => (attributes = Pair{String,Any}[], optimizer = nothing),

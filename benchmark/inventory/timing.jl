@@ -18,20 +18,20 @@
 # canonical form, the moments, the reformulation and the inner solve), `solver` the inner solver's
 # time. Sizes are those of the reformulated model that is solved.
 #
-# Results are appended to benchmark/results/timings.csv (one row per T and variant), tagged with the
-# commit. They are recorded, not asserted: nothing here fails on a slowdown.
+# Results are appended to `results/timings.csv` next to this file (one row per T and variant),
+# tagged with the commit. They are recorded, not asserted: nothing here fails on a slowdown.
 #
 # Usage (from the repository root):
-#   julia --project=benchmark benchmark/timing.jl            # T = 4, 8, 16, 32, 64
-#   julia --project=benchmark benchmark/timing.jl 8 16 128   # custom sizes
+#   julia --project=benchmark benchmark/inventory/timing.jl            # T = 4, 8, 16, 32, 64
+#   julia --project=benchmark benchmark/inventory/timing.jl 8 16 128   # custom sizes
 
 using Printf
 using JuMP
 import HiGHS
 import LinearDecisionRules as LDR
 
-include("common.jl")
-include("../test/problems/tagged.jl")
+include("../common.jl")
+include("../../test/problems/tagged.jl")
 
 # The data of `TaggedProblems.inventory`, for the hand-written LP.
 const LO, HI = 60.0, 100.0
@@ -39,7 +39,7 @@ const μ, r = (LO + HI) / 2, (HI - LO) / 2
 const C_ORDER, H_HOLD, B_BACK = 1.0, 0.5, 3.0
 const XMAX, I0 = 150.0, 0.0
 const REPS = 3
-const RESULTS = joinpath(RESULTS_DIR, "timings.csv")
+const RESULTS = joinpath(results_dir(@__DIR__), "timings.csv")
 
 function build_ldr(T, formulation)
     return TaggedProblems.inventory(T, TaggedProblems.ldr_model(; formulations = [formulation]))

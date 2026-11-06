@@ -64,8 +64,8 @@ end
 # Inventory, T = 32 (33 stages, one block per stage, each a box). Measured: the block primal has
 # 5 744 variables, 2 734 constraints and 13 101 nonzeros against 10 096, 5 408 and 21 807 for the
 # dense one; the closed form on the boxes has one auxiliary per (row, box) instead of two
-# multipliers, so 3 696 variables (as the hand-written model of `benchmark/timing.jl`), as many
-# constraints and 12 109 nonzeros (one fewer per bound of an order). The structured dual has
+# multipliers, so 3 696 variables (as the hand-written model of `benchmark/inventory/timing.jl`),
+# as many constraints and 12 109 nonzeros (one fewer per bound of an order). The structured dual has
 # 3 948, 6 956 and 17 575 against 1 648, 9 376 and 215 855 (the dense dual has no variables for
 # the slacks nor for `u`).
 function test_inventory()

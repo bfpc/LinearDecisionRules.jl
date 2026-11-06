@@ -11,7 +11,7 @@ Abbreviations for the sources:
 | Tag | Source |
 |---|---|
 | PT | this package, `test/` (`test/problems/`, `test/reference/legacy_values.toml`, `test/jump/`) |
-| PB | this package, `benchmark/` (`timing.jl`, `resolve.jl`, `hydro/`), and the past study of solve times against 0.3, summarized in [`README.md`](README.md#past-studies) and kept at the tag `study-0.3-comparison` |
+| PB | this package, `benchmark/` (`inventory/`, `hydro/`, `compare/`), and the past study of solve times against 0.3, summarized in [`README.md`](README.md#past-studies) and kept at the tag `study-0.3-comparison` |
 | TUT | this package, `docs/src/tutorials/*.jl` and `docs/src/getting_started.md` |
 | LEG | the legacy repository of this package (0.3.1, branch `Multistage`, 17ce1eb): `examples/`, `test/` |
 | CL | `CasosLDR`, a private collection of LDR cases of the authors, not public (49 commits, 2026-07-14 to 2026-10-17; branches `solvertest`, `moresolvers`, `benders_scenario`) |
@@ -38,7 +38,7 @@ the dual LDR); "bp k" is `BreakPoints() = k` (k equispaced interior breakpoints)
 |---|---|---|---:|---|---|---|---|
 | F1 | Newsvendor, one `Uniform(80, 120)` demand, buy 10, return 8, sell 15 | PT `newsvendor`, `newsvendor_breakpoints_*`; TUT getting_started, piecewise_linear, sampled, advanced_distributions; LEG `test_newsvendor`; CL `Newsvendor/` | 2 | 1 (stage 2) | linear (max) | bp 0: 460 / 486.67 (1460/3); true optimum 3300/7 = 471.43 at the critical breakpoint 760/7 (derived: critical ratio 5/7); more in table 2 | tests + tutorials (ported); CL's price set sell = 20 not ported |
 | F2 | Newsvendor extensions: random price, two products, three stages, discrete and multivariate discrete laws, integer `buy` | PT `newsvendor_random_price`, `_two_products`, `_three_stages`, `_mv_discrete`, `_discrete_demand`, `newsvendor(integer = true)`; LEG test_core, test_stages; TUT distributions | 2 (3 for three-stage) | 1 to 3 | linear; bilinear (price x sell) for random price | values in `legacy_values.toml` (table 2) | tests (ported); none in CL |
-| F3 | T-period inventory with backlog: `x_t in [0, 150]` at cost 1, `d_t ~ U(60, 100)`, `y_t >= max(0.5 I_t, -3 I_t)`, `I_0 = 0` | PT `inventory(T)`; PB `timing.jl`, `resolve.jl` (initial stock as a `Parameter`); TUT multistage, getting_started (re-solve); LEG `benchmark/timing.jl` | T + 1 | 1 per stage 2..T+1 | linear (min) | primal 90T + 20 for all T; dual 340 (T = 4), 673.33 (T = 8), 10673.33 (T = 128); tutorial T = 2, 6: 200 / 173.33, 560 / 506.67 | tests + benchmark + tutorial (ported) |
+| F3 | T-period inventory with backlog: `x_t in [0, 150]` at cost 1, `d_t ~ U(60, 100)`, `y_t >= max(0.5 I_t, -3 I_t)`, `I_0 = 0` | PT `inventory(T)`; PB `inventory/timing.jl`, `inventory/resolve.jl` (initial stock as a `Parameter`); TUT multistage, getting_started (re-solve); LEG `benchmark/timing.jl` | T + 1 | 1 per stage 2..T+1 | linear (min) | primal 90T + 20 for all T; dual 340 (T = 4), 673.33 (T = 8), 10673.33 (T = 128); tutorial T = 2, 6: 200 / 173.33, 560 / 506.67 | tests + benchmark + tutorial (ported) |
 | F4 | KWG inventory: 3 factories, one warehouse, seasonal demand and costs (stochastic and robust versions) | KWG section 5 (Ben-Tal et al. 2004 data) | T = 1..72 | 1 per stage | linear (min expected cost; min worst case) | KWG Table 1, T = 1..10 (section 6); run: reproduced to 0.1 for T = 1..6, 8, 10 | not ported |
 | F5 | GWK multi-product inventory with backlog and random prices and demands (P = 4, T up to 30, 25 random instances) | GWK section 7, problem (16) | T up to 30 | 4 per stage (uniform on `[-1, 1]^4`) | bilinear in the rules (price x sales), max profit | relative gaps, GWK Table 1 (section 6) | not ported |
 | F6 | GWK toy programs: Example 4.5 (`x >= max(abs xi2, abs xi3)`, min `E x`) and Example 5.1 (`x <= xi2, x <= xi3`, min `E -x`) | GWK Examples 4.5, 5.1, 5.11 | 1 | 2 | linear | 4.5: optimum 2/3, best axial 1; 5.1: optimum -1/3, axial primal 0, axial bound -0.377 (10 segments); run: reproduced | not ported |
@@ -158,8 +158,8 @@ MSPPy / SDDP.jl models ("82 stagewise-independent realizations of inflow in each
 |---|---|---|
 | T = 2, 4, 6, 8 | 200 / 173.33, 380 / 340, 560 / 506.67, 740 / 673.33 | TUT multistage; PT (T = 4, 8) |
 | T = 4, bp 1, 3, 7 on `d[2]` | 380 / 343.33, 379.375 / 344.583, 378.594 / 344.896 | TUT multistage |
-| T = 4..128, timing | primal 90T + 20; sizes in `benchmark/README.md` | PB `timing.jl` (T = 128: primal 57,792 variables, dual 58,812) |
-| T = 64, `stock` parameter, 20 re-solves | | PB `resolve.jl` |
+| T = 4..128, timing | primal 90T + 20; sizes in `benchmark/inventory/README.md` | PB `inventory/timing.jl` (T = 128: primal 57,792 variables, dual 58,812) |
+| T = 64, `stock` parameter, 20 re-solves | | PB `inventory/resolve.jl` |
 | `quadratic_inventory` T = 16 | primal / dual agree with the dense oracle (rtol 1e-6, Clarabel) | PT `test_size.jl` |
 
 ### F4, F5, F6: papers
@@ -230,7 +230,7 @@ Differences between the CL hydro files and this package's hydro problems:
 
 | Variant | primal / dual | Where |
 |---|---|---|
-| T = 4, 8, 12, k = 0; T = 4, k = 1, 2 and T = 8, k = 1 breakpoints per inflow (independent marginals); average-scenario model (a lower bound); tree, 3 branches (T = 4) or 2 (T = 8, 12; one sampled problem) | in [`hydro/README.md`](hydro/README.md#current) and [`results/hydro.csv`](results/hydro.csv) (T = 4, k = 0: 3.759985 / 0.980316) | PB `hydro/`; LEG `ldr_T12.csv` equals T = 12, k = 0 to 12 digits |
+| T = 4, 8, 12, k = 0; T = 4, k = 1, 2 and T = 8, k = 1 breakpoints per inflow (independent marginals); average-scenario model (a lower bound); tree, 3 branches (T = 4) or 2 (T = 8, 12; one sampled problem) | in [`hydro/README.md`](hydro/README.md#current) and [`hydro/results/hydro.csv`](hydro/results/hydro.csv) (T = 4, k = 0: 3.759985 / 0.980316) | PB `hydro/`; LEG `ldr_T12.csv` equals T = 12, k = 0 to 12 digits |
 | PT T = 3, and the tree with 3 branches | asserted in [`test/problems/test_hydro.jl`](../test/problems/test_hydro.jl) (the dual equals the average-scenario value) | PT |
 | legacy T = 12 with `SlackAsExpr` or explicit slacks | same values; larger models | LEG, the past study of solve times (tag `study-0.3-comparison`) |
 | legacy T = 12, breakpoints lifted in the script (k = 1, 2, 3) | primal 857,808 variables and above: time limit at 600 s, no value | LEG `ldr_T12.csv` |

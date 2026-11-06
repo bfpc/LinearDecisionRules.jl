@@ -1,4 +1,4 @@
-# Helpers shared by the timing scripts in this folder.
+# Helpers shared by the benchmark scripts of the folders below this one.
 
 using Dates
 import HiGHS
@@ -9,9 +9,11 @@ import .TestCommon: model_size
 
 timestamp() = Dates.format(now(), "yyyy-mm-ddTHH:MM:SS")
 
-# The folder of the CSV files: `results/` next to this file, unless the environment variable
-# `LDR_BENCHMARK_RESULTS` names another one (the smoke run of the CI writes to a temporary folder).
-const RESULTS_DIR = get(ENV, "LDR_BENCHMARK_RESULTS", joinpath(@__DIR__, "results"))
+# The folder of the CSV files of the scripts in the folder `dir`: `results/` in it, unless the
+# environment variable `LDR_BENCHMARK_RESULTS` names another one (the smoke run of the CI writes to a
+# temporary folder). The names of the CSV files differ across folders, so one folder can hold them
+# all.
+results_dir(dir) = get(ENV, "LDR_BENCHMARK_RESULTS", joinpath(dir, "results"))
 
 # The measured code: the package and the benchmarked problems, which the tests share.
 const MEASURED = ["../src", "../Project.toml", "../test/problems"]

@@ -25,9 +25,9 @@ julia --project=benchmark benchmark/hydro/run.jl 4 bp=0,1,2   # k breakpoints pe
 # `only=ldr_dual_ipm` runs DualLDR with attributes ["solver" => "ipm", "run_crossover" => "off"]
 ```
 
-`run.jl` appends one row per T and variant to `../results/hydro.csv`, with the columns of
-`timing.jl` plus `branches`, `reps`, the inner solver's `status`, and `breakpoints`, `oos_mean`,
-`oos_stderr` and `oos_violated` (the last three only for primal LDR variants: see
+`run.jl` appends one row per T and variant to `results/hydro.csv`, with the columns of
+`../inventory/timing.jl` plus `branches`, `reps`, the inner solver's `status`, and `breakpoints`,
+`oos_mean`, `oos_stderr` and `oos_violated` (the last three only for primal LDR variants: see
 [Breakpoints](#breakpoints)). A variant is run once for warm-up, then three times with the best
 kept (smallest `build_s + optimize_s`), unless its first run takes more than 10 s, in which case
 that run is the result (`reps = 1`). The recordings are named by their `src_commit`, as in the

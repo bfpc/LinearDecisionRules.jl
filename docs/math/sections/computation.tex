@@ -2,10 +2,10 @@
 \label{sec:computation}
 
 This section collects the sizes of the reformulations and what was measured on two benchmarks:
-the $T$-period inventory problem of \file{benchmark/timing.jl} (one scalar uniform demand per stage, a box support, $T+1$ stages),
+the $T$-period inventory problem of \file{benchmark/inventory/timing.jl} (one scalar uniform demand per stage, a box support, $T+1$ stages),
 and the hydrothermal problem of \citet{ShapiroEtAl2013} in \file{benchmark/hydro} (4 reservoirs, one joint discrete law of 4 inflows per stage, independent across stages).
 All times are from HiGHS \citep{HuangfuHall2018} with default options unless stated, on one machine (Windows 11, Julia 1.12.6);
-the result files are in \file{benchmark/results}, and the analyses in \file{benchmark/README.md} and \file{benchmark/hydro/README.md};
+the result files and the analyses are in \file{benchmark/inventory} and \file{benchmark/hydro}, in a folder \file{results} and a \file{README.md} each;
 the comparison of solve times with the previous version is summarized in the section ``Past studies'' of \file{benchmark/README.md}.
 
 \subsection{Where the sizes come from}
@@ -51,7 +51,7 @@ the objective values agree (to 12 digits on the hydrothermal problem).
 The legacy rows are the previous version, with explicit slacks (default) or slacks as expressions (\code{SlackAsExpr});
 the hand-written model uses the closed form of the box counterparts, as the default 0.4 primal does;
 ``0.4 primal, multipliers'' is \code{PrimalLDR(; box\_closed\_form = false)}, with multipliers on the boxes.
-Times are HiGHS's run time on the exported models, except for the hand-written model and the default 0.4 primal, whose time is the solver time through JuMP (\file{benchmark/results/timings.csv}).
+Times are HiGHS's run time on the exported models, except for the hand-written model and the default 0.4 primal, whose time is the solver time through JuMP (\file{benchmark/inventory/results/timings.csv}).
 Source: \file{benchmark/README.md}, ``Past studies''.}
 \label{tab:inventory}
 \begin{tabular}{lrrrr}
@@ -146,7 +146,7 @@ with no breakpoint this changes nothing in the primal value, the cost being line
 \begin{table}[ht]
 \centering
 \caption[Hydrothermal problem with breakpoints]{Hydrothermal problem with $k$ breakpoints per inflow (cost, minimized).
-Source: \file{benchmark/hydro/README.md}, \file{benchmark/results/hydro.csv}.}
+Source: \file{benchmark/hydro/README.md}, \file{benchmark/hydro/results/hydro.csv}.}
 \label{tab:breakpoints}
 \small
 \setlength{\tabcolsep}{4pt}

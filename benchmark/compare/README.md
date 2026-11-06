@@ -17,7 +17,7 @@ The problems are those of `test/problems/`, each with `k` breakpoints on every u
 
 | Problem | Source | Horizons |
 |---|---|---|
-| `inventory` | the inventory with backlog of `benchmark/timing.jl` | T = 16, 32, 64 |
+| `inventory` | the inventory with backlog of `benchmark/inventory/timing.jl` | T = 16, 32, 64 |
 | `kwg` | the inventory of Kuhn, Wiesemann and Georghiou (2011) | T = 24, 48 |
 | `hydro` | the hydrothermal problem of `benchmark/hydro` | T = 4, 6, 8 |
 | `production` | the production planning of Georghiou, Kuhn and Wiesemann (2019) | T = 10, 15, 20 |

@@ -17,16 +17,16 @@
 # the policy to `OOS_SCENARIOS` scenarios of the true law (the joint 82-scenario law, independent
 # across stages) and records the sample mean, standard error and fraction of violating scenarios.
 #
-# Columns (as in ../timing.jl): `build_s` writes the JuMP model, `optimize_s` is `optimize!` (for the
-# LDR models it includes the canonical form, the moments, the reformulation and the inner solve),
-# `solver_s` is the inner solver's time, so the time spent building the LDR reformulation is
-# optimize_s - solver_s. Sizes are those of the model that is solved (for the LDR models, the
+# Columns (as in ../inventory/timing.jl): `build_s` writes the JuMP model, `optimize_s` is
+# `optimize!` (for the LDR models it includes the canonical form, the moments, the reformulation and
+# the inner solve), `solver_s` is the inner solver's time, so the time spent building the LDR
+# reformulation is optimize_s - solver_s. Sizes are those of the model that is solved (for the LDR models, the
 # reformulated one): variables, constraints without variable bounds, nonzeros of the constraint
 # matrix. Extra columns: `branches` (tree only), `reps` (runs the row is the best of; a model
 # whose first run takes longer than SLOW_S is run once) and the inner solver's termination status.
 #
-# Results are appended to ../results/hydro.csv, tagged with the commit. They are recorded, not
-# asserted.
+# Results are appended to `results/hydro.csv` next to this file, tagged with the commit. They are
+# recorded, not asserted.
 #
 # Usage (from the repository root):
 #   julia --project=benchmark benchmark/hydro/run.jl                   # T = 4, 8, 12
@@ -49,7 +49,7 @@ const LDR_TIME_LIMIT = 900.0
 const BP_TIME_LIMIT = 180.0 # the runs with breakpoints stop at 3 minutes (status TIME_LIMIT)
 const OOS_SCENARIOS = 2000
 const BRANCHES = Dict(4 => 3, 8 => 2, 12 => 2)
-const RESULTS = joinpath(RESULTS_DIR, "hydro.csv")
+const RESULTS = joinpath(results_dir(@__DIR__), "hydro.csv")
 
 function run_plain(build, args...)
     t_build = @elapsed model = build(args...)

@@ -37,8 +37,8 @@ function _solve(data, formulation)
     return model, LDR.inner_model(model, formulation)
 end
 
-# Values and sizes were measured with this implementation at T = 3 (benchmark/results/hydro.csv
-# has T = 4, 8 and 12 only): the primal LDR is an upper bound on the optimum, the dual LDR and the
+# Values and sizes were measured with this implementation at T = 3
+# (benchmark/hydro/results/hydro.csv has T = 4, 8 and 12 only): the primal LDR is an upper bound on the optimum, the dual LDR and the
 # average-scenario model are lower bounds (the inflows enter only the right-hand sides, so the value
 # is convex in them), and here the dual bound is the average-scenario value.
 function test_ldr_values_and_sizes()

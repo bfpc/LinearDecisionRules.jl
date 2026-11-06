@@ -63,7 +63,7 @@ function newsvendor(capacity; parameter = true)
     return model
 end
 
-# The inventory with backlog of `benchmark/timing.jl`, with an initial stock.
+# The inventory with backlog of `benchmark/inventory/timing.jl`, with an initial stock.
 function inventory(T, x0; parameter = true)
     return TaggedProblems.inventory(T, ldr_model(); x0, parameter)
 end

@@ -107,8 +107,8 @@ function newsvendor_three_stages(model = ldr_model(); unmarked_ret3 = false)
     return model
 end
 
-# The inventory with backlog of the benchmarks (`benchmark/timing.jl`), whose primal value is
-# 90T + 20 for an initial stock `x0 = 0`. With `parameter = true`, `x0` is the value of the JuMP
+# The inventory with backlog of the benchmarks (`benchmark/inventory/timing.jl`), whose primal
+# value is 90T + 20 for an initial stock `x0 = 0`. With `parameter = true`, `x0` is the value of the JuMP
 # parameter `stock`; `points` are the breakpoints of every demand. `combinations = (:pair, k)` puts
 # `k` breakpoints on the demand of each two consecutive periods, and `(:cumulative, k)` on the
 # cumulative demand up to each period after the first (`Experimental.set_breakpoints`; the moments

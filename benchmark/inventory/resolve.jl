@@ -17,22 +17,22 @@
 # re-solve; the script warns otherwise. `num_builds` counts the inner problems built during the
 # re-solves: 0 when cached, N when rebuilt.
 #
-# Results are appended to benchmark/results/resolve.csv, one row per formulation and variant, tagged
-# with the commit. Run it alone on an idle machine (timings of parallel runs vary by ±30%).
+# Results are appended to `results/resolve.csv` next to this file, one row per formulation and
+# variant, tagged with the commit. Run it alone on an idle machine (timings of parallel runs vary by ±30%).
 #
 # Usage (from the repository root):
-#   julia --project=benchmark benchmark/resolve.jl          # T = 64, N = 20
-#   julia --project=benchmark benchmark/resolve.jl 16 5     # T = 16, N = 5
+#   julia --project=benchmark benchmark/inventory/resolve.jl          # T = 64, N = 20
+#   julia --project=benchmark benchmark/inventory/resolve.jl 16 5     # T = 16, N = 5
 
 using Printf
 using JuMP
 import LinearDecisionRules as LDR
 
-include("common.jl")
-include("internals.jl")
-include("../test/problems/tagged.jl")
+include("../common.jl")
+include("../internals.jl")
+include("../../test/problems/tagged.jl")
 
-const RESULTS = joinpath(RESULTS_DIR, "resolve.csv")
+const RESULTS = joinpath(results_dir(@__DIR__), "resolve.csv")
 
 function build(T, formulation)
     model = TaggedProblems.ldr_model(; formulations = [formulation])

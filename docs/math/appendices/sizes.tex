@@ -12,7 +12,7 @@ where $c_r$ is the number of rows of $\Wp$ whose term $S_r\Cv_{:,b}W_{bp}^\T$ is
 \end{itemize}
 
 \paragraph{The inventory problem.}
-In \file{benchmark/timing.jl}, the demand $d_t \sim \mathcal{U}(60, 100)$ is revealed in stage $t+1$, for $t = 1, \dots, T$;
+In \file{benchmark/inventory/timing.jl}, the demand $d_t \sim \mathcal{U}(60, 100)$ is revealed in stage $t+1$, for $t = 1, \dots, T$;
 the order $x_t \in [0, 150]$ is in stage $t$, and the inventory $I_t$ and the cost $y_t$ are in stage $t+1$, with
 $I_t = I_{t-1} + x_t - d_t$, $y_t \ge 0.5 I_t$ and $y_t \ge -3I_t$.
 There are $T$ support blocks, each a single coordinate with 2 rows, and $T$ covariance blocks, the same.
@@ -34,6 +34,6 @@ Dual: each inequality has $1 + \abs{\Jr}$ variables, $1 + \abs{\Jr}$ equalities 
 \[
 \text{variables } \tfrac72T^2 + \tfrac{23}{2}T - 4, \qquad \text{constraints } \tfrac{13}{2}T^2 + \tfrac{19}{2}T - 4.
 \]
-At $T = 32$ and $T = 128$ these give 5,744 and 90,560 primal variables, 2,734 and 41,662 primal constraints, 3,948 and 58,812 dual variables, and 6,956 and 107,708 dual constraints, as measured (\file{benchmark/results/timings.csv}).
+At $T = 32$ and $T = 128$ these give 5,744 and 90,560 primal variables, 2,734 and 41,662 primal constraints, 3,948 and 58,812 dual variables, and 6,956 and 107,708 dual constraints, as measured (\file{benchmark/inventory/results/timings.csv}).
 The dense primal on the same canonical form has, per inequality (the bounds of $x_1$ included), $2 + 2T$ multipliers, so $4T(2T + 2) = 8T(T+1)$ in total.
 The dense dual has $1 + 2T$ cone rows per inequality, each with up to $T + 1$ slack terms that are themselves expressions of $X$, hence its $\Theta(T^3)$ nonzeros.
