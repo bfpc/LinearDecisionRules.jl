@@ -167,6 +167,26 @@ function test_production()
     return
 end
 
+# The rows of Ξ are divided by their largest coefficient, and a right-hand side that is zero but for
+# rounding is zero: the hull of an `AxisPiecewise` lifting of a demand of order 10⁴, whose rows have
+# coefficients of order 10⁶ in ζ before. The vertices of the lifted support stay in it.
+function test_rescaled_rows()
+    lo, hi = 0.8 * 27_345.678, 1.2 * 27_345.678
+    points = lo .+ (hi - lo) * [0.25, 0.5, 0.75]
+    l = LDR.AxisPiecewise(points)
+    W, h = LDR._hull_rows(l, [lo], [hi])
+    box_lo, box_hi = LDR._lifted_bounds(l, [lo], [hi])
+    center, scale = (box_lo + box_hi) / 2, (box_hi - box_lo) / 2
+    Ws, hs = LDR._rescale_rows(W, h, center, scale)
+    @test vec(maximum(abs, Ws; dims = 2)) ≈ ones(3)
+    @test hs == zeros(3)
+    for v in [lo; points; hi]
+        ζ = (LDR.lift(l, [v]) - center) ./ scale
+        @test minimum(Ws * ζ - hs) >= -1e-12
+    end
+    return
+end
+
 # The centers and scales; `T` and `T⁻¹` give the same decisions.
 function test_rescaling_map()
     model = TaggedProblems.newsvendor_random_price()

@@ -12,7 +12,7 @@
 #
 # and the form in `ξ̃` has `B T` and `C T` for `B_*` and `C`, `S Q S`, `S (d + 2 Q c)` and
 # `f + cᵀ Q c + dᵀ c` for the quadratic, linear and constant terms in η, `W S` and `h - W c` for
-# the rows of Ξ, the constants of the parameters shifted like the first column of `B T`, and the
+# the rows of Ξ (then divided by their largest coefficient, see `_rescale_rows`), the constants of the parameters shifted like the first column of `B T`, and the
 # laws of ζ. The decisions, the values and the bounds are the same; the rules `X̃` in `ξ̃` are
 # `X = X̃ T⁻¹` in ξ. The moments of a uniform law on a box of width 10⁴ have entries of order 10⁸
 # against 1 for the constant column, which is what this avoids.
@@ -51,7 +51,8 @@ _box_rows(d::_RescaledLaw, lifted_box::Bool) = _rescale_bounds(d, _box_rows(d.la
 
 function support_constraints(d::_RescaledLaw)
     rows = support_constraints(d.law)
-    return (W = rows.W .* d.scale', h = rows.h - rows.W * d.center, cones = rows.cones)
+    W, h = _rescale_rows(rows.W, rows.h, d.center, d.scale, rows.cones)
+    return (W = Matrix(W), h = h, cones = rows.cones)
 end
 
 function _linear_conditional_expectations(d::_RescaledLaw, stages::AbstractVector)
@@ -94,6 +95,37 @@ function _rescaling_matrix(r::_Rescaling)
     return SparseArrays.sparse(I, J, V, m + 1, m + 1)
 end
 
+# The rows `W S ζ - (h - W c) ∈ K` of the rows `W η - h ∈ K`, divided by their largest
+# coefficient: each row of `MOI.Nonnegatives` by its own, the rows of another cone by one factor
+# (`cones` lists the cones of consecutive rows; `nothing` means rows of `MOI.Nonnegatives`). A
+# positive factor leaves the set unchanged, and the rows of the lifted supports, scaled by products
+# of lengths of pieces (see `_hull_rows`), would keep coefficients of order 10⁶ for uncertainties of
+# order 10⁴. A right-hand side within rounding of zero, such as that of the first row of the hull
+# of an `AxisPiecewise` lifting, is zero.
+function _rescale_rows(
+    W::AbstractMatrix,
+    h::Vector{Float64},
+    center::Vector{Float64},
+    scale::Vector{Float64},
+    cones = nothing,
+)
+    Ws = SparseArrays.sparse(W) * LinearAlgebra.Diagonal(scale)
+    hs = h - W * center
+    size = abs.(h) + abs.(W) * abs.(center)
+    hs[abs.(hs).<=16*eps()*size] .= 0.0
+    factor = [maximum(abs, view(Ws, i, :); init = 0.0) for i in axes(Ws, 1)]
+    offset = 0
+    for cone in something(cones, ())
+        rows = offset .+ (1:MOI.dimension(cone))
+        offset += MOI.dimension(cone)
+        if !(cone isa MOI.Nonnegatives)
+            factor[rows] .= maximum(factor[rows]; init = 0.0)
+        end
+    end
+    factor[iszero.(factor)] .= 1.0
+    return LinearAlgebra.Diagonal(1 ./ factor) * Ws, hs ./ factor
+end
+
 function _rescale(form::CanonicalForm, r::_Rescaling)
     c, s = r.center, r.scale
     T = _rescaling_matrix(r)
@@ -119,22 +151,18 @@ function _rescale(form::CanonicalForm, r::_Rescaling)
         return UncertaintyBlock(_RescaledLaw(law.distribution, c[η], s[η]), law.columns, law.stages)
     end
     conic_rows = map(form.conic_rows) do row
-        return ConicRow(
-            _SparseMatrix(row.W * S),
-            row.h - row.W * c,
-            row.cone,
-            row.constraint,
-            row.conditioning,
-        )
+        W, h = _rescale_rows(row.W, row.h, c, s, (row.cone,))
+        return ConicRow(_SparseMatrix(W), h, row.cone, row.constraint, row.conditioning)
     end
+    W_valid, h_valid = _rescale_rows(form.W_valid, form.h_valid, c, s)
     return _replace(
         form;
         laws,
         B_e = _SparseMatrix(form.B_e * T),
         B_u = _SparseMatrix(form.B_u * T),
         B_l = _SparseMatrix(form.B_l * T),
-        W_valid = _SparseMatrix(form.W_valid * S),
-        h_valid = form.h_valid - form.W_valid * c,
+        W_valid = _SparseMatrix(W_valid),
+        h_valid,
         conic_rows,
         C = _SparseMatrix(form.C * T),
         Q = _SparseMatrix(S * form.Q * S),
