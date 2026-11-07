@@ -1,10 +1,12 @@
-# Decision studies
+# Breakpoints
 
-Each script here answers one question with a grid of runs; its results are in `results/`, and
-its findings below. When a study is finished and its script can no longer run from the tree, it
-moves to "Past studies" in [`../README.md`](../README.md), with a tag that keeps it. The decisions
-that each study informed, with the other experiments behind them, are in the
-[table of decisions](../README.md#decisions-and-the-experiments-behind-them).
+The studies of the choices that concern uncertainties with breakpoints (`BreakPoints()`). Each
+script here answers one question with a grid of runs (that of [`../grid.jl`](../grid.jl), shared
+with [`../scaling/`](../scaling/README.md) and [`../solvers/`](../solvers/README.md)); its results
+are in `results/`, and its findings below. When a study is finished and its script can no longer
+run from the tree, it moves to "Past studies" in [`../README.md`](../README.md), with a tag that
+keeps it. The decisions that each study informed, with the other experiments behind them, are in
+the [table of decisions](../README.md#decisions-and-the-experiments-behind-them).
 
 ## The implied box rows of lifted coordinates, across problems and solvers (`lifted_box.jl`)
 
@@ -33,9 +35,16 @@ reached the limit or came close were run again with a limit of 3600 s at 40ad9a2
 for a few minutes during those reruns. Times are those of the inner solver, in seconds.
 
 ```
-julia --project=benchmark benchmark/compare/lifted_box.jl hydro T=4,6,8 k=1,3 solver=simplex,ipx,ipx_crossover,hipo
-julia --project=benchmark benchmark/compare/lifted_box.jl kwg T=48 k=3 kind=dual solver=simplex limit=3600
+julia --project=benchmark benchmark/breakpoints/lifted_box.jl hydro T=4,6,8 k=1,3 solver=simplex,ipx,ipx_crossover,hipo rescale=false
+julia --project=benchmark benchmark/breakpoints/lifted_box.jl kwg T=48 k=3 kind=dual solver=simplex limit=3600 rescale=false
 ```
+
+The grid ran before the optimizer rescaled the uncertainties (`RescaleUncertainties()`, 82c4496),
+so its rows have `rescale = false`, and the commands above need that option to repeat it. The
+production planning, with demands of order 10⁴, is the problem that rescaling changes most: most of
+its duals that fail below solve with it (see [`../scaling/`](../scaling/README.md)), so the findings
+on that problem, and the default of the dual, are to be checked again with rescaling. Gurobi on
+the same grid is in [`../solvers/`](../solvers/README.md).
 
 Every value agrees between "with" and "without", to 1e-10 relative with a basic solution and to
 5e-7 without crossover.
@@ -140,8 +149,8 @@ up to 7e-6 relative above the exact bound of the simplex method, for a minimizat
 - **The solver matters more than the rows.** The largest duals solve much faster with IPX and
   crossover than with the simplex method when the implied bounds are left out (hydro T = 8, k = 3:
   162 s against 1235 s), and the interior points without crossover fail too often to be a default
-  (above). The production duals, which no solver solves from T = 15, are the hard instances of the
-  grid.
+  (above). The production duals, which no solver of HiGHS solves from T = 15 without rescaling,
+  are the hard instances of the grid.
 
 The duals of kwg with T = 48 and k = 3 and of the production planning with T = 15 and k = 3 reach
 the limit of one hour too, under both solvers, with and without the implied bounds.

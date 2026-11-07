@@ -6,7 +6,7 @@
 # The inventory of Kuhn, Wiesemann and Georghiou, "Primal and dual linear decision rules in
 # stochastic and robust optimization", Math. Program. 130 (2011), section 5, with the data of Ben-Tal
 # et al. (2004): a warehouse supplied by three factories over T semimonthly periods. It is a test
-# problem (`test_kwg.jl`) and a benchmark of `benchmark/compare`.
+# problem (`test_kwg.jl`) and a benchmark of `benchmark/breakpoints` and `benchmark/scaling`.
 #
 # In period t the demand d[t] is revealed, then each factory i produces x[i, t] ∈ [0, 567] at the
 # cost α[i] ς[t], with α = (1, 1.5, 2) and the season ς[t] = 1 + sin(π (t - 1) / 12) / 2. The demand

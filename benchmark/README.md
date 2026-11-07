@@ -10,10 +10,14 @@ they measure and of their results, and its CSV files in `results/`:
 |---|---|---|
 | [`inventory/`](inventory/README.md) | `timing.jl`, `resolve.jl` | the T-period inventory, one scalar uncertainty per stage: `PrimalLDR`, `DualLDR` and the same robust LP written by hand; re-solves after a change of a JuMP parameter, with and without the cache of inner problems |
 | [`hydro/`](hydro/README.md) | `run.jl` | the 4-reservoir hydrothermal problem, four joint uncertainties per stage: the LDR models, the average scenario and a scenario tree, with breakpoints and out-of-sample simulations |
-| [`compare/`](compare/README.md) | `lifted_box.jl` | decision studies, each across several problems and solvers: the implied box rows of lifted coordinates (`lifted_box`), on four problems and four solvers of HiGHS |
+| [`breakpoints/`](breakpoints/README.md) | `lifted_box.jl` | the choices for uncertainties with breakpoints: the implied box rows of lifted coordinates (`lifted_box`), on four problems and four solvers of HiGHS |
+| [`scaling/`](scaling/README.md) | `rescale.jl` | the scaling of the uncertainties: the production planning in three units, and `RescaleUncertainties()` on and off, on production and kwg |
+| [`solvers/`](solvers/README.md) | `solvers.jl` | other solvers than HiGHS: Gurobi, by default and with the dual simplex on one thread, on the grid of `breakpoints/` and the hydrothermal problem |
 
-In this folder, `common.jl` has the helpers that the scripts share, and `internals.jl` is the only
-file of `benchmark/` that reads internals of the package. [`PROBLEMS.md`](PROBLEMS.md) is the
+In this folder, `common.jl` has the helpers that the scripts share, `grid.jl` the grid of runs of
+the three studies (problems, solvers, options and CSV rows; it offers Gurobi when Gurobi is
+installed, which is not a dependency), and `internals.jl` is the only file of `benchmark/` that
+reads internals of the package. [`PROBLEMS.md`](PROBLEMS.md) is the
 catalogue of the LDR test problems found in this package, the legacy repository, `CasosLDR` and
 the papers (data, known values, solver notes, candidates to port).
 
@@ -31,8 +35,9 @@ one. An experiment can serve several decisions, and cover several problems.
 |---|---|---|---|---|
 | The primal writes a box support in closed form: one auxiliary variable per row and box, instead of two multipliers | `PrimalLDR(; box_closed_form = true)`, the default | `inventory/timing.jl`, T = 4 to 128, and `hydro/run.jl`, T = 4, 8, 12; HiGHS's default options | 7dbebf0 against 5f20d11 | [inventory](inventory/README.md#history), [hydro](hydro/README.md#history) |
 | The formulations of 0.4 replace those of 0.3: a smaller primal and a structured dual. The dual keeps the auxiliary variables `u = S μ` of its cone rows; substituting them out is left open | no setting | the past study against 0.3: the inner LPs of both versions exported to MPS, inventory T = 32, 64, 128 and hydro T = 4, 8, 12; the modes of HiGHS and Ipopt. Also "Against 0.3" of `inventory/timing.jl` and `hydro/run.jl` | tag `study-0.3-comparison` | [past study](#solve-times-against-03-october-2026-tag-study-03-comparison), [inventory](inventory/README.md#against-03), [hydro](hydro/README.md#against-03) |
-| The solver advice of the docstrings: keep HiGHS's dual simplex for `PrimalLDR`; try the interior point without crossover for `DualLDR`, which is not the default. Open: the wider study of `lifted_box` found that the interior points without crossover fail too often to be a default, and that IPX with crossover is the fastest on the largest duals | the docstrings of `PrimalLDR` and `DualLDR` | the past study against 0.3 (above); `hydro/run.jl`, variant `ldr_dual_ipm`, T = 4, 8, 12; `compare/lifted_box.jl`, four problems under the simplex method, IPX with and without crossover, and HiPO | tag `study-0.3-comparison`; 7dbebf0; c55805e and 40ad9a2 | [past study](#solve-times-against-03-october-2026-tag-study-03-comparison), [hydro](hydro/README.md#current), [`compare/`](compare/README.md#what-it-found) |
-| The implied bounds of lifted coordinates: left out of the primal's support, kept in the dual's. Open for the dual: the wider study found it faster without them on 13 of 15 instances under IPX with crossover | `PrimalLDR(; lifted_box = false)` and `DualLDR(; lifted_box = true)`, the defaults | the first study: inventory T = 16 to 64 and hydro T = 4, 8, with 1 to 3 breakpoints, under the dual simplex; then `compare/lifted_box.jl`: inventory, kwg, hydro and production planning, under the simplex method, IPX with and without crossover, and HiPO | e26b0e5; c55805e and 40ad9a2 | [past study](#redundant-box-rows-of-liftings-october-2026-lifted_box), [`compare/`](compare/README.md) |
+| The solver advice of the docstrings: keep HiGHS's dual simplex for `PrimalLDR`; try the interior point without crossover for `DualLDR`, which is not the default. Open: the wider study of `lifted_box` found that the interior points without crossover fail too often to be a default, and that IPX with crossover is the fastest on the largest duals; Gurobi was more robust and faster than every mode of HiGHS, on one thread too; whether to mention it | the docstrings of `PrimalLDR` and `DualLDR` | the past study against 0.3 (above); `hydro/run.jl`, variant `ldr_dual_ipm`, T = 4, 8, 12; `breakpoints/lifted_box.jl`, four problems under the simplex method, IPX with and without crossover, and HiPO; `solvers/solvers.jl`, the same and the hydrothermal problem under Gurobi, by default and on one thread | tag `study-0.3-comparison`; 7dbebf0; c55805e and 40ad9a2; 92e69a1 | [past study](#solve-times-against-03-october-2026-tag-study-03-comparison), [hydro](hydro/README.md#current), [`breakpoints/`](breakpoints/README.md#what-it-found), [`solvers/`](solvers/README.md#what-it-found) |
+| The implied bounds of lifted coordinates: left out of the primal's support, kept in the dual's. Open for the dual: the wider study found it faster without them on 13 of 15 instances under IPX with crossover; it ran without `RescaleUncertainties()` | `PrimalLDR(; lifted_box = false)` and `DualLDR(; lifted_box = true)`, the defaults | the first study: inventory T = 16 to 64 and hydro T = 4, 8, with 1 to 3 breakpoints, under the dual simplex; then `breakpoints/lifted_box.jl`: inventory, kwg, hydro and production planning, under the simplex method, IPX with and without crossover, and HiPO | e26b0e5; c55805e and 40ad9a2 | [past study](#redundant-box-rows-of-liftings-october-2026-lifted_box), [`breakpoints/`](breakpoints/README.md) |
+| The optimizer rescales each uncertainty to `[-1, 1]` before the formulations, and divides each rescaled row of the support by its largest coefficient. Open: with breakpoints, each lifted coordinate is rescaled on its own box, which is slower for HiGHS's primal than rescaling the uncertainty before lifting it | `RescaleUncertainties()`, true by default | `scaling/rescale.jl`: the production planning in three units and rescaled, T = 10 to 20, and kwg with and without rescaling, T = 24, 48, with 1 and 3 breakpoints, under HiGHS's simplex and HiPO and Gurobi | b8a7159; 82c4496; 0d2fae4 | [`scaling/`](scaling/README.md#what-it-found) |
 | A re-solve fixes variables of the inner problem to the values of the parameters, instead of holding JuMP `Parameter`s, whose bridges for HiGHS made JuMP copy the whole model again at every re-solve | no setting (`src/formulations/inner.jl`) | `inventory/resolve.jl`, T = 64 and 20 re-solves, `PrimalLDR` and `DualLDR`; HiGHS's default options | f204dc1 against 423d23c | [inventory](inventory/README.md#history-1) |
 | The optimizer keeps its inner problems across re-solves when only the values of parameters change | no setting (`src/moi/inner_cache.jl`) | `inventory/resolve.jl`, as above, the cache kept or emptied | 7dbebf0; f204dc1 | [inventory](inventory/README.md#current-1) |
 
@@ -68,8 +73,8 @@ with each recording.
 Each script appends its rows to its CSV file, in the folder `results/` next to it, one row at a
 time, so that an interrupted run keeps its results. The environment variable
 `LDR_BENCHMARK_RESULTS` names another folder for all the CSV files; the CI workflow `Benchmarks`
-uses it to run the three scripts at tiny sizes into a temporary folder, which only checks that they
-still run.
+uses it to run the three scripts above and `scaling/rescale.jl` at tiny sizes into a temporary
+folder, which only checks that they still run. The commands of the studies are in their READMEs.
 
 Every row is tagged with `commit` (the commit of the repository), `src_commit` (the last commit
 that changed the measured code: `src/`, `Project.toml` and `test/problems/`), `src_dirty`
@@ -173,4 +178,4 @@ What it found: leaving the implied bounds out saved 30% to 43% of the primal var
 dual 8% to 47% faster, except on the hydro problem with T = 8, 2.6 times slower. So `PrimalLDR`
 leaves them out by default, and `DualLDR` keeps them (`DualLDR(; lifted_box = false)` leaves them
 out). A wider study, on four problems and four solvers, followed in
-[`compare/README.md`](compare/README.md).
+[`breakpoints/README.md`](breakpoints/README.md).

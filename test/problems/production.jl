@@ -6,7 +6,8 @@
 # The production planning problem of Georghiou, Kuhn and Wiesemann, "The decision rule approach to
 # optimization under uncertainty: methodology and applications", Comput. Manag. Sci. 16 (2019),
 # section 6.1, without changeovers: one machine makes five products over T weeks, with backlog. It
-# is a test problem (`test_production.jl`) and a benchmark of `benchmark/compare`.
+# is a test problem (`test_production.jl`) and a benchmark of `benchmark/breakpoints` and
+# `benchmark/scaling`.
 #
 # At the start of week t the demands ξ[i, t] are revealed; the plant sells s[i, t] from the stock
 # made in earlier weeks, backlogs b[i, t] and holds I[i, t] ∈ [0, 10⁶], then makes p[i, t] for the
