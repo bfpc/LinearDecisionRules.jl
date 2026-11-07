@@ -97,6 +97,24 @@ function test_three_weeks()
     return
 end
 
+# The demand is an affine function of the uncertain variable, with the same breakpoints, so each
+# parametrization gives the same values. With a breakpoint, HiGHS's dual simplex fails on the raw
+# and centered duals in some runs and not in others (the order of the rows of the inner problem
+# decides), so that case checks the unit parametrization against the values of `test_three_weeks`.
+function test_parametrizations()
+    value, bound = _solve(3)
+    for parametrization in (:centered, :unit)
+        v, b = _solve(3; parametrization)
+        @test v ≈ value rtol = 1e-8
+        @test b ≈ bound rtol = 1e-8
+    end
+    value1, bound1 = _solve(3; breakpoints = 1, parametrization = :unit)
+    @test value1 ≈ 154603.707679 rtol = 1e-7
+    @test bound1 ≈ 157113.201756 rtol = 1e-7
+    @test_throws ErrorException production_model(3; parametrization = :other)
+    return
+end
+
 end # module TestProduction
 
 TestProduction.runtests()

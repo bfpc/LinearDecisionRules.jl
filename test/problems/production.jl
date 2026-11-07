@@ -16,6 +16,11 @@
 # nominal demand ξ̄[i, t] = (1 + sin(π (t - 2) / 26) / 2) d̄[i]. Stage t holds the demands and the
 # decisions of week t. There is no initial stock or backlog. The data are Table 1 of the paper.
 #
+# The uncertain variables can be the demands themselves (`parametrization = :raw`, of order 10⁴),
+# their deviations from ξ̄ (`:centered`), or these deviations divided by θ ξ̄, in [-1, 1] (`:unit`).
+# The demand is an affine function of the variable, and a count of breakpoints is equally spaced in
+# the support, so the optimum is the same; only the scaling of the inner problem changes.
+#
 # This file defines functions only.
 
 using JuMP
@@ -36,28 +41,44 @@ const PRODUCTION_DATA = (
 production_nominal(t, i) = (1 + sin(π * (t - 2) / 26) / 2) * PRODUCTION_DATA.average_demand[i]
 
 """
-    production_model(T; formulations = [LDR.PrimalLDR()], breakpoints = nothing, θ = 0.2)
+    production_model(T; formulations = [LDR.PrimalLDR()], breakpoints = nothing, θ = 0.2,
+                     parametrization = :raw)
 
 The production planning problem over `T ≥ 2` weeks; `breakpoints` (a count, or `nothing`) applies
-to every uncertain demand.
+to every uncertain demand. `parametrization` is `:raw`, `:centered` or `:unit` (see above).
 """
-function production_model(T; formulations = [LDR.PrimalLDR()], breakpoints = nothing, θ = 0.2)
+function production_model(
+    T;
+    formulations = [LDR.PrimalLDR()],
+    breakpoints = nothing,
+    θ = 0.2,
+    parametrization = :raw,
+)
     data = PRODUCTION_DATA
     products = eachindex(data.average_demand)
     model = LDR.LDRModel(HiGHS.Optimizer)
     set_silent(model)
     set_attribute(model, LDR.Formulations(), formulations)
     ξ̄ = [production_nominal(t, i) for i in products, t in 1:T]
+    # The demand is `center + scale * ξ`, with ξ uniform on [lo, hi].
+    center, scale, lo, hi = if parametrization == :raw
+        zero(ξ̄), one.(ξ̄), (1 - θ) * ξ̄, (1 + θ) * ξ̄
+    elseif parametrization == :centered
+        ξ̄, one.(ξ̄), -θ * ξ̄, θ * ξ̄
+    elseif parametrization == :unit
+        ξ̄, θ * ξ̄, -one.(ξ̄), one.(ξ̄)
+    else
+        error("Unknown parametrization $parametrization.")
+    end
     @variable(
         model,
-        ξ[i = products, t = 2:T] in
-        LDR.Uncertainty(Distributions.Uniform((1 - θ) * ξ̄[i, t], (1 + θ) * ξ̄[i, t])),
+        ξ[i = products, t = 2:T] in LDR.Uncertainty(Distributions.Uniform(lo[i, t], hi[i, t])),
         LDR.Stage(t)
     )
     if breakpoints !== nothing
         set_attribute.(ξ, LDR.BreakPoints(), breakpoints)
     end
-    demand(i, t) = t == 1 ? ξ̄[i, 1] : ξ[i, t]
+    demand(i, t) = t == 1 ? ξ̄[i, 1] : center[i, t] + scale[i, t] * ξ[i, t]
     @variable(model, p[i = products, t = 1:T-1] >= 0, LDR.Stage(t))
     @variable(model, s[i = products, t = 1:T] >= 0, LDR.Stage(t))
     @variable(model, b[i = products, t = 1:T] >= 0, LDR.Stage(t))
