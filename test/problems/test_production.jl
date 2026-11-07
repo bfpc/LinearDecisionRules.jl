@@ -29,8 +29,9 @@ function runtests()
     return
 end
 
-function _solve(T; kwargs...)
+function _solve(T; rescale = true, kwargs...)
     model = production_model(T; formulations = [LDR.PrimalLDR(), LDR.DualLDR()], kwargs...)
+    set_attribute(model, LDR.RescaleUncertainties(), rescale)
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
     @test LDR.is_certified(model)
@@ -98,17 +99,19 @@ function test_three_weeks()
 end
 
 # The demand is an affine function of the uncertain variable, with the same breakpoints, so each
-# parametrization gives the same values. With a breakpoint, HiGHS's dual simplex fails on the raw
-# and centered duals in some runs and not in others (the order of the rows of the inner problem
-# decides), so that case checks the unit parametrization against the values of `test_three_weeks`.
+# parametrization gives the same values. They are compared without `RescaleUncertainties()`, which
+# would give all of them the same inner problems. With a breakpoint, HiGHS's dual simplex then
+# fails on the raw and centered duals in some runs and not in others (the order of the rows of the
+# inner problem decides), so that case checks the unit parametrization against the values of
+# `test_three_weeks`.
 function test_parametrizations()
-    value, bound = _solve(3)
+    value, bound = _solve(3; rescale = false)
     for parametrization in (:centered, :unit)
-        v, b = _solve(3; parametrization)
+        v, b = _solve(3; parametrization, rescale = false)
         @test v ≈ value rtol = 1e-8
         @test b ≈ bound rtol = 1e-8
     end
-    value1, bound1 = _solve(3; breakpoints = 1, parametrization = :unit)
+    value1, bound1 = _solve(3; breakpoints = 1, parametrization = :unit, rescale = false)
     @test value1 ≈ 154603.707679 rtol = 1e-7
     @test bound1 ≈ 157113.201756 rtol = 1e-7
     @test_throws ErrorException production_model(3; parametrization = :other)

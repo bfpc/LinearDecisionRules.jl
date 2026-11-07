@@ -37,6 +37,7 @@ BreakPoints
 ```@docs
 Formulations
 InnerOptimizer
+RescaleUncertainties
 RejectionSamplingSeed
 RejectionSamplingTimeLimit
 RejectionSamplingMaxSamples

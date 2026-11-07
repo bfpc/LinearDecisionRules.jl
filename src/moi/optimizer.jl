@@ -46,6 +46,8 @@ certified bound are in [`DualLDR`](@ref).
 
  * [`InnerOptimizer`](@ref)`()`: the factory of the inner optimizer.
  * [`Formulations`](@ref)`()`: the formulations solved by `optimize!`.
+ * [`RescaleUncertainties`](@ref)`()`: whether the inner problems see the uncertainties rescaled
+   to `[-1, 1]` (`true` by default).
  * `MOI.Silent` and `MOI.RawOptimizerAttribute` are kept and forwarded to the inner optimizers.
  * `MOI.TimeLimitSec` limits the whole `optimize!`, rejection sampling included: each
    formulation, built and solved in turn, gets the time that remains, and a formulation reached
@@ -70,6 +72,7 @@ are compared by value and treated as immutable: replace a law, rather than chang
 mutable struct Optimizer <: MOI.AbstractOptimizer
     inner_factory::Any
     formulations::Vector{AbstractFormulation}
+    rescale::Bool
     silent::Bool
     time_limit::Union{Nothing,Float64}
     raw_attributes::Dict{String,Any}
@@ -95,6 +98,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
         return new(
             inner_factory,
             AbstractFormulation[PrimalLDR(), DualLDR()],
+            true,                             # rescale
             false,                            # silent
             nothing,                          # time_limit
             Dict{String,Any}(),               # raw_attributes
@@ -213,6 +217,7 @@ function MOI.supports(
         MOI.RawOptimizerAttribute,
         InnerOptimizer,
         Formulations,
+        RescaleUncertainties,
         RejectionSamplingSeed,
         RejectionSamplingTimeLimit,
         RejectionSamplingMaxSamples,
@@ -280,6 +285,13 @@ function MOI.set(o::Optimizer, ::Formulations, formulations)
         throw(ArgumentError("`Formulations()` has two formulations of type $(nameof(twice))."))
     end
     o.formulations = collect(AbstractFormulation, formulations)
+    return
+end
+
+MOI.get(o::Optimizer, ::RescaleUncertainties) = o.rescale
+
+function MOI.set(o::Optimizer, ::RescaleUncertainties, rescale::Bool)
+    o.rescale = rescale
     return
 end
 
@@ -396,19 +408,31 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     checks_start = time_ns()
     _check_convex_objective(form)
     _warn_singular_moments(form, mom)
+    # The formulations solve the form in the rescaled uncertainties; their rules are mapped back.
+    rescaling = dest.rescale ? _rescaling(form, mom) : nothing
+    inner_form = rescaling === nothing ? form : _rescale(form, rescaling)
+    inner_mom = rescaling === nothing ? mom : _rescale(mom, rescaling)
     cache = dest.inner_cache
     raw_attributes = copy(dest.raw_attributes)
-    _update!(cache, _Fingerprint(form, mom, factory, dest.silent, raw_attributes))
+    _update!(cache, _Fingerprint(inner_form, inner_mom, factory, dest.silent, raw_attributes))
     checks_time = _seconds_since(checks_start)
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
         inner = _cached_problem(cache, f)
-        return _solve!(f, form, mom, start, dest.time_limit; inner) do
-            built = _build_inner(form, f, mom, factory; silent = dest.silent, raw_attributes)
+        result = _solve!(f, inner_form, inner_mom, start, dest.time_limit; inner) do
+            built = _build_inner(
+                inner_form,
+                f,
+                inner_mom,
+                factory;
+                silent = dest.silent,
+                raw_attributes,
+            )
             push!(cache.problems, f => built)
             cache.num_builds += 1
             return built
         end
+        return rescaling === nothing ? result : _unscale(result, rescaling)
     end
     # Keep the inner problems of these formulations only.
     filter!(p -> any(f -> _same_value(f, p.first), dest.formulations), cache.problems)

@@ -145,7 +145,8 @@ end
 The inner problem of `formulation` in the last `optimize!`: the `JuMP.Model` that the inner
 optimizer solved. Use it to inspect the reformulation, for example with `num_variables` or
 `get_attribute`, or to save it with `write_to_file`. Its variables are not named, since names slow
-the build down.
+the build down. It is written in the rescaled uncertainties, unless [`RescaleUncertainties`](@ref)
+is `false`.
 
 Read it, do not modify it: the next `optimize!` reuses it when only the values of parameters
 changed, so a change to it would carry over to later solves.

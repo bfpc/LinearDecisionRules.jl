@@ -19,7 +19,9 @@
 # The uncertain variables can be the demands themselves (`parametrization = :raw`, of order 10⁴),
 # their deviations from ξ̄ (`:centered`), or these deviations divided by θ ξ̄, in [-1, 1] (`:unit`).
 # The demand is an affine function of the variable, and a count of breakpoints is equally spaced in
-# the support, so the optimum is the same; only the scaling of the inner problem changes.
+# the support, so the optimum is the same; only the scaling of the inner problem changes, and only
+# with `RescaleUncertainties()` set to `false` (by default, the optimizer rescales the uncertainties
+# to `[-1, 1]` itself).
 #
 # This file defines functions only.
 

@@ -149,6 +149,29 @@ their scenarios with their own seeds.
 struct RejectionSamplingSeed <: MOI.AbstractOptimizerAttribute end
 
 """
+    RescaleUncertainties()
+
+An optimizer attribute: whether the formulations see the uncertainties rescaled, a `Bool`; `true`
+by default.
+
+Each uncertainty `η` is then written `η = c + s ζ`, where `c` is the center and `s` the half-width
+of the box of its law, so that `ζ ∈ [-1, 1]` (with breakpoints, each lifted coordinate in turn).
+The decision rules, the values and the bounds are the same, and are reported in the uncertainties
+of the model; only the scaling of the inner problems changes. Uncertainties of order 10⁴, such as
+demands, give moments of order 10⁸ against 1 for the constant term of the rules, which can make the
+inner solver fail, mostly on the problem of [`DualLDR`](@ref). The inner problems, such as the
+`model` of a [`FormulationResult`](@ref), are written in ζ; with `false`, they are written in the
+uncertainties of the model.
+
+## Example
+
+```julia
+set_attribute(model, RescaleUncertainties(), false)
+```
+"""
+struct RescaleUncertainties <: MOI.AbstractOptimizerAttribute end
+
+"""
     RejectionSamplingTimeLimit()
 
 An optimizer attribute: the time limit in seconds, a `Float64`, of the rejection sampling of each

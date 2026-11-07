@@ -51,6 +51,7 @@ include("formulations/primal.jl")
 include("formulations/dual.jl")
 include("formulations/sampled.jl")
 include("formulations/result.jl")
+include("formulations/rescaling.jl")
 include("formulations/inner.jl")
 include("moi/sets.jl")
 include("moi/attributes.jl")
@@ -85,6 +86,7 @@ export LDRModel,
     BreakPoints,
     Formulations,
     InnerOptimizer,
+    RescaleUncertainties,
     RejectionSamplingSeed,
     RejectionSamplingTimeLimit,
     RejectionSamplingMaxSamples

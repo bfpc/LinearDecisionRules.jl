@@ -95,6 +95,11 @@ decision_rule(sell)       # sell = d, callable on a scenario
   closed form of box supports; `lifted_box` chooses whether the support of an uncertainty with
   breakpoints keeps the bounds that its convex-hull rows imply (by default, the primal leaves them
   out and the dual keeps them: see "Past studies" in `benchmark/README.md`).
+- **Rescaled uncertainties:** the inner problems see each uncertainty rescaled to `[-1, 1]` (by
+  the center and the half-width of the box of its law), and the rules are reported in the
+  uncertainties of the model. Demands of order 10⁴ make the dual badly scaled: HiGHS solved none of
+  the 6 duals of the production planning problem at T = 10 to 20 without it, and 4 with it.
+  `set_attribute(model, RescaleUncertainties(), false)` turns it off.
 - **Low-level access to the rules:** `rule_coefficient(x, η)` and `rule_matrix(model)`, whose
   `RuleMatrix` carries the lifting map, so that the rules are `R.matrix * lift(R.lifting, ξ)`.
   `inner_model(model, f)` returns the inner problem of a formulation, to inspect it or save it with
@@ -109,7 +114,8 @@ decision_rule(sell)       # sell = d, callable on a scenario
 Exported:
 - **Modelling:** `LDRModel`, `Stage`, `FirstStage`, `stage`, `set_stage`, `unset_stage`,
   `Uncertainty`, `ValidInequality`, `Truncate`, `BreakPoints`, `Formulations`, `InnerOptimizer`,
-  `RejectionSamplingSeed`, `RejectionSamplingTimeLimit`, `RejectionSamplingMaxSamples`.
+  `RescaleUncertainties`, `RejectionSamplingSeed`, `RejectionSamplingTimeLimit`,
+  `RejectionSamplingMaxSamples`.
 - **Results and rules:** `AbstractFormulation`, `PrimalLDR`, `DualLDR`, `SampledLDR`,
   `FormulationAttribute`, `Certified`, `is_certified`, `TimeBreakdown`, `time_breakdown`,
   `inner_model`, `decision_rule`,
