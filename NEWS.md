@@ -98,7 +98,7 @@ decision_rule(sell)       # sell = d, callable on a scenario
 - **Rescaled uncertainties:** the inner problems see each uncertainty rescaled to `[-1, 1]` (by
   the center and the half-width of the box of its law), and the rules are reported in the
   uncertainties of the model. Demands of order 10⁴ make the dual badly scaled: HiGHS solved none of
-  the 6 duals of the production planning problem at T = 10 to 20 without it, and 4 with it.
+  the 6 duals of the production planning problem at T = 10 to 20 without it, and 5 with it.
   `set_attribute(model, RescaleUncertainties(), false)` turns it off.
 - **Low-level access to the rules:** `rule_coefficient(x, η)` and `rule_matrix(model)`, whose
   `RuleMatrix` carries the lifting map, so that the rules are `R.matrix * lift(R.lifting, ξ)`.
