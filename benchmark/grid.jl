@@ -38,7 +38,10 @@
 # `time_breakdown` (see `PHASE_HEADER` in `common.jl`), empty in the rows recorded before them.
 #
 # The options, `name=value` with comma-separated values: `T`, `k`, `solver`, `kind` (`primal`,
-# `dual`), `lifted_box`, `rescale` (true or false), and `limit` (seconds).
+# `dual`), `lifted_box`, `rescale`, and `limit` (seconds). `rescale` is `true`
+# (`RescaleUncertainties()`, each piece of a lifting on its own box), `false`, or, for the study of
+# `scaling/`, `before_lifting` or `hybrid`: rescaled, with the pieces of the liftings of breakpoints
+# as `set_lifted_rescaling!` of `internals.jl` says.
 
 using Printf
 using JuMP
@@ -47,6 +50,7 @@ import Ipopt
 import LinearDecisionRules as LDR
 
 include("common.jl")
+include("internals.jl")
 include("../test/problems/tagged.jl")
 include("../test/problems/hydro.jl")
 include("../test/problems/kwg.jl")
@@ -126,7 +130,8 @@ function run_one(problem, T, k, kind, lifted_box, rescale, solver, limit)
         LDR.DualLDR(; attributes, lifted_box)
     model = build(problem, T, k, f)
     optimizer === nothing || set_attribute(model, LDR.InnerOptimizer(), optimizer)
-    set_attribute(model, LDR.RescaleUncertainties(), rescale)
+    set_attribute(model, LDR.RescaleUncertainties(), rescale != "false")
+    set_lifted_rescaling!(rescale in ("before_lifting", "hybrid") ? Symbol(rescale) : :per_piece)
     set_time_limit_sec(model, limit)
     time = @elapsed optimize!(model)
     value =
@@ -190,7 +195,12 @@ function main(args, results; defaults = Dict{String,String}())
     limit = parse(Float64, options["limit"])
     kinds = split(options["kind"], ",")
     boxes = parse.(Bool, split(options["lifted_box"], ","))
-    rescales = parse.(Bool, split(options["rescale"], ","))
+    rescales = split(options["rescale"], ",")
+    for rescale in rescales
+        if !(rescale in ("true", "false", "before_lifting", "hybrid"))
+            error("unknown value rescale=$rescale")
+        end
+    end
     for solver in solvers
         if !haskey(SOLVERS, solver)
             error("unknown solver $solver")
@@ -207,7 +217,7 @@ function main(args, results; defaults = Dict{String,String}())
         for T in Ts, k in ks, kind in kinds, lifted_box in boxes, rescale in rescales
             r = run_one(problem, T, k, kind, lifted_box, rescale, solver, limit)
             @printf(
-                "%-10s T=%-3d k=%d %-6s lifted_box=%-5s rescale=%-5s %-7s vars=%-7d cons=%-7d nnz=%-8d value=%-16.8g solver=%7.1fs %s\n",
+                "%-10s T=%-3d k=%d %-6s lifted_box=%-5s rescale=%-14s %-7s vars=%-7d cons=%-7d nnz=%-8d value=%-16.8g solver=%7.1fs %s\n",
                 problem,
                 T,
                 k,
