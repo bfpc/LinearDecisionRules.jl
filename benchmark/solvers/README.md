@@ -112,6 +112,6 @@ difference of the values of the solvers that succeeded. Solver times in seconds:
   every instance (hydro T = 8, k = 3, dual: 69 s, against 114 s with HiPO and 1677 s with the
   simplex method).
 
-Open: whether the docstrings of `PrimalLDR` and `DualLDR` should mention Gurobi (or commercial
-solvers in general), and HiGHS's parallel dual simplex (`"parallel" => "on"` with
-`"simplex_strategy" => 2` or `3`), which has not been tried.
+The documentation (the docstrings and `docs/src/performance.md`) does not mention commercial
+solvers. Open: HiGHS's parallel dual simplex (`"parallel" => "on"` with `"simplex_strategy" => 2`
+or `3`), which has not been tried.
