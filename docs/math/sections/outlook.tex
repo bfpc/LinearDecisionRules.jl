@@ -27,7 +27,10 @@ The same holds along a sequence of nested breakpoints, and could guide where to 
 \paragraph{Solver-aware formulations.}
 Of the two choices measured in \cref{sec:computation}, the attributes of the inner solver per formulation are done
 (such as the interior-point method without crossover for the dual, whose value only is needed),
-and so are the closed form of the robust counterpart over box blocks and JuMP parameters to re-solve with new data without rebuilding.
+and so are the closed form of the robust counterpart over box blocks, JuMP parameters to re-solve with new data without rebuilding,
+and the rescaling of the uncertainties (\cref{sec:rescaling}).
+With breakpoints, whether to rescale each lifted coordinate, as the package does, or the uncertainty before lifting it is open:
+under HiGHS's simplex, the two take about the same time on the dual approximation, but not on the primal one.
 A density rule deciding, row by row, whether to keep the auxiliary $u_r$ of the dual is not:
 the measurements point in opposite directions on the two benchmarks, and choosing the rule needs more instances.
 

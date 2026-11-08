@@ -7,6 +7,8 @@ and the hydrothermal problem of \citet{ShapiroEtAl2013} in \file{benchmark/hydro
 All times are from HiGHS \citep{HuangfuHall2018} with default options unless stated, on one machine (Windows 11, Julia 1.12.6);
 the result files and the analyses are in \file{benchmark/inventory} and \file{benchmark/hydro}, in a folder \file{results} and a \file{README.md} each;
 the comparison of solve times with the previous version is summarized in the section ``Past studies'' of \file{benchmark/README.md}.
+The later studies of \file{benchmark/breakpoints}, \file{benchmark/scaling} and \file{benchmark/solvers} add two problems of \file{test/problems}:
+the inventory of \citet[Section~5]{KWG2011} and the production planning of \citet[Section~6.1]{GKW2019}.
 
 \subsection{Where the sizes come from}
 
@@ -120,6 +122,10 @@ Leaving them out saves 30\% to 43\% of the primal variables and 26\% to 37\% of 
 The primal was never measurably slower for it (106 s instead of 187 s on the hydrothermal problem with one breakpoint per inflow at $T = 8$),
 and the dual was 8\% to 47\% faster on the inventory problem and on the hydrothermal one at $T = 4$, but 2.6 times slower at $T = 8$ (276 s instead of 105 s), under every seed of HiGHS tried.
 So \code{PrimalLDR} leaves them out and \code{DualLDR} keeps them, by default (\code{lifted\_box}; \file{benchmark/README.md}, ``Past studies'').
+A wider study, on four problems and four modes of HiGHS, before the rescaling of \cref{sec:rescaling} (\file{benchmark/breakpoints/README.md}), confirmed the choice of the primal, except for the production planning with 3 breakpoints;
+for the dual, leaving them out was faster on 13 of the 15 instances solved both ways by the interior point with crossover, by up to 20 times,
+but slower by 1.4 to 2.4 times on three of the six hydrothermal instances under the dual simplex.
+The default of the dual is kept until the study is repeated with the rescaling.
 \item \emph{Solver mode for the bound.} The dual approximation is solved for its value only, and its rule is not a policy, so no basis is needed.
 HiGHS's interior-point method without crossover solved the hydrothermal dual at $T = 8$ in 8.0 s instead of 145 s,
 with an objective equal to the simplex one to a relative $2\cdot10^{-10}$, but was slower on the inventory dual (1.2 s against 0.72 s).
@@ -130,6 +136,8 @@ A bound taken from an inexact solve is safest when it is the inner solver's dual
 the package uses it for a linear program solved to optimality and for a solve stopped by a limit with a dual feasible point (\cref{sec:dual}).
 Only an \code{OPTIMAL} status can be trusted, though: HiGHS may stop an interior point without crossover at an unknown status,
 with a wrong objective value or none, and the package then reports no bound.
+On the wider grid of \file{benchmark/breakpoints}, this happened on every dual of the inventory of \citet{KWG2011}, and on most primals and duals of the production planning;
+the interior point with crossover was the fastest mode on the largest duals.
 \end{itemize}
 
 \subsection{Breakpoints and solve time}
@@ -166,6 +174,147 @@ $T$ & $k$ & Primal value & Out of sample & Dual bound & Primal var. & Primal (s)
 The gap between the bounds stays large on this problem (the bound is 52\% of the value at $T = 4$ with one breakpoint, 5.3\% at $T = 8$):
 the primal rules improve with breakpoints, while the dual bound, which without breakpoints coincides with the value of the average-scenario problem at $T = 4$ and $8$, hardly moves.
 Where to place few breakpoints, rather than how many to add, is the open question \citep[end of Section~4.1]{GWK2015}.
+
+\subsection{Rescaling the uncertainties}
+\label{sec:rescaling}
+
+The approximations do not depend on the units of the uncertainties, but the inner problems do.
+A demand uniform on $[8000, 12000]$ has a second moment of order $10^8$, against $1$ for the constant column of $\xi$,
+and the robust counterparts and the cone rows of the dual mix coefficients of both orders;
+on such data the inner solvers can stop at an unknown status, or take much longer (below).
+Before the formulations, \code{optimize!} therefore writes each uncertainty $\eta_j$ as $\eta_j = c_j + s_j\zeta_j$, that is
+\[
+\xi = G\hat\xi,
+\qquad
+\hat\xi = (1, \zeta),
+\qquad
+G = \begin{pmatrix} 1 & 0 \\ c & D_s \end{pmatrix},
+\qquad
+D_s = \operatorname{diag}(s),
+\]
+where $c_j$ is the center and $s_j$ the half-width of the box of the law of $\eta_j$, so that $\zeta_j \in [-1, 1]$;
+for a law whose box is not bounded (or is a point), they are its mean and standard deviation if this is positive and finite,
+and otherwise $c_j = 0$ and $s_j = 1$
+(\code{RescaleUncertainties}, true by default; \file{src/formulations/rescaling.jl}).
+The data of \eqref{eq:SP} in $\hat\xi$ are
+\[
+\hat B = BG, \quad
+\hat C = CG, \quad
+\hat Q = D_sQD_s, \quad
+\hat d = D_s(d + 2Qc), \quad
+\hat f = f + d^\T c + c^\T Q c,
+\]
+for each of $B_e$, $B_u$ and $B_l$;
+the rows $W\eta - h \in \mathcal{K}$ of $\Xis$ become $WD_s\zeta - (h - Wc) \in \mathcal{K}$;
+the law of $\zeta$ is the image of that of $\eta$, with mean $D_s^{-1}(\mu - c)$ and covariance blocks $D_s^{-1}\Cvb{\ell}D_s^{-1}$ (restricted to the coordinates of the block), so that $\hat\Mom = G^{-1}\Mom G^{-\T}$;
+and the constants of the parameters shift like the first column of $BG$.
+Since $D_s$ is diagonal, the covariance blocks, the support blocks, the boxes and the information structure are those of $\xi$,
+and the inner problems have the same sizes.
+The formulations solve the problem in $\hat\xi$, and the rules are reported in $\xi$, as $X = \hat XG^{-1}$.
+
+\begin{proposition}[Invariance under an affine change of the uncertainties]
+\label{prop:affine-invariance}
+Let $G = \begin{psmallmatrix} 1 & 0 \\ c & D_s \end{psmallmatrix}$ with $s_j \ne 0$ for every $j$,
+and let $\widehat{\textup{SP}}$ be the problem in $\hat\xi = G^{-1}\xi$ with the data above.
+Then $X \mapsto XG$ is a bijection of the rules allowed by the information structure, $\Rules$,
+which maps the feasible points of \eqref{eq:PLDR}, \eqref{eq:DLDR} and \eqref{eq:SLDR} (with the outcomes $G^{-1}\xi^{(n)}$) to the feasible points of the same problems for $\widehat{\textup{SP}}$, with the same objective values.
+Condition~\ref{it:lce} of \cref{thm:dual-bound} holds for one problem if and only if it holds for the other.
+In particular, the values, the bounds and the rules $X = \hat XG^{-1}$ do not depend on $c$ and $s$.
+\end{proposition}
+
+\begin{proof}
+The first row of $G$ and of $G^{-1} = \begin{psmallmatrix} 1 & 0 \\ -D_s^{-1}c & D_s^{-1} \end{psmallmatrix}$ is $\eone^\T$, so $\hat\xi_1 = \xi_1 = 1$.
+Column $j > 1$ of $XG$ is $s_j$ times column $j$ of $X$, and its first column is $X_{:,1} + \sum_{j > 1} c_jX_{:,j}$.
+So $XG$ has the zero pattern of $X$ outside the first column, which every rule observes, and the same holds for $G^{-1}$:
+$X \mapsto XG$ is a bijection of $\Rules$.
+For every outcome, $x(\xi) = X\xi = XG\hat\xi$ and $B\xi = BG\hat\xi$,
+so the decisions, their bounds, the right-hand sides and the objective are the same,
+and the coefficient matching of the equalities, $A_eX = B_e$, holds if and only if $A_eXG = B_eG$.
+The support is mapped to $G^{-1}\Xis = \{\hat\xi : \hat\xi_1 = 1,\ WD_s\zeta - (h - Wc) \in \mathcal{K}\}$,
+so an inequality holds on $\Xis$ if and only if it holds on $G^{-1}\Xis$,
+which gives the claim for \eqref{eq:PLDR}, and for \eqref{eq:SLDR} on the mapped outcomes.
+For \eqref{eq:DLDR}, the rows of $\Xis$ as a cone become $\Wp G$, and the slack of inequality $r$ becomes $\hat S_r = S_rG$, so that
+\[
+\hat S_r \hat\Mom (\Wp G)^\T = S_r G G^{-1}\Mom G^{-\T} G^\T \Wp^\T = S_r\Mom\Wp^\T:
+\]
+the cone constraints are unchanged, and the slack of a deterministic inequality, which has only a first column, is unchanged too ($S_rG = S_r$).
+Finally, each $\zeta_j$ is an affine function of $\eta_j$ alone, in the same stage,
+so the conditional expectations of the later columns given the earlier ones are affine in one set of coordinates if and only if they are in the other.
+\end{proof}
+
+The proposition also justifies \cref{rem:shifted-lifting} ($s = \one$ there).
+It holds for any description of $\Xis$; two more steps keep the numbers of the rescaled rows of the order of 1.
+First, each rescaled linear row is divided by its largest coefficient, and the rows of a second-order cone by one common factor, the largest of their coefficients:
+a positive factor leaves a row of the orthant and a whole second-order cone unchanged (a factor per row would change a second-order cone), so neither approximation changes (\cref{prop:description}).
+Second, a right-hand side $h_p - W_pc$ within $16\varepsilon(\abs{h_p} + \abs{W_p}\abs{c})$ of zero, the rounding error of its subtraction, is set to zero.
+Without them, the first version of the rescaling kept the hull rows of the lifted coordinates, scaled by products $\Delta_i\Delta_{i+1}$ of the lengths of the pieces, with coefficients of order $10^6$ for demands of order $10^4$, and a first right-hand side made of rounding errors;
+HiGHS's simplex then failed or reached the limit on 5 of the 6 primals of the production planning below, which it solves in units of the half-width.
+
+\paragraph{With breakpoints.}
+The rescaling applies to the lifted form, so each lifted coordinate is rescaled on its own box (\cref{sec:axis-lifting}):
+$[\underline\eta, b_1]$ for the first piece and $[0, \Delta_i]$ for the others.
+Then $\zeta_i = 2t_i - 1$ in the notation of \cref{lem:hull}, whose simplex becomes
+\[
+1 \ge \zeta_1 \ge \zeta_2 \ge \dots \ge \zeta_{n+1} \ge -1,
+\]
+with the hull rows $\zeta_i - \zeta_{i+1} \ge 0$ once divided by their largest coefficient $\Delta_i\Delta_{i+1}/2$, all with a zero right-hand side.
+The uncertainty is
+\[
+\eta = \frac{\underline\eta + \overline\eta}{2} + \sum_{i=1}^{n+1} \frac{\Delta_i}{2}\zeta_i,
+\quad\text{that is}\quad
+\eta = \frac{\underline\eta + \overline\eta}{2} + \frac{\overline\eta - \underline\eta}{2(n+1)}\sum_{i=1}^{n+1} \zeta_i
+\quad\text{for $n$ equally spaced breakpoints.}
+\]
+A piece is then $-1$, not $0$, below its breakpoint, and the constant column of $\hat B$ collects the centers of all the pieces.
+The alternative is to rescale the uncertainty before lifting it,
+\[
+\eta = \frac{\underline\eta + \overline\eta}{2} + \frac{\overline\eta - \underline\eta}{2}\zeta,
+\]
+and to lift $\zeta$ by \eqref{eq:axis-lifting}:
+its pieces are $0$ below their breakpoint, but the first one lies in $[-1, -1 + 2\Delta_1/(\overline\eta - \underline\eta)]$,
+a short interval far from zero, nearly a multiple of the constant column when the pieces are many.
+The two differ by a map $G$, so they have the same values;
+which one makes the inner problems easier is open (below).
+
+\paragraph{Measured.}
+The production planning of \citet[Section~6.1]{GKW2019} (\file{test/problems/production.jl}) has five demands of order $10^4$ per week, independent and uniform, here with $k = 1$ or $3$ equally spaced breakpoints each.
+The same problem was written with the demands as uncertainties (``raw''), with their deviations from the nominal demands, and with these deviations divided by their half-width, in $[-1, 1]$ (``unit'', which rescales before lifting),
+all three without the rescaling of the package;
+and with the raw demands and the rescaling of the package (``rescaled'').
+\Cref{tab:scaling} gives the times with HiGHS's dual simplex.
+The values agree to $2\cdot10^{-8}$ relative.
+Without rescaling, HiGHS solves none of the six duals with the raw demands, one with the deviations and four in the unit form;
+with the rescaling of the package, it solves five, in about the times of the unit form.
+Centering alone is not enough: it solves one more dual than the raw demands, but reaches the limit on the primal with $T = 20$ and $k = 1$, which takes 24~s with the raw demands.
+The primal approximation changes less: apart from that instance, HiGHS reaches the limit only on the largest one ($T = 20$, $k = 3$), with the raw demands and the deviations;
+but it was 1.2 to 4.5 times slower with the rescaling of the package than in the unit form on the six primals (measured on different commits).
+On the inventory of \citet[Section~5]{KWG2011}, with demands of order $10^3$, the rescaling made faster the three duals that HiGHS solved (at $T = 48$, $k = 1$: 141~s against 357~s),
+and the values agree to $5\cdot10^{-10}$.
+The details are in \file{benchmark/scaling/README.md}.
+
+\begin{table}[ht]
+\centering
+\caption[Scaling of the production planning]{The production planning with $k$ breakpoints per demand: time of HiGHS's dual simplex in seconds, limit 600~s.
+``fails'' is the status unknown of HiGHS, before the limit.
+Source: \file{benchmark/scaling/README.md}, \file{benchmark/scaling/results/rescale.csv}.}
+\label{tab:scaling}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{rrrrrrrrrr}
+\toprule
+& & \multicolumn{4}{c}{dual approximation} & \multicolumn{4}{c}{primal approximation} \\
+\cmidrule(lr){3-6} \cmidrule(lr){7-10}
+$T$ & $k$ & raw & centered & unit & rescaled & raw & centered & unit & rescaled \\
+\midrule
+10 & 1 & fails & 9.6 & 5.4 & 6.6 & 1.0 & 1.5 & 1.2 & 2.1 \\
+10 & 3 & fails & fails & 61 & 67 & 25 & 6.1 & 6.2 & 8.7 \\
+15 & 1 & fails & fails & 39 & 44 & 9.1 & 5.8 & 8.9 & 15 \\
+15 & 3 & limit & limit & limit & 537 & 26 & 30 & 44 & 52 \\
+20 & 1 & limit & fails & 346 & 376 & 24 & limit & 14 & 63 \\
+20 & 3 & limit & limit & limit & limit & limit & limit & 260 & 498 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Building the inner problems}
 

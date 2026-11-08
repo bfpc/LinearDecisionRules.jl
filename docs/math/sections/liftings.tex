@@ -88,11 +88,10 @@ Every piece then lies in $[0, \Delta_i]$, $t_i = \leta_i/\Delta_i$ for every $i$
 and the hull rows below lose their right-hand side $\Delta_2\underline\eta\,[i = 1]$.
 
 The approximations do not change.
-The change of coordinates $\lxi \mapsto T\lxi$ that subtracts $\underline\eta\,\lxi_1$ from the first piece is invertible,
-keeps $\lxi_1 = 1$ and the stage of every coordinate,
-and maps the rules to rules ($\lX \mapsto \lX T^{-1}$ has the same zero pattern),
-the lifted support to its image, and $\lM$ to $T\lM T^\T$;
-the primal and the dual approximations are invariant under such a map, so their values are the same.
+The change of coordinates that subtracts $\underline\eta\,\lxi_1$ from the first piece is a map $G$ of \cref{prop:affine-invariance}, with $s = \one$:
+it keeps $\lxi_1 = 1$ and the stage of every coordinate, and maps the rules to rules, the lifted support to its image, and $\lM$ to $G^{-1}\lM G^{-\T}$,
+so the values of the approximations are the same.
+The rescaling of the inner problems (\cref{sec:rescaling}) is such a map too, applied after the lifting, and it leaves the convention below unchanged for the user.
 
 The retraction is still linear in $\lxi$, but it is no longer block diagonal: the row of $\eta$ is $(\underline\eta, 1, \dots, 1)$.
 Write $\eta = v + \Retr_\eta\leta$, where $v$ holds the lower ends of the lifted coordinates and zeros elsewhere.
@@ -150,7 +149,8 @@ The other bounds of the box, $\leta_1 \ge \underline\eta$ and $0 \le \leta_i \le
 they remain bounds of the lifted law, for its draws and the checks of scenarios.
 \citet[Lemma~4.3]{GWK2015} write the same facets normalized by the $\Delta$'s.
 By \cref{prop:description} neither the scaling nor redundant rows change the dual bound, and they do not change the primal approximation either;
-the scaling keeps the coefficients of the order of the data.
+the scaling avoids dividing by the lengths of the pieces.
+The rescaling of \cref{sec:rescaling} turns these rows into $\zeta_i - \zeta_{i+1} \ge 0$.
 The lifted coordinates of one uncertainty form one support block, with $n+1$ columns and $n+2$ rows,
 or $3n+2$ with the $2n$ redundant bounds.
 Each formulation chooses (\code{lifted\_box} of \code{PrimalLDR} and \code{DualLDR}, in \code{support\_blocks}):
