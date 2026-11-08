@@ -31,7 +31,7 @@
 #   production_centered  the same with the deviations of the demands from their nominal values
 #   production_unit      the same with these deviations divided by their half-width, in [-1, 1]
 #
-# Each model is solved once, with a time limit, after a run at T = 2 that compiles the code of the
+# Each model is solved once, with a time limit, after runs at T = 3 that compile the code of the
 # problem and the solver. `value` is the value of the primal rule or the bound of the dual; `NaN`
 # when the formulation has none. Sizes are those of the inner model. `solver_s` is the inner
 # solver's time, `optimize_s` the time of `optimize!`, and the last columns are the phases of
@@ -201,8 +201,8 @@ function main(args, results; defaults = Dict{String,String}())
     (; commit, src_commit, src_dirty) = git_info()
     highs = highs_version()
     for problem in problems, solver in solvers
-        for kind in kinds  # compile
-            run_one(problem, 2, 1, kind, true, true, solver, limit)
+        for kind in kinds, lifted_box in boxes, rescale in rescales  # compile
+            run_one(problem, 3, 1, kind, lifted_box, rescale, solver, limit)
         end
         for T in Ts, k in ks, kind in kinds, lifted_box in boxes, rescale in rescales
             r = run_one(problem, T, k, kind, lifted_box, rescale, solver, limit)
