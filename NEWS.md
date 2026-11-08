@@ -59,8 +59,9 @@ decision_rule(sell)       # sell = d, callable on a scenario
 
 - **Results through JuMP:** `value(x)` is the expected decision `E[x(ξ)]` (exact for affine
   expressions; `expected_value(expr)` is exact for quadratic ones); the primal rule is result 1, the
-  sampled rule result 2; `termination_status` is `INFEASIBLE` only on the dual's evidence, and
-  `LOCALLY_INFEASIBLE` when only the primal rule is infeasible.
+  sampled rule result 2; `termination_status` is `INFEASIBLE` only on the evidence of a certified
+  dual, and `LOCALLY_INFEASIBLE` when only the primal rule or a dual that is not certified is
+  infeasible.
 - **Certification:** `is_certified(model)` and the `Certified()` attribute say whether a value is
   exact for the law — not when moments are estimated by rejection sampling, when a law across
   stages does not have linear conditional expectations, when the second-moment matrix is

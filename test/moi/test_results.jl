@@ -248,6 +248,28 @@ function test_infeasible_primal_alone_is_locally_infeasible()
     return
 end
 
+# An infeasible model whose dual is not certified: the conditional expectation of `d[2]` (stage 3)
+# given `d[1]` (stage 2) is not affine, so the infeasibility of the dual proves nothing.
+function test_infeasible_dual_not_certified_is_locally_infeasible()
+    law = MvDiscreteNonParametric([[79.0, 61.0], [80.0, 60.0], [81.0, 61.0]], fill(1 / 3, 3))
+    for formulations in ([DualLDR()], [PrimalLDR(), DualLDR()])
+        model = LDRModel(HiGHS.Optimizer)
+        set_silent(model)
+        set_attribute(model, Formulations(), formulations)
+        @variable(model, buy >= 0, FirstStage)
+        @variable(model, d[t = 2:3] in Uncertainty(law), Stage(t))
+        @variable(model, sell[t = 2:3] >= 0, Stage(t))
+        @constraint(model, sell .<= d)
+        @constraint(model, sum(sell) + buy <= -1)
+        @objective(model, Max, sum(sell) - buy)
+        @test_logs (:warn, r"not certified") match_mode = :any optimize!(model)
+        @test termination_status(model, DualLDR()) == MOI.INFEASIBLE
+        @test !is_certified(model)
+        @test termination_status(model) == MOI.LOCALLY_INFEASIBLE
+    end
+    return
+end
+
 # Result 1 is the primal rule even when it has no solution, so that the gap and `has_values` are
 # about the primal rule, never about the sampled one.
 function test_result_slots_are_fixed()

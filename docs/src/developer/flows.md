@@ -182,7 +182,7 @@ All results come from the `FormulationResult`s that `optimize!` stored. Reading 
 
 | Call | Path |
 |---|---|
-| `termination_status(model)` | `MOI.TerminationStatus` → `_termination_status` (`moi/results.jl`). It is `INFEASIBLE` if a bound formulation is infeasible. Otherwise it is the status of the principal formulation: the first with a rule, `PrimalLDR` first. |
+| `termination_status(model)` | `MOI.TerminationStatus` → `_termination_status` (`moi/results.jl`). It is `INFEASIBLE` if a bound formulation is infeasible and certified. Otherwise it is the status of the principal formulation: the first with a rule, `PrimalLDR` first, or the first formulation if none has a rule; `INFEASIBLE` becomes `LOCALLY_INFEASIBLE` there. |
 | `objective_value(model)`, `value(x)`, `primal_status(model; result)` | The *result slots* `_RESULT_SLOTS = (PrimalLDR, SampledLDR)`: result 1 is the primal rule, result 2 the sampled rule. `value(x)` is `E[x(ξ)]`, the rule's coefficients (`_rule_coefficients`) times the mean. |
 | `objective_bound(model)` | The first bound formulation with a bound, that is, `DualLDR`. |
 | `termination_status(model, f)`, `objective_value(model, f)`, `objective_bound(model, f)`, `raw_status(model, f)`, `solve_time(model, f)` | `jump/results.jl` → `MOI.get(model, FormulationAttribute(f, attr))` → `moi/results.jl` |

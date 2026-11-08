@@ -185,8 +185,9 @@ for a quadratic or conic program solved to optimality, it is the optimal value;
 for a solve stopped by a limit with a dual feasible point, it is the value of that point;
 an unbounded inner problem gives an infinite bound;
 and after any other stop, there is no bound, and it is reported as \code{NaN}.
-Since \eqref{eq:DLDR} is a relaxation, its infeasibility proves the infeasibility of \eqref{eq:SP} (under the conditions of \cref{thm:dual-bound}),
-while an infeasible primal approximation only shows that no linear rule is feasible:
-the package reports \code{INFEASIBLE} only on the evidence of the dual, and \code{LOCALLY\_INFEASIBLE} otherwise.
 The bound is \emph{certified} when the moments are exact, $\Mom \succ 0$, the objective satisfies condition~\ref{it:convex}, and every law spanning several stages is known to satisfy condition~\ref{it:lce} (\cref{rem:lce});
 otherwise the result says why it is not (\cref{sec:rejection}).
+Since \eqref{eq:DLDR} is then a relaxation, its infeasibility proves the infeasibility of \eqref{eq:SP},
+while an infeasible primal approximation only shows that no linear rule is feasible:
+the package reports \code{INFEASIBLE} only on the evidence of a certified dual, and \code{LOCALLY\_INFEASIBLE} otherwise.
+The certificate is conservative there: the feasible set of \eqref{eq:DLDR} does not depend on the objective, so its infeasibility proves that of \eqref{eq:SP} without condition~\ref{it:convex}.

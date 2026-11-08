@@ -65,19 +65,20 @@ end
 
 MOI.get(::Optimizer, ::MOI.DualStatus) = MOI.NO_SOLUTION
 
-# Only the dual proves that the model is infeasible: a primal or sampled rule can be infeasible
-# in a feasible model.
+# Only a certified dual proves that the model is infeasible (`thm:dual-bound`): a primal or sampled
+# rule can be infeasible in a feasible model, and so can a dual that is not certified, whose
+# infeasibility is then that of the approximation only (`LOCALLY_INFEASIBLE`).
 function _termination_status(o::Optimizer)
     if isempty(o.results)
         return MOI.OPTIMIZE_NOT_CALLED
     end
-    if any(r -> _is_bound(r) && r.termination_status == MOI.INFEASIBLE, o.results)
+    if any(r -> _is_bound(r) && r.certified && r.termination_status == MOI.INFEASIBLE, o.results)
         return MOI.INFEASIBLE
     end
     candidates = filter(_has_rule, o.results)
     principal = isempty(candidates) ? o.results[1] : first(sort(candidates; by = _rank))
     status = principal.termination_status
-    if status == MOI.INFEASIBLE && _has_rule(principal)
+    if status == MOI.INFEASIBLE
         return MOI.LOCALLY_INFEASIBLE
     end
     return status

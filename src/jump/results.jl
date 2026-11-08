@@ -20,7 +20,13 @@ end
     JuMP.termination_status(model::JuMP.Model, formulation::AbstractFormulation)
 
 The termination status of the inner problem of `formulation`, or `OPTIMIZE_NOT_CALLED` if it was
-not solved, or if the model changed since the last `optimize!`.
+not solved, or if the model changed since the last `optimize!`. It is `INVALID_MODEL` for a
+formulation that `optimize!` skipped because it does not support the model, and
+`raw_status(model, formulation)` says why.
+
+It is the status of the inner problem: an infeasible inner problem is `INFEASIBLE` here, whether
+or not it proves anything about the model. `termination_status(model)` makes that claim: it is
+`INFEASIBLE` only when an infeasible [`DualLDR`](@ref) is certified (see [`is_certified`](@ref)).
 """
 function JuMP.termination_status(model::JuMP.GenericModel, f::AbstractFormulation)
     _optimize_not_called(model) && return MOI.OPTIMIZE_NOT_CALLED
@@ -112,9 +118,12 @@ end
 """
     is_certified(model::JuMP.Model, formulation::AbstractFormulation = DualLDR()) -> Bool
 
-Whether the values of `formulation` are exact for the laws of the model: for [`DualLDR`](@ref),
-whether `objective_bound(model)` is a bound on the optimal value; for [`PrimalLDR`](@ref), whether
-its objective value is the expected value of its rule. It is the attribute
+Whether the values of `formulation` are exact for the laws of the model. For [`DualLDR`](@ref),
+whether its conclusions hold for the model: `objective_bound(model)` is a bound on the optimal
+value, and an infeasible dual proves that the model is infeasible (`termination_status(model)` is
+then `INFEASIBLE`; without the certificate, it is `LOCALLY_INFEASIBLE`, or the status of the
+primal rule if it was solved). For [`PrimalLDR`](@ref), whether its objective value is the expected
+value of its rule; the rule is feasible either way. It is the attribute
 `FormulationAttribute(formulation, Certified())` (see [`Certified`](@ref)).
 
 The values are not certified when they use moments estimated by rejection sampling (a law
