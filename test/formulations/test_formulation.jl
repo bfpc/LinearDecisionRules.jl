@@ -96,11 +96,11 @@ function test_rule_variables()
     info = InformationStructure(form)
     model = Model()
     X = LDR._rule_variables!(model, form, info)
-    @test length.(X) == [1, 2, 4]
-    @test is_integer(X[1][1])
+    @test [x.columns for x in X] == [1:1, 1:2, 1:4]
+    @test is_integer(X[1].variables[1])
     # A decision that observes only the constant column keeps its bounds as variable bounds.
-    @test lower_bound(X[1][1]) == 1
-    @test !has_upper_bound(X[2][1])
+    @test lower_bound(X[1].variables[1]) == 1
+    @test !has_upper_bound(X[2].variables[1])
     @test num_variables(model) == 7
     return
 end
@@ -116,19 +116,32 @@ function test_equalities()
     return
 end
 
-# The structured objective equals `tr(X'PXM) + tr(C'XM) + E[η'Qη + d'η] + f` at random rules.
+# The structured objective equals `tr(X'PXM) + tr(C'XM) + E[η'Qη + d'η] + f` at random rules, also
+# when a rule uses a later column, as in a relaxed dual (decision 2 on column 4, not 3).
 function test_objective()
     form = quadratic_model()
+    for extra in ([Int[], Int[], Int[]], [Int[], [4], Int[]])
+        _test_objective(form, extra)
+    end
+    return
+end
+
+function _test_objective(form, extra)
     mom = moments(form)
-    info = InformationStructure(form)
+    info = InformationStructure(
+        form.decision_stages,
+        [1; form.uncertainty_stages],
+        form.integer,
+        extra,
+    )
     model = Model()
     X = LDR._rule_variables!(model, form, info)
     LDR._set_objective!(model, form, mom, X)
     @test objective_sense(model) == MOI.MIN_SENSE
     Xv = zeros(3, 4)
     point = Dict{VariableRef,Float64}()
-    for i in 1:3, j in eachindex(X[i])
-        Xv[i, j] = point[X[i][j]] = sin(7i + 3j)
+    for i in 1:3, (j, x) in zip(X[i].columns, X[i].variables)
+        Xv[i, j] = point[x] = sin(7i + 3j)
     end
     M = second_moment(mom)
     P, C, Q = Matrix(form.P), Matrix(form.C), Matrix(form.Q)

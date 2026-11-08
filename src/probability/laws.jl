@@ -175,6 +175,21 @@ end
 # The law of some components of a normal vector given the others is normal, with an affine mean.
 _linear_conditional_expectations(::Distributions.AbstractMvNormal, ::AbstractVector) = true
 
+# Which coordinates of `d`, with its components in the stages `stages`, are linearly predictable
+# at stage `t`: those of the stages up to `t`, and the later ones whose conditional expectation
+# given the earlier coordinates of `d` is affine in them. A `BitVector`; a later coordinate that is
+# not known to be predictable is `false`. Separate laws are independent, so the earlier coordinates
+# of the other laws do not change the answer. A law with no coordinate up to `t` is independent of
+# the history, so all its coordinates are predictable (by constants). `DualLDR` relaxes its
+# information structure on the laws with a coordinate that is not (`_dual_information`).
+function _predictable_coordinates(d::Distributions.Distribution, stages::AbstractVector, t::Int)
+    past = BitVector(stages .<= t)
+    if all(past) || !any(past) || _linear_conditional_expectations(d, stages) === true
+        return trues(length(stages))
+    end
+    return past
+end
+
 const _ContinuousTruncated =
     Distributions.Truncated{<:Distributions.ContinuousUnivariateDistribution}
 

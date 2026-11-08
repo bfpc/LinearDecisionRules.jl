@@ -218,7 +218,7 @@ function _formulation_result(
     if status == MOI.FEASIBLE_POINT
         values = zeros(length(X), k)
         for i in eachindex(X)
-            values[i, eachindex(X[i])] .= JuMP.value.(X[i])
+            values[i, X[i].columns] .= JuMP.value.(X[i].variables)
         end
         objective = form.sense == MOI.FEASIBILITY_SENSE ? 0.0 : JuMP.objective_value(model)
     else

@@ -141,23 +141,33 @@ end
 # per history (the values of the components up to that stage), must be an affine function of the
 # history, that is, a least-squares fit must leave no residual.
 function _linear_conditional_expectations(d::MvDiscreteNonParametric, stages::AbstractVector)
+    return all(t -> all(_predictable_coordinates(d, stages, t)), sort!(unique(stages))[1:end-1])
+end
+
+# Component by component, with the same fit: a later component is predictable if its conditional
+# means, one per history, are an affine function of the history.
+function _predictable_coordinates(d::MvDiscreteNonParametric, stages::AbstractVector, t::Int)
+    past = BitVector(stages .<= t)
+    (all(past) || !any(past)) && return trues(length(stages))
     atoms, p = _finite_atoms(d)
-    for t in sort!(unique(stages))[1:end-1]
-        history, future = findall(<=(t), stages), findall(>(t), stages)
-        mass = Dict{Vector{Float64},Float64}()
-        sums = Dict{Vector{Float64},Vector{Float64}}()
-        for (s, q) in enumerate(p)
-            h = atoms[history, s]
-            mass[h] = get(mass, h, 0.0) + q
-            sums[h] = get(sums, h, zeros(length(future))) .+ q .* atoms[future, s]
-        end
-        histories = collect(keys(mass))
-        H = [ones(length(histories)) permutedims(reduce(hcat, histories))]
-        # Centered histories, for the conditioning of the fit.
-        H[:, 2:end] .-= sum(H[:, 2:end]; dims = 1) ./ length(histories)
-        F = permutedims(reduce(hcat, [sums[h] ./ mass[h] for h in histories]))
-        residual = H * (LinearAlgebra.pinv(H; rtol = sqrt(eps())) * F) - F
-        maximum(abs, residual) <= 1e-9 * (1 + maximum(abs, F)) || return false
+    history, future = findall(past), findall(.!past)
+    mass = Dict{Vector{Float64},Float64}()
+    sums = Dict{Vector{Float64},Vector{Float64}}()
+    for (s, q) in enumerate(p)
+        h = atoms[history, s]
+        mass[h] = get(mass, h, 0.0) + q
+        sums[h] = get(sums, h, zeros(length(future))) .+ q .* atoms[future, s]
     end
-    return true
+    histories = collect(keys(mass))
+    H = [ones(length(histories)) permutedims(reduce(hcat, histories))]
+    # Centered histories, for the conditioning of the fit.
+    H[:, 2:end] .-= sum(H[:, 2:end]; dims = 1) ./ length(histories)
+    F = permutedims(reduce(hcat, [sums[h] ./ mass[h] for h in histories]))
+    residual = H * (LinearAlgebra.pinv(H; rtol = sqrt(eps())) * F) - F
+    predictable = copy(past)
+    scale = 1 + maximum(abs, F)
+    for (c, j) in enumerate(future)
+        predictable[j] = maximum(abs, view(residual, :, c)) <= 1e-9 * scale
+    end
+    return predictable
 end

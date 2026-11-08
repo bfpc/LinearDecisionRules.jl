@@ -63,7 +63,7 @@ end
 mutable struct _InnerProblem
     model::JuMP.Model
     # The rule variables of the decisions of the form (see `_rule_variables!`).
-    X::Vector{Vector{JuMP.VariableRef}}
+    X::Vector{_RuleRow}
     # The variable of `model` fixed to each parameter of `form.parameters`, if it has one.
     parameters::Vector{Union{Nothing,JuMP.VariableRef}}
     # Whether a time limit was set on `model`, to be removed by a solve without one.
@@ -95,7 +95,7 @@ function _build_inner(
     n = length(form.decisions)
     parameters = Vector{Union{Nothing,JuMP.VariableRef}}(nothing, length(form.parameters.values))
     for (q, k) in enumerate(used)
-        parameters[k] = only(X[n+q])
+        parameters[k] = only(X[n+q].variables)
     end
     return _InnerProblem(model, X[1:n], parameters, false)
 end

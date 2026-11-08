@@ -545,6 +545,27 @@ function _linear_conditional_expectations(d::_CombinationLaw, stages::AbstractVe
     return result
 end
 
+# The predictable coordinates at stage `t` (see `_predictable_coordinates`). The laws are
+# independent, so a coordinate of a law is predictable as it is for that law alone. A piece of a
+# later stage is a function of the coordinates of the laws of its inputs: it is predictable (by a
+# constant) when none of these laws has a coordinate up to `t`, since it is then independent of
+# the history; otherwise its conditional expectation is a nonlinear function of the earlier
+# coordinates, and it is not.
+function _predictable_coordinates(d::_CombinationLaw, stages::AbstractVector, t::Int)
+    m = d.offsets[end] + _dimension(d.laws[end])
+    coordinates(k) = d.offsets[k] .+ (1:_dimension(d.laws[k]))
+    predictable = BitVector(stages .<= t)
+    for k in eachindex(d.laws)
+        c = coordinates(k)
+        predictable[c] .|= _predictable_coordinates(d.laws[k], stages[c], t)
+    end
+    later(k) = all(>(t), stages[coordinates(k)])
+    for (l, positions) in enumerate(_piece_positions(m, d.liftings))
+        all(later, _laws_of(d.offsets, d.laws, d.inputs[l])) && (predictable[positions] .= true)
+    end
+    return predictable
+end
+
 function Distributions._rand!(
     rng::Random.AbstractRNG,
     d::_CombinationLaw,

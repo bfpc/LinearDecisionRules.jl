@@ -79,9 +79,11 @@ function _build!(model::JuMP.Model, f::SampledLDR, form::CanonicalForm, ::Moment
         for s in axes(outcomes, 2)
             # sign * a ⋅ X ξ_s ≤ sign * b ⋅ ξ_s
             expr = JuMP.AffExpr(0.0)
-            for (i, a) in zip(row.decisions, row.coefficients), j in eachindex(X[i])
-                ξj = outcomes[j, s]
-                iszero(ξj) || JuMP.add_to_expression!(expr, sign * a * ξj, X[i][j])
+            for (i, a) in zip(row.decisions, row.coefficients)
+                for (j, x) in zip(X[i].columns, X[i].variables)
+                    ξj = outcomes[j, s]
+                    iszero(ξj) || JuMP.add_to_expression!(expr, sign * a * ξj, x)
+                end
             end
             rhs = 0.0
             for (j, b) in zip(SparseArrays.nonzeroinds(row.b), SparseArrays.nonzeros(row.b))

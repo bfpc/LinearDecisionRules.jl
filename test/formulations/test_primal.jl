@@ -154,8 +154,8 @@ function attains(form, mom, f, X, value, optimizer; rtol)
     model = Model(optimizer)
     set_silent(model)
     rules = LinearDecisionRules._build!(model, f, form, mom)
-    for i in eachindex(rules), j in eachindex(rules[i])
-        fix(rules[i][j], X[i, j]; force = true)
+    for i in eachindex(rules), (j, x) in zip(rules[i].columns, rules[i].variables)
+        fix(x, X[i, j]; force = true)
     end
     optimize!(model)
     is_solved_and_feasible(model) || return false

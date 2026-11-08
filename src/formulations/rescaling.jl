@@ -60,6 +60,11 @@ function _linear_conditional_expectations(d::_RescaledLaw, stages::AbstractVecto
     return _linear_conditional_expectations(d.law, stages)
 end
 
+# Each coordinate is an affine function of itself alone, so the predictable ones do not change.
+function _predictable_coordinates(d::_RescaledLaw, stages::AbstractVector, t::Int)
+    return _predictable_coordinates(d.law, stages, t)
+end
+
 function Base.rand(rng::Random.AbstractRNG, d::_RescaledLaw{Distributions.Univariate})
     return (rand(rng, d.law) - d.center[1]) / d.scale[1]
 end
