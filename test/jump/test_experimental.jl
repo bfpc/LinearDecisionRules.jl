@@ -8,6 +8,7 @@ module TestExperimental
 using JuMP
 using Test
 
+import Distributions
 import Distributions: Uniform
 import HiGHS
 import Random
@@ -22,6 +23,7 @@ import LinearDecisionRules:
     LDRModel,
     MvDiscreteNonParametric,
     PrimalLDR,
+    RescaleUncertainties,
     SampledLDR,
     Stage,
     Uncertainty,
@@ -128,7 +130,8 @@ function test_simulate()
     return
 end
 
-# A combination of uncertainties of two stages: the primal and the sampled rules, but no dual.
+# A combination of uncertainties of two stages. Its pieces are not affine in the earlier
+# uncertainty, so the dual relaxes its information structure on their law (`prop:relaxed-mask`).
 function across_stages(formulations)
     model = LDRModel(HiGHS.Optimizer)
     set_silent(model)
@@ -144,27 +147,13 @@ function across_stages(formulations)
 end
 
 function test_across_stages()
-    # The dual is skipped, with a warning, and the primal solved.
+    # The dual bound is certified, with no warning, and above the value of the primal rule.
     model = across_stages([PrimalLDR(), DualLDR()])
-    warning = (
-        :warn,
-        r"^DualLDR\(\) is skipped, since it does not support breakpoints on a combination of uncertainties of several stages, as for d\[2\], d\[3\] \(stages 2, 3\)",
-    )
-    @test_logs warning optimize!(model)
-    @test termination_status(model) == MOI.OPTIMAL
-    @test termination_status(model, DualLDR()) == MOI.INVALID_MODEL
-    @test primal_status(model, DualLDR()) == MOI.NO_SOLUTION
-    @test startswith(
-        raw_status(model, DualLDR()),
-        "DualLDR() was skipped, since it does not support",
-    )
-    @test !is_certified(model)
-    @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
-    skipped = objective_value(model)
-    # The same rule without the dual, and no warning.
-    model = across_stages([PrimalLDR()])
     @test_logs optimize!(model)
-    @test objective_value(model) ≈ skipped
+    @test termination_status(model) == MOI.OPTIMAL
+    @test termination_status(model, DualLDR()) == MOI.OPTIMAL
+    @test is_certified(model)
+    @test objective_value(model) <= objective_bound(model) + 1e-6
     model = across_stages([PrimalLDR(), SampledLDR(50)])
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL
@@ -207,12 +196,40 @@ function test_joint_law_over_stages()
     @test is_certified(model)
     @test objective_value(model) <= objective_bound(model) + 1e-6
     # `d[1]` comes before the combination `d[2] + d[3]`: the expectation of its pieces given `d[1]`
-    # is not known to be linear.
+    # is not known to be linear, so the dual relaxes its information structure, and the bound is
+    # still certified.
     model = joint_law_over_stages(d -> d[2] + d[3], [2, 3, 3])
-    warning = (:warn, r"is not known for the law of d\[1\], d\[2\], d\[3\]")
-    @test_logs warning match_mode = :any optimize!(model)
+    @test_logs optimize!(model)
     @test termination_status(model, DualLDR()) == MOI.OPTIMAL
-    @test !is_certified(model)
+    @test is_certified(model)
+    @test objective_value(model) <= objective_bound(model) + 1e-6
+    return
+end
+
+# The counterexample of `prop:relaxed-mask`: `x ≥ |e2|` with `e2` uniform on {-1, 0, 1} (stage 2)
+# and breakpoints on `e2 + e3`, `e3 = ±1` (stage 3). The optimum is `E|e2| = 2/3`. The usual mask
+# would give 12/17, above it, since the hull of the pieces acts as a nonlinear function of `e2`;
+# the relaxed dual gives 2/3.
+function test_relaxed_dual_counterexample()
+    for rescale in (true, false)
+        model = LDRModel(HiGHS.Optimizer)
+        set_silent(model)
+        set_attribute(model, RescaleUncertainties(), rescale)
+        law2 = Distributions.DiscreteNonParametric([-1.0, 0.0, 1.0], fill(1 / 3, 3))
+        law3 = Distributions.DiscreteNonParametric([-1.0, 1.0], [0.5, 0.5])
+        @variable(model, e2 in Uncertainty(law2), Stage(2))
+        @variable(model, e3 in Uncertainty(law3), Stage(3))
+        @variable(model, x, Stage(2))
+        @variable(model, y >= 0, Stage(3))
+        @constraint(model, x >= e2)
+        @constraint(model, x >= -e2)
+        @objective(model, Min, x + y)
+        Experimental.set_breakpoints(model, e2 + e3, [0.5])
+        optimize!(model)
+        @test objective_value(model) ≈ 1.0
+        @test objective_bound(model) ≈ 2 / 3
+        @test is_certified(model)
+    end
     return
 end
 

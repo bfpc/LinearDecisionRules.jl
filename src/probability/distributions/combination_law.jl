@@ -518,8 +518,8 @@ end
 # which is then that of each law (the laws are independent): each law answers for itself. Before
 # that stage, the conditional expectation of a piece is a nonlinear function of the earlier
 # coordinates of the laws of its inputs, or a constant if these laws have none. So the condition:
-# - fails for a combination of several stages (for which `optimize!` skips `DualLDR`, see
-#   `_combinations_across_stages`);
+# - fails for a combination of several stages (for which `DualLDR` relaxes its information
+#   structure, see `_predictable_coordinates` and `_dual_information`);
 # - is unknown when a law of the inputs of a combination has a coordinate in an earlier stage,
 #   or when a law does not know its own;
 # - fails when a law fails its own, and holds otherwise.

@@ -234,32 +234,37 @@ function test_linear_conditional_expectations()
     return
 end
 
-# The bound needs linear conditional expectations of later stages given earlier ones: a law
-# spanning several stages without them, or not known to have them, gets a warning, and the bound is
-# not certified.
-function test_warns_when_a_law_spanning_stages_may_not_have_linear_conditional_expectations()
+# Without linear conditional expectations, the dual relaxes its information structure on the law
+# (`_dual_information`, `prop:relaxed-mask`): the decision of stage 2 may use the later column of
+# the law, and the bound is certified, with no warning.
+function test_relaxed_without_linear_conditional_expectations()
     form = form_spanning_stages(SQUARE)
     mom = moments(form)
-    warning = (:warn, r"linear \(as for independent stages\), which fails for the law of d\[1\], d")
-    result = @test_logs warning solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer)
+    observed, equations = LinearDecisionRules._dual_information(form, mom)
+    s2 = findfirst(==("s2"), form.decision_names)
+    @test observed.extra[s2] == [3]
+    @test all(isempty, observed.extra[setdiff(eachindex(form.decisions), [s2])])
+    # `d[2]` is not predictable from `d[1]`, so no equation keeps the rule from it.
+    @test isempty(equations)
+    result = @test_logs solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer)
     @test result.termination_status == MOI.OPTIMAL
-    @test !result.certified
-    reason = "[not certified: conditional expectations across stages are not linear]"
-    @test endswith(result.raw_status, reason)
-    # The value of the primal rule is exact: only bounds need linear conditional expectations.
+    @test result.certified && !occursin("not certified", result.raw_status)
+    # A maximization: the bound is above the value of the primal rule.
     primal = @test_logs solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
-    @test primal.certified && !occursin("not certified", primal.raw_status)
-    # A conditioned law across stages is not known to have them.
+    @test primal.certified && primal.objective_value <= result.objective_value + 1e-7
+    # A conditioned law across stages is not known to have them: relaxed too, and not certified
+    # only because its moments are estimated.
     uniforms = [Distributions.Uniform(80, 120), Distributions.Uniform(60, 100)]
     conditioned = LinearDecisionRules.ConditionedDistribution(uniforms, [-1.0 1.0], [-30.0])
     form = form_spanning_stages(conditioned)
-    warning = (:warn, r"which is not known for the law of d\[1\], d\[2\] \(stages 2, 3\)\.$")
-    result = @test_logs warning solve_formulation(form, DualLDR(), moments(form), HiGHS.Optimizer)
-    reason = "conditional expectations across stages are not known to be linear]"
+    observed, _ = LinearDecisionRules._dual_information(form, moments(form))
+    @test observed.extra[s2] == [3]
+    result = solve_formulation(form, DualLDR(), moments(form), HiGHS.Optimizer)
+    reason = "[not certified: moments of conditioned laws estimated by rejection sampling]"
     @test !result.certified && endswith(result.raw_status, reason)
     # Correlated laws with linear conditional expectations (the confidence-ellipsoid normal law, and
     # a discrete law whose conditional mean is affine), independent components in different
-    # stages, or the uncorrelated but dependent law in one stage, are fine.
+    # stages, or the uncorrelated but dependent law in one stage: the usual mask, as before.
     for (law, stages) in (
         (ELLIPSOID, [2, 3]),
         (Problems.CORRELATED, [2, 3]),
@@ -267,10 +272,61 @@ function test_warns_when_a_law_spanning_stages_may_not_have_linear_conditional_e
         (SQUARE, [2, 2]),
     )
         form = form_spanning_stages(law; stages)
+        observed, equations = LinearDecisionRules._dual_information(form, moments(form))
+        @test all(isempty, observed.extra) && isempty(equations)
         result = @test_logs solve_formulation(form, DualLDR(), moments(form), HiGHS.Optimizer)
         @test result.termination_status == MOI.OPTIMAL
         @test result.certified
     end
+    return
+end
+
+# `(d₁, d₂, d₃)` with `d₁` uniform on {1, 2, 3} (stage 2), `d₂ = d₁ ± 1` and `d₃ = d₁² ± 1`
+# (stage 3): `E[d₂ | d₁] = d₁` is affine, `E[d₃ | d₁] = d₁²` is not.
+const PARTLY_PREDICTABLE = LinearDecisionRules.MvDiscreteNonParametric(
+    [[a, a + e, a^2 + e′] for a in 1.0:3.0 for e in (-1.0, 1.0) for e′ in (-1.0, 1.0)],
+    fill(1 / 12, 12),
+)
+
+# The equation of a predictable column holds at the projection `X = E[x ξᵀ] M⁻¹` of every policy
+# of stage 2 (`prop:relaxed-mask`), and not that of the other column.
+function test_relaxed_equations()
+    predictable = LinearDecisionRules._predictable_coordinates
+    @test predictable(PARTLY_PREDICTABLE, [2, 3, 3], 2) == [true, true, false]
+    @test predictable(PARTLY_PREDICTABLE, [2, 3, 3], 3) == trues(3)
+    @test predictable(PARTLY_PREDICTABLE, [3, 3, 3], 2) == trues(3)
+    p = Problems.law_spanning_stages()
+    @variable(p.model, d3)
+    info = Problems.ModelInfo(;
+        uncertainties = [
+            Problems.declare(PARTLY_PREDICTABLE, p.model[:d]..., d3; stages = [2, 3, 3]),
+        ],
+        decision_stages = p.info.decision_stages,
+    )
+    form = Problems.canonicalize(backend(p.model), info)
+    mom = moments(form)
+    observed, equations = LinearDecisionRules._dual_information(form, mom)
+    s2 = findfirst(==("s2"), form.decision_names)
+    @test observed.extra[s2] == [3, 4]
+    (i, columns, R) = only(equations)
+    @test i == s2 && columns == [3, 4] && size(R) == (2, 1)
+    # The projection of policies `g(d₁)` of stage 2, from the atoms of the law.
+    atoms, q = LinearDecisionRules._finite_atoms(PARTLY_PREDICTABLE)
+    M = LinearDecisionRules.second_moment(mom)
+    for g in (sin, a -> a^2, a -> exp(a))
+        Y = sum(q[s] * g(atoms[1, s]) * [1.0; atoms[:, s]]' for s in eachindex(q))
+        X = Y / M
+        @test abs(X[columns]' * R[:, 1]) <= 1e-12
+    end
+    # The equation of `d₃` would fail: the rule of `d₁²` projects onto it.
+    Y = sum(q[s] * atoms[1, s]^2 * [1.0; atoms[:, s]]' for s in eachindex(q))
+    f = [3, 4]
+    Σ = mom.blocks[1].covariance
+    R_full = Σ[2:3, 2:3] - Σ[2:3, 1:1] * (Σ[1:1, 1:1] \ Σ[1:1, 2:3])
+    @test abs((Y/M)[f]' * R_full[:, 2]) > 1e-3
+    result = @test_logs solve_formulation(form, DualLDR(), mom, HiGHS.Optimizer)
+    @test result.termination_status == MOI.OPTIMAL
+    @test result.certified
     return
 end
 

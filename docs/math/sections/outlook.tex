@@ -48,8 +48,9 @@ The outer approximation of the lifted support is loose with several inputs, sinc
 a tighter description, between it and the intractable convex hull, would make the pieces more useful.
 The moments come from laws of sums for discrete and uniform laws, but other continuous laws are still integrated over every continuous input;
 a convolution of their densities with a controlled error would bring them to the laws of sums too.
-And a combination over several stages has no dual bound, because condition~\ref{it:lce} of \cref{thm:dual-bound} fails.
-One way to restore it is to lift, as coordinates of the earlier stages, the conditional expectations $g_t = \E[p \mid \xi_{1:\nvis(t)}]$ of the pieces given the history,
+And a combination over several stages breaks condition~\ref{it:lce} of \cref{thm:dual-bound}: its dual bound comes from the relaxation of \cref{prop:relaxed-mask}, which frees the early rules on the later pieces.
+That bound is at least the one without the combination (\cref{prop:relaxed-lifting}), but it may gain little over it, since the hull rows of the pieces act on rules that may already react to them.
+A tighter bound would restore the condition: lift, as coordinates of the earlier stages, the conditional expectations $g_t = \E[p \mid \xi_{1:\nvis(t)}]$ of the pieces given the history,
 which are smooth functions with their own hull rows and moments;
 for the cumulative sums of $T$ stages this adds $O(T^2)$ coordinates,
 so the size grows quickly with the horizon.

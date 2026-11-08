@@ -79,10 +79,71 @@ it holds for a product of univariate laws (independent components), a normal law
 for an \code{MvDiscreteNonParametric} it is checked exactly, for each stage $t$, by fitting an affine function of the history to the conditional means of the later components, one per distinct history, which must leave no residual;
 for the law of the inputs of combinations with breakpoints, it is decided from the laws of the inputs (\cref{sec:combination-lifting});
 for any other law, such as a law conditioned by rejection, it is unknown.
-When it fails or is unknown for some law, the package warns, and marks the bound as not certified (\code{\_stage\_dependent\_laws}, \file{src/formulations/dual.jl}).
+When it fails or is unknown for some law, the package relaxes the information structure of the dual on that law (\cref{prop:relaxed-mask}), and the bound stays certified.
 Correlation is not the test: a correlated law may satisfy condition~\ref{it:lce}, such as the truncated normal law above,
 and an uncorrelated one may not, such as $\eta_2 = \eta_1^2$ with $\eta_1$ uniform on $\{-1, 0, 1\}$.
 \end{remark}
+
+\subsection{Without linear conditional expectations}
+
+The proof of \cref{thm:dual-bound} uses condition~\ref{it:lce} in one step only: to show that $X = \E[x\xi^\T]\Mom^{-1}$ is an allowed rule, $X \in \Rules$.
+The equalities, the inequalities and the objective hold for the projection of any feasible policy, nonanticipative or not (\cref{app:dual}).
+So any set of rules that contains these projections gives a bound.
+The smallest such set is local to the laws that break the condition.
+
+Let the declarations, after conditioning and lifting, be the laws $\ell$, with columns $J_\ell$ of $\xi$ and covariance $\Cv_\ell \succ 0$; they are independent by construction.
+For a stage $t$, let $p = J_\ell \cap \{j : \stage_j \le t\}$ and $f = J_\ell \cap \{j : \stage_j > t\}$ be the earlier and later columns of law $\ell$.
+A later column $j \in f$ is \emph{predictable} at $t$ if $\E[\xi_j \mid \xi_p]$ is affine in $\xi_p$, a constant if $p$ is empty.
+Let
+\[
+R_{\ell,t} = \Cv_{ff} - \Cv_{fp}\Cv_{pp}^{-1}\Cv_{pf} \succ 0
+\]
+be the covariance of the residual of the linear prediction of $\xi_f$ from $\xi_p$ (the blocks of $\Cv_\ell$).
+The relaxed set of rules $\Rules'$ is that of the $X$ such that, for each decision $i$ of stage $t$ with $\nvis_i > 1$:
+\begin{itemize}
+\item for a law $\ell$ whose later columns are all predictable at $t$, $X_{ij} = 0$ for $j \in f$, as in $\Rules$;
+\item for the other laws, $X_{i,f}$ is free, except that $X_{i,f}\,R_{\ell,t}\,e_j = 0$ for every predictable $j \in f$;
+\end{itemize}
+and a decision with $\nvis_i = 1$ (an integer decision, or one that sees no uncertainty) is a constant, as in $\Rules$.
+Condition~\ref{it:lce} holds exactly when every later column of every law is predictable at every stage, and then $\Rules' = \Rules$, since $R_{\ell,t} \succ 0$.
+
+\begin{proposition}[Relaxed information structure]
+\label{prop:relaxed-mask}
+Suppose \cref{ass:support} and condition~\ref{it:convex} hold, but not necessarily condition~\ref{it:lce}.
+Then the conclusions of \cref{thm:dual-bound} hold for \eqref{eq:DLDR} with $\Rules'$ in place of $\Rules$:
+for every feasible policy $x$ of \eqref{eq:SP}, $X = \E[x\xi^\T]\Mom^{-1} \in \Rules'$ is feasible, with an objective at least as good,
+and its infeasibility proves that of \eqref{eq:SP}.
+\end{proposition}
+
+The proof is in \cref{app:dual}.
+The equation of a predictable column is $\E[x_i\,(\xi_j - \E[\xi_j\mid\xi_p])] = 0$: the rule may react to the later columns of the law, but only through the residuals of the columns that cannot be predicted.
+A law that does not know its conditional expectations has no predictable later column, and its later columns are simply freed.
+The change is local: only the decisions of the stages where a law fails, only the later columns of that law, and only the support blocks that meet its covariance block in the cone rows (\code{\_dual\_information}, \file{src/formulations/dual.jl}).
+Whether a column is predictable is a property of each law (\code{\_predictable\_coordinates}, \file{src/probability/laws.jl}):
+it is checked exactly, column by column, for an \code{MvDiscreteNonParametric}, by the fit of \cref{rem:lce};
+for the law of the inputs of a combination with breakpoints (\cref{sec:combination-lifting}), an input is predictable as it is for its own law (the laws are independent),
+and a later piece is predictable when the laws of its inputs have no earlier coordinate, since it is then independent of the history, and not otherwise.
+
+The relaxation is necessary, not only conservative.
+With $\eta_2$ uniform on $\{-1, 0, 1\}$ (stage 2), $\eta_3$ uniform on $\{-1, 1\}$ (stage 3), and the breakpoint $\tfrac12$ on $s = \eta_2 + \eta_3$,
+the problem $\min \E[x]$ over a decision $x$ of stage 2 with $x \ge \pm\eta_2$ has the value $\E\abs{\eta_2} = \tfrac23$.
+The piece $\pi = (s - \tfrac12)_+$ has $\E[\pi\mid\eta_2] = (0, \tfrac14, \tfrac34)$, not affine, and the masked dual gives $\tfrac{12}{17} > \tfrac23$:
+the hull row $\pi \ge 0$ acts on a slack that the mask forces to be linear in $\eta_2$ as a test function that is not.
+The relaxed dual gives $\tfrac23$ (\code{test\_relaxed\_dual\_counterexample}, \file{test/jump/test_experimental.jl}).
+
+A lifting that keeps its inputs, such as that of a combination, never makes the bound weaker.
+
+\begin{proposition}[Relaxed lifting]
+\label{prop:relaxed-lifting}
+Suppose \cref{ass:support} and conditions~\ref{it:lce} and~\ref{it:convex} hold for \eqref{eq:SP}, and lift it by liftings that keep their inputs as columns,
+each lifted coordinate in the largest stage of the coordinates it depends on, with a lifted support whose rows include those of $\Xis$ and a nonsingular lifted second-moment matrix.
+Then, for a minimization, the value of the relaxed dual of the lifted problem is at least that of \eqref{eq:DLDR} for \eqref{eq:SP}, and at most $\val\eqref{eq:SP}$; the reverse for a maximization.
+\end{proposition}
+
+The proof is in \cref{app:dual}.
+The pieces of a combination of several stages are never predictable when the laws of its inputs are continuous: the conditional expectation of a later piece is a smoothed piece, which no piecewise linear function of the history matches, whatever the breakpoints of the earlier combinations.
+For discrete inputs, breakpoints closed under the shifts by the atoms of the later inputs would make the pieces predictable, and the mask valid again;
+the package does not build such breakpoints.
 
 \begin{remark}[The row $\eone^\T$]
 \label{rem:e1-row}

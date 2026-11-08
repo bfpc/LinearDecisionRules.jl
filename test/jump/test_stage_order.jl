@@ -29,6 +29,7 @@ import LinearDecisionRules:
     rule_coefficient,
     rule_matrix,
     simulate
+import LinearDecisionRules as LDR
 import MathOptInterface as MOI
 import Random
 
@@ -78,11 +79,12 @@ function solve!(s::Staged)
 end
 
 # The rule matrix of every formulation: its columns are those of the canonical form, and it is
-# exactly zero on the columns of stages later than the decision of the row; `rule_coefficient`
-# agrees.
+# exactly zero on the columns of stages later than the decision of the row, except those that the
+# relaxed dual may use; `rule_coefficient` agrees.
 function check_rule_zeros(s::Staged; nontrivial::Bool = true)
     model = s.model
     form = unsafe_backend(model).form
+    dual_observed, _ = LDR._dual_information(form, unsafe_backend(model).moments)
     variable(label) = label isa Tuple ? label[1] : label
     uncertainties = [x for law in s.laws for x in law.variables]
     for f in FORMULATIONS
@@ -90,14 +92,21 @@ function check_rule_zeros(s::Staged; nontrivial::Bool = true)
         @test index.(R.decisions) == form.decisions
         @test R.columns[1] == :constant
         @test [index(variable(c)) for c in R.columns[2:end]] == form.uncertainties
+        # The dual relaxes its information structure on the laws without linear conditional
+        # expectations: its rule may use the later columns of these laws (`_dual_information`).
+        relaxed(i, c) = f isa DualLDR && LDR.observes(dual_observed, i, c)
         later = [
-            c > 1 && s.stages[variable(R.columns[c])] > s.stages[x] for x in R.decisions,
-            c in eachindex(R.columns)
+            c > 1 && s.stages[variable(R.columns[c])] > s.stages[x] && !relaxed(i, c) for
+            (i, x) in enumerate(R.decisions), c in eachindex(R.columns)
         ]
         @test all(iszero, R.matrix[later])
         # The rules are not trivial: some decision uses an uncertainty that it observes.
         nontrivial && @test any(!iszero, R.matrix[:, 2:end])
-        pairs = [(x, η) for x in R.decisions for η in uncertainties if s.stages[η] > s.stages[x]]
+        column = Dict(variable(R.columns[c]) => c for c in 2:length(R.columns))
+        pairs = [
+            (x, η) for (i, x) in enumerate(R.decisions) for
+            η in uncertainties if s.stages[η] > s.stages[x] && !relaxed(i, column[η])
+        ]
         @test all(all(iszero, rule_coefficient(x, η; formulation = f)) for (x, η) in pairs)
     end
     return
@@ -135,7 +144,17 @@ function check_values(s::Staged, optimizer)
     dual = DenseOracle.solve(DenseOracle.build_dual, o.form, o.moments, optimizer)
     value = objective_value(model, PrimalLDR())
     @test isapprox(value, primal.objective_value; rtol = 1e-6)
-    @test isapprox(objective_bound(model), dual.objective_value; rtol = 1e-6)
+    # The oracle is the masked dual. Where a law has no linear conditional expectations, the dual
+    # relaxes its information structure (`_dual_information`): its feasible set contains that of
+    # the masked dual, so its bound is weaker.
+    bound = objective_bound(model)
+    if all(isempty, LDR._dual_information(o.form, o.moments)[1].extra)
+        @test isapprox(bound, dual.objective_value; rtol = 1e-6)
+    elseif o.form.sense == MOI.MAX_SENSE
+        @test bound >= dual.objective_value - 1e-6 * max(1.0, abs(bound))
+    else
+        @test bound <= dual.objective_value + 1e-6 * max(1.0, abs(bound))
+    end
     @test value <= objective_bound(model) + 1e-6
     @test isapprox(expected_value(objective_function(model)), value; rtol = 1e-6)
     simulation = simulate(model, 20_000; rng = Random.Xoshiro(3))

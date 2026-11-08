@@ -83,8 +83,7 @@ is like for like.
   post-process rules.
 - **A certificate rather than a warning.** Each value carries `certified`, with the reason in its
   raw status when it is false (moments estimated by sampling, a singular second-moment matrix, a
-  law across stages without linear conditional expectations, a nonconvex objective). A flag that
-  results carry is harder to miss than a warning.
+  nonconvex objective). A flag that results carry is harder to miss than a warning.
 - **The canonical layer is documented but not exported** (the Internals page), so that it can still
   change; it becomes public with the `Experimental` submodule.
 
@@ -120,7 +119,9 @@ is like for like.
   terms became 20,776.
 - **The dual's condition across stages is linear conditional expectations, law by law**, not zero
   correlation: correlation flags laws that satisfy it and misses dependent laws that do not
-  (`docs/math`, `rem:lce`).
+  (`docs/math`, `rem:lce`). Where a law fails it, the dual relaxes its information structure on
+  that law only, rather than give up the certificate (`prop:relaxed-mask`): the masked dual is
+  then not a bound in general, and the relaxed one is, at a cost confined to that law.
 - **`ConfidenceMvNormal(…; support = :auto)` takes the ellipsoid when the inner solver supports
   second-order cones and no decision is integer** (a mixed-integer cone program is much harder than
   a MILP). With the same solver (Clarabel), the cone program took 0.9 s against 1.3 s for the LP of

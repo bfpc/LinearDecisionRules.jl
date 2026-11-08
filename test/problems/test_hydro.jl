@@ -88,7 +88,8 @@ end
 # implementation. At T = 3, the pieces of the total inflow of a stage do not improve the linear
 # rules (their coefficients are zero): the costs depend on each reservoir, and the outer
 # approximation of the hull of a combination of four inflows is loose. The inflow of each reservoir
-# over two stages improves the primal rule a lot, but spans two stages, so it has no dual.
+# over two stages improves the primal rule a lot; it spans two stages, so the dual relaxes its
+# information structure on its law.
 function test_combinations()
     data = hydro_thermal_data()
     both = [LDR.PrimalLDR(), LDR.DualLDR()]
@@ -101,14 +102,16 @@ function test_combinations()
     optimize!(pairs)
     @test termination_status(pairs) == MOI.OPTIMAL
     @test objective_value(pairs) ≈ 1.116113618296 rtol = 1e-6
-    # With the dual among the formulations, it is skipped with a warning, and the primal solved.
-    skipped = ldr_model(data, T; formulations = both, combinations = (:pair, 5))
-    @test_logs (:warn, r"^DualLDR\(\) is skipped") match_mode = :any optimize!(skipped)
-    @test termination_status(skipped, LDR.DualLDR()) == MOI.INVALID_MODEL
-    @test termination_status(skipped) == MOI.OPTIMAL
-    primal = ldr_model(data, T; combinations = (:pair, 5))
-    optimize!(primal)
-    @test objective_value(skipped) ≈ objective_value(primal) rtol = 1e-9
+    # The pairs span two stages: the dual relaxes its information structure on their law, and its
+    # bound is certified and at least that of the dual without them (`prop:relaxed-lifting`),
+    # here strictly. One breakpoint per pair, since the dual with 5 takes minutes.
+    pairs = ldr_model(data, T; formulations = both, combinations = (:reservoir_pair, 1))
+    @test_logs optimize!(pairs)
+    @test termination_status(pairs, LDR.DualLDR()) == MOI.OPTIMAL
+    @test LDR.is_certified(pairs)
+    @test objective_value(pairs) ≈ 1.258667018555 rtol = 1e-6
+    @test objective_bound(pairs) ≈ 0.7533253032 rtol = 1e-6
+    @test objective_bound(pairs) > 0.7352371632 + 0.01
     return
 end
 

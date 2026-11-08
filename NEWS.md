@@ -63,9 +63,14 @@ decision_rule(sell)       # sell = d, callable on a scenario
   dual, and `LOCALLY_INFEASIBLE` when only the primal rule or a dual that is not certified is
   infeasible.
 - **Certification:** `is_certified(model)` and the `Certified()` attribute say whether a value is
-  exact for the law — not when moments are estimated by rejection sampling, when a law across
-  stages does not have linear conditional expectations, when the second-moment matrix is
-  singular, or, for the bound, when the quadratic objective is not convex.
+  exact for the law — not when moments are estimated by rejection sampling, when the
+  second-moment matrix is singular, or, for the bound, when the quadratic objective is not convex.
+- **A dual bound without linear conditional expectations:** for a law across stages whose
+  conditional expectations are not linear, or not known to be, `DualLDR()` lets the rules of the
+  earlier decisions use the later uncertainties of that law, except through their linearly
+  predictable parts. The bound stays certified, weaker only where the law needs it (Kuhn,
+  Wiesemann and Georghiou assume linear conditional expectations; the math notes prove the
+  relaxation).
 - **Where the time goes:** `time_breakdown(model)` and the `TimeBreakdown()` attribute split the
   time of `optimize!` into reading the model, the moments, the checks, and the build, solve and
   results of the inner problems; `time_breakdown(model, formulation)` gives the last three for one
@@ -86,8 +91,9 @@ decision_rule(sell)       # sell = d, callable on a scenario
 - **Breakpoints on combinations (experimental):** `Experimental.set_breakpoints(model, d[1] +
   d[2], points)` makes the rules piecewise affine in a combination of uncertainties, such as the
   total demand served from one stock (the `CombinationPiecewise` lifting). The primal rule works
-  with any combination; the dual bound needs the uncertainties of the combination to be in one
-  stage. It works best with few uncertainties per combination: see the Experimental page.
+  with any combination, and the dual bound too; across stages, the dual relaxes its information
+  structure on the combination, and its bound is at least that without it. It works best with few
+  uncertainties per combination: see the Experimental page.
 - **Re-solves:** parameters in right-hand sides and the objective stay symbolic; when only their
   values change, `optimize!` updates the kept inner problems instead of rebuilding them (45× faster
   for the primal, 148× for the dual on the inventory benchmark at T = 64).
@@ -168,8 +174,9 @@ Julia 1.11 and later).
   `Truncate()` rows.
 - No expected-value constraints yet; the value-function recursion (LFDR) and nonlinear liftings
   are planned for the `Experimental` submodule.
-- Breakpoints on a combination of uncertainties of several stages have no dual bound: `optimize!`
-  skips `DualLDR()` with a warning, and solves the other formulations. The moments
+- Breakpoints on a combination of uncertainties of several stages improve the primal rule more than
+  the dual bound: the dual relaxes its information structure on the combination, and its inner
+  problem can be much slower to solve. The moments
   of a combination are exact and fast for discrete and uniform laws (at most 10⁷ joint atoms; the
   closed form for `d` uniform laws has `2^d` terms), but integrate over every uncertainty of the
   combination with another continuous law (slow beyond about 3), and also when two combinations

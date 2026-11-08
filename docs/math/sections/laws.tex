@@ -106,8 +106,9 @@ only its value is an estimate of the expected value under the conditioned law;
 \item the dual bound is a valid bound for the problem under the empirical law of the draws, and an estimate for the conditioned law;
 \item both are reported with \code{certified = false} and a reason appended to the raw status.
 \end{itemize}
-Values of the dual are also not certified when a law spanning several stages is not known to have linear conditional expectations (\cref{rem:lce}),
-and values of the sampled formulation never are, being estimates by construction.
+A law spanning several stages that is not known to have linear conditional expectations does not affect the certificate:
+the dual relaxes its information structure on it (\cref{prop:relaxed-mask}).
+The values of the sampled formulation are never certified, being estimates by construction.
 
 \subsection{Discrete laws}
 

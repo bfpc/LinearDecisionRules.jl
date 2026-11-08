@@ -248,10 +248,20 @@ function test_infeasible_primal_alone_is_locally_infeasible()
     return
 end
 
-# An infeasible model whose dual is not certified: the conditional expectation of `d[2]` (stage 3)
-# given `d[1]` (stage 2) is not affine, so the infeasibility of the dual proves nothing.
+# An infeasible model whose dual is not certified: a law of two atoms in two dimensions has a
+# singular second-moment matrix, so the infeasibility of the dual proves nothing. With three
+# atoms, whose conditional expectations across stages are not linear, the dual relaxes its
+# information structure, is certified, and proves the infeasibility.
 function test_infeasible_dual_not_certified_is_locally_infeasible()
+    law = MvDiscreteNonParametric([[79.0, 61.0], [80.0, 60.0]], fill(1 / 2, 2))
+    _test_infeasible(law, MOI.LOCALLY_INFEASIBLE)
     law = MvDiscreteNonParametric([[79.0, 61.0], [80.0, 60.0], [81.0, 61.0]], fill(1 / 3, 3))
+    _test_infeasible(law, MOI.INFEASIBLE)
+    return
+end
+
+function _test_infeasible(law, status)
+    certified = status == MOI.INFEASIBLE
     for formulations in ([DualLDR()], [PrimalLDR(), DualLDR()])
         model = LDRModel(HiGHS.Optimizer)
         set_silent(model)
@@ -262,10 +272,14 @@ function test_infeasible_dual_not_certified_is_locally_infeasible()
         @constraint(model, sell .<= d)
         @constraint(model, sum(sell) + buy <= -1)
         @objective(model, Max, sum(sell) - buy)
-        @test_logs (:warn, r"not certified") match_mode = :any optimize!(model)
+        if certified
+            @test_logs optimize!(model)
+        else
+            @test_logs (:warn, r"not certified") match_mode = :any optimize!(model)
+        end
         @test termination_status(model, DualLDR()) == MOI.INFEASIBLE
-        @test !is_certified(model)
-        @test termination_status(model) == MOI.LOCALLY_INFEASIBLE
+        @test is_certified(model) == certified
+        @test termination_status(model) == status
     end
     return
 end
@@ -464,11 +478,13 @@ function test_is_certified()
     @constraint(model, early <= d[1])
     @constraint(model, late <= d[2])
     @objective(model, Max, -10buy + 15early + 12late)
-    @test_logs (:warn, r"not certified") optimize!(model)
+    # Its conditional expectations are not linear: the dual relaxes its information structure on
+    # it, and the bound is certified.
+    @test_logs optimize!(model)
     @test is_certified(model, PrimalLDR()) === true
-    @test is_certified(model) === false
-    reason = "[not certified: conditional expectations across stages are not linear]"
-    @test endswith(raw_status(model, DualLDR()), reason)
+    @test is_certified(model) === true
+    @test !occursin("not certified", raw_status(model, DualLDR()))
+    @test objective_value(model) <= objective_bound(model) + 1e-6
     return
 end
 

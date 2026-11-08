@@ -52,14 +52,12 @@ sequenceDiagram
     O->>O: _check_bounded_support(src, info)
     O->>C: canonicalize(src, info; conic_support = _inner_supports_cones(factory, info))
     C-->>O: CanonicalForm
-    O->>O: _combinations_across_stages(form): if any and DualLDR() is requested, _warn_combinations_across_stages
     O->>P: _moments(form, rejection_sampling, moments_cache; budget)
     P-->>O: Moments
     O->>O: _check_convex_objective(form), _warn_singular_moments(form, mom) if a formulation has a bound, _warn_integer_before_stage_one(form) (moi/checks.jl)
     O->>F: if RescaleUncertainties(), r = _rescaling(form, mom), then _rescale(form, r) and _rescale(mom, r)
     O->>K: _update!(inner_cache, _Fingerprint(form, mom, factory, silent, raw))
     loop each f in Formulations()
-        Note over O: DualLDR() with combinations across stages: _skipped_result, and next f
         O->>K: _cached_problem(inner_cache, f)
         O->>F: _solve!(build, f, form, mom, start, TimeLimitSec; inner)
         Note over F: time left? otherwise _time_limit_result(f, form, mom)
@@ -143,8 +141,7 @@ The three methods of `_build!` share one skeleton:
 
 | Step | `PrimalLDR` (`primal.jl`) | `DualLDR` (`dual.jl`) | `SampledLDR` (`sampled.jl`) |
 |---|---|---|---|
-| before | | `_warn_stage_dependence(form)` | |
-| information | `InformationStructure(form)` | same | same |
+| information | `InformationStructure(form)` | `_dual_information(form, mom)`: the same, with extra later columns for the laws without linear conditional expectations, and their equations (`_add_relaxed_equations!`) | `InformationStructure(form)` |
 | rule variables | `_rule_variables!` (the stage mask) | same | same |
 | equalities | `_add_equalities!` (coefficient matching) | same | same |
 | Ξ | `support_blocks(form; f.lifted_box)`; the box bounds for the closed form | `_dual_cones(support_blocks(form; f.lifted_box), mom)` | `_sample_outcomes(form, f)` |

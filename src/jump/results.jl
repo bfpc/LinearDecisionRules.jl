@@ -20,9 +20,7 @@ end
     JuMP.termination_status(model::JuMP.Model, formulation::AbstractFormulation)
 
 The termination status of the inner problem of `formulation`, or `OPTIMIZE_NOT_CALLED` if it was
-not solved, or if the model changed since the last `optimize!`. It is `INVALID_MODEL` for a
-formulation that `optimize!` skipped because it does not support the model, and
-`raw_status(model, formulation)` says why.
+not solved, or if the model changed since the last `optimize!`.
 
 It is the status of the inner problem: an infeasible inner problem is `INFEASIBLE` here, whether
 or not it proves anything about the model. `termination_status(model)` makes that claim: it is
@@ -128,9 +126,10 @@ value of its rule; the rule is feasible either way. It is the attribute
 
 The values are not certified when they use moments estimated by rejection sampling (a law
 conditioned by constraints tagged [`Truncate`](@ref) that is not exact), and, for the bound of
-`DualLDR`, when the second-moment matrix is singular, the quadratic objective is not convex, or a
-law spanning several stages is not known to have linear conditional expectations (see
-[`DualLDR`](@ref)). `raw_status(model, formulation)` then ends with the reason, `[not certified:
+`DualLDR`, when the second-moment matrix is singular or the quadratic objective is not convex. A
+law spanning several stages without linear conditional expectations does not affect it: the dual
+then relaxes its information structure (see [`DualLDR`](@ref)). `raw_status(model, formulation)`
+then ends with the reason, `[not certified:
 <reason>]`. The values of [`SampledLDR`](@ref) are estimates by construction: they are never
 certified, and have no such reason.
 

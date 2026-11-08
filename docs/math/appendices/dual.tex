@@ -60,7 +60,40 @@ $\val\eqref{eq:SP} \le \val\eqref{eq:PLDR}$ holds because a feasible rule of \eq
 \begin{remark}
 The proof uses condition~\ref{it:lce} only through \cref{lem:projection}, at the prefixes $\nvis_i$ of the decisions.
 It does not need the strict feasibility of \citet[Proposition~4]{KWG2011}, which serves to show that \eqref{eq:DLDR} has the same value as their relaxed problem (MSP$^l$), not that it bounds \eqref{eq:SP}.
+The equalities, the inequalities and the objective hold for $X = \E[x\xi^\T]\Mom^{-1}$ whether or not $x$ is nonanticipative,
+and so does the step for the decisions with $\nvis_i = 1$, which are constants;
+a deterministic inequality has only such decisions.
 \end{remark}
+
+\begin{proof}[Proof of \cref{prop:relaxed-mask}]
+By the remark, it suffices to show that $X \in \Rules'$.
+Fix a decision $i$ of stage $t$ with $\nvis_i > 1$, its history $h = \{1, \dots, \nvis_i\}$, and a law $\ell$ with earlier columns $p$ and later columns $f$ at $t$.
+Let $\hat\xi_f = \mub_f + \Cv_{fp}\Cv_{pp}^{-1}(\xi_p - \mub_p)$ be the best affine predictor of $\xi_f$ from $\xi_p$, and $e = \xi_f - \hat\xi_f$ its residual,
+which is orthogonal to $1$ and to $\xi_p$, with $\E[ee^\T] = R_{\ell,t}$.
+For $j \in f$, let $v$ be the vector with $v^\T\xi = e_j$, and compute $\Mom v = \E[\xi e_j]$ entry by entry:
+for $m = 1$ and $m \in p$ the entry is $0$ by orthogonality;
+for a column $m$ of another law it is $\E[\xi_m]\E[e_j] = 0$, by independence;
+for $m \in f$ it is $\E[\xi_m e_j] = \E[e_m e_j] = (R_{\ell,t})_{mj}$, since $\hat\xi_m$ is orthogonal to $e_j$.
+Hence $X_i\Mom v = X_{i,f}R_{\ell,t}\,e_j$, and on the other hand $X_i\Mom v = \E[x_i\xi^\T]v = \E[x_i e_j]$.
+If $j$ is predictable, $\E[\xi_j\mid\xi_p] = \hat\xi_j$ (an affine conditional expectation is the best affine predictor),
+and since $(\xi_p, \xi_j)$ is independent of the columns of the other laws, $\E[\xi_j\mid\xi_h] = \E[\xi_j\mid\xi_p]$, so $\E[e_j\mid\xi_h] = 0$.
+As $x_i$ is a square-integrable function of $\xi_h$, $\E[x_ie_j] = \E[x_i\E[e_j\mid\xi_h]] = 0$, which is the equation $X_{i,f}R_{\ell,t}e_j = 0$.
+If every $j \in f$ is predictable, these equations give $X_{i,f}R_{\ell,t} = 0$, hence $X_{i,f} = 0$, since $R_{\ell,t}$, a Schur complement of $\Cv_\ell \succ 0$, is invertible.
+Every column after $\nvis_i$ belongs to exactly one law, so $X \in \Rules'$.
+\end{proof}
+
+\begin{proof}[Proof of \cref{prop:relaxed-lifting}]
+Write the lifted outcome $\tilde\xi = (\xi, \pi)$, so that $\xi = Q\tilde\xi$ with $Q = [I\ 0]$, the lifted data $B Q$, $CQ$, $\Wp Q$, and $\Mom = Q\tilde\Mom Q^\T$.
+The upper bound: a feasible policy $x$ of \eqref{eq:SP} is a feasible policy of the lifted problem, $x(Q\tilde\xi)$, nonanticipative since the lifted coordinates of a stage are functions of the history; apply \cref{prop:relaxed-mask} to the lifted problem.
+The lower bound: let $\tilde X$ be feasible in the relaxed dual of the lifted problem, $\tilde Y = \tilde X\tilde\Mom$, and $X = \tilde Y Q^\T\Mom^{-1}$, so that $X\Mom = \tilde X\tilde\Mom Q^\T$.
+By condition~\ref{it:lce} for \eqref{eq:SP}, every column of $\xi$ after the history of a decision is predictable in the lifted problem too (its conditional expectation given the history is affine in columns of $\xi$, which are lifted columns), so the relaxed dual imposes its equation, $\E[\tilde x_i e_j] = 0$ written in $\tilde Y$; in $Y = X\Mom$ these are the equations of the mask of \eqref{eq:SP}, and with $\Mom \succ 0$ they give $X \in \Rules$.
+The equalities: $A_e\tilde X = B_eQ$ gives $A_eX\Mom = A_e\tilde X\tilde\Mom Q^\T = B_eQ\tilde\Mom Q^\T = B_e\Mom$.
+The cones: $S_r\Mom = \tilde S_r\tilde\Mom Q^\T$, so $S_r\Mom\Wp^\T = \tilde S_r\tilde\Mom(\Wp Q)^\T$, a constraint of the lifted dual.
+The objective: the linear term is $\tr(C^\T X\Mom) = \tr((CQ)^\T\tilde X\tilde\Mom)$, and for $P \succeq 0$,
+$\tr(X^\T PX\Mom) = \tr(P\tilde Y Q^\T(Q\tilde\Mom Q^\T)^{-1}Q\tilde Y^\T) \le \tr(P\tilde Y\tilde\Mom^{-1}\tilde Y^\T) = \tr(\tilde X^\T P\tilde X\tilde\Mom)$,
+since $\tilde\Mom^{1/2}Q^\T(Q\tilde\Mom Q^\T)^{-1}Q\tilde\Mom^{1/2}$ is an orthogonal projector.
+So $X$ is feasible in \eqref{eq:DLDR} for \eqref{eq:SP}, with an objective no worse.
+\end{proof}
 
 \paragraph{The structured identity, row by row.}
 Index the rows of $\Wp$ by the constant row and by the pairs $(b, p)$ of a support block and one of its rows, and let $\Cv_{:,b}$ be the columns of $\Cv$ of the coordinates of block $b$.

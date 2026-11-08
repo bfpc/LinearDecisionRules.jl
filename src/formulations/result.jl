@@ -78,16 +78,11 @@ function _certification(f::AbstractFormulation, form::CanonicalForm, mom::Moment
         push!(reasons, "moments of conditioned laws estimated by rejection sampling")
     end
     if capabilities(f).bound
-        # The dual bound needs a convex objective, `M ≻ 0` (the proof inverts it) and linear
-        # conditional expectations.
+        # The dual bound needs a convex objective and `M ≻ 0` (the proof inverts it). It does not
+        # need linear conditional expectations: where they fail or are not known, the dual relaxes
+        # its information structure (`_dual_information`).
         _nonconvex_decisions(form) === nothing || push!(reasons, "the objective is not convex")
         isempty(_singular_blocks(mom)) || push!(reasons, "the second-moment matrix is singular")
-        nonlinear, unknown = _stage_dependent_laws(form)
-        if !isempty(nonlinear)
-            push!(reasons, "conditional expectations across stages are not linear")
-        elseif !isempty(unknown)
-            push!(reasons, "conditional expectations across stages are not known to be linear")
-        end
     end
     return isempty(reasons), join(reasons, "; ")
 end
@@ -108,26 +103,6 @@ function _time_limit_result(f::AbstractFormulation, form::CanonicalForm, mom::Mo
         NaN,
         NaN,
         certified,
-        0.0,
-        0.0,
-        0.0,
-        fill(NaN, length(form.decisions), k),
-        JuMP.Model(),
-    )
-end
-
-# The result of a formulation that does not support the model and was not built, with the reason
-# as its raw status: `INVALID_MODEL`, no solution, and no bound.
-function _skipped_result(f::AbstractFormulation, form::CanonicalForm, reason::String)
-    k = 1 + length(form.uncertainties)
-    return FormulationResult(
-        f,
-        MOI.INVALID_MODEL,
-        MOI.NO_SOLUTION,
-        "$f was skipped, since it $reason.",
-        NaN,
-        NaN,
-        false,
         0.0,
         0.0,
         0.0,

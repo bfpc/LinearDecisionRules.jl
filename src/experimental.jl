@@ -34,12 +34,11 @@ breakpoints of the combination. Setting breakpoints on the same combination agai
 The pieces are in the last stage of the uncertainties of the combination. The laws of these
 uncertainties must be discrete with finitely many atoms, or continuous and univariate, and an
 uncertainty in a combination cannot have [`BreakPoints`](@ref LinearDecisionRules.BreakPoints)
-itself. With uncertainties of several stages, the combination is not supported by
-[`DualLDR`](@ref LinearDecisionRules.DualLDR): the dual bound needs the conditional expectations
-of the later stages given the earlier ones to be linear, which the pieces are not. `optimize!`
-then skips `DualLDR()` with a warning (its termination status is `INVALID_MODEL`), and solves the
-other formulations; set [`Formulations`](@ref LinearDecisionRules.Formulations) to
-`[PrimalLDR()]` to leave it out.
+itself. With uncertainties of several stages, the conditional expectations of the pieces given the
+earlier uncertainties are not linear, so [`DualLDR`](@ref LinearDecisionRules.DualLDR) lets the
+rules of the earlier decisions use the later uncertainties and pieces of the combination: its
+bound is certified, and at least the bound without the combination, but it may improve little on
+it.
 
 ## Example
 

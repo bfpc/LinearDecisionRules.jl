@@ -15,13 +15,18 @@ the nonnegative orthant of the linear rows of the [`SupportBlock`](@ref)s times 
 cone for each of their second-order cone rows, so the inner problem is then a second-order cone
 program.
 
-The bound needs the conditional expectations of the uncertainties of later stages, given those of
-earlier stages, to be linear (as for independent stages). Separate declarations are independent,
-so this is a property of each law whose components are in several stages: it holds for a product
-of univariate laws, a normal law and a [`ConfidenceMvNormal`](@ref), and it is checked exactly
-for a [`MvDiscreteNonParametric`](@ref); it is unknown for other laws, such as a
-[`ConditionedDistribution`](@ref). Building the dual warns, and the bound is not certified, when
-such a law does not have it or is not known to.
+The rule of a decision uses the uncertainties that the decision observes, as in the primal, when
+the conditional expectations of the later uncertainties given the earlier ones are linear (as for
+independent stages). Separate declarations are independent, so this is a property of each law
+whose components are in several stages: it holds for a product of univariate laws, a normal law
+and a [`ConfidenceMvNormal`](@ref), and it is checked exactly for a
+[`MvDiscreteNonParametric`](@ref). For a law that does not have it, such as the law of a
+combination of uncertainties of several stages with breakpoints, or that is not known to, such as
+a [`ConditionedDistribution`](@ref), the rules of the earlier decisions may also use the later
+uncertainties of that law, except through their linearly predictable parts. The bound is then
+still a bound, and certified, but weaker than with linear conditional expectations; the other laws
+keep the usual information structure. With such a law, the rule of the dual uses uncertainties
+that its decision does not observe.
 
 `attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
 of the optimizer, for this formulation only. Formulations are compared by type: the attributes are
@@ -166,76 +171,66 @@ function _add_dual_cone!(
     return
 end
 
-# The dual bound needs the conditional expectations of later stages given earlier ones to be
-# linear, law by law (see `_linear_conditional_expectations`): the laws spanning several stages
-# that do not have them, and those that are not known to, each as `"a, b (stages 2, 3)"`.
-function _stage_dependent_laws(form::CanonicalForm)
-    nonlinear, unknown = String[], String[]
-    for law in form.laws
-        allequal(law.stages) && continue
-        value = _linear_conditional_expectations(law.distribution, law.stages)
-        value === true && continue
-        names = _name_list([form.uncertainty_names[j-1] for j in law.columns])
-        stages = join(sort!(unique(law.stages)), ", ")
-        push!(value === false ? nonlinear : unknown, "$names (stages $stages)")
+# The information structure of the dual, relaxed where condition (i) of `thm:dual-bound` fails or
+# is not known (`prop:relaxed-mask` of `docs/math`). The bound needs `X = E[x ξᵀ] M⁻¹` to be an
+# allowed rule for every nonanticipative policy `x`. For a decision `i` of stage `t` and a law
+# whose later coordinates are not all linearly predictable at `t` (see `_predictable_coordinates`),
+# that `X` may be nonzero on the later columns `f` of the law: they become extra columns of `i`.
+# Each predictable column `j` of `f` still gives one equation, `E[x_i (ξ_j - E[ξ_j | history])] = 0`,
+# which in `X` reads `X_{i,f} R[:, j] = 0`, with `R = Σ_ff - Σ_fp Σ_pp⁻¹ Σ_pf` the covariance of
+# the residual of the linear prediction of `f` from the earlier coordinates `p` of the law: the
+# equations returned, as `(i, f, R[:, predictable])`. The other laws keep the mask, since the laws
+# are independent; the decisions that observe only the constant are never relaxed.
+function _dual_information(form::CanonicalForm, mom::Moments)
+    base = InformationStructure(form)
+    extra = [Int[] for _ in form.decisions]
+    equations = Tuple{Int,Vector{Int},Matrix{Float64}}[]
+    relaxed = Dict{Tuple{Int,Int},Any}()
+    for i in eachindex(form.decisions)
+        base.num_visible[i] == 1 && continue
+        t = form.decision_stages[i]
+        for (l, (law, block)) in enumerate(zip(form.laws, mom.blocks))
+            entry = get!(() -> _relaxed_law(law, block, t), relaxed, (l, t))
+            entry === nothing && continue
+            columns, R = entry
+            append!(extra[i], columns)
+            size(R, 2) > 0 && push!(equations, (i, columns, R))
+        end
+        sort!(extra[i])
     end
-    return nonlinear, unknown
+    observed = InformationStructure(form.decision_stages, base.column_stages, form.integer, extra)
+    return observed, equations
 end
 
-# A combination with breakpoints of uncertainties of several stages breaks the linear conditional
-# expectations that the dual bound needs: its pieces are not affine in the earlier uncertainties
-# (see `CombinationPiecewise`). The combinations of several stages of `form`, each as
-# `"a, b (stages 2, 3)"`: `optimize!` skips `DualLDR` for them, with a warning
-# (`_warn_combinations_across_stages`), and its result says why (`_skipped_result`).
-function _combinations_across_stages(form::CanonicalForm)
-    across = String[]
-    form.lifting === nothing && return across
-    map = form.lifting
-    for block in map.blocks
-        _keeps_inputs(block.lifting) || continue
-        stages = sort!(unique(map.uncertainty_stages[j-1] for j in block.inputs))
-        length(stages) > 1 || continue
-        names = _name_list([map.uncertainty_names[j-1] for j in block.inputs])
-        push!(across, "$names (stages $(join(stages, ", ")))")
+# The later columns of `law` at stage `t` and the columns of `R` of their predictable ones, or
+# `nothing` if they are all predictable, so that the mask holds.
+function _relaxed_law(law::UncertaintyBlock, block::CovarianceBlock, t::Int)
+    past = law.stages .<= t
+    (all(past) || !any(past)) && return nothing
+    predictable = _predictable_coordinates(law.distribution, law.stages, t)
+    all(predictable) && return nothing
+    @assert block.columns == law.columns
+    f, p = findall(.!past), findall(past)
+    Σ = block.covariance
+    R = Σ[f, f] - Σ[f, p] * (LinearAlgebra.pinv(Σ[p, p]) * Σ[p, f])
+    return law.columns[f], R[:, predictable[f]]
+end
+
+function _add_relaxed_equations!(model::JuMP.Model, X, equations)
+    for (i, columns, R) in equations, c in axes(R, 2)
+        expr = JuMP.AffExpr(0.0)
+        for (m, j) in enumerate(columns)
+            iszero(R[m, c]) || JuMP.add_to_expression!(expr, R[m, c], _variable(X[i], j))
+        end
+        isempty(expr.terms) || JuMP.@constraint(model, expr == 0)
     end
-    return across
-end
-
-# Why `DualLDR` is skipped, completing "DualLDR() is skipped, since it ...".
-function _combinations_across_stages_reason(across::Vector{String})
-    return "does not support breakpoints on a combination of uncertainties of several stages, " *
-           "as for $(join(across, "; ")): the pieces of the combination are not affine in the " *
-           "uncertainties of the earlier stages, so the dual would not be a bound"
-end
-
-function _warn_combinations_across_stages(across::Vector{String})
-    @warn(
-        "DualLDR() is skipped, since it $(_combinations_across_stages_reason(across)). The " *
-        "other formulations are solved. To solve them without this warning, remove DualLDR() " *
-        "from Formulations(), such as `set_attribute(model, Formulations(), [PrimalLDR()])`, or " *
-        "use combinations within one stage.",
-    )
-    return
-end
-
-function _warn_stage_dependence(form::CanonicalForm)
-    nonlinear, unknown = _stage_dependent_laws(form)
-    isempty(nonlinear) && isempty(unknown) && return
-    parts = String[]
-    isempty(nonlinear) || push!(parts, "fails for the law of $(join(nonlinear, "; "))")
-    isempty(unknown) || push!(parts, "is not known for the law of $(join(unknown, "; "))")
-    @warn(
-        "The bound of DualLDR() is not certified: it needs the conditional expectations of the " *
-        "uncertainties of later stages given those of earlier stages to be linear (as for " *
-        "independent stages), which $(join(parts, ", and ")).",
-    )
     return
 end
 
 function _build!(model::JuMP.Model, f::DualLDR, form::CanonicalForm, mom::Moments)
-    _warn_stage_dependence(form)
-    observed = InformationStructure(form)
+    observed, equations = _dual_information(form, mom)
     X = _rule_variables!(model, form, observed)
+    _add_relaxed_equations!(model, X, equations)
     _add_equalities!(model, form, observed, X)
     cones = _dual_cones(support_blocks(form; f.lifted_box), mom)
     # The cones whose rows involve each column of ξ.

@@ -292,16 +292,18 @@ so the pieces help less than they would with the exact hull, and the measurement
 \paragraph{The dual approximation.}
 When the uncertainties of $J$ are in several stages, the pieces are in the last one,
 and their conditional expectation given the earlier stages is a nonlinear function of the observed uncertainties:
-condition~\ref{it:lce} of \cref{thm:dual-bound} fails, and the dual approximation is not known to bound the problem.
+condition~\ref{it:lce} of \cref{thm:dual-bound} fails, and the masked dual approximation does not bound the problem in general (the example after \cref{prop:relaxed-mask}).
 The primal approximation needs no such condition: this is the history-dependent lifting of \citet[Remark~6.5]{GWK2015}.
-So \code{optimize!} skips \code{DualLDR} for these combinations, with a warning, and solves the other formulations.
-A combination within one stage $t$ keeps the dual bound, unless a law of its inputs has a component in a stage before $t$.
-Its pieces, in stage $t$, couple the laws of its inputs into one law (below), which may span several stages, since a law of an input may have components in other stages than $t$.
+The dual relaxes its information structure on the law of the combination (\cref{prop:relaxed-mask}):
+a decision of a stage before the last of the inputs may use the later inputs and pieces of that law,
+subject to one equation per later input whose law has no earlier component, which is then predictable by a constant.
+The bound is certified, and by \cref{prop:relaxed-lifting} it is at least that of the dual without the combination when the laws of the inputs satisfy condition~\ref{it:lce}.
+A combination within one stage $t$ couples the laws of its inputs into one law as well (below), which may span several stages, since a law of an input may have components in other stages than $t$.
 From stage $t$ on, the pieces are functions of the observed uncertainties, so they add nothing to condition~\ref{it:lce}, which is then that of each law of the inputs (\cref{rem:lce}).
 Before stage $t$, the conditional expectation of a piece given the earlier components of the laws of its inputs is a nonlinear function of these components, unless the laws have none: it is then a constant.
-So the package certifies the bound when every combination is within one stage, no law of its inputs has a component in an earlier stage (the components of a product are separate laws), and each of these laws has linear conditional expectations;
-with a component in an earlier stage, condition~\ref{it:lce} is not known to hold, and the bound is not certified
-(\code{\_linear\_conditional\_expectations} of \code{\_CombinationLaw}).
+So the usual mask holds when every combination is within one stage, no law of its inputs has a component in an earlier stage (the components of a product are separate laws), and each of these laws has linear conditional expectations;
+otherwise the dual relaxes it on the pieces that are not predictable
+(\code{\_predictable\_coordinates} of \code{\_CombinationLaw}).
 
 \paragraph{The lifted law and its moments.}
 A combination couples the laws of its inputs, so these laws, with the pieces of every combination over them, form one law
@@ -354,8 +356,9 @@ each demand (\code{BreakPoints}, 3 per demand) & & & & 365.6 \\
 \bottomrule
 \end{tabular}
 \caption[Breakpoints on combinations]{Primal values (costs, to minimize) with breakpoints on combinations of uncertainties.
-The dual bounds of the hydrothermal problem do not change with the totals of a stage (0.7352 at $T = 3$, 0.9803 at $T = 4$);
-the other combinations span two stages and have no dual.
+The dual bounds of the hydrothermal problem do not change with the totals of a stage (0.7352 at $T = 3$, 0.9803 at $T = 4$).
+The other combinations span two stages, and their dual is relaxed (\cref{prop:relaxed-mask}): at $T = 3$, the totals of two stages leave it at 0.7352,
+and the inflow of each reservoir over two stages raises it to 0.7707 (0.7533 with one breakpoint per pair), with a dual 400 times slower to solve (218~s against 0.5~s).
 Source: \file{test/problems/test_hydro.jl}, \file{test/jump/test_experimental.jl}, and runs of \file{test/problems/hydro.jl} at $T = 4$ and $5$.}
 \label{tab:combinations}
 \end{table}
