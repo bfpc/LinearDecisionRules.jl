@@ -12,10 +12,11 @@
 #
 # and the form in `ξ̃` has `B T` and `C T` for `B_*` and `C`, `S Q S`, `S (d + 2 Q c)` and
 # `f + cᵀ Q c + dᵀ c` for the quadratic, linear and constant terms in η, `W S` and `h - W c` for
-# the rows of Ξ (then divided by their largest coefficient, see `_rescale_rows`), the constants of the parameters shifted like the first column of `B T`, and the
-# laws of ζ. The decisions, the values and the bounds are the same; the rules `X̃` in `ξ̃` are
-# `X = X̃ T⁻¹` in ξ. The moments of a uniform law on a box of width 10⁴ have entries of order 10⁸
-# against 1 for the constant column, which is what this avoids.
+# the rows of Ξ (then divided by their largest coefficient, see `_rescale_rows`), the constants of
+# the parameters shifted like the first column of `B T`, and the laws of ζ. The decisions, the
+# values and the bounds are the same (`prop:affine-invariance` of `docs/math`, where `T` is `G`);
+# the rules `X̃` in `ξ̃` are `X = X̃ T⁻¹` in ξ. The moments of a uniform law on a box of width 10⁴
+# have entries of order 10⁸ against 1 for the constant column, which is what this avoids.
 
 struct _Rescaling
     center::Vector{Float64}

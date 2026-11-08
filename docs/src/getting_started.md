@@ -245,7 +245,8 @@ names the constraint or the variable involved.
 ## Where to go next
 
 The tutorials build on this page, one feature at a time, in two groups: the rules (piecewise
-linear, sampled and multistage), then the modelling of the uncertainty. The API pages document
+linear, sampled and multistage), then the modelling of the uncertainty. When a model is slow,
+[Performance](@ref performance) explains the settings that change the time. The API pages document
 every function.
 To learn how the package works inside, read the [Developer documentation](@ref developer_overview):
 it is written for those who change the package, and is not needed to use it.

@@ -30,25 +30,24 @@ settings, not part of the identity.
 The support of an uncertainty with `n` [`BreakPoints`](@ref) is described by the convex-hull rows
 of its pieces and the box of the pieces. `lifted_box = false` leaves out the `2n` bounds of the box
 that the hull rows imply, which leaves the support and the bound unchanged, with fewer
-constraints. On inventory problems with breakpoints, and on a hydro problem with 4 stages
-(HiGHS 1.15, dual simplex), it was 8% to 47% faster, but 2.6 times slower on the hydro problem
-with 8 stages, so it is not the default.
+constraints. It was faster on most benchmarks, but up to 2.4 times slower on some, so it is not the
+default (see [Performance](@ref performance)).
 
-The dual needs its bound only, not a basis. With HiGHS, its interior point method without
-crossover is often much faster on large problems:
+The dual needs its bound only, not a basis. With HiGHS, an interior point method can be much faster
+on large problems, with crossover or without it:
 
 ```julia
+DualLDR(; attributes = ["solver" => "ipx", "run_crossover" => "on"])
 DualLDR(; attributes = ["solver" => "ipm", "run_crossover" => "off"])
 ```
 
-On inventory and hydro problems (HiGHS 1.15), it solved every dual within 7 seconds, where the
-default dual simplex took 145 seconds on the hydro problem with T = 8. This is not the default, since the names are HiGHS's
-and the best mode depends on the problem. The bound is then the dual objective value of the inner
-linear program (see [`FormulationResult`](@ref)). Only a termination status `OPTIMAL` can be
-trusted: HiGHS may stop an interior point without crossover at an `unknown` status (its HiPO
-stagnates a little above the tolerance), with a wrong objective value or none; the termination
-status is then `OTHER_ERROR` and the bound `NaN`. This happens on most of the small problems of the
-test library, so keep the default for small models.
+The bound is then the dual objective value of the inner linear program (see
+[`FormulationResult`](@ref)). Only a termination status `OPTIMAL` can be trusted: HiGHS may stop
+an interior point without crossover at an `unknown` status (its HiPO stagnates a little above the
+tolerance), with a wrong objective value or none; the termination status is then `OTHER_ERROR`
+and the bound `NaN`. This happens on most of the small problems of the test library, and on some
+large ones, so the default stays the dual simplex. [Performance](@ref performance) compares the
+modes and the solvers.
 """
 struct DualLDR <: AbstractFormulation
     attributes::Vector{Pair{String,Any}}

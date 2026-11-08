@@ -161,7 +161,7 @@ of the model; only the scaling of the inner problems changes. Uncertainties of o
 demands, give moments of order 10⁸ against 1 for the constant term of the rules, which can make the
 inner solver fail, mostly on the problem of [`DualLDR`](@ref). The inner problems, such as the
 `model` of a [`FormulationResult`](@ref), are written in ζ; with `false`, they are written in the
-uncertainties of the model.
+uncertainties of the model. See [Performance](@ref performance) for what was measured.
 
 ## Example
 
@@ -267,8 +267,9 @@ A model attribute set by `optimize!`: where its wall-clock time went, in seconds
    and the liftings of its breakpoints, except their moments;
  * `moments`: the moments of the laws, including those of lifted laws, and the rejection sampling
    of laws conditioned by constraints tagged [`Truncate`](@ref);
- * `checks`: the checks of the objective and of the moments, and the comparison with the inner
-   problems of the last `optimize!`;
+ * `checks`: the checks of the objective and of the moments, the rescaling of the uncertainties
+   (see [`RescaleUncertainties`](@ref)), and the comparison with the inner problems of the last
+   `optimize!`;
  * `build`, `solve` and `results`: over the formulations, building the inner problems (or setting
    their parameters, when they are solved again), their `optimize!`, and reading their results;
  * `total`: the whole `optimize!`, as `MOI.SolveTimeSec()`, which also includes what is left.

@@ -15,7 +15,7 @@ model into the primal and dual linear decision rule problems of Kuhn, Wiesemann 
   observed before it, feasible for every outcome, and its expected value is the objective value;
 * The **dual** rule gives a bound on the best value that any policy can reach.
 
-The gap between the two bounds how much is lost by restricting the policy to linear rules.
+The gap between the two bounds measures how much is lost by restricting the policy to linear rules.
 Piecewise linear rules, with breakpoints on the uncertainties, close it:
 see the [piecewise linear](@ref piecewise_linear_tutorial) tutorial.
 
@@ -83,8 +83,10 @@ and JuMP parameters can be used to solve the same model again with new data.
 2. The tutorials add one feature at a time, in two groups: the rules (piecewise linear, sampled and
    multistage), then the modelling of the uncertainty (laws, constraints on the support, the
    confidence ellipsoid of a normal law).
-3. The API pages, from [Modelling](@ref), document every function.
-4. The [Developer documentation](@ref developer_overview) explains how the package works inside,
+3. [Performance](@ref performance) explains the settings that change the time, not the values: the
+   rescaling of the uncertainties, the rows of the pieces, and the inner solver and its modes.
+4. The API pages, from [Modelling](@ref), document every function.
+5. The [Developer documentation](@ref developer_overview) explains how the package works inside,
    for those who change it, and the mathematics is in [the notes](assets/ldr-math.pdf) (PDF).
 
 ## References

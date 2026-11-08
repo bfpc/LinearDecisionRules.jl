@@ -21,18 +21,16 @@ multipliers, to compare both forms.
 The support of an uncertainty with `n` [`BreakPoints`](@ref) is described by `n + 2` rows: the
 convex-hull rows of its pieces, and the two bounds of their box that these rows do not imply.
 `lifted_box = true` adds the other `2n` bounds of the box, which leaves the support and the value
-unchanged, with more multipliers: on inventory and hydro problems with breakpoints (HiGHS 1.15),
-leaving them out saves 30% to 43% of the variables, and up to 43% of the solve time.
+unchanged, with more multipliers; leaving them out was faster on almost every benchmark (see
+[Performance](@ref performance)).
 
 `attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
 of the optimizer, for this formulation only: `PrimalLDR(; attributes = ["solver" => "ipx"])`.
 Formulations are compared by type: the attributes are settings, not part of the identity.
 
-With HiGHS, keep the default dual simplex for this formulation: on inventory and hydro problems
-(HiGHS 1.15), it is within 2 times of the best mode almost everywhere.
-The exception is a long hydro problem (T = 8), where the interior point method IPX without
-crossover, `["solver" => "ipx", "run_crossover" => "off"]`, is 3 times faster; the other modes
-cost 3 to 16 times more on the larger inventory problem, or fail on the hydro one.
+With HiGHS, keep the default dual simplex for this formulation; the interior point methods without
+crossover often stop at an unknown status on it. [Performance](@ref performance) compares the modes
+and the solvers.
 """
 struct PrimalLDR <: AbstractFormulation
     attributes::Vector{Pair{String,Any}}

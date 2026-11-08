@@ -64,6 +64,7 @@ pages = [
     "Getting started" => "getting_started.md",
     "Tutorials" =>
         [group => ["tutorials/$name.md" for name in names] for (group, names) in TUTORIALS],
+    "Performance" => "performance.md",
     "API" => [
         "Modelling" => "modelling.md",
         "Results and rules" => "results.md",
