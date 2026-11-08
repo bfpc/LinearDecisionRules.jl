@@ -411,14 +411,19 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     checks_start = time_ns()
     _check_convex_objective(form)
     _warn_singular_moments(form, mom)
+    checks_time = _seconds_since(checks_start)
     # The formulations solve the form in the rescaled uncertainties; their rules are mapped back.
+    # The rescaling transforms the form, as the lifting does: its time counts in `canonicalize`.
+    rescale_start = time_ns()
     rescaling = dest.rescale ? _rescaling(form, mom) : nothing
     inner_form = rescaling === nothing ? form : _rescale(form, rescaling)
     inner_mom = rescaling === nothing ? mom : _rescale(mom, rescaling)
+    canonicalize_time += _seconds_since(rescale_start)
+    cache_start = time_ns()
     cache = dest.inner_cache
     raw_attributes = copy(dest.raw_attributes)
     _update!(cache, _Fingerprint(inner_form, inner_mom, factory, dest.silent, raw_attributes))
-    checks_time = _seconds_since(checks_start)
+    checks_time += _seconds_since(cache_start)
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
         if skip_dual && f isa DualLDR

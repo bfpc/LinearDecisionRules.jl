@@ -646,10 +646,10 @@ Used by: `moi/model_info` (2), `moi/optimizer` (4), `jump/variables` (2), `jump/
 
 The tags (`ValidInequality`, `Truncate`) and the MOI attributes, public and internal.
 
-[`src/moi/attributes.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/attributes.jl): 362 lines.
+[`src/moi/attributes.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/attributes.jl): 364 lines.
 
 Defines:
-`AbstractXiRole` (L12)†, `Base.broadcastable` (L15), **`ValidInequality` (L29)**†, **`Truncate` (L57)**†, `XiRole` (L66)†, **`BreakPoints` (L88)**†, `CombinationBreakPoints` (L98)†, `MOI.Utilities.map_indices` (L100) (2 methods), **`InnerOptimizer` (L116)**†, **`Formulations` (L135)**†, **`RejectionSamplingSeed` (L149)**†, **`RescaleUncertainties` (L172)**†, **`RejectionSamplingTimeLimit` (L200)**†, **`RejectionSamplingMaxSamples` (L223)**†, **`FormulationAttribute` (L238)**†, `MOI.is_set_by_optimize` (L243) (4 methods), **`Certified` (L258)**†, **`TimeBreakdown` (L286)**†, `_TIME_PHASES` (L290), `_TimeBreakdown` (L292), `_no_time_breakdown` (L294), `RuleCoefficients` (L302), `UncertaintyVariables` (L308), `DecisionVariables` (L311), `UncertaintyLifting` (L314), `UncertaintyMoments` (L317), `SimulationData` (L320), `InnerModel` (L325), `_AttributesWithoutIndices` (L343).
+`AbstractXiRole` (L12)†, `Base.broadcastable` (L15), **`ValidInequality` (L29)**†, **`Truncate` (L57)**†, `XiRole` (L66)†, **`BreakPoints` (L88)**†, `CombinationBreakPoints` (L98)†, `MOI.Utilities.map_indices` (L100) (2 methods), **`InnerOptimizer` (L116)**†, **`Formulations` (L135)**†, **`RejectionSamplingSeed` (L149)**†, **`RescaleUncertainties` (L172)**†, **`RejectionSamplingTimeLimit` (L200)**†, **`RejectionSamplingMaxSamples` (L223)**†, **`FormulationAttribute` (L238)**†, `MOI.is_set_by_optimize` (L243) (4 methods), **`Certified` (L258)**†, **`TimeBreakdown` (L288)**†, `_TIME_PHASES` (L292), `_TimeBreakdown` (L294), `_no_time_breakdown` (L296), `RuleCoefficients` (L304), `UncertaintyVariables` (L310), `DecisionVariables` (L313), `UncertaintyLifting` (L316), `UncertaintyMoments` (L319), `SimulationData` (L322), `InnerModel` (L327), `_AttributesWithoutIndices` (L345).
 
 Uses:
 
@@ -716,7 +716,7 @@ Used by: `moi/optimizer` (5).
 
 `Optimizer`: attributes, supported constraints, and `MOI.optimize!`.
 
-[`src/moi/optimizer.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/optimizer.jl): 461 lines.
+[`src/moi/optimizer.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/moi/optimizer.jl): 466 lines.
 
 Defines:
 `Optimizer` (L72)†, `MOI.is_empty` (L122), `MOI.empty!` (L124), `MOI.get` (L136) (11 methods), `MOI.supports_incremental_interface` (L139), `MOI.supports_constraint` (L142) (5 methods), `MOI.supports` (L168) (7 methods), `MOI.set` (L231) (10 methods), `_inner_factory` (L322), `MOI.copy_to` (L333), `_identity_map` (L338), `_check_bounded_support` (L352), `_inner_supports_cones` (L366), `_parameter_values` (L373), `MOI.optimize!` (L387)†.

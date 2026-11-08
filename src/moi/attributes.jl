@@ -263,13 +263,15 @@ struct Certified <: MOI.AbstractModelAttribute end
 A model attribute set by `optimize!`: where its wall-clock time went, in seconds, as a
 `NamedTuple` with the fields
 
- * `canonicalize`: reading the model into its canonical form, with the checks of its declarations
-   and the liftings of its breakpoints, except their moments;
+ * `canonicalize`: turning the model into the form that the formulations solve, except the
+   moments: reading it into its canonical form, with the checks of its declarations and of its
+   support, the liftings of its breakpoints and combinations, and the rescaling of the
+   uncertainties (see [`RescaleUncertainties`](@ref)); it also includes instantiating the inner
+   optimizer, when a law asks whether it supports second-order cones;
  * `moments`: the moments of the laws, including those of lifted laws, and the rejection sampling
    of laws conditioned by constraints tagged [`Truncate`](@ref);
- * `checks`: the checks of the objective and of the moments, the rescaling of the uncertainties
-   (see [`RescaleUncertainties`](@ref)), and the comparison with the inner problems of the last
-   `optimize!`;
+ * `checks`: the checks of the objective and of the moments, and the comparison with the inner
+   problems of the last `optimize!`;
  * `build`, `solve` and `results`: over the formulations, building the inner problems (or setting
    their parameters, when they are solved again), their `optimize!`, and reading their results;
  * `total`: the whole `optimize!`, as `MOI.SolveTimeSec()`, which also includes what is left.

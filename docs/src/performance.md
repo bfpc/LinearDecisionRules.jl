@@ -13,8 +13,9 @@ benchmarks, with HiGHS 1.15. The best setting depends on the problem, so measure
 
 ## Where the time goes
 
-Start by measuring. [`time_breakdown`](@ref) splits the time of `optimize!` into reading the model,
-the moments, the checks, and the build, solve and results of each formulation:
+Start by measuring. [`time_breakdown`](@ref) splits the time of `optimize!` into reading the model
+(with its lifting and rescaling), the moments, the checks, and the build, solve and results of
+each formulation:
 
 ```julia
 optimize!(model)
