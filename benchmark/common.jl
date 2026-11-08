@@ -2,6 +2,7 @@
 
 using Dates
 import HiGHS
+import LinearDecisionRules
 
 include(joinpath(@__DIR__, "..", "test", "common.jl"))
 
@@ -53,14 +54,31 @@ function append_csv_row(path, header, row)
     return
 end
 
-# Run `f()` `reps` times and keep the run with the smallest build + optimize time; also return the
+# The phases of `time_breakdown(model)` (see the docstring of `TimeBreakdown`), as the last columns
+# of every CSV file: reading the model with its lifting and rescaling, the moments, the checks, the
+# build, solve and results of the inner problems, and the whole `optimize!` of the optimizer. Rows
+# recorded before these columns, and rows of models without the optimizer (a hand-written LP, the
+# deterministic model, the scenario tree), leave them empty.
+const PHASE_HEADER =
+    ["canonicalize_s", "moments_s", "checks_s", "build_s", "solve_s", "results_s", "total_s"]
+
+const NO_PHASES = ntuple(_ -> "", length(PHASE_HEADER))
+
+# The phases of the last `optimize!` of `model`, in the order of `PHASE_HEADER`. The model solves
+# one formulation in the benchmarks, so `build`, `solve` and `results` are those of the formulation.
+function phase_times(model)
+    t = LinearDecisionRules.time_breakdown(model)
+    return (t.canonicalize, t.moments, t.checks, t.build, t.solve, t.results, t.total)
+end
+
+# Run `f()` `reps` times and keep the run with the smallest model + optimize time; also return the
 # number of runs. A first run slower than `slow` seconds is not repeated. The garbage of each run is
 # collected before the next one, so that it is not timed there.
 function best_of(f, reps; slow = Inf)
     runs = [f()]
-    while length(runs) < reps && runs[1].build + runs[1].optimize <= slow
+    while length(runs) < reps && runs[1].model + runs[1].optimize <= slow
         GC.gc()
         push!(runs, f())
     end
-    return runs[argmin([r.build + r.optimize for r in runs])], length(runs)
+    return runs[argmin([r.model + r.optimize for r in runs])], length(runs)
 end

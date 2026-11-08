@@ -17,10 +17,12 @@
 # the policy to `OOS_SCENARIOS` scenarios of the true law (the joint 82-scenario law, independent
 # across stages) and records the sample mean, standard error and fraction of violating scenarios.
 #
-# Columns (as in ../inventory/timing.jl): `build_s` writes the JuMP model, `optimize_s` is
+# Columns (as in ../inventory/timing.jl): `model_s` writes the JuMP model, `optimize_s` is
 # `optimize!` (for the LDR models it includes the canonical form, the moments, the reformulation and
 # the inner solve), `solver_s` is the inner solver's time, so the time spent building the LDR
-# reformulation is optimize_s - solver_s. Sizes are those of the model that is solved (for the LDR models, the
+# reformulation is optimize_s - solver_s. The LDR variants also record the phases of
+# `time_breakdown` (see `PHASE_HEADER` in `../common.jl`), which split that time; the average and
+# the tree leave them empty. Sizes are those of the model that is solved (for the LDR models, the
 # reformulated one): variables, constraints without variable bounds, nonzeros of the constraint
 # matrix. Extra columns: `branches` (tree only), `reps` (runs the row is the best of; a model
 # whose first run takes longer than SLOW_S is run once) and the inner solver's termination status.
@@ -52,16 +54,17 @@ const BRANCHES = Dict(4 => 3, 8 => 2, 12 => 2)
 const RESULTS = joinpath(results_dir(@__DIR__), "hydro.csv")
 
 function run_plain(build, args...)
-    t_build = @elapsed model = build(args...)
+    t_model = @elapsed model = build(args...)
     t_opt = @elapsed optimize!(model)
     return (;
-        build = t_build,
+        model = t_model,
         optimize = t_opt,
         solver = solve_time(model),
         objective = objective_value(model),
         status = string(termination_status(model)),
         size = model_size(model),
         oos = NO_OOS,
+        phases = NO_PHASES,
     )
 end
 
@@ -85,7 +88,7 @@ const NO_OOS = (; mean = NaN, stderr = NaN, violated = NaN)
 # `breakpoints` is `nothing` (the joint law) or the number of breakpoints of each inflow (see
 # `ldr_model`). The primal rule is simulated on the true law.
 function run_ldr(data, T, formulation; breakpoints = nothing)
-    t_build = @elapsed m = ldr_model(data, T; formulations = [formulation], breakpoints)
+    t_model = @elapsed m = ldr_model(data, T; formulations = [formulation], breakpoints)
     set_time_limit_sec(m, breakpoints === nothing ? LDR_TIME_LIMIT : BP_TIME_LIMIT)
     t_opt = @elapsed optimize!(m)
     objective = try
@@ -99,13 +102,14 @@ function run_ldr(data, T, formulation; breakpoints = nothing)
         oos = (; mean = s.objective_mean, stderr = s.objective_stderr, violated = s.violation_fraction)
     end
     return (;
-        build = t_build,
+        model = t_model,
         optimize = t_opt,
         solver = solve_time(m, formulation),
         objective,
         status = string(termination_status(m, formulation)),
         size = model_size(LDR.inner_model(m, formulation)),
         oos,
+        phases = phase_times(m),
     )
 end
 
@@ -128,9 +132,9 @@ end
 
 const HEADER = [
     "timestamp", "commit", "src_dirty", "julia", "T", "variant", "num_variables",
-    "num_constraints", "nonzeros", "objective", "build_s", "optimize_s", "solver_s",
+    "num_constraints", "nonzeros", "objective", "model_s", "optimize_s", "solver_s",
     "branches", "reps", "status", "breakpoints", "oos_mean", "oos_stderr", "oos_violated",
-    "src_commit", "highs",
+    "src_commit", "highs", PHASE_HEADER...,
 ]
 
 function main(args)
@@ -160,8 +164,8 @@ function main(args)
             b = name == "tree" ? branches : 0
             k = occursin("_bp", name) ? parse(Int, split(name, "_bp")[2]) : ""
             @printf(
-                "T=%-3d %-14s vars=%-8d cons=%-8d nnz=%-9d obj=%-12.6f build=%.3fs optimize=%.3fs solver=%.3fs reps=%d %s",
-                T, name, res.size..., res.objective, res.build, res.optimize, res.solver, reps,
+                "T=%-3d %-14s vars=%-8d cons=%-8d nnz=%-9d obj=%-12.6f model=%.3fs optimize=%.3fs solver=%.3fs reps=%d %s",
+                T, name, res.size..., res.objective, res.model, res.optimize, res.solver, reps,
                 res.status,
             )
             isnan(res.oos.mean) || @printf(" oos=%.4f±%.4f violated=%.3f", res.oos.mean, res.oos.stderr, res.oos.violated)
@@ -171,7 +175,8 @@ function main(args)
                 RESULTS,
                 HEADER,
                 (stamp, commit, src_dirty, VERSION, T, name, res.size..., res.objective,
-                 res.build, res.optimize, res.solver, b, reps, res.status, k, oos..., src_commit, highs),
+                 res.model, res.optimize, res.solver, b, reps, res.status, k, oos..., src_commit, highs,
+                 res.phases...),
             )
         end
     end

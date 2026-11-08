@@ -37,10 +37,11 @@ julia --project=benchmark benchmark/hydro/run.jl 4 bp=0,1,2   # k breakpoints pe
 ```
 
 `run.jl` appends one row per T and variant to `results/hydro.csv`, with the columns of
-`../inventory/timing.jl` plus `branches`, `reps`, the inner solver's `status`, and `breakpoints`,
+`../inventory/timing.jl`, including the phases of `time_breakdown` (empty for the average and the
+tree), plus `branches`, `reps`, the inner solver's `status`, and `breakpoints`,
 `oos_mean`, `oos_stderr` and `oos_violated` (the last three only for primal LDR variants: see
 [Breakpoints](#breakpoints)). A variant is run once for warm-up, then three times with the best
-kept (smallest `build_s + optimize_s`), unless its first run takes more than 10 s, in which case
+kept (smallest `model_s + optimize_s`), unless its first run takes more than 10 s, in which case
 that run is the result (`reps = 1`). The recordings are named by their `src_commit`, as in the
 [benchmark README](../README.md#running).
 
@@ -90,7 +91,7 @@ Recorded at 7dbebf0 (rows with `commit` 901bd78): `run.jl 4 8 12
 only=ldr_primal,ldr_dual,ldr_dual_ipm`, Windows 11, Julia 1.12.6, HiGHS 1.15.1 (default options
 unless stated). The average and tree models do not use the package: their rows are those of 5f20d11
 (see History). Times in seconds: build is the JuMP model plus everything `optimize!` does besides
-the inner solve (`build_s + optimize_s - solver_s`: for the LDR the canonical form, the moments and
+the inner solve (`model_s + optimize_s - solver_s`: for the LDR the canonical form, the moments and
 the reformulation, for the others the copy to HiGHS); solve is the inner solver's time. Sizes are
 those of the model that is solved (constraints without variable bounds). The tree has 3 branches
 at T = 4 (27 leaves) and 2 at T = 8 and 12 (128 and 2048 leaves). The costs are in the units of the

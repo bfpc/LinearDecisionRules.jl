@@ -9,10 +9,11 @@
 #  * `rebuild`: the cache of inner problems is emptied before each `optimize!`, which is what every
 #    re-solve did before the inner problems carried the parameters.
 #
-# Per variant, over the `N` re-solves: `build_s` is the time of `optimize!` outside the inner
+# Per variant, over the `N` re-solves: `overhead_s` is the time of `optimize!` outside the inner
 # solver (canonical form, moments, fingerprint, building or updating the inner problem),
-# `solver_s` the inner solver's time, `total_s` their sum, the time of the `N` calls to
-# `optimize!`. `fingerprint_s` is the time of one comparison of fingerprints (canonical form,
+# `solver_s` the inner solver's time, `optimize_s` their sum, the time of the `N` calls to
+# `optimize!`, and the phases of `time_breakdown` (see `PHASE_HEADER` in `../common.jl`) summed over
+# them. `fingerprint_s` is the time of one comparison of fingerprints (canonical form,
 # moments, settings), measured apart. The objectives of the two variants must agree at every
 # re-solve; the script warns otherwise. `num_builds` counts the inner problems built during the
 # re-solves: 0 when cached, N when rebuilt.
@@ -46,6 +47,7 @@ function run(T, N, formulation, variant)
     m = build(T, formulation)
     optimize!(m)
     total, solver, builds = 0.0, 0.0, 0
+    phases = ntuple(_ -> 0.0, length(PHASE_HEADER))
     objectives = Float64[]
     for value in initial_stocks(N)
         set_parameter_value(m[:stock], value)
@@ -55,10 +57,11 @@ function run(T, N, formulation, variant)
         optimize!(m)
         total += (time_ns() - start) / 1e9
         solver += solve_time(m, formulation)
+        phases = phases .+ phase_times(m)
         builds += num_builds(m) - before
         push!(objectives, objective_value(m, formulation))
     end
-    return (; build = total - solver, solver, total, objectives, builds)
+    return (; overhead = total - solver, solver, total, objectives, builds, phases)
 end
 
 # The time of one comparison of fingerprints, for the model of `run` after one solve.
@@ -80,8 +83,8 @@ end
 
 const HEADER = [
     "timestamp", "commit", "src_dirty", "julia", "T", "num_resolves", "formulation", "variant",
-    "num_builds", "build_s", "solver_s", "total_s", "fingerprint_s", "last_objective",
-    "src_commit", "highs",
+    "num_builds", "overhead_s", "solver_s", "optimize_s", "fingerprint_s", "last_objective",
+    "src_commit", "highs", PHASE_HEADER...,
 ]
 
 function main(T, N)
@@ -103,14 +106,15 @@ function main(T, N)
         for variant in ("cached", "rebuild")
             r = runs[variant]
             @printf(
-                "T=%-3d N=%-3d %-9s %-8s builds=%-3d build=%.3fs solver=%.3fs total=%.3fs fingerprint=%.2es\n",
-                T, N, name, variant, r.builds, r.build, r.solver, r.total, fingerprint_s,
+                "T=%-3d N=%-3d %-9s %-8s builds=%-3d overhead=%.3fs solver=%.3fs optimize=%.3fs fingerprint=%.2es\n",
+                T, N, name, variant, r.builds, r.overhead, r.solver, r.total, fingerprint_s,
             )
             append_csv_row(
                 RESULTS,
                 HEADER,
-                (stamp, commit, src_dirty, VERSION, T, N, name, variant, r.builds, r.build,
-                 r.solver, r.total, fingerprint_s, last(r.objectives), src_commit, highs),
+                (stamp, commit, src_dirty, VERSION, T, N, name, variant, r.builds, r.overhead,
+                 r.solver, r.total, fingerprint_s, last(r.objectives), src_commit, highs,
+                 r.phases...),
             )
         end
     end

@@ -28,8 +28,12 @@ variant. The objective of the primal LDR and of the hand LP must be
 90T + 20; the script warns otherwise. The dual value is a lower bound (for example 10673.33 against
 11540 at T = 128).
 
-Columns: `build_s` writes the JuMP model, `optimize_s` is `optimize!` (canonical form, moments,
-reformulation, inner solve), `solver_s` is the inner solver's time. The sizes are those of the
+Columns: `model_s` writes the JuMP model, `optimize_s` is `optimize!` (canonical form, moments,
+reformulation, inner solve), `solver_s` is the inner solver's time. The last seven columns split
+`optimize!` of the LDR variants into the phases of `time_breakdown`: `canonicalize_s` (reading the
+model, with its lifting and rescaling), `moments_s`, `checks_s`, `build_s` (building the inner
+problem), `solve_s`, `results_s` and `total_s`. They are empty for the hand-written LP and for the
+rows recorded before them, whose `model_s` was named `build_s`. The sizes are those of the
 reformulated model that is solved (constraints do not count variable bounds; nonzeros count the
 coefficients of the constraint matrix). Times are the best of 3 runs.
 
@@ -120,10 +124,12 @@ Writing the LDR models took under 0.5 ms at T = 128 in both recordings.
 `N` times with new values, keeping the inner problem (`cached`, the default) or emptying the cache
 before each `optimize!` (`rebuild`, what every re-solve did before the inner problems carried the
 parameters). It appends one row per formulation and variant, and warns if the objectives of the two
-variants differ. The columns, over the `N` re-solves: `build_s` is the time of `optimize!` outside
-the inner solver, `solver_s` the inner solver's time, `total_s` their sum; `fingerprint_s` is one
+variants differ. The columns, over the `N` re-solves: `overhead_s` is the time of `optimize!`
+outside the inner solver, `solver_s` the inner solver's time, `optimize_s` their sum, and the phases
+of `time_breakdown` summed over the re-solves (as in `timings.csv`); `fingerprint_s` is one
 comparison of fingerprints (canonical form, moments, settings), measured apart; `num_builds` counts
-the inner problems built during the re-solves.
+the inner problems built during the re-solves. In the rows recorded before the phases,
+`overhead_s` was named `build_s` and `optimize_s` was named `total_s`.
 
 The previous version had no parameters, so there is no comparison against 0.3.
 

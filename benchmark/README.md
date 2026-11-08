@@ -79,8 +79,11 @@ folder, which only checks that they still run. The commands of the studies are i
 Every row is tagged with `commit` (the commit of the repository), `src_commit` (the last commit
 that changed the measured code: `src/`, `Project.toml` and `test/problems/`), `src_dirty`
 (uncommitted changes to that code), the Julia version and `highs`, the version of the HiGHS library.
-Rows with the same `src_commit` measure the same code, whatever else changed, so the recordings
-below are named by their `src_commit`:
+The last seven columns of every file are the phases of `time_breakdown(model)`, through
+`phase_times` of `common.jl`: `canonicalize_s`, `moments_s`, `checks_s`, `build_s`, `solve_s`,
+`results_s` and `total_s`. They are empty in the rows recorded before them, and for models that do
+not use the package. Rows with the same `src_commit` measure the same code, whatever else changed,
+so the recordings below are named by their `src_commit`:
 
 | `src_commit` | `commit` of its rows | The measured code |
 |---|---|---|

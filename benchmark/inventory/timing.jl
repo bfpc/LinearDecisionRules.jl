@@ -14,9 +14,11 @@
 # The script warns if they do not.
 #
 # Variants: `hand`, `ldr_primal` (Formulations = [PrimalLDR()]), `ldr_dual` ([DualLDR()]).
-# `build` is the time to write the JuMP model, `optimize` the time of `optimize!` (it includes the
-# canonical form, the moments, the reformulation and the inner solve), `solver` the inner solver's
-# time. Sizes are those of the reformulated model that is solved.
+# `model_s` is the time to write the JuMP model, `optimize_s` the time of `optimize!` (it includes
+# the canonical form, the moments, the reformulation and the inner solve), `solver_s` the inner
+# solver's time. The LDR variants also record the phases of `time_breakdown` (see `PHASE_HEADER` in
+# `../common.jl`); the hand-written LP leaves them empty. Sizes are those of the reformulated model
+# that is solved.
 #
 # Results are appended to `results/timings.csv` next to this file (one row per T and variant),
 # tagged with the commit. They are recorded, not asserted: nothing here fails on a slowdown.
@@ -91,27 +93,29 @@ function build_hand(T)
 end
 
 function run_hand(T)
-    t_build = @elapsed model = build_hand(T)
+    t_model = @elapsed model = build_hand(T)
     t_opt = @elapsed optimize!(model)
     return (;
-        build = t_build,
+        model = t_model,
         optimize = t_opt,
         solver = solve_time(model),
         objective = objective_value(model),
         size = model_size(model),
+        phases = NO_PHASES,
     )
 end
 
 # For `DualLDR`, `objective_value(m, formulation)` is the bound.
 function run_ldr(T, formulation)
-    t_build = @elapsed m = build_ldr(T, formulation)
+    t_model = @elapsed m = build_ldr(T, formulation)
     t_opt = @elapsed optimize!(m)
     return (;
-        build = t_build,
+        model = t_model,
         optimize = t_opt,
         solver = solve_time(m, formulation),
         objective = objective_value(m, formulation),
         size = model_size(LDR.inner_model(m, formulation)),
+        phases = phase_times(m),
     )
 end
 
@@ -123,8 +127,8 @@ const VARIANTS = [
 
 const HEADER = [
     "timestamp", "commit", "src_dirty", "julia", "T", "variant", "num_variables",
-    "num_constraints", "nonzeros", "objective", "build_s", "optimize_s", "solver_s",
-    "src_commit", "highs",
+    "num_constraints", "nonzeros", "objective", "model_s", "optimize_s", "solver_s",
+    "src_commit", "highs", PHASE_HEADER...,
 ]
 
 function main(sizes)
@@ -144,14 +148,14 @@ function main(sizes)
                 @warn "Objective mismatch" T name res.objective expected
             end
             @printf(
-                "T=%-4d %-11s vars=%-7d cons=%-7d nnz=%-8d obj=%-10.4f build=%.3fs optimize=%.3fs solver=%.3fs\n",
-                T, name, res.size..., res.objective, res.build, res.optimize, res.solver,
+                "T=%-4d %-11s vars=%-7d cons=%-7d nnz=%-8d obj=%-10.4f model=%.3fs optimize=%.3fs solver=%.3fs\n",
+                T, name, res.size..., res.objective, res.model, res.optimize, res.solver,
             )
             append_csv_row(
                 RESULTS,
                 HEADER,
                 (stamp, commit, src_dirty, VERSION, T, name, res.size..., res.objective,
-                 res.build, res.optimize, res.solver, src_commit, highs),
+                 res.model, res.optimize, res.solver, src_commit, highs, res.phases...),
             )
         end
     end

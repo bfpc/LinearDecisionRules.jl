@@ -33,7 +33,9 @@
 #
 # Each model is solved once, with a time limit, after a run at T = 2 that compiles the code of the
 # problem and the solver. `value` is the value of the primal rule or the bound of the dual; `NaN`
-# when the formulation has none. Sizes are those of the inner model.
+# when the formulation has none. Sizes are those of the inner model. `solver_s` is the inner
+# solver's time, `optimize_s` the time of `optimize!`, and the last columns are the phases of
+# `time_breakdown` (see `PHASE_HEADER` in `common.jl`), empty in the rows recorded before them.
 #
 # The options, `name=value` with comma-separated values: `T`, `k`, `solver`, `kind` (`primal`,
 # `dual`), `lifted_box`, `rescale` (true or false), and `limit` (seconds).
@@ -136,6 +138,7 @@ function run_one(problem, T, k, kind, lifted_box, rescale, solver, limit)
         raw = replace(raw_status(model, f), "," => ";"),
         solver = value_or_nan(() -> solve_time(model, f)),
         optimize = time,
+        phases = phase_times(model),
     )
 end
 
@@ -161,6 +164,7 @@ const HEADER = [
     "raw_status",
     "solver_s",
     "optimize_s",
+    PHASE_HEADER...,
 ]
 
 # Run the grid of `args` (problems, then options), appending to `results`; `defaults` gives the
@@ -240,6 +244,7 @@ function main(args, results; defaults = Dict{String,String}())
                     r.raw,
                     r.solver,
                     r.optimize,
+                    r.phases...,
                 ),
             )
         end
