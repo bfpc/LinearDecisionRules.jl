@@ -36,7 +36,10 @@ uncertainties must be discrete with finitely many atoms, or continuous and univa
 uncertainty in a combination cannot have [`BreakPoints`](@ref LinearDecisionRules.BreakPoints)
 itself. With uncertainties of several stages, the combination is not supported by
 [`DualLDR`](@ref LinearDecisionRules.DualLDR): the dual bound needs the conditional expectations
-of the later stages given the earlier ones to be linear, which the pieces are not.
+of the later stages given the earlier ones to be linear, which the pieces are not. `optimize!`
+then skips `DualLDR()` with a warning (its termination status is `INVALID_MODEL`), and solves the
+other formulations; set [`Formulations`](@ref LinearDecisionRules.Formulations) to
+`[PrimalLDR()]` to leave it out.
 
 ## Example
 

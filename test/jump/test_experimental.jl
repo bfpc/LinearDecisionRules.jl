@@ -30,9 +30,6 @@ import LinearDecisionRules:
     rule_matrix,
     simulate
 
-include(joinpath(@__DIR__, "..", "common.jl"))
-import .TestCommon: error_message
-
 function runtests()
     for name in names(@__MODULE__; all = true)
         if startswith("$name", "test_")
@@ -146,10 +143,27 @@ function across_stages(formulations)
 end
 
 function test_across_stages()
+    # The dual is skipped, with a warning, and the primal solved.
     model = across_stages([PrimalLDR(), DualLDR()])
-    message = error_message(() -> optimize!(model))
-    @test occursin("DualLDR() does not support breakpoints on a combination", message)
-    @test occursin("d[2], d[3] (stages 2, 3)", message)
+    warning = (
+        :warn,
+        r"^DualLDR\(\) is skipped, since it does not support breakpoints on a combination of uncertainties of several stages, as for d\[2\], d\[3\] \(stages 2, 3\)",
+    )
+    @test_logs warning optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test termination_status(model, DualLDR()) == MOI.INVALID_MODEL
+    @test primal_status(model, DualLDR()) == MOI.NO_SOLUTION
+    @test startswith(
+        raw_status(model, DualLDR()),
+        "DualLDR() was skipped, since it does not support",
+    )
+    @test !is_certified(model)
+    @test_throws MOI.GetAttributeNotAllowed objective_bound(model)
+    skipped = objective_value(model)
+    # The same rule without the dual, and no warning.
+    model = across_stages([PrimalLDR()])
+    @test_logs optimize!(model)
+    @test objective_value(model) ≈ skipped
     model = across_stages([PrimalLDR(), SampledLDR(50)])
     optimize!(model)
     @test termination_status(model) == MOI.OPTIMAL

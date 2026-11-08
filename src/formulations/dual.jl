@@ -184,12 +184,13 @@ end
 
 # A combination with breakpoints of uncertainties of several stages breaks the linear conditional
 # expectations that the dual bound needs: its pieces are not affine in the earlier uncertainties
-# (see `CombinationPiecewise`). `optimize!` checks it before solving any formulation.
-function _check_combinations_across_stages(form::CanonicalForm, formulations)
-    any(f -> f isa DualLDR, formulations) || return
-    form.lifting === nothing && return
-    map = form.lifting
+# (see `CombinationPiecewise`). The combinations of several stages of `form`, each as
+# `"a, b (stages 2, 3)"`: `optimize!` skips `DualLDR` for them, with a warning
+# (`_warn_combinations_across_stages`), and its result says why (`_skipped_result`).
+function _combinations_across_stages(form::CanonicalForm)
     across = String[]
+    form.lifting === nothing && return across
+    map = form.lifting
     for block in map.blocks
         _keeps_inputs(block.lifting) || continue
         stages = sort!(unique(map.uncertainty_stages[j-1] for j in block.inputs))
@@ -197,13 +198,24 @@ function _check_combinations_across_stages(form::CanonicalForm, formulations)
         names = _name_list([map.uncertainty_names[j-1] for j in block.inputs])
         push!(across, "$names (stages $(join(stages, ", ")))")
     end
-    isempty(across) && return
-    return error(
-        "DualLDR() does not support breakpoints on a combination of uncertainties of several " *
-        "stages, as for $(join(across, "; ")): the pieces of the combination are not affine in " *
-        "the uncertainties of the earlier stages, so the dual would not be a bound. Use " *
-        "PrimalLDR() or SampledLDR() for this model, or combinations within one stage.",
+    return across
+end
+
+# Why `DualLDR` is skipped, completing "DualLDR() is skipped, since it ...".
+function _combinations_across_stages_reason(across::Vector{String})
+    return "does not support breakpoints on a combination of uncertainties of several stages, " *
+           "as for $(join(across, "; ")): the pieces of the combination are not affine in the " *
+           "uncertainties of the earlier stages, so the dual would not be a bound"
+end
+
+function _warn_combinations_across_stages(across::Vector{String})
+    @warn(
+        "DualLDR() is skipped, since it $(_combinations_across_stages_reason(across)). The " *
+        "other formulations are solved. To solve them without this warning, remove DualLDR() " *
+        "from Formulations(), such as `set_attribute(model, Formulations(), [PrimalLDR()])`, or " *
+        "use combinations within one stage.",
     )
+    return
 end
 
 function _warn_stage_dependence(form::CanonicalForm)

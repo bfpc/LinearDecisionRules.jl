@@ -394,7 +394,10 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     lifted_moments = Ref(0.0)
     conic_support = _inner_supports_cones(factory, info)
     form = _canonicalize(src, info, lifted_moments; conic_support)
-    _check_combinations_across_stages(form, dest.formulations)
+    # `DualLDR` is skipped for combinations of several stages, and the other formulations solved.
+    across = _combinations_across_stages(form)
+    skip_dual = !isempty(across) && any(f -> f isa DualLDR, dest.formulations)
+    skip_dual && _warn_combinations_across_stages(across)
     canonicalize_time = _seconds_since(start) - lifted_moments[]
     moments_start = time_ns()
     # Without `RejectionSamplingTimeLimit()`, the sampling gets half of what remains of
@@ -418,6 +421,9 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     checks_time = _seconds_since(checks_start)
     # `TimeLimitSec` limits the whole call: each formulation gets the time that remains.
     results = map(dest.formulations) do f
+        if skip_dual && f isa DualLDR
+            return _skipped_result(f, form, _combinations_across_stages_reason(across))
+        end
         inner = _cached_problem(cache, f)
         result = _solve!(f, inner_form, inner_mom, start, dest.time_limit; inner) do
             built = _build_inner(

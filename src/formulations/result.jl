@@ -116,6 +116,26 @@ function _time_limit_result(f::AbstractFormulation, form::CanonicalForm, mom::Mo
     )
 end
 
+# The result of a formulation that does not support the model and was not built, with the reason
+# as its raw status: `INVALID_MODEL`, no solution, and no bound.
+function _skipped_result(f::AbstractFormulation, form::CanonicalForm, reason::String)
+    k = 1 + length(form.uncertainties)
+    return FormulationResult(
+        f,
+        MOI.INVALID_MODEL,
+        MOI.NO_SOLUTION,
+        "$f was skipped, since it $reason.",
+        NaN,
+        NaN,
+        false,
+        0.0,
+        0.0,
+        0.0,
+        fill(NaN, length(form.decisions), k),
+        JuMP.Model(),
+    )
+end
+
 function _has_integers(model::JuMP.Model)
     return JuMP.num_constraints(model, JuMP.VariableRef, MOI.Integer) +
            JuMP.num_constraints(model, JuMP.VariableRef, MOI.ZeroOne) > 0

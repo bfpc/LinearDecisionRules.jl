@@ -16,7 +16,7 @@ include(joinpath(@__DIR__, "..", "common.jl"))
 # 5 subsystems, T = 3 stages (2 uncertain vectors of 4 inflows, 82 joint scenarios each).
 include(joinpath(@__DIR__, "hydro.jl"))
 
-import .TestCommon: error_message, model_size
+import .TestCommon: model_size
 
 const T = 3
 
@@ -101,9 +101,14 @@ function test_combinations()
     optimize!(pairs)
     @test termination_status(pairs) == MOI.OPTIMAL
     @test objective_value(pairs) ≈ 1.116113618296 rtol = 1e-6
-    refused = ldr_model(data, T; formulations = both, combinations = (:pair, 5))
-    message = error_message(() -> optimize!(refused))
-    @test occursin("DualLDR() does not support breakpoints on a combination", message)
+    # With the dual among the formulations, it is skipped with a warning, and the primal solved.
+    skipped = ldr_model(data, T; formulations = both, combinations = (:pair, 5))
+    @test_logs (:warn, r"^DualLDR\(\) is skipped") match_mode = :any optimize!(skipped)
+    @test termination_status(skipped, LDR.DualLDR()) == MOI.INVALID_MODEL
+    @test termination_status(skipped) == MOI.OPTIMAL
+    primal = ldr_model(data, T; combinations = (:pair, 5))
+    optimize!(primal)
+    @test objective_value(skipped) ≈ objective_value(primal) rtol = 1e-9
     return
 end
 
