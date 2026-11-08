@@ -433,6 +433,10 @@ function _original_names(form::CanonicalForm)
     return form.lifting === nothing ? form.uncertainty_names : form.lifting.uncertainty_names
 end
 
+function _original_stages(form::CanonicalForm)
+    return form.lifting === nothing ? form.uncertainty_stages : form.lifting.uncertainty_stages
+end
+
 # The `AxisPiecewise` lifting of each uncertainty with breakpoints: a vector of breakpoints, or a
 # number `n` of equally spaced breakpoints inside the support. No breakpoint means no lifting.
 function _breakpoint_liftings(src, form::CanonicalForm, breakpoints)

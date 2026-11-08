@@ -17,7 +17,9 @@ Use it without bridges, since a bridge would add variables that have no stage:
 
  * **Decisions**, each in a stage, tagged with [`Stage`](@ref) or [`FirstStage`](@ref); an
    untagged variable is in the last stage. Bounds are allowed, and `Integer` or `ZeroOne` only on
-   the decisions of stage 1.
+   the decisions of stage 1. Integer decisions observe no uncertainty, not even those of stage 1:
+   `optimize!` warns when there are both, since the bound of [`DualLDR`](@ref) is then that of
+   integer decisions taken before any uncertainty is revealed.
  * **Uncertainties**, declared with [`Uncertainty`](@ref), whose laws have a bounded support. They
    have no bounds and are not integer: their law says where they are.
  * **Constraints** `LessThan`, `GreaterThan`, `EqualTo` and `Interval`, and vector constraints in
@@ -410,7 +412,9 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     moments_time = lifted_moments[] + _seconds_since(moments_start)
     checks_start = time_ns()
     _check_convex_objective(form)
-    _warn_singular_moments(form, mom)
+    # Only the bound of the dual needs `M ≻ 0`: the primal and sampled rules never invert it.
+    any(f -> capabilities(f).bound, dest.formulations) && _warn_singular_moments(form, mom)
+    _warn_integer_before_stage_one(form)
     checks_time = _seconds_since(checks_start)
     # The formulations solve the form in the rescaled uncertainties; their rules are mapped back.
     # The rescaling transforms the form, as the lifting does: its time counts in `canonicalize`.

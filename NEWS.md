@@ -152,7 +152,9 @@ Julia 1.11 and later).
 - With breakpoints, uncertainties in the objective were not lifted.
 - Clearing breakpoints after a solve left stale state.
 - A failed rejection sampler counted a zero vector as a sample; every group reused the same seed.
-- An integer first-stage decision could depend on first-stage uncertainty.
+- An integer first-stage decision could depend on first-stage uncertainty. It now observes no
+  uncertainty, and `optimize!` warns when a model has integer decisions and uncertainties of
+  stage 1.
 - The dual dropped every inequality of a model with no bounded uncertainty (bound 0 for `Max 2x, x ≤ 3`).
 - Values of an infeasible or unbounded inner problem (rays, certificates) were reported as results;
   the bound of an inner MIP used its incumbent instead of its bound; an inner solve ending in an

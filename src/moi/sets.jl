@@ -93,6 +93,11 @@ It is a `VariableIndex`-in-set constraint, so that stages show in `print(model)`
 with the variable on `delete`. It is also the tag of `@variable(model, x, Stage(t))`. Constraints
 have no stage. Stages start at 1.
 
+An uncertainty of stage 1 is revealed before the first decisions, and the continuous decisions of
+stage 1 observe it; most stochastic programs have none, with a deterministic first stage. Integer
+decisions observe no uncertainty, not even those of stage 1, and `optimize!` warns when a model has
+both.
+
 See also [`FirstStage`](@ref), [`stage`](@ref), [`set_stage`](@ref), [`unset_stage`](@ref).
 """
 struct Stage <: MOI.AbstractScalarSet

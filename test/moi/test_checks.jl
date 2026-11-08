@@ -18,6 +18,7 @@ import LinearDecisionRules:
     LDRModel,
     MvDiscreteNonParametric,
     PrimalLDR,
+    Stage,
     Uncertainty,
     is_certified
 
@@ -117,6 +118,11 @@ function test_singular_law_warns()
         raw_status(model, DualLDR()),
         "[not certified: the second-moment matrix is singular]",
     )
+    # Without the dual, there is nothing to warn about: the primal never inverts M.
+    model = discrete_model(law)
+    set_attribute(model, LinearDecisionRules.Formulations(), [PrimalLDR()])
+    @test_logs optimize!(model)
+    @test is_certified(model, PrimalLDR())
     return
 end
 
@@ -163,6 +169,31 @@ function test_lifted_law_with_few_atoms_warns()
     # With one breakpoint, 3 atoms are enough.
     set_attribute(d, BreakPoints(), [90.0])
     @test_logs optimize!(model)
+    return
+end
+
+# An integer decision with uncertainties of stage 1: it observes none of them, which `optimize!`
+# says. A model with the uncertainty in stage 2, or without integer decisions, does not warn.
+function integer_model(stage; integer = true)
+    model = LDRModel(HiGHS.Optimizer)
+    set_silent(model)
+    @variable(model, p in Uncertainty(Distributions.Uniform(1, 2)), Stage(stage))
+    @variable(model, 0 <= build <= 3, FirstStage, integer = integer)
+    @variable(model, 0 <= use <= 3, Stage(2))
+    @variable(model, d in Uncertainty(Distributions.Uniform(0, 2)), Stage(2))
+    @constraint(model, use <= build)
+    @constraint(model, use <= d)
+    @objective(model, Max, 2use - p * 0.1 * use - 0.5build)
+    return model
+end
+
+function test_integer_before_stage_one_warns()
+    warning = (:warn, r"integer decisions build observe no uncertainty.*stage 1 \(p\)")
+    model = integer_model(1)
+    @test_logs warning match_mode = :any optimize!(model)
+    @test termination_status(model) == MOI.OPTIMAL
+    @test_logs optimize!(integer_model(2))
+    @test_logs optimize!(integer_model(1; integer = false))
     return
 end
 

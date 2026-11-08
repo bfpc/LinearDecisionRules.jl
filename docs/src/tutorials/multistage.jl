@@ -29,12 +29,21 @@ using Test #src
 # In a multistage problem, the decisions and the uncertainties have a **stage**, tagged with
 # `Stage(t)`: the uncertainties of stage ``t`` are revealed before the decisions of stage ``t``,
 # which then see all the uncertainties of the stages up to ``t``, and none of the later ones.
-# The decisions of stage 1 (also written [`FirstStage`](@ref)) are made here and now, with no
-# information. A decision rule has coefficients only on the uncertainties that its decision
-# observes: this is what is called nonanticipativity, and the package enforces it.
+# The decisions of stage 1 (also written [`FirstStage`](@ref)) are made here and now: in this
+# tutorial no uncertainty is in stage 1, so they use no information. A decision rule has
+# coefficients only on the uncertainties that its decision observes: this is what is called
+# nonanticipativity, and the package enforces it.
 #
 # An untagged variable is in the last stage ``T``, the largest declared stage (and at least 2), with
 # a warning when ``T > 2``: declare the stages of all the variables of a multistage model.
+#
+# !!! note "Uncertainties in stage 1"
+#     An uncertainty may also be in stage 1: it is then revealed before the first decisions, as a
+#     forecast or a measured state would be, and the continuous decisions of stage 1 observe it.
+#     The model is meaningful, and the package accepts it, but it is not the usual one in
+#     stochastic programming, where the first stage is deterministic and the uncertainties start in
+#     stage 2. Integer decisions are an exception: they observe no uncertainty, not even those of
+#     stage 1, and `optimize!` warns when a model has both.
 
 # ## The inventory problem
 
