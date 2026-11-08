@@ -35,6 +35,21 @@ function git_info()
     return (; commit, src_commit, src_dirty)
 end
 
+# Whether a failed check of the values is an error, with `LDR_BENCHMARK_STRICT=true` (the smoke run
+# of the CI sets it), or a warning, so that a long recording is not lost to one bad value. In strict
+# mode the error comes before the row is written.
+const STRICT = get(ENV, "LDR_BENCHMARK_STRICT", "false") == "true"
+
+function check(ok::Bool, message::String; values...)
+    ok && return
+    if STRICT
+        details = join(("$k = $v" for (k, v) in values), ", ")
+        error(isempty(details) ? message : "$message ($details)")
+    end
+    @warn(message, values...)
+    return
+end
+
 # The version of the HiGHS library (not of the HiGHS.jl wrapper).
 function highs_version()
     version = (HiGHS.Highs_versionMajor(), HiGHS.Highs_versionMinor(), HiGHS.Highs_versionPatch())

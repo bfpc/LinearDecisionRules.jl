@@ -79,7 +79,13 @@ Each script appends its rows to its CSV file, in the folder `results/` next to i
 time, so that an interrupted run keeps its results. The environment variable
 `LDR_BENCHMARK_RESULTS` names another folder for all the CSV files; the CI workflow `Benchmarks`
 uses it to run the three scripts above and `scaling/rescale.jl` at tiny sizes into a temporary
-folder, which only checks that they still run. The commands of the studies are in their READMEs.
+folder, to check that they still run. The scripts also check their values: `timing.jl` that the
+primal LDR and the hand-written LP equal 90T + 20 and that the dual is not above it, `resolve.jl`
+that the cached and rebuilt re-solves agree, `hydro/run.jl` that no dual bound exceeds the primal
+value, and `grid.jl` that the values do not depend on `lifted_box` or `rescale`. A failed check
+warns, so that a long recording is not lost to one value; with `LDR_BENCHMARK_STRICT=true`, which
+the CI workflow sets, it is an error, raised before the row is written. The commands of the
+studies are in their READMEs.
 
 Every row is tagged with `commit` (the commit of the repository), `src_commit` (the last commit
 that changed the measured code: `src/`, `Project.toml` and `test/problems/`), `src_dirty`

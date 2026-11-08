@@ -33,7 +33,9 @@
 #
 # Each model is solved once, with a time limit, after runs at T = 3 that compile the code of the
 # problem and the solver. `value` is the value of the primal rule or the bound of the dual; `NaN`
-# when the formulation has none. Sizes are those of the inner model. `solver_s` is the inner
+# when the formulation has none; the optimal values of one instance and formulation must agree
+# across `lifted_box` and `rescale` (a warning, or an error with `LDR_BENCHMARK_STRICT=true`, see
+# `common.jl`). Sizes are those of the inner model. `solver_s` is the inner
 # solver's time, `optimize_s` the time of `optimize!`, and the last columns are the phases of
 # `time_breakdown` (see `PHASE_HEADER` in `common.jl`), empty in the rows recorded before them.
 #
@@ -210,12 +212,31 @@ function main(args, results; defaults = Dict{String,String}())
     end
     (; commit, src_commit, src_dirty) = git_info()
     highs = highs_version()
+    # The first optimal value of each instance and formulation: `lifted_box` and the rescaling
+    # change the inner problem, not its value, so the others must agree with it.
+    values = Dict{Any,Float64}()
     for problem in problems, solver in solvers
         for kind in kinds, lifted_box in boxes, rescale in rescales  # compile
             run_one(problem, 3, 1, kind, lifted_box, rescale, solver, limit)
         end
         for T in Ts, k in ks, kind in kinds, lifted_box in boxes, rescale in rescales
             r = run_one(problem, T, k, kind, lifted_box, rescale, solver, limit)
+            if r.status == "OPTIMAL"
+                value = get!(values, (problem, solver, T, k, kind), r.value)
+                check(
+                    isapprox(r.value, value; rtol = 1e-6),
+                    "The value depends on lifted_box or rescale";
+                    problem,
+                    solver,
+                    T,
+                    k,
+                    kind,
+                    lifted_box,
+                    rescale,
+                    value = r.value,
+                    first = value,
+                )
+            end
             @printf(
                 "%-10s T=%-3d k=%d %-6s lifted_box=%-5s rescale=%-14s %-7s vars=%-7d cons=%-7d nnz=%-8d value=%-16.8g solver=%7.1fs %s\n",
                 problem,

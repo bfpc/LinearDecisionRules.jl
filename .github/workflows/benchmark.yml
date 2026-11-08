@@ -1,6 +1,7 @@
 name: Benchmarks
 # A smoke run: the benchmark scripts at tiny sizes, so that a change of the package that breaks
-# them is seen. Nothing is timed or compared, and the CSV files go to a temporary folder.
+# them is seen. Nothing is timed, and the CSV files go to a temporary folder. The checks of the
+# values that the scripts make (see `check` in `benchmark/common.jl`) are errors here.
 on:
   push:
     branches:
@@ -27,6 +28,7 @@ jobs:
       - name: Run the scripts
         env:
           LDR_BENCHMARK_RESULTS: ${{ runner.temp }}/benchmark-results
+          LDR_BENCHMARK_STRICT: 'true'
         run: |
           julia --project=benchmark benchmark/inventory/timing.jl 2 4
           julia --project=benchmark benchmark/inventory/resolve.jl 4 2

@@ -15,8 +15,8 @@
 # `optimize!`, and the phases of `time_breakdown` (see `PHASE_HEADER` in `../common.jl`) summed over
 # them. `fingerprint_s` is the time of one comparison of fingerprints (canonical form,
 # moments, settings), measured apart. The objectives of the two variants must agree at every
-# re-solve; the script warns otherwise. `num_builds` counts the inner problems built during the
-# re-solves: 0 when cached, N when rebuilt.
+# re-solve; the script warns otherwise (an error in strict mode, see `../common.jl`). `num_builds`
+# counts the inner problems built during the re-solves: 0 when cached, N when rebuilt.
 #
 # Results are appended to `results/resolve.csv` next to this file, one row per formulation and
 # variant, tagged with the commit. Run it alone on an idle machine (timings of parallel runs vary by ±30%).
@@ -100,9 +100,13 @@ function main(T, N)
         fingerprint_s = fingerprint_time(T, f)
         runs = Dict(variant => run(T, N, f, variant) for variant in ("cached", "rebuild"))
         a, b = runs["cached"].objectives, runs["rebuild"].objectives
-        if !isapprox(a, b; rtol = 1e-6)
-            @warn "Objectives differ between cached and rebuilt re-solves" name a b
-        end
+        check(
+            isapprox(a, b; rtol = 1e-6),
+            "Objectives differ between cached and rebuilt re-solves";
+            name,
+            cached = a,
+            rebuilt = b,
+        )
         for variant in ("cached", "rebuild")
             r = runs[variant]
             @printf(

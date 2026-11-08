@@ -11,7 +11,7 @@
 # The primal LDR and the hand-written LP are exact reformulations of the same robust
 # problem (box support): the primal LDR and the hand LP must agree, and equal 90T + 20 for the data
 # below; the dual LDR value is a lower bound on it (not an equality).
-# The script warns if they do not.
+# The script warns if they do not (an error with `LDR_BENCHMARK_STRICT=true`, see `../common.jl`).
 #
 # Variants: `hand`, `ldr_primal` (Formulations = [PrimalLDR()]), `ldr_dual` ([DualLDR()]).
 # `model_s` is the time to write the JuMP model, `optimize_s` the time of `optimize!` (it includes
@@ -144,9 +144,7 @@ function main(sizes)
             res, _ = best_of(() -> f(T), REPS)
             # The dual is a lower bound on the optimum, which the primal LDR attains here.
             ok = name == "ldr_dual" ? res.objective <= expected + 1e-6 * expected : isapprox(res.objective, expected; rtol = 1e-6)
-            if !ok
-                @warn "Objective mismatch" T name res.objective expected
-            end
+            check(ok, "Objective mismatch"; T, name, objective = res.objective, expected)
             @printf(
                 "T=%-4d %-11s vars=%-7d cons=%-7d nnz=%-8d obj=%-10.4f model=%.3fs optimize=%.3fs solver=%.3fs\n",
                 T, name, res.size..., res.objective, res.model, res.optimize, res.solver,

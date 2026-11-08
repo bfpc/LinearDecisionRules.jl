@@ -28,7 +28,8 @@
 # whose first run takes longer than SLOW_S is run once) and the inner solver's termination status.
 #
 # Results are appended to `results/hydro.csv` next to this file, tagged with the commit. They are
-# recorded, not asserted.
+# recorded, not asserted, except that a dual bound above the primal value of the same law and T
+# warns (an error with `LDR_BENCHMARK_STRICT=true`, see `../common.jl`).
 #
 # Usage (from the repository root):
 #   julia --project=benchmark benchmark/hydro/run.jl                   # T = 4, 8, 12
@@ -130,6 +131,29 @@ function variants(data, T, branches, bps = Int[])
     return list
 end
 
+# The bound of a dual variant cannot exceed the value of the primal variant of the same law and T
+# (the cost is minimized): `ldr_dual` and `ldr_dual_ipm` against `ldr_primal`, `ldr_dual_bp<k>`
+# against `ldr_primal_bp<k>`. `values` keeps the primal values of the run; a value that is `NaN`
+# (no solution, or the time limit) or a primal that was not run is not checked.
+function check_bound!(values, T, name, objective)
+    law = replace(name, r"^ldr_(primal|dual_ipm|dual)" => "")
+    if startswith(name, "ldr_primal")
+        values[(T, law)] = objective
+    elseif startswith(name, "ldr_dual") && haskey(values, (T, law)) && !isnan(objective)
+        value = values[(T, law)]
+        isnan(value) && return
+        check(
+            objective <= value + 1e-6 * abs(value),
+            "The dual bound exceeds the primal value";
+            T,
+            variant = name,
+            bound = objective,
+            value,
+        )
+    end
+    return
+end
+
 const HEADER = [
     "timestamp", "commit", "src_dirty", "julia", "T", "variant", "num_variables",
     "num_constraints", "nonzeros", "objective", "model_s", "optimize_s", "solver_s",
@@ -147,6 +171,7 @@ function main(args)
     highs = highs_version()
     stamp = timestamp()
     data = hydro_thermal_data()
+    values = Dict{Tuple{Int,String},Float64}()  # the primal values, for `check_bound!`
     for (_, f) in variants(data, 2, 2, [1])  # compile everything before timing
         f()
     end
@@ -161,6 +186,7 @@ function main(args)
             end
             run_it || continue
             res, reps = best_of(f, REPS; slow = SLOW_S)
+            check_bound!(values, T, name, res.objective)
             b = name == "tree" ? branches : 0
             k = occursin("_bp", name) ? parse(Int, split(name, "_bp")[2]) : ""
             @printf(
