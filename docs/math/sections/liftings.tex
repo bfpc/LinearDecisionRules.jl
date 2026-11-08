@@ -330,8 +330,10 @@ and 1 for the inventory, in the middle of its range.
 Combinations of two inputs help the most, those of four or eight inputs less (not at all at $T = 3$),
 and the cumulative demand of the inventory, its natural state, not at all.
 A chain of combinations over consecutive stages merges the laws of all the stages into one support block:
-the hydrothermal problem with the inflows of each reservoir over two stages takes 404~s at $T = 5$ (about 50~s of moments and 300~s of solver),
-against 1.3~s without breakpoints.
+the primal rule of the hydrothermal problem with the inflows of each reservoir over two stages takes 224~s at $T = 5$,
+almost all of it in the solver (0.2~s of moments, from the laws of sums of \cref{sec:lifted-moments}), with 159,908 variables in the inner problem,
+against 2.4~s and 18,340 variables without breakpoints
+(HiGHS's dual simplex, with the rescaling of \cref{sec:rescaling}; measured with \code{time\_breakdown}).
 
 \begin{table}[ht]
 \centering
