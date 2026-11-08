@@ -56,19 +56,24 @@ julia --project=benchmark benchmark/hydro/run.jl                  # T = 4, 8, 12
 
 The machine itself drifts between days. On 31 October 2026 the same models took about 1.7 times as
 long as on 25 October and 5 November, while four rounds in a row on 5 November differed by 2 to 4%.
-So check its state on two models before a recording, and compare with the times of the machine of
-these READMEs (Windows 11, Julia 1.12.6, HiGHS 1.15.1, code of c359166, 5 November 2026):
+So check its state before a recording with `julia --project=benchmark
+benchmark/inventory/timing.jl 128`, and compare two of its rows with the times of the machine of
+these READMEs (Windows 11, Julia 1.12.6, HiGHS 1.15.1):
 
-| Model | Command | Solver time |
-|---|---|--:|
-| the inventory dual, T = 128 | `inventory/timing.jl 128`, row `ldr_dual` | 7.1 to 7.4 s |
-| the hydro dual with 1 breakpoint, T = 4 | `hydro/run.jl 4 bp=1`, row `ldr_dual_bp1` | 5.8 to 6.0 s |
+| Row | Model | Solver time | Measured |
+|---|---|--:|---|
+| `hand` | the hand-written LP of the inventory, T = 128 | 1.95 to 1.97 s | 8 November 2026 |
+| `ldr_primal` | the primal LDR of the same inventory | 1.23 to 1.25 s | 8 November 2026, code of c359166 and e2e212f |
 
-If one of them is more than 10% slower, wait, or restart the machine and wait: on 5 November, a run
+The hand-written LP does not use the package, so its time depends on the machine and HiGHS alone.
+The primal LDR depends on the code too: a change of the package can change its time without any
+change of the machine, as the rescaling of the uncertainties (82c4496) changed those of the duals.
+When its time moves and that of the LP does not, look for the commit; when both move, the machine.
+If the LP is more than 10% slower, wait, or restart the machine and wait: on 5 November, a run
 soon after a restart was still 10 to 25% slower, and a run 1h45 later was not. A recording on a
 slower day is still kept, with a note of its speed, as in the
 [`lifted_box` study](#redundant-box-rows-of-liftings-october-2026-lifted_box). Update the table
-with each recording.
+with each recording, and the commit of the primal LDR when its time changes.
 
 Each script appends its rows to its CSV file, in the folder `results/` next to it, one row at a
 time, so that an interrupted run keeps its results. The environment variable
