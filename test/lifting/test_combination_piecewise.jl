@@ -439,10 +439,13 @@ function test_errors()
     form(f, points) = Problems.form(with_combinations(p, f => points))
     @test occursin("not an uncertainty", error_message(() -> form(demand[1] + buy[1], 2)))
     @test occursin("nonzero coefficient", error_message(() -> form(0.0 * demand[1] + 1.0, 2)))
-    @test occursin(
-        "strictly inside the range",
-        error_message(() -> form(demand[1] + demand[2], [150.0])),
-    )
+    # The errors of the lifting, of its law and of its hull name the combination.
+    msg = error_message(() -> form(demand[1] + demand[2], [150.0]))
+    @test occursin("The lifting of the combination (demand[1] + demand[2]) is invalid", msg)
+    @test occursin("strictly inside the range", msg)
+    msg = error_message(() -> form(demand[1] + demand[2], [120.0, 120.0]))
+    @test occursin("The lifting of the combination (demand[1] + demand[2]) is invalid", msg)
+    @test occursin("must be distinct", msg)
     @test occursin("nonnegative", error_message(() -> form(demand[1] + demand[2], -1)))
     # No breakpoint, no lifting.
     @test Problems.form(with_combinations(p, demand[1] + demand[2] => 0)).lifting === nothing

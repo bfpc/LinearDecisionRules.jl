@@ -297,12 +297,15 @@ function _combination_laws(form, laws, kept, liftings, inputs, pieces, m̃::Int,
         position = Dict(j => p for (p, j) in enumerate(columns))
         # A product of univariate laws is merged as its components, so that each is integrated or
         # enumerated on its own.
+        names = [_combination_name(form, liftings[c], inputs[c]) for c in combos]
         start = time_ns()
-        d = _CombinationLaw(
-            reduce(vcat, [_components(law.distribution) for law in originals]),
-            liftings[combos],
-            [[position[j] for j in inputs[c]] for c in combos],
-        )
+        d = _named_lifting_error(join(names, " and "), "combination") do
+            return _CombinationLaw(
+                reduce(vcat, [_components(law.distribution) for law in originals]),
+                liftings[combos],
+                [[position[j] for j in inputs[c]] for c in combos],
+            )
+        end
         moment_seconds[] += _seconds_since(start)
         block_columns = vcat([kept[j] for j in columns], (pieces[c] for c in combos)...)
         block_stages = vcat(
@@ -312,8 +315,10 @@ function _combination_laws(form, laws, kept, liftings, inputs, pieces, m̃::Int,
             )...,
         )
         merged[first(members)] = UncertaintyBlock(d, block_columns, block_stages)
-        for (c, (s_min, s_max)) in zip(combos, d.ranges)
-            W_η, W_p, rhs = _hull_rows(liftings[c], s_min, s_max)
+        for (c, name, (s_min, s_max)) in zip(combos, names, d.ranges)
+            W_η, W_p, rhs = _named_lifting_error(name, "combination") do
+                return _hull_rows(liftings[c], s_min, s_max)
+            end
             for r in axes(W_η, 1)
                 row = length(h) + r
                 for (i, j) in enumerate(inputs[c])
@@ -339,14 +344,18 @@ end
 
 # A name for the combination `l` of the columns `columns` of ξ, as `"(2 a + b - 1)"`.
 function _combination_name(form::CanonicalForm, l::CombinationPiecewise, columns::Vector{Int})
+    names = [form.uncertainty_names[j-1] for j in columns]
+    return _combination_name(names, l.coefficients, l.constant)
+end
+
+function _combination_name(names::Vector{String}, coefficients, constant::Real)
     terms = String[]
-    for (w, j) in zip(l.coefficients, columns)
-        name = form.uncertainty_names[j-1]
+    for (w, name) in zip(coefficients, names)
         sign = w < 0 ? "-" : "+"
         magnitude = abs(w) == 1 ? name : "$(_short(abs(w))) $name"
         push!(terms, isempty(terms) ? (w < 0 ? "-$magnitude" : magnitude) : "$sign $magnitude")
     end
-    iszero(l.constant) || push!(terms, "$(l.constant < 0 ? "-" : "+") $(_short(abs(l.constant)))")
+    iszero(constant) || push!(terms, "$(constant < 0 ? "-" : "+") $(_short(abs(constant)))")
     return "(" * join(terms, " ") * ")"
 end
 
@@ -392,7 +401,11 @@ function _combination_liftings(src, form::CanonicalForm, combinations)
             points = collect(range(s_min, s_max; length = points + 2)[2:end-1])
         end
         isempty(points) && continue
-        push!(out, inputs => CombinationPiecewise(a, points; constant = f.constant))
+        name = _combination_name([_variable_name(src, v) for v in inputs], a, f.constant)
+        lifting = _named_lifting_error(name, "combination") do
+            return CombinationPiecewise(a, points; constant = f.constant)
+        end
+        push!(out, inputs => lifting)
     end
     return out
 end
@@ -475,12 +488,13 @@ function _breakpoint_liftings(src, form::CanonicalForm, breakpoints)
     return liftings
 end
 
-# Name the uncertainty in the `ArgumentError` of a lifting.
-function _named_lifting_error(f::Function, name::String)
+# Name the uncertainty, or the combination (`what = "combination"`), in the `ArgumentError` of a
+# lifting.
+function _named_lifting_error(f::Function, name::String, what::String = "uncertainty")
     try
         return f()
     catch err
         err isa ArgumentError || rethrow()
-        error("The lifting of the uncertainty $name is invalid: $(err.msg)")
+        error("The lifting of the $what $name is invalid: $(err.msg)")
     end
 end
