@@ -449,6 +449,51 @@ function test_errors()
     return
 end
 
+# `(η₁, η₂, η₃)` with `η₁, η₂ ∈ {0, 1}` and `η₃ = η₁ + η₂ ± 1`: the conditional expectation of `η₃`
+# given `η₁, η₂` is `η₁ + η₂`, and given `η₁` alone it is `η₁ + 1/2`.
+const NOISY_SUM = MvDiscreteNonParametric(
+    [[a, b, a + b + e] for a in 0.0:1.0 for b in 0.0:1.0 for e in (-1.0, 1.0)],
+    fill(1 / 8, 8),
+)
+
+# The trait that the dual bound reads, for the merged law of the inputs of combinations: `stages`
+# are those of the coordinates of the laws, and each piece is in the stage of its inputs.
+function test_linear_conditional_expectations()
+    function lce(d, stages)
+        return LDR._linear_conditional_expectations(
+            d,
+            [
+                stages
+                [stages[first(c)] for (c, l) in zip(d.inputs, d.liftings) for _ in l.breakpoints]
+            ],
+        )
+    end
+    l = CombinationPiecewise([1.0, 1.0], [1.0])
+    # A combination of the stage-2 coordinates of a law over stages 2 and 3 that has the property:
+    # the pieces are known from stage 2 on, and nothing comes before them.
+    d = LDR._CombinationLaw([NOISY_SUM], [l], [[1, 2]])
+    @test lce(d, [2, 2, 3]) === true
+    @test lce(d, [2, 2, 2]) === true
+    # A law that fails it fails it with the pieces.
+    square = MvDiscreteNonParametric(
+        [[a, b, (a - b)^2 + e] for a in 0.0:1.0 for b in 0.0:1.0 for e in (-1.0, 1.0)],
+        fill(1 / 8, 8),
+    )
+    @test lce(LDR._CombinationLaw([square], [l], [[1, 2]]), [2, 2, 3]) === false
+    # A combination of the stage-3 coordinates of a law with a coordinate in stage 2: the expectation
+    # of the pieces given `η₁` is not known to be affine.
+    d = LDR._CombinationLaw([NOISY_SUM], [CombinationPiecewise([1.0, 1.0], [1.5])], [[2, 3]])
+    @test lce(d, [2, 3, 3]) === nothing
+    # The same with independent univariate laws (the components of a product): a constant.
+    u = Distributions.Uniform(0, 1)
+    d = LDR._CombinationLaw([u, u, u], [l], [[2, 3]])
+    @test lce(d, [2, 3, 3]) === true
+    # A combination of several stages.
+    d = LDR._CombinationLaw([u, u], [l], [[1, 2]])
+    @test lce(d, [2, 3]) === false
+    return
+end
+
 end # module TestCombinationPiecewise
 
 TestCombinationPiecewise.runtests()

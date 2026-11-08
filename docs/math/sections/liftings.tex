@@ -294,8 +294,14 @@ When the uncertainties of $J$ are in several stages, the pieces are in the last 
 and their conditional expectation given the earlier stages is a nonlinear function of the observed uncertainties:
 condition~\ref{it:lce} of \cref{thm:dual-bound} fails, and the dual approximation is not known to bound the problem.
 The primal approximation needs no such condition: this is the history-dependent lifting of \citet[Remark~6.5]{GWK2015}.
-So \code{DualLDR} refuses these combinations before any solve; a combination within one stage keeps the dual bound,
-since its law is then in one stage (\cref{rem:lce}).
+So \code{DualLDR} refuses these combinations before any solve.
+A combination within one stage $t$ keeps the dual bound, unless a law of its inputs has a component in a stage before $t$.
+Its pieces, in stage $t$, couple the laws of its inputs into one law (below), which may span several stages, since a law of an input may have components in other stages than $t$.
+From stage $t$ on, the pieces are functions of the observed uncertainties, so they add nothing to condition~\ref{it:lce}, which is then that of each law of the inputs (\cref{rem:lce}).
+Before stage $t$, the conditional expectation of a piece given the earlier components of the laws of its inputs is a nonlinear function of these components, unless the laws have none: it is then a constant.
+So the package certifies the bound when every combination is within one stage, no law of its inputs has a component in an earlier stage (the components of a product are separate laws), and each of these laws has linear conditional expectations;
+with a component in an earlier stage, condition~\ref{it:lce} is not known to hold, and the bound is not certified
+(\code{\_linear\_conditional\_expectations} of \code{\_CombinationLaw}).
 
 \paragraph{The lifted law and its moments.}
 A combination couples the laws of its inputs, so these laws, with the pieces of every combination over them, form one law

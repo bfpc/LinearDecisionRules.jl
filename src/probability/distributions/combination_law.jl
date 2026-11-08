@@ -507,10 +507,37 @@ function _embed_rows(W::AbstractMatrix, offset::Int, n::Int)
     return E
 end
 
-# A law in one stage has linear conditional expectations trivially; across stages, the pieces of
-# a combination of several stages are not affine in the earlier coordinates.
-function _linear_conditional_expectations(::_CombinationLaw, stages::AbstractVector)
-    return allequal(stages)
+# The dual bound needs the conditional expectations of the later coordinates given the earlier
+# ones to be linear (`rem:lce` of `docs/math`); `stages` holds the stages of the coordinates of
+# `η`, then those of the pieces, each in the last stage of its inputs. From the stage of a
+# combination on, its pieces are functions of the history, so they add nothing to the condition,
+# which is then that of each law (the laws are independent): each law answers for itself. Before
+# that stage, the conditional expectation of a piece is a nonlinear function of the earlier
+# coordinates of the laws of its inputs, or a constant if these laws have none. So the condition:
+# - fails for a combination of several stages (which `_check_combinations_across_stages` refuses);
+# - is unknown when a law of the inputs of a combination has a coordinate in an earlier stage,
+#   or when a law does not know its own;
+# - fails when a law fails its own, and holds otherwise.
+function _linear_conditional_expectations(d::_CombinationLaw, stages::AbstractVector)
+    coordinates(k) = d.offsets[k] .+ (1:_dimension(d.laws[k]))
+    η_stages = stages[1:(d.offsets[end]+_dimension(d.laws[end]))]
+    result = true
+    for inputs in d.inputs
+        allequal(η_stages[inputs]) || return false
+        t = η_stages[first(inputs)]
+        for k in eachindex(d.laws)
+            law = coordinates(k)
+            if any(in(inputs), law) && any(<(t), η_stages[law])
+                result = nothing
+            end
+        end
+    end
+    for k in eachindex(d.laws)
+        value = _linear_conditional_expectations(d.laws[k], η_stages[coordinates(k)])
+        value === false && return false
+        value === nothing && (result = nothing)
+    end
+    return result
 end
 
 function Distributions._rand!(

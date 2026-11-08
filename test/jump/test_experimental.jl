@@ -20,6 +20,7 @@ import LinearDecisionRules:
     Experimental,
     Formulations,
     LDRModel,
+    MvDiscreteNonParametric,
     PrimalLDR,
     SampledLDR,
     Stage,
@@ -162,6 +163,41 @@ function test_across_stages()
     Experimental.set_breakpoints(linear, linear[:d][2] + linear[:d][3], nothing)
     optimize!(linear)
     @test objective_value(model) > objective_value(linear) + 1
+    return
+end
+
+# A joint law of `d[1], d[2]` (stage 2) and `d[3] = d[1] + d[2] ± 10` (stage 3), whose conditional
+# expectations are linear, and a combination of the uncertainties `combination` of one stage.
+function joint_law_over_stages(combination, stage_of)
+    model = LDRModel(HiGHS.Optimizer)
+    set_silent(model)
+    atoms = [[a, b, a + b + e] for a in (40.0, 60.0) for b in (40.0, 60.0) for e in (-10.0, 10.0)]
+    law = MvDiscreteNonParametric(atoms, fill(1 / 8, 8))
+    @variable(model, d[i = 1:3] in Uncertainty(law), Stage(stage_of[i]))
+    @variable(model, buy >= 0, Stage(1))
+    @variable(model, sell[i = 1:3] >= 0, Stage(stage_of[i]))
+    @constraint(model, sell .<= d)
+    @constraint(model, sum(sell) <= buy)
+    @objective(model, Max, -10buy + 15sum(sell))
+    Experimental.set_breakpoints(model, combination(d), 1)
+    return model
+end
+
+# The law of the inputs of a combination of one stage may span several stages: the bound is
+# certified when no coordinate of that law comes before the combination.
+function test_joint_law_over_stages()
+    model = joint_law_over_stages(d -> d[1] + d[2], [2, 2, 3])
+    @test_logs optimize!(model)
+    @test termination_status(model, DualLDR()) == MOI.OPTIMAL
+    @test is_certified(model)
+    @test objective_value(model) <= objective_bound(model) + 1e-6
+    # `d[1]` comes before the combination `d[2] + d[3]`: the expectation of its pieces given `d[1]`
+    # is not known to be linear.
+    model = joint_law_over_stages(d -> d[2] + d[3], [2, 3, 3])
+    warning = (:warn, r"is not known for the law of d\[1\], d\[2\], d\[3\]")
+    @test_logs warning match_mode = :any optimize!(model)
+    @test termination_status(model, DualLDR()) == MOI.OPTIMAL
+    @test !is_certified(model)
     return
 end
 
