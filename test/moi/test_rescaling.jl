@@ -86,6 +86,44 @@ function test_breakpoints()
     return
 end
 
+# The internal choices of the rescaling of the pieces (the study of `benchmark/scaling/`) give the
+# same values, and their centers and scales on the pieces of one demand.
+function test_lifted_rescaling()
+    build() = TaggedProblems.inventory(3; points = 2)
+    model = build()
+    form = LDR.canonicalize(backend(model), LDR.model_info(backend(model)))
+    mom = LDR.moments(form)
+    law = first(l for l in form.laws if l.distribution isa LDR.LiftedDistribution)
+    η = law.columns .- 1
+    lo, hi = LDR._support_box(law.distribution)
+    s = (hi[1] - lo[1] + sum(hi[2:end])) / 2
+    values = map((:per_piece, :before_lifting, :hybrid)) do mode
+        LDR._LIFTED_RESCALING[] = mode
+        try
+            r = LDR._rescaling(form, mom)
+            if mode == :per_piece
+                @test r.center[η] ≈ (lo + hi) / 2
+                @test r.scale[η] ≈ (hi - lo) / 2
+            elseif mode == :before_lifting
+                @test r.center[η] ≈ [lo[1] + s; zeros(length(η) - 1)]
+                @test r.scale[η] ≈ fill(s, length(η))
+            else
+                @test r.center[η] ≈ [(lo[1] + hi[1]) / 2; zeros(length(η) - 1)]
+                @test r.scale[η] ≈ [(hi[1] - lo[1]) / 2; hi[2:end]]
+            end
+            m = build()
+            optimize!(m)
+            @test termination_status(m) == MOI.OPTIMAL
+            return objective_value(m), objective_bound(m)
+        finally
+            LDR._LIFTED_RESCALING[] = :per_piece
+        end
+    end
+    @test all(v -> all(v .≈ values[1]), values)
+    @test_throws ArgumentError LDR._rescale_pieces!(zeros(2), ones(2), [1, 2], lo, hi, :other)
+    return
+end
+
 # A random price multiplies a decision (the matrix `C`), and the objective has the terms `Q` and
 # `d` in the uncertainties; a `ValidInequality` row couples the demands (`W_valid`).
 function test_objective_and_valid_rows()
