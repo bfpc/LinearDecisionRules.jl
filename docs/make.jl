@@ -78,6 +78,7 @@ pages = [
         "Architecture" => "developer/architecture.md",
         "Call flows" => "developer/flows.md",
         "Public and internal API" => "developer/api.md",
+        "Design decisions" => "developer/design.md",
         "Structure of `src/`" => "developer/structure_current.md",
     ],
 ]

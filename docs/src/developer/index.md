@@ -12,6 +12,7 @@ reports the results through JuMP. The pages below follow that path from differen
 | [Architecture](@ref developer_architecture) | The big picture: the layers of `src/`, the pipeline from a JuMP model to results, the types that flow through it, and where state lives. Start here. |
 | [Call flows](@ref developer_flows) | What runs, step by step, when a model is written, at `optimize!`, at a re-solve, and when results are read. |
 | [Public and internal API](@ref developer_api) | Which names are exported, which are documented but internal, and how the JuMP layer talks to the optimizer. |
+| [Design decisions](@ref developer_design) | Why the package is built this way: the aims of the rewrite, the choices that shaped it, and the measurements behind them. Read it before you change one of them. |
 | [Structure of `src/`](structure_current.md) | A generated reference: each file, what it defines, what it uses and what uses it. |
 
 Each kind of information has one home:
