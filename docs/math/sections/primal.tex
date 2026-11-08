@@ -96,7 +96,7 @@ which a hand-written model expresses with one auxiliary variable $w_j \ge \pm s_
 (the reference model of \file{benchmark/inventory/timing.jl}).
 The generic form uses two multipliers and one equality per coefficient instead;
 presolve reduces both to the same problem (\cref{sec:computation}).
-The package uses the closed form on every block whose rows are only finite bounds of its coordinates (\code{\_add\_box\_counterpart!}, \file{src/formulations/primal.jl}), written with the endpoint $e_j \in \{\underline\eta_j, \overline\eta_j\}$ of smaller magnitude and one auxiliary $w_j \ge 0$:
+The package uses the closed form on every block whose rows are only the bounds of its coordinates, both finite for every coordinate (\code{\_add\_box\_counterpart!}, \file{src/formulations/primal.jl}; a block with an infinite bound keeps the multipliers), written with the endpoint $e_j \in \{\underline\eta_j, \overline\eta_j\}$ of smaller magnitude and one auxiliary $w_j \ge 0$:
 \[
 \min(\underline\eta_j s_j, \overline\eta_j s_j) = \max\bigl\{e_j s_j - (\overline\eta_j - \underline\eta_j) w_j : w_j \ge 0,\ w_j \ge \pm s_j\bigr\},
 \]

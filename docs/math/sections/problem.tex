@@ -156,7 +156,9 @@ and $\mathcal{K}_b$ their cone; a conic row couples its coordinates, so it lies 
 When $\mathcal{K}_b$ is a nonnegative orthant, we write $W_b\eta_b \ge h_b$.
 All blocks must be bounded, by assumption.
 Every block contains the mean of its coordinates:
-for the rows of the laws this holds by construction, and the valid rows are checked at the mean when the model is read.
+for the rows of the laws this holds by construction, and the linear valid rows are checked at the mean when the model is read,
+except those that involve a law conditioned by rejection sampling (a \code{ConditionedDistribution}), whose mean is only estimated later
+(\code{\_check\_valid\_rows\_at\_mean}, \file{src/canonical/checks.jl}).
 Throughout, we assume the following.
 
 \begin{assumption}

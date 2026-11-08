@@ -14,7 +14,8 @@ A law without finite bounds gives none; an unbounded law is rejected when it is 
 linear or in a second-order cone, such as the ellipsoid of \cref{sec:confidence-normal}.
 \item[:valid] a constraint over uncertainties only, tagged \code{ValidInequality()}:
 it holds almost surely under the declared law and only tightens $\Xis$.
-Since it holds on the support, it holds at the mean, which the package checks;
+Since it holds on the support, it holds at the mean, which the package checks for a linear row,
+unless the row involves a \code{ConditionedDistribution}, whose mean is estimated only later;
 equalities are rejected, since $\Xis$ must have a nonempty interior.
 \item[:truncate] a constraint tagged \code{Truncate()}:
 it \emph{conditions} the law on the set $\mathcal{C}$ where such constraints hold,
@@ -41,8 +42,9 @@ this is not done.
 \subsection{Exact truncation}
 \label{sec:exact-truncation}
 
-When a row tagged \code{Truncate()} involves only a univariate law,
-they define an interval $[\alpha, \beta]$,
+When every row tagged \code{Truncate()} that involves a univariate law involves it alone,
+and no conic row tagged \code{Truncate()} involves it,
+these rows define an interval $[\alpha, \beta]$,
 and the law is truncated exactly (\code{\_condition}, \file{src/canonical/conditioning.jl}).
 A continuous law becomes \code{truncated(d, alpha, beta)},
 whose mean and variance come from Distributions when it has them,
@@ -75,7 +77,7 @@ With $n$ kept draws $\eta^1, \dots, \eta^n$ the package uses
 \[
 \hat\mu = \frac1n\sum_{s=1}^n \eta^s, \qquad \hat\Cv = \frac1n\sum_{s=1}^n (\eta^s - \hat\mu)(\eta^s - \hat\mu)^\T,
 \]
-dividing by $n$ rather than $n - 1$ (\file{src/probability/moments.jl}).
+dividing by $n$ rather than $n - 1$ (\code{\_estimate}, \file{src/probability/rejection_sampling.jl}).
 These are then exactly the moments of a probability law supported in $\mathcal{C}$ and in the boxes of the laws,
 the uniform law on the draws:
 the mean lies in $\Xis$ and $\hat\Mom$ is a second-moment matrix, so all the statements of \cref{sec:primal,sec:dual} hold for that law.
@@ -89,9 +91,9 @@ Fewer than $\min(N_{\max}, 100)$ kept draws is an error, which also reports the 
 the sampling stops early when the estimated upper bound of the acceptance rate
 indicates it will not be able to reach that number in time.
 Fewer than $N_{\max}$ draws is a warning.
-The estimates are cached by the conditioned law, its seed and the sample size,
+The estimates that reached $N_{\max}$ draws are cached by the conditioned law, its seed and the sample size,
 so that a new solve of a model whose laws and conditioning rows did not change
-does not sample again.
+does not sample again; an estimate stopped by the time limit is not cached, so the next solve samples again.
 A law conditioned by rejection cannot be lifted yet.
 
 The Monte Carlo error of these moments is of order $n^{-1/2}$:

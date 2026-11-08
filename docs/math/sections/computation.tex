@@ -129,7 +129,7 @@ The default of the dual is kept until the study is repeated with the rescaling.
 \item \emph{Solver mode for the bound.} The dual approximation is solved for its value only, and its rule is not a policy, so no basis is needed.
 HiGHS's interior-point method without crossover solved the hydrothermal dual at $T = 8$ in 8.0 s instead of 145 s,
 with an objective equal to the simplex one to a relative $2\cdot10^{-10}$, but was slower on the inventory dual (1.2 s against 0.72 s).
-Each formulation takes raw attributes of its inner solver, for itself only,
+The primal and the dual approximations take raw attributes of their inner solver, each for itself only,
 such as \code{DualLDR(; attributes = ["solver" => "ipm", "run\_crossover" => "off"])};
 none is the default, since the names are those of one solver and the best mode depends on the problem.
 A bound taken from an inexact solve is safest when it is the inner solver's dual objective value, which bounds the inner optimum by weak duality;
