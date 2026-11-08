@@ -54,6 +54,7 @@ sequenceDiagram
     O->>P: _moments(form, rejection_sampling, moments_cache; budget)
     P-->>O: Moments
     O->>O: _check_convex_objective(form), _warn_singular_moments(form, mom) (moi/checks.jl)
+    O->>F: if RescaleUncertainties(), r = _rescaling(form, mom), then _rescale(form, r) and _rescale(mom, r)
     O->>K: _update!(inner_cache, _Fingerprint(form, mom, factory, silent, raw))
     loop each f in Formulations()
         O->>K: _cached_problem(inner_cache, f)
@@ -63,7 +64,7 @@ sequenceDiagram
             F->>F: build() = _build_inner(form, f, mom, factory), kept in the inner cache
         end
         F->>F: _solve_inner!(inner, f, form, mom; time_limit = what remains)
-        F-->>O: FormulationResult
+        F-->>O: FormulationResult, then _unscale(result, r) if rescaled
     end
     O->>O: keep form, moments, results, decision_rows, uncertainty_columns, parameters
     O-->>J: (identity index map, false)
@@ -110,6 +111,18 @@ For each law (`UncertaintyBlock`) of the form:
   univariate law is integrated with QuadGK.
 
 The result is `Moments(mean, blocks)`, one `CovarianceBlock` per law.
+
+### The rescaling (`formulations/rescaling.jl`)
+
+With `RescaleUncertainties()` (the default), `_rescaling(form, mom)` takes the center `c` and the
+half-width `s` of the box of each column of the form, the lifted coordinates when there are
+breakpoints (or the mean and the standard deviation of a law without a bounded box). `_rescale`
+returns the form and the moments in `ζ = (η - c) ./ s`: the laws become `_RescaledLaw`s, and
+`_rescale_rows` divides each rescaled row of the support by its largest coefficient. From here on,
+the inner cache and the formulations see only the rescaled form and moments, which `optimize!`
+does not keep; `_unscale` maps each rule back to ξ. The optimizer keeps the form and the moments in
+the uncertainties of the model, for the results. The mathematics is the subsection "Rescaling the
+uncertainties" of the [math notes](../assets/ldr-math.pdf).
 
 ### `_build_inner` and `_build!` (`formulations/`)
 
@@ -198,6 +211,6 @@ result = LDR.solve_formulation(form, PrimalLDR(), mom, HiGHS.Optimizer)
 ```
 
 `solve_formulation` calls `_solve!`, like `optimize!`, so a time limit is handled alike. It does not
-use the inner cache or the result slots. Unlike `optimize!`,
+rescale the uncertainties, and does not use the inner cache or the result slots. Unlike `optimize!`,
 `canonicalize` does not ask the inner optimizer whether it supports second-order cones: its
 keyword `conic_support` is `true` unless given.
