@@ -308,7 +308,9 @@ Base.getindex(R::RuleMatrix, args...) = getindex(R.matrix, args...)
 
 function Base.show(io::IO, R::RuleMatrix)
     rows = [JuMP.name(x) for x in R.decisions]
-    label(c::Tuple) = "$(JuMP.name(c[1]))[$(c[2])]"
+    # A piece of an uncertainty, `d[2]`, or of a combination of uncertainties, `(d[1], d[2])[2]`.
+    label(c::Tuple{JuMP.VariableRef,Int}) = "$(JuMP.name(c[1]))[$(c[2])]"
+    label(c::Tuple) = "($(join(JuMP.name.(c[1]), ", ")))[$(c[2])]"
     label(c::Symbol) = string(c)
     label(c) = JuMP.name(c)
     cols = [label(c) for c in R.columns]

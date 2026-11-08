@@ -115,6 +115,7 @@ function test_decision_rule()
     end
     m = rule_matrix(model)
     @test ((d[1], d[2]), 2) in m.columns
+    @test occursin("(d[1], d[2])[2]", sprint(show, m))
     return
 end
 
