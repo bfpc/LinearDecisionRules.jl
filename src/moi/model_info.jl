@@ -89,8 +89,8 @@ end
     model_info(src::MOI.ModelLike) -> ModelInfo
 
 Read the linear-decision-rule metadata of `src`: the uncertainty declarations, the stages, the
-roles of the uncertainty-only rows and the breakpoints. The result is meant for
-[`canonicalize`](@ref).
+roles of the uncertainty-only rows, the breakpoints, and the combinations of uncertainties with
+breakpoints of `Experimental.set_breakpoints`. The result is meant for [`canonicalize`](@ref).
 
 A stage on an uncertainty goes to its declaration, and a stage on any other variable to
 `decision_stages`. It only reads: the checks of the model itself are those of `canonicalize`.

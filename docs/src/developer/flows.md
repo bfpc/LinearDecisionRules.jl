@@ -23,6 +23,7 @@ unsupported constraint type is an error when it is added.
 | `@constraint(model, …, Stage(t))` | An error from `build_constraint`: constraints have no stage. | nothing |
 | `set_stage`, `unset_stage`, `stage` | They add, change or delete the `Stage` constraint of a variable (`jump/variables.jl`). | as above |
 | `set_attribute(d, BreakPoints(), points)` | none: JuMP's `MOI.set`, accepted by `MOI.supports` | the variable attribute `BreakPoints()` |
+| `Experimental.set_breakpoints(model, combination, points)` | It canonicalizes the affine `combination` and replaces the entry of the same combination in the list (`experimental.jl`). | the model attribute `CombinationBreakPoints()`, a list of `combination => points` |
 | `@variable(model, p in Parameter(v))`, `set_parameter_value(p, w)` | none: JuMP's own | a `VariableIndex`-in-`MOI.Parameter` constraint |
 | `set_attribute(model, Formulations(), […])`, `InnerOptimizer()`, `RejectionSampling*()`, `set_time_limit_sec`, `set_silent`, raw attributes | `MOI.set(::Optimizer, …)` (`moi/optimizer.jl`). `Formulations()` rejects two formulations of one type. | on the `Optimizer` itself, not in the cache |
 
@@ -51,12 +52,14 @@ sequenceDiagram
     O->>O: _check_bounded_support(src, info)
     O->>C: canonicalize(src, info; conic_support = _inner_supports_cones(factory, info))
     C-->>O: CanonicalForm
+    O->>O: _combinations_across_stages(form): if any and DualLDR() is requested, _warn_combinations_across_stages
     O->>P: _moments(form, rejection_sampling, moments_cache; budget)
     P-->>O: Moments
-    O->>O: _check_convex_objective(form), _warn_singular_moments(form, mom) (moi/checks.jl)
+    O->>O: _check_convex_objective(form), _warn_singular_moments(form, mom) if a formulation has a bound, _warn_integer_before_stage_one(form) (moi/checks.jl)
     O->>F: if RescaleUncertainties(), r = _rescaling(form, mom), then _rescale(form, r) and _rescale(mom, r)
     O->>K: _update!(inner_cache, _Fingerprint(form, mom, factory, silent, raw))
     loop each f in Formulations()
+        Note over O: DualLDR() with combinations across stages: _skipped_result, and next f
         O->>K: _cached_problem(inner_cache, f)
         O->>F: _solve!(build, f, form, mom, start, TimeLimitSec; inner)
         Note over F: time left? otherwise _time_limit_result(f, form, mom)
@@ -66,7 +69,7 @@ sequenceDiagram
         F->>F: _solve_inner!(inner, f, form, mom; time_limit = what remains)
         F-->>O: FormulationResult, then _unscale(result, r) if rescaled
     end
-    O->>O: keep form, moments, results, decision_rows, uncertainty_columns, parameters
+    O->>O: keep form, moments, results, decision_rows, uncertainty_columns, parameters, solve_time, time_breakdown
     O-->>J: (identity index map, false)
 ```
 
@@ -97,8 +100,11 @@ sequenceDiagram
    When they all have finitely many atoms, they become the exact law of the atoms instead.
 8. `_check_valid_rows_at_mean` and `_check_observable_equalities`.
 9. `_breakpoint_liftings(src, form, info.breakpoints)`: an `AxisPiecewise` per uncertainty with
-   breakpoints. If there are any, `lift(form, liftings)` (`lifting/lifted_form.jl`) returns the lifted
-   form, with its `LiftingMap`.
+   breakpoints; `_combination_liftings(src, form, info.combinations)`: a `CombinationPiecewise` per
+   combination with breakpoints. If there are any, `lift(form, liftings, combinations)`
+   (`lifting/lifted_form.jl`) returns the lifted form, with its `LiftingMap`. The moments of the
+   lifted laws (`LiftedDistribution`, `_CombinationLaw`) are computed when they are built, here;
+   `optimize!` counts their time under `moments`, not `canonicalize`, in `time_breakdown`.
 
 ### `_moments(form, sampling, cache; budget)` (`probability/moments.jl`)
 
@@ -187,8 +193,9 @@ All results come from the `FormulationResult`s that `optimize!` stored. Reading 
 | `objective_bound(model)` | The first bound formulation with a bound, that is, `DualLDR`. |
 | `termination_status(model, f)`, `objective_value(model, f)`, `objective_bound(model, f)`, `raw_status(model, f)`, `solve_time(model, f)` | `jump/results.jl` → `MOI.get(model, FormulationAttribute(f, attr))` → `moi/results.jl` |
 | `is_certified(model, f = DualLDR())` | `FormulationAttribute(f, Certified())` |
+| `time_breakdown(model)`, `time_breakdown(model, f)` | `TimeBreakdown()`, kept by `optimize!` (`moi/results.jl`); for one formulation, `FormulationAttribute(f, TimeBreakdown())`, the `build_time`, `solve_time` and `results_time` of its `FormulationResult` |
 | `inner_model(model, f)` | `FormulationAttribute(f, InnerModel())`, the `model` field of the `FormulationResult` of `f` |
-| `decision_rule(x; formulation)` | The internal attributes `RuleCoefficients(f)`, `UncertaintyVariables()` and `UncertaintyLifting()` (`jump/rules.jl`), which give a `DecisionRule` with `LiftedTerm`s for lifted uncertainties. |
+| `decision_rule(x; formulation)` | The internal attributes `RuleCoefficients(f)`, `UncertaintyVariables()` and `UncertaintyLifting()` (`jump/rules.jl`), which give a `DecisionRule` with `LiftedTerm`s for lifted uncertainties and `CombinationTerm`s for combinations with breakpoints. |
 | `expected_value(expr; formulation)` | `RuleCoefficients(f)` and `UncertaintyMoments()`, then `_product_moment` for products. |
 | `rule_coefficient(x, η)`, `rule_matrix(model)` | `RuleCoefficients(f)`, `DecisionVariables()`, `UncertaintyLifting()`. The lifting map is the identity when nothing is lifted (`_lifting_map`), and `rule_matrix` keeps it in the field `lifting` of the `RuleMatrix`. |
 | `evaluate(model, scenario)`, `simulate(model, n or scenarios)` | `_simulator` → `MOI.get(o, SimulationData(f))` (in `jump/simulate.jl`) → `_Simulator`. Then `_outcome` (the scenario as ξ, lifted), `_assess` (the decisions, objective and violated rows per scenario) and `_support_reasons` (outside Ξ). |

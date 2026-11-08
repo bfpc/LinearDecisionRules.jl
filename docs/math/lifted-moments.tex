@@ -387,7 +387,8 @@ $\E[\hinge b(S_t)\hinge{b'}(S_{t'})] = \E[\hinge b(S_t)\,\slt{Y'}1(b' - S_t)]$, 
 \emph{Reservoir pairs of the hydrothermal problem}, where the inflows $x_{r,t}$ of a stage are one \code{MvDiscreteNonParametric} law of 82 atoms.
 The pairs $s_{r,t} = x_{r,t-1} + x_{r,t}$ and $s_{r,t+1}$ share the law of stage $t$:
 $A = A' = x_{r,t}$, $Y = x_{r,t-1}$, $Y' = x_{r,t+1}$, a sum over the 82 atoms of stage $t$ of products of stop-loss transforms of two marginals,
-where the code enumerates the $82^3$ joint atoms of three stages.
+which is what the code computes (\code{\_hinge\_cross\_moments}),
+where the enumeration by quadrature would visit the $82^3$ joint atoms of three stages.
 The pairs $s_{r,t}$ and $s_{r',t}$ of two reservoirs share the laws of stages $t - 1$ and $t$, with $Y = Y' = 0$:
 a sum over the $82^2$ atoms of the two stages, as by quadrature.
 \end{example}

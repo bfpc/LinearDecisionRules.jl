@@ -195,7 +195,10 @@ Lifting (see [`lift`](@ref)`(form, liftings)`):
  * `lifting::Union{Nothing,LiftingMap}`: `nothing`, or, in a lifted form, the [`LiftingMap`](@ref)
    from the original uncertainties to the columns of ξ. The columns of a lifted form are the
    lifted coordinates: `uncertainties[j]` is the original uncertainty of column `1 + j`, and its
-   name is followed by `[piece k]`.
+   name is followed by `[piece k]`. The pieces of a combination of uncertainties (see
+   `Experimental.set_breakpoints`) come after its inputs, which stay columns; `uncertainties[j]`
+   is then the input in the last stage, and the name is that of the combination followed by
+   `[piece k]`.
 
 Parameters:
 

@@ -1,8 +1,9 @@
 # [Public and internal API](@id developer_api)
 
-This page explains what users can rely on and what may still change. The package exports 45
+This page explains what users can rely on and what may still change. The package exports 48
 names (`src/LinearDecisionRules.jl`), grouped by the page of the manual that documents them, and
-`Optimizer` is public without being exported. The canonical layer, the typed description of the
+`Optimizer` and the `Experimental` submodule are public without being exported. The canonical
+layer, the typed description of the
 problem that the formulations work on, is documented on the Internals page but not exported: its
 design may still change, and it will become stable through the `Experimental` submodule.
 
@@ -17,9 +18,10 @@ on a page, among the public names or on the Internals page.
 | Modelling | Model | `LDRModel` |
 | | Stages | `Stage`, `FirstStage`, `stage`, `set_stage`, `unset_stage` |
 | | Uncertainties and their support | `Uncertainty`, `ValidInequality`, `Truncate`, `BreakPoints` |
-| | Settings | `Formulations`, `InnerOptimizer`, `RejectionSamplingSeed`, `RejectionSamplingTimeLimit`, `RejectionSamplingMaxSamples` |
+| | Settings | `Formulations`, `InnerOptimizer`, `RescaleUncertainties`, `RejectionSamplingSeed`, `RejectionSamplingTimeLimit`, `RejectionSamplingMaxSamples` |
 | Results and rules | Formulations | `AbstractFormulation`, `PrimalLDR`, `DualLDR`, `SampledLDR` |
 | | Results of one formulation | `FormulationAttribute`, `Certified`, `is_certified`, `inner_model`, and the methods of JuMP functions with a formulation argument, such as `objective_value(model, f)` |
+| | Where the time goes | `TimeBreakdown`, `time_breakdown` |
 | | Decision rules | `decision_rule`, `DecisionRule`, `LiftedTerm`, `expected_value`, `rule_coefficient`, `rule_matrix`, `RuleMatrix` |
 | Simulation | | `evaluate`, `Evaluation`, `simulate`, `Simulation` |
 | Distributions and liftings | Laws | `ConditionedDistribution`, `ConfidenceMvNormal`, `MvDiscreteNonParametric`, `LiftedDistribution` |
@@ -39,15 +41,23 @@ Two of them give access to what is otherwise internal:
 `Model(() -> LinearDecisionRules.Optimizer(HiGHS.Optimizer))`. Its docstring, and the one of
 `MOI.optimize!(::Optimizer, src)`, are on the Modelling page.
 
+The submodule `LinearDecisionRules.Experimental` is public too. It holds the features whose
+interface may change between minor versions, documented on the Experimental page: today
+`Experimental.set_breakpoints`, breakpoints on a combination of uncertainties. The names that
+come with it, `CombinationPiecewise` (the lifting), `CombinationTerm` (its term in a
+`DecisionRule`) and `CombinationBreakPoints` (the model attribute that `set_breakpoints` sets),
+are defined in the main module, not exported, and documented on the same page: write them
+qualified, `LinearDecisionRules.CombinationPiecewise`.
+
 ## Internal, documented on the Internals page
 
 | Group | Names |
 |---|---|
 | Reading a model | `model_info`, `ModelInfo`, `UncertaintyDeclaration`, `canonicalize`; the MOI form of the tags, `UnivariateUncertainty`, `MultivariateUncertainty`, `AbstractXiRole`, `XiRole`; the hook `_is_metadata_constraint` |
-| The canonical form | `CanonicalForm`, `ConicRow`, `UncertaintyBlock`, `ParameterTerms`, `lift(form, liftings)` |
+| The canonical form | `CanonicalForm`, `ConicRow`, `UncertaintyBlock`, `ParameterTerms`, `lift(form, liftings, combinations)` |
 | The information structure | `InformationStructure`, `observes`, `visible_columns` |
 | The support | `SupportBlock`, `support_blocks` |
-| The moments | `CovarianceBlock`, `Moments`, `moments`, `second_moment` |
+| The moments | `CovarianceBlock`, `Moments`, `moments`, `second_moment`; the merged law of a combination with breakpoints, `_CombinationLaw` |
 | Solving one formulation | `FormulationCapabilities`, `capabilities`, `FormulationResult`, `solve_formulation` |
 
 Write them qualified, `LinearDecisionRules.canonicalize`, or import them by name; the tests do the

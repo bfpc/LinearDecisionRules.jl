@@ -125,7 +125,9 @@ The decision rule of the variable `x` in the last solution of `formulation`, as 
 and the rule of a parameter is its value.
 
 The rule is affine in each uncertainty, except in those with [`BreakPoints`](@ref), in which it
-is piecewise affine: the rule applies the lifting to the scenario.
+is piecewise affine: the rule applies the lifting to the scenario. A combination of uncertainties
+with breakpoints (see [`Experimental.set_breakpoints`](@ref)) adds a piecewise affine term in the
+combination, a [`CombinationTerm`](@ref) of the field `combinations` of the rule.
 
 The rule of [`DualLDR`](@ref) is not a policy: only its objective value is a bound.
 
@@ -238,8 +240,10 @@ solution of `formulation`; without `η` (or with `η = nothing`), the constant o
 
 For an uncertainty with [`BreakPoints`](@ref), the rule is not a single coefficient: it returns
 the `Vector{Float64}` of the coefficients on its pieces, one per piece, in order (the same as
-`decision_rule(x).lifted[η].coefficients`, but also when they are all zero). The representation for
-more complex liftings, with several uncertainties in one block, is left open.
+`decision_rule(x).lifted[η].coefficients`, but also when they are all zero). An input of a
+combination with breakpoints (see [`Experimental.set_breakpoints`](@ref)) keeps its own column,
+so its coefficient is a number; the coefficients on the pieces of the combination are in
+`decision_rule(x).combinations` and in [`rule_matrix`](@ref).
 
 See also [`decision_rule`](@ref) for the whole rule and [`rule_matrix`](@ref) for all decisions.
 
@@ -287,12 +291,14 @@ lifting; build it with [`rule_matrix`](@ref).
    `ξ̃ = (1, η̃)`, with zero where a decision does not observe the column.
  * `decisions::Vector{JuMP.VariableRef}`: the decision of each row.
  * `columns::Vector{Any}`: the label of each column: `:constant`; the uncertainty `η`
-   (a `JuMP.VariableRef`) if it is not lifted; `(η, k)` for the `k`-th piece of a lifted `η`.
+   (a `JuMP.VariableRef`) if it is not lifted; `(η, k)` for the `k`-th piece of a lifted `η`;
+   `((η₁, η₂, …), k)`, with `k ≥ 2`, for the `k`-th piece of a combination of the uncertainties
+   `η₁, η₂, …` (see [`Experimental.set_breakpoints`](@ref)), whose inputs keep their own columns.
  * `formulation::AbstractFormulation`
  * `lifting::LiftingMap`: the map from an outcome `ξ = (1, η)` of the uncertainties to the columns,
    `ξ̃ = lift(lifting, ξ)`, so that the rules are `x(ξ) = matrix * lift(lifting, ξ)`. The order of
-   `η` is that of `lifting.uncertainties`. When no uncertainty has [`BreakPoints`](@ref), it is
-   the identity, and `ξ̃ = ξ`.
+   `η` is that of `lifting.uncertainties`. When there are no breakpoints, on uncertainties or on
+   combinations, it is the identity, and `ξ̃ = ξ`.
 """
 struct RuleMatrix
     matrix::Matrix{Float64}
@@ -339,11 +345,12 @@ The matrix `X` of the decision rules of `formulation` in the last solution, with
 as rows and the coordinates of `ξ = (1, η)` as columns, labelled in a [`RuleMatrix`](@ref).
 
 The matrix is in lifted coordinates: an uncertainty with [`BreakPoints`](@ref) has one column per
-piece, labelled `(η, k)`, not one, and the rule on the original uncertainties is `x(ξ) = X
-lift(R.lifting, ξ)` for the [`LiftingMap`](@ref) `R.lifting`, with `lift(R.lifting, ξ)` the lifted
-outcome. The [`retraction`](@ref) goes the other way, `ξ = retraction(R.lifting) ξ̃`, and gives the
-original uncertainty as the sum of its pieces. [`decision_rule`](@ref) does this mapping for one
-decision.
+piece, labelled `(η, k)`, not one; a combination with breakpoints adds the columns of its pieces,
+labelled `((η₁, η₂, …), k)`, after those of its inputs. The rule on the original uncertainties is
+`x(ξ) = X lift(R.lifting, ξ)` for the [`LiftingMap`](@ref) `R.lifting`, with `lift(R.lifting, ξ)`
+the lifted outcome. The [`retraction`](@ref) goes the other way, `ξ = retraction(R.lifting) ξ̃`,
+and gives an uncertainty with breakpoints as the sum of its pieces. [`decision_rule`](@ref) does
+this mapping for one decision.
 
 ## Example
 

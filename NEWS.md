@@ -170,5 +170,7 @@ Julia 1.11 and later).
   are planned for the `Experimental` submodule.
 - Breakpoints on a combination of uncertainties of several stages have no dual bound: `optimize!`
   skips `DualLDR()` with a warning, and solves the other formulations. The moments
-  of a combination are exact and fast for discrete and uniform laws, but integrate over every
-  uncertainty of the combination with another continuous law (slow beyond about 3).
+  of a combination are exact and fast for discrete and uniform laws (at most 10⁷ joint atoms; the
+  closed form for `d` uniform laws has `2^d` terms), but integrate over every uncertainty of the
+  combination with another continuous law (slow beyond about 3), and also when two combinations
+  share uniform laws with coefficients that are not proportional.

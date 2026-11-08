@@ -12,14 +12,19 @@ Kuhn, 2015): a decision rule that is linear in `η̃` is nonlinear in `η`.
 A lifting `l` implements:
 
  * [`lift`](@ref)`(l, η)`, the nonlinear map `L`, applied to the outcomes;
- * [`retraction`](@ref)`(l)`, the sparse matrix `R` of the linear retraction, with `R L(η) = η`;
-   the data of the model are lifted with it (`B ← BR`, `C ← CR`, `W ← WR`).
+ * [`retraction`](@ref)`(l)`, the sparse matrix `R` of the linear retraction, with `R L(η) = η`
+   for a lifting that replaces its inputs; the data of the model are lifted with it (`B ← BR`,
+   `C ← CR`, `W ← WR`).
 
 A lifted coordinate is in the largest stage of the uncertainties that it depends on.
 
-[`AxisPiecewise`](@ref) is the only lifting in 0.4. Subtyping `AbstractLifting` is not supported
-yet: a lifting also implements internal methods (its sizes, the bounds and hull of its coordinates,
-its moments), whose contract may change until the `Experimental` submodule.
+There are two liftings in 0.4. [`AxisPiecewise`](@ref), the lifting of [`BreakPoints`](@ref),
+replaces its one uncertainty by its pieces. [`CombinationPiecewise`](@ref), the lifting of a
+combination of several uncertainties (see [`Experimental.set_breakpoints`](@ref)), keeps its
+inputs as coordinates and adds the pieces of the combination: its retraction is zero, since the
+inputs are read from their own columns. Subtyping `AbstractLifting` is not supported yet: a lifting
+also implements internal methods (its sizes, the bounds and hull of its coordinates, its moments),
+whose contract may change until the `Experimental` submodule.
 """
 abstract type AbstractLifting end
 
@@ -38,7 +43,10 @@ lift(l::AbstractLifting, η::Real) = lift(l, [η])
     retraction(l::AbstractLifting) -> SparseMatrixCSC{Float64,Int}
 
 Return the matrix `R` of the linear retraction of `l`, one row per uncertainty and one column per
-lifted coordinate, such that `R * lift(l, η) == η`.
+lifted coordinate, such that `R * lift(l, η) == η` for a lifting that replaces its inputs, such as
+[`AxisPiecewise`](@ref). A lifting that keeps its inputs as coordinates, such as
+[`CombinationPiecewise`](@ref), has a zero retraction: its inputs are read from their own
+columns.
 """
 function retraction end
 

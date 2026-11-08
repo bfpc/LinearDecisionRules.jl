@@ -7,6 +7,7 @@
     lift(
         form::CanonicalForm,
         liftings::AbstractDict{MOI.VariableIndex,<:AbstractLifting},
+        combinations::AbstractVector{<:Pair{Vector{MOI.VariableIndex},CombinationPiecewise}} = [],
     ) -> CanonicalForm
 
 Return the lifted form of `form`, whose columns are the lifted coordinates `ξ̃ = (1, η̃)`, with
@@ -16,13 +17,19 @@ Each uncertainty in `liftings` must be declared alone, with a univariate law. It
 replaced by its lifted coordinates, which are in its stage; the columns are sorted by stage again.
 The data are lifted with sparse products: `B ← BR` for the rows, `C ← CR`, `d ← Rᵀd` and
 `Q ← RᵀQR` for the objective (whose constant `f` does not change), and `W ← WR` for the valid
-and conic rows. The law of the lifted coordinates is a [`LiftedDistribution`](@ref), whose box replaces the
-box of the original law, and the convex-hull rows of each lifting are added to the valid rows,
-with constraint `nothing`, so that they form a support block with its box.
+and conic rows. The law of the lifted coordinates is a [`LiftedDistribution`](@ref), whose box
+replaces the box of the original law, and the convex-hull rows of each lifting are added to the
+valid rows, with constraint `nothing`, so that they form a support block with its box.
+
+Each pair `uncertainties => lifting` of `combinations` lifts a combination of these uncertainties
+(see `Experimental.set_breakpoints`): its inputs stay columns, and its pieces are added, in the
+last stage of the inputs. The laws of the inputs and the pieces of the combinations that share
+them are merged into one law, a `_CombinationLaw`, and the outer approximation of the hull of
+each combination is added to the valid rows.
 
 The field `lifting` of the result is the [`LiftingMap`](@ref) that maps the outcomes of the
 original uncertainties to the columns of the lifted form. [`canonicalize`](@ref) lifts the
-uncertainties with breakpoints.
+uncertainties with breakpoints and the combinations with breakpoints.
 
 ## Example
 

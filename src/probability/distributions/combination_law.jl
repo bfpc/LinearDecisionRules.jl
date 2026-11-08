@@ -14,9 +14,13 @@ The law of `(η, p₁, …, p_L)`, where `η` gathers the uncertainties of indep
 are the pieces of the `l`-th [`CombinationPiecewise`](@ref) lifting, whose inputs are the
 coordinates `inputs[l]` of `η`. Its mean and covariance are computed once, on construction. When
 the laws are discrete with finitely many atoms or uniform, they are exact, from the laws of sums
-of the terms of the combinations (integrals of dimension one, at most two for two liftings);
-otherwise, by enumeration of the atoms of the discrete laws and nested quadrature (QuadGK, split at
-the breakpoints) over the continuous univariate ones. Other laws are not supported yet.
+of the terms of the combinations: a sum over the atoms of the discrete terms (at most 10⁷), and
+the closed form of the sum of `d` uniform terms, with `2^d` terms. Two liftings that share
+uniform laws need one integral over these laws, when their coefficients in the second combination
+are proportional to those in the first. Otherwise (other continuous laws, or shared uniform laws
+with coefficients that are not proportional), the moments are by enumeration of the atoms of the
+discrete laws and nested quadrature (QuadGK, split at the breakpoints) over the continuous
+univariate ones. Other laws are not supported yet.
 
 `minimum` and `maximum` are the box of the laws and of the pieces, and `rand` draws each law and
 lifts. It is a nominal `ContinuousMultivariateDistribution`, as [`LiftedDistribution`](@ref).

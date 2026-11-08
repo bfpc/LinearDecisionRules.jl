@@ -41,6 +41,11 @@ Constraints in `MOI.SecondOrderCone` describe Ξ only: they must be over uncerta
 `ValidInequality()` or `Truncate()`, and they become [`ConicRow`](@ref)s. A law conditioned by such
 a constraint is estimated by rejection sampling, unless its laws have finitely many atoms.
 
+Last, the uncertainties with breakpoints (`info.breakpoints`) and the combinations of uncertainties
+with breakpoints (`info.combinations`, from `Experimental.set_breakpoints`) are lifted (see
+[`lift`](@ref)): the result is then a lifted form, whose field `lifting` maps the original
+uncertainties to its columns.
+
 A law whose representation of the support is chosen automatically, such as a
 [`ConfidenceMvNormal`](@ref) with `support = :auto`, gets second-order cone rows (see
 [`support_constraints`](@ref)) when `conic_support` is `true` and no decision is integer, and
