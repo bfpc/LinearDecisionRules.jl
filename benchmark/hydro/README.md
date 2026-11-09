@@ -25,7 +25,7 @@ decisions that these measurements informed are in the
 |---|---|---|
 | `ldr_primal`, `ldr_dual` | the value of the primal rule, also simulated out of sample, the bound of the dual, the sizes of the solved models, and the time to write, reformulate and solve them | T; HiGHS's default options |
 | `average`, `tree` | the same for two plain JuMP models without the package, as references: the average scenario, a lower bound, and a scenario tree | T; the branches of the tree per stage |
-| `ldr_dual_ipm` | the dual under the solver mode that its docstring advises, `["solver" => "ipm", "run_crossover" => "off"]`, against the default dual simplex | T |
+| `ldr_dual_ipx` | the dual under the solver mode that its docstring advises, `["solver" => "ipx", "run_crossover" => "on"]`, against the default dual simplex; the rows recorded before it are `ldr_dual_ipm`, HiPO without crossover (`["solver" => "ipm", "run_crossover" => "off"]`), the mode advised then | T |
 | `ldr_primal_bp<k>`, `ldr_dual_bp<k>` | the gain of `k` breakpoints per inflow in value and bound, and its cost in size and time, with the inflows of a stage declared as independent marginals | T; `k`; HiGHS's default options |
 
 ```
@@ -33,7 +33,7 @@ julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
 julia --project=benchmark benchmark/hydro/run.jl                  # T = 4, 8, 12
 julia --project=benchmark benchmark/hydro/run.jl 4 tree=3 only=ldr_primal,tree
 julia --project=benchmark benchmark/hydro/run.jl 4 bp=0,1,2   # k breakpoints per inflow
-# `only=ldr_dual_ipm` runs DualLDR with attributes ["solver" => "ipm", "run_crossover" => "off"]
+# `only=ldr_dual_ipx` runs DualLDR with attributes ["solver" => "ipx", "run_crossover" => "on"]
 ```
 
 `run.jl` appends one row per T and variant to `results/hydro.csv`, with the columns of
@@ -159,7 +159,9 @@ unchanged). The machine was about 1.6 times slower that day: the dual with k = 1
 same model at both commits, took 10.3 s against 6.0 s at 7dbebf0. The primal is smaller since then:
 the closed form of box supports (7dbebf0) applies with k = 0, and with k ≥ 1 the primal leaves out
 of the support the bounds of the pieces that their convex-hull rows imply (`lifted_box`, see
-[Past studies](../README.md#redundant-box-rows-of-liftings-october-2026-lifted_box)).
+[Past studies](../README.md#redundant-box-rows-of-liftings-october-2026-lifted_box)). The dual
+with k ≥ 1 leaves them out too since the rerun of [`../breakpoints/`](../breakpoints/README.md), so
+its next recording will differ from this table in size and time, not in bound.
 
 | T | k | Primal value | Out-of-sample mean | Dual bound | Primal variables | Primal solve | Dual solve |
 |--:|--:|--:|--:|--:|--:|--:|--:|
