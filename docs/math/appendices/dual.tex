@@ -106,3 +106,158 @@ S_r\Mom\Wp_{bp}{}^\T = u_r\,(\Wp_{bp}\mub) + S_r\Cv\Wp_{bp}{}^\T = u_r\,(W_{bp}\
 which are the inequalities $u_r \ge 0$ and \eqref{eq:dual-cone-row}.
 The column $j$ of $\Cv_{:,b}$ is nonzero only if coordinate $j$ is in a covariance block that meets support block $b$,
 so the term $S_r\Cv_{:,b}W_{bp}^\T = \sum_{j\in\Jr_r} S_{rj}(V_b)_{jp}$ has at most $\abs{\Jr_r}$ terms, and none when no structural column of $r$ shares a covariance block with $b$.
+
+\subsection{Further results on the information structure}
+\label{app:information}
+
+These results complete \cref{prop:relaxed-mask}.
+The package uses none of them yet; they say how far the relaxation could be tightened, when the mask is valid again, and what a singular $\Mom$ would need.
+The laws $\ell$, their columns, and the sets $p$ and $f$ of earlier and later columns at a stage $t$ are as in \cref{sec:dual};
+the laws are independent, and $\mathcal F_t$ denotes the information of the history $\xi_{1:\nvis(t)}$.
+
+\paragraph{The exact image of nonanticipativity.}
+A \emph{predictable direction} of law $\ell$ at $t$ is a vector $c \in \R^f$ such that $\E[c^\T\xi_f \mid \xi_p]$ is affine in $\xi_p$;
+they form a subspace $\mathcal C_{\ell,t}$, which contains $e_j$ for every predictable column $j$.
+With $\hat\xi_f$ the best affine predictor of $\xi_f$ from $\xi_p$, as in the proof of \cref{prop:relaxed-mask}, let $v_c$ be the vector with $v_c^\T\xi = c^\T(\xi_f - \hat\xi_f)$.
+
+\begin{proposition}[Projections of the functions of the history]
+\label{prop:exact-image}
+Under \cref{ass:support}, the rows $\E[g\,\xi^\T]$, for $g$ a square-integrable function of the history at $t$, are exactly the $y \in \R^{1\times k}$ with $y\,v_c = 0$ for every law $\ell$ and every $c \in \mathcal C_{\ell,t}$.
+In terms of $X_i = y\Mom^{-1}$, these equations are $X_{i,f}R_{\ell,t}\,c = 0$, on the later columns of each law.
+\end{proposition}
+
+\begin{proof}
+Let $\mathcal Y$ be the set of the rows $\E[g\xi^\T]$, a subspace, and for $v \in \R^k$ let $\phi_v = \E[v^\T\xi \mid \mathcal F_t]$.
+By the tower property, $\E[g\xi^\T]v = \E[g\,\phi_v]$; taking $g = \phi_v$ shows that $v \perp \mathcal Y$ if and only if $\phi_v = 0$ almost surely.
+In finite dimension, $\mathcal Y$ is then the orthogonal of $\mathcal V = \{v : \phi_v = 0 \text{ a.s.}\}$, and it remains to show that $\mathcal V$ is spanned by the vectors $v_c$.
+Each $v_c$ is in $\mathcal V$: by independence $\E[\xi_f \mid \mathcal F_t] = \E[\xi_f \mid \xi_p]$, and an affine conditional expectation is the best affine predictor, so $\phi_{v_c} = c^\T(\E[\xi_f\mid\xi_p] - \hat\xi_f) = 0$.
+Conversely, write $v^\T\xi = a_0 + \sum_\ell (a_\ell^\T\xi_{p_\ell} + c_\ell^\T\xi_{f_\ell})$ and suppose $\phi_v = a_0 + \sum_\ell(a_\ell^\T\xi_{p_\ell} + c_\ell^\T\E[\xi_{f_\ell}\mid\xi_{p_\ell}]) = 0$.
+Conditioning on $\xi_{p_\ell}$, the terms of the other laws become constants, so $c_\ell^\T\E[\xi_{f_\ell}\mid\xi_{p_\ell}]$ is affine: $c_\ell \in \mathcal C_{\ell,t}$, and that term is $c_\ell^\T\hat\xi_{f_\ell}$.
+Then $v^\T\xi = v^\T\xi - \phi_v = \sum_\ell v_{c_\ell}^\T\xi$, and since $\Mom \succ 0$ the components of $\xi$ are linearly independent, so $v = \sum_\ell v_{c_\ell}$.
+Finally, the computation of $\Mom v$ in the proof of \cref{prop:relaxed-mask}, with $c$ in place of $e_j$, gives $X_i\Mom v_c = X_{i,f}R_{\ell,t}\,c$.
+\end{proof}
+
+So the equations of \cref{prop:relaxed-mask} are those of the coordinate directions of $\mathcal C_{\ell,t}$.
+Imposing all of $\mathcal C_{\ell,t}$ gives the smallest set of rules, defined row by row, that contains the projections of every nonanticipative policy;
+it ignores the constraints of the problem, which could restrict the projections further, through several rows at once.
+A direction adds strength when, say, two later columns are not predictable but their sum is.
+For an \code{MvDiscreteNonParametric} law, $c \in \mathcal C_{\ell,t}$ when the vector of the conditional means $\E[c^\T\xi_f \mid \xi_p]$, one per distinct history, is in the range of the matrix $[\one\ \ \text{histories}]$,
+whatever the probabilities: $\mathcal C_{\ell,t}$ is a kernel, computed up to a tolerance, and a direction wrongly accepted would make the bound invalid.
+Under the rescaling of \cref{sec:rescaling}, a predictable column stays predictable, and a direction $c$ becomes $Sc$.
+
+\begin{corollary}[When the mask of a law is valid]
+\label{cor:mask-valid}
+Under \cref{ass:support}, $X_{i,f} = 0$ for the projection $X_i = \E[x_i\xi^\T]\Mom^{-1}$ of every square-integrable function $x_i$ of the history at $t$
+if and only if every later column of law $\ell$ is predictable at $t$.
+\end{corollary}
+
+\begin{proof}
+If every later column is predictable, $\mathcal C_{\ell,t} = \R^f$, and the equations give $X_{i,f}R_{\ell,t} = 0$, hence $X_{i,f} = 0$.
+Conversely, let $j \in f$ be a column that is not predictable, $g = \E[\xi_j \mid \xi_p]$, a function of the history, and $x_i = g$.
+With $e_j = \xi_j - \hat\xi_j$, the tower property and the orthogonality of $e_j$ to the affine functions of $\xi_p$ give
+$\E[g\,e_j] = \E[g(g - \hat\xi_j)] = \E[(g - \hat\xi_j)^2] + \E[\hat\xi_j(\xi_j - \hat\xi_j)] = \E[(g - \hat\xi_j)^2] > 0$.
+As in the proof of \cref{prop:relaxed-mask}, $\E[g\,e_j] = X_{i,f}R_{\ell,t}\,e_j$, so $X_{i,f} \ne 0$.
+\end{proof}
+
+So when a law fails condition~\ref{it:lce}, some function of the history projects outside the mask;
+whether the masked dual of a given problem is wrong then depends on the problem, and the example after \cref{prop:relaxed-mask} is one where it is.
+The relaxation is local to the laws because they are independent; uncorrelated is not enough.
+With $\eta_2$ uniform on $\{-1, 0, 1\}$ in stage 2 and $\eta_3 = \eta_2^2 - \tfrac23 + \epsilon$ in stage 3, $\epsilon$ independent and centered, taken as two laws,
+$\Mom$ is block diagonal, each law is in one stage, but $\E[\eta_3 \mid \eta_2] = \eta_2^2 - \tfrac23$,
+and the projection of the decision $x = \eta_2^2$ of stage 2 has the coefficient $\tfrac29/(\tfrac29 + \E\epsilon^2) \ne 0$ on $\eta_3$.
+The declarations of the package are independent by construction (\cref{rem:lce}).
+
+\paragraph{Cumulative sums.}
+Let $\eta_2, \dots, \eta_T$ be independent scalars, $\eta_t$ in stage $t$, and $s_t = \eta_2 + \dots + \eta_t$ with breakpoints $B_t$ interior to the range $(s_t^{\min}, s_t^{\max})$ of $s_t$, lifted by the combination lifting of \cref{sec:combination-lifting} in stage $t$.
+The pieces of $s_t$ span, with $1$ and $s_t$, the space $\mathrm{PL}(s_t; B_t)$ of the continuous piecewise linear functions of $s_t$ with kinks in $B_t$, spanned by $1$, $s_t$ and the hinges $(s_t - b)_+$, $b \in B_t$.
+The pieces are functions of the inputs, so the information of a stage is that of $\eta_2, \dots, \eta_t$, and the later inputs have constant conditional expectations.
+So condition~\ref{it:lce} holds at stage $\tau$ if and only if, for every $t > \tau$ and $b \in B_t$, the function
+\[
+\psi_{\tau,t,b}(s_\tau) = \E[(s_t - b)_+ \mid \mathcal F_\tau] = \E\bigl[(\sigma + D - b)_+\bigr]_{\sigma = s_\tau},
+\qquad D = \eta_{\tau+1} + \dots + \eta_t,
+\]
+is almost surely in $\mathcal L_\tau$, the span of $1$, $\eta_2, \dots, \eta_\tau$ and the pieces of $s_2, \dots, s_\tau$.
+
+\begin{proposition}[Continuous inputs]
+\label{prop:continuous-sums}
+Suppose that each $\eta_u$ has a density, positive on an open interval and zero outside.
+Then for every $2 \le \tau < t$ and $b \in B_t$, $\psi_{\tau,t,b}(s_\tau) \notin \mathcal L_\tau$, whatever the finite breakpoints $B_2, \dots, B_\tau$:
+the last piece of $s_t$ is not predictable at $\tau$, and condition~\ref{it:lce} fails at every stage $\tau \ge 2$ before the last stage $t$ with $B_t \neq \emptyset$.
+\end{proposition}
+
+\begin{proof}
+First, a continuous function $\phi(s_\tau)$ in $\mathcal L_\tau$ is in $\mathrm{PL}(s_\tau; B_\tau)$ on $(s_\tau^{\min}, s_\tau^{\max})$.
+Indeed, in the coordinates $(s_2, \dots, s_\tau)$, a linear bijection of $(\eta_2, \dots, \eta_\tau)$, the law has a density positive on a connected open set $O$,
+and an almost sure identity between continuous functions holds on all of $O$.
+Writing the linear part of $\mathcal L_\tau$ in these coordinates, the identity reads $\sum_{u<\tau}h_u(s_u) + h_\tau(s_\tau) = 0$ on $O$, with $h_u \in \mathrm{PL}(s_u; B_u)$ for $u < \tau$ and $h_\tau = g - \phi$ for some $g \in \mathrm{PL}(s_\tau; B_\tau)$.
+Near any point of $O$ each coordinate can move alone, so each $h_u$ is locally constant on the projection of $O$, an interval, hence constant: $\phi \in \mathrm{PL}(s_\tau; B_\tau)$, and the breakpoints of the earlier sums do not help.
+Second, $\psi(\sigma) = \E[(\sigma + D - b)_+]$ is continuously differentiable, with $\psi'(\sigma) = \Prob(D > b - \sigma)$, continuous because $D$ has a density.
+A continuously differentiable function that is continuous piecewise linear on an interval is affine there.
+Third, $D$ has a density positive on the interval $(d^{\min}, d^{\max})$ of the sums of the bounds of its terms, so $\psi'$ is strictly monotone where $b - \sigma$ lies in it;
+since $b$ is interior to the range of $s_t$, that happens for $\sigma$ in an open subinterval of $(s_\tau^{\min}, s_\tau^{\max})$, where $\psi$ is not affine.
+By the first two steps, $\psi(s_\tau) \in \mathcal L_\tau$ would make $\psi$ affine on all of $(s_\tau^{\min}, s_\tau^{\max})$, so $\psi(s_\tau) \notin \mathcal L_\tau$.
+\end{proof}
+
+The conditional expectation of a later hinge is a smoothed hinge, which no piecewise linear function of the history matches.
+With discrete inputs, the smoothed hinge is again a hinge, at shifted points, and breakpoints that contain these points restore the condition.
+
+\begin{proposition}[Breakpoints closed under the shifts]
+\label{prop:shift-closed}
+Suppose that $\eta_3, \dots, \eta_T$ have finite supports, $\eta_2$ being arbitrary, and that for every $\tau = 2, \dots, T - 1$,
+\begin{equation}
+\label{eq:shift-closed}
+B_\tau \supseteq \bigl(B_{\tau+1} - \supp\eta_{\tau+1}\bigr) \cap (s_\tau^{\min}, s_\tau^{\max}).
+\end{equation}
+Then condition~\ref{it:lce} holds at every stage for the lifted law, and \cref{thm:dual-bound} applies to the lifted problem when its other assumptions hold.
+\end{proposition}
+
+\begin{proof}
+We show that $\E[(s_t - b)_+ \mid \mathcal F_\tau] \in \mathrm{PL}(s_\tau; B_\tau)$ almost surely for $t > \tau$ and $b \in B_t$, by induction on $t - \tau$.
+For $t = \tau + 1$, by independence, $\E[(s_\tau + \eta_{\tau+1} - b)_+ \mid \mathcal F_\tau] = \sum_q \pi_q\,(s_\tau - (b - d_q))_+$ over the atoms $d_q$ of $\eta_{\tau+1}$, of probabilities $\pi_q$;
+a hinge at $c = b - d_q$ is in $\mathrm{PL}(s_\tau; B_\tau)$ by \eqref{eq:shift-closed} if $c$ is interior to the range of $s_\tau$, almost surely equal to the affine $s_\tau - c$ if $c \le s_\tau^{\min}$, and to $0$ if $c \ge s_\tau^{\max}$.
+For $t > \tau + 1$, $\E[(s_t - b)_+ \mid \mathcal F_\tau] = \E\bigl[\E[(s_t - b)_+ \mid \mathcal F_{t-1}] \bigm| \mathcal F_\tau\bigr]$;
+the inner one is in $\mathrm{PL}(s_{t-1}; B_{t-1})$ by the first case, $\E[s_{t-1} \mid \mathcal F_\tau]$ is $s_\tau$ plus a constant, and each hinge of $s_{t-1}$ at $B_{t-1}$ falls under the induction hypothesis.
+\end{proof}
+
+Condition~\eqref{eq:shift-closed} involves only consecutive stages, and propagates backward from $B_T$.
+It is sufficient; it is also necessary at $\tau = 2$ when $\eta_2$ has a density, since $\mathcal L_2 = \mathrm{PL}(s_2; B_2)$ and the kinks $b - d_q$ in the range of $s_2$ have slope jumps $\pi_q > 0$.
+For $\tau \ge 3$, whose history has atoms, the exact condition is open.
+Its sets can grow like $\abs{B_T}\prod_u\abs{\supp\eta_u}$ when the supports are not on a lattice.
+When $s_\tau$ is itself discrete, with atoms $\sigma_0 < \dots < \sigma_m$, only the values on the atoms matter:
+a kink strictly between two consecutive atoms, $c = \lambda\sigma_a + (1 - \lambda)\sigma_{a+1}$, agrees on the atoms with $\lambda(s - \sigma_a)_+ + (1 - \lambda)(s - \sigma_{a+1})_+$, and a hinge at an extreme atom is affine there.
+So each point of \eqref{eq:shift-closed} can be replaced by itself if it is an atom of $s_\tau$, and by its two neighbouring atoms otherwise, dropping the extreme atoms.
+This pruned closure is still sufficient, and keeps $B_\tau$ within the interior atoms of $s_\tau$, whose number can still grow exponentially with $\tau$.
+With all of them as breakpoints, every function of $s_\tau$ is in $\mathrm{PL}(s_\tau; B_\tau)$ on the atoms, which restores the condition at $\tau$ for any later inputs,
+and the covariance of the lifting of $s_\tau$ alone is nonsingular:
+a function of $\mathrm{PL}(s_\tau; B_\tau)$ that vanishes at every atom is affine with two zeros between consecutive atoms, and beyond the extreme breakpoints, hence zero;
+whereas the unpruned closure can put two breakpoints between consecutive atoms and make it singular.
+Whether the covariance of the whole lifted law is then nonsingular is open; the package would check it, as for any law.
+In the example after \cref{prop:relaxed-mask}, the pruned closure gives $B_2 = \{0\}$, which restores the condition, and makes the primal approximation exact, since $\abs{\eta_2} = -\eta_2 + 2(\eta_2)_+$.
+
+\paragraph{A singular second-moment matrix.}
+The proof of \cref{thm:dual-bound} inverts $\Mom$ in two places: the definition of $X$, and the step from $A_eX\Mom = B_e\Mom$ to $A_eX = B_e$.
+Only the second one is a real need.
+
+\begin{proposition}[Without $\Mom \succ 0$]
+\label{prop:singular-moments}
+Suppose $\supp\law \subseteq \Xis$, $\Mom$ finite, and condition~\ref{it:convex}, but not necessarily $\Mom \succ 0$.
+In \eqref{eq:DLDR}, replace the equalities by $(A_eX - B_e)\Mom = 0$, and the rules $X \in \Rules$ by the equations $X_i\Mom v = 0$, for each decision $i$ with $\nvis_i > 1$ and each $v$ with $\E[v^\T\xi \mid \mathcal F_{t_i}] = 0$ almost surely, keeping $X_i = c_i\eone^\T$ for the decisions with $\nvis_i = 1$.
+Then for every feasible policy $x$ of \eqref{eq:SP}, there is a feasible $X$ with $X\Mom = \E[x\xi^\T]$, whose objective is at least as good.
+\end{proposition}
+
+\begin{proof}
+Let $Y = \E[x\xi^\T]$.
+If $\Mom v = 0$, then $\E[(v^\T\xi)^2] = 0$, so $v^\T\xi = 0$ almost surely and $Yv = \E[x\,v^\T\xi] = 0$: the rows of $Y$ are in the range of $\Mom$, and $X = Y\Mom^+$ has $X\Mom = Y$.
+For a decision with $\nvis_i = 1$, $Y_i = c_i\mub^\T = c_i\eone^\T\Mom$, so the row $c_i\eone^\T$ may be taken instead.
+The equalities, the inequalities and the objective of the proof of \cref{thm:dual-bound} depend on $X$ only through $X\Mom$, once the equalities are left as $(A_eX - B_e)\Mom = 0$:
+the quadratic term too, since $X\Mom X^\T = X\Mom\Mom^+\Mom X^\T = Y\Mom^+Y^\T$;
+and $\varepsilon = x - X\xi$ still has $\E[\varepsilon\xi^\T] = Y - X\Mom = 0$.
+The equations of the rules hold by the first part of the proof of \cref{prop:exact-image}, which does not use $\Mom$.
+\end{proof}
+
+Coefficient matching is the step that fails: with $\eta_3 = \eta_2$ almost surely, both in stage 2, and the equalities $x = \eta_2$ and $x = \eta_3$ on a decision of stage 2,
+\eqref{eq:SP} is feasible, but $X_i = e_2^\T$ and $X_i = e_3^\T$ are incompatible, while $(e_2 - e_3)^\T\Mom = 0$.
+With $Z = A_eX - B_e$, the equation $Z\Mom = 0$ splits by blocks: since $Z\Mom Z^\T = (Z\mub)(Z\mub)^\T + Z\Cv Z^\T$ is a sum of two positive semidefinite terms,
+it is equivalent to $Z\mub = 0$ and $Z_{J_\ell}\Cv_\ell = 0$ for every law $\ell$.
+The package checks $\Mom \succ 0$ on each covariance block and does not certify the bound otherwise (after \cref{ass:support});
+with the equalities written this way, it could.

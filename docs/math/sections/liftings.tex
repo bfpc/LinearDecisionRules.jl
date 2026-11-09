@@ -291,7 +291,8 @@ so the pieces help less than they would with the exact hull, and the measurement
 
 \paragraph{The dual approximation.}
 When the uncertainties of $J$ are in several stages, the pieces are in the last one,
-and their conditional expectation given the earlier stages is a nonlinear function of the observed uncertainties:
+and their conditional expectation given the earlier stages is in general a nonlinear function of the observed uncertainties
+(always for continuous inputs, \cref{prop:continuous-sums}, but not for discrete ones with suitable breakpoints, \cref{prop:shift-closed}):
 condition~\ref{it:lce} of \cref{thm:dual-bound} fails, and the masked dual approximation does not bound the problem in general (the example after \cref{prop:relaxed-mask}).
 The primal approximation needs no such condition: this is the history-dependent lifting of \citet[Remark~6.5]{GWK2015}.
 The dual relaxes its information structure on the law of the combination (\cref{prop:relaxed-mask}):
@@ -300,7 +301,7 @@ subject to one equation per later input whose law has no earlier component, whic
 The bound is certified, and by \cref{prop:relaxed-lifting} it is at least that of the dual without the combination when the laws of the inputs satisfy condition~\ref{it:lce}.
 A combination within one stage $t$ couples the laws of its inputs into one law as well (below), which may span several stages, since a law of an input may have components in other stages than $t$.
 From stage $t$ on, the pieces are functions of the observed uncertainties, so they add nothing to condition~\ref{it:lce}, which is then that of each law of the inputs (\cref{rem:lce}).
-Before stage $t$, the conditional expectation of a piece given the earlier components of the laws of its inputs is a nonlinear function of these components, unless the laws have none: it is then a constant.
+Before stage $t$, the conditional expectation of a piece given the earlier components of the laws of its inputs is in general a nonlinear function of these components, unless the laws have none: it is then a constant.
 So the usual mask holds when every combination is within one stage, no law of its inputs has a component in an earlier stage (the components of a product are separate laws), and each of these laws has linear conditional expectations;
 otherwise the dual relaxes it on the pieces that are not predictable
 (\code{\_predictable\_coordinates} of \code{\_CombinationLaw}).

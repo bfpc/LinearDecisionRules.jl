@@ -123,8 +123,12 @@ Whether a column is predictable is a property of each law (\code{\_predictable\_
 it is checked exactly, column by column, for an \code{MvDiscreteNonParametric}, by the fit of \cref{rem:lce};
 for the law of the inputs of a combination with breakpoints (\cref{sec:combination-lifting}), an input is predictable as it is for its own law (the laws are independent),
 and a later piece is predictable when the laws of its inputs have no earlier coordinate, since it is then independent of the history, and not otherwise.
+The equations of the predictable columns are the coordinate case of an exact description:
+the projections of the functions of the history are characterized by the predictable \emph{directions} of each law (\cref{prop:exact-image} in \cref{app:information}),
+which can be tighter when a combination of later columns is predictable but none of them is.
 
-The relaxation is necessary, not only conservative.
+The relaxation is necessary, not only conservative:
+the mask of a law is valid for every function of the history exactly when its later columns are all predictable (\cref{cor:mask-valid}).
 With $\eta_2$ uniform on $\{-1, 0, 1\}$ (stage 2), $\eta_3$ uniform on $\{-1, 1\}$ (stage 3), and the breakpoint $\tfrac12$ on $s = \eta_2 + \eta_3$,
 the problem $\min \E[x]$ over a decision $x$ of stage 2 with $x \ge \pm\eta_2$ has the value $\E\abs{\eta_2} = \tfrac23$.
 The piece $\pi = (s - \tfrac12)_+$ has $\E[\pi\mid\eta_2] = (0, \tfrac14, \tfrac34)$, not affine, and the masked dual gives $\tfrac{12}{17} > \tfrac23$:
@@ -141,8 +145,9 @@ Then, for a minimization, the value of the relaxed dual of the lifted problem is
 \end{proposition}
 
 The proof is in \cref{app:dual}.
-The pieces of a combination of several stages are never predictable when the laws of its inputs are continuous: the conditional expectation of a later piece is a smoothed piece, which no piecewise linear function of the history matches, whatever the breakpoints of the earlier combinations.
-For discrete inputs, breakpoints closed under the shifts by the atoms of the later inputs would make the pieces predictable, and the mask valid again;
+For cumulative sums of independent continuous inputs, the last piece of a later sum is never predictable (\cref{prop:continuous-sums}):
+its conditional expectation is a smoothed hinge, which no piecewise linear function of the history matches, whatever the breakpoints of the earlier sums.
+For discrete inputs, breakpoints closed under the shifts by the atoms of the later inputs make the pieces predictable, and the mask valid again (\cref{prop:shift-closed});
 the package does not build such breakpoints.
 
 \begin{remark}[The row $\eone^\T$]
@@ -249,6 +254,7 @@ and after any other stop, there is no bound, and it is reported as \code{NaN}.
 The bound is \emph{certified} when the moments are exact, $\Mom \succ 0$, and the objective satisfies condition~\ref{it:convex};
 condition~\ref{it:lce} is not needed, since the dual relaxes its information structure where a law fails it or is not known to satisfy it (\cref{prop:relaxed-mask}).
 Otherwise the result says why the bound is not certified (\cref{sec:rejection}).
+A singular $\Mom$ would need only the equalities written as $(A_eX - B_e)\Mom = 0$ (\cref{prop:singular-moments}).
 Since \eqref{eq:DLDR} is then a relaxation, its infeasibility proves the infeasibility of \eqref{eq:SP},
 while an infeasible primal approximation only shows that no linear rule is feasible:
 the package reports \code{INFEASIBLE} only on the evidence of a certified dual, and \code{LOCALLY\_INFEASIBLE} otherwise.
