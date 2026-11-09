@@ -224,3 +224,10 @@ With rescaling (above):
   two duals that the simplex method does not (production T = 20, k = 3: 310 s; hydro T = 8, k = 3:
   63 s). It is faster on every primal without the bounds, by 1.2 to 7 times (hydro T = 8, k = 3:
   63 s against 438 s).
+- **The decisions.** `DualLDR` leaves the implied bounds out by default, as `PrimalLDR` does: the
+  exception of the simplex method on two hydrothermal duals disappears under IPX with crossover,
+  which the documentation now recommends for large duals, and mentions for large primals with
+  breakpoints (it is slower on small primals, such as the inventory's). The interior points
+  without crossover are no longer offered as an alternative for the dual: they fail too often (see
+  also [`../scaling/`](../scaling/README.md), "Reliability"), and their bound can be invalid by a
+  little.

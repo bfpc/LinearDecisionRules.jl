@@ -121,23 +121,28 @@ the two problems above point in opposite directions, and a threshold on the numb
 Leaving them out saves 30\% to 43\% of the primal variables and 26\% to 37\% of the dual rows, with the same values.
 The primal was never measurably slower for it (106 s instead of 187 s on the hydrothermal problem with one breakpoint per inflow at $T = 8$),
 and the dual was 8\% to 47\% faster on the inventory problem and on the hydrothermal one at $T = 4$, but 2.6 times slower at $T = 8$ (276 s instead of 105 s), under every seed of HiGHS tried.
-So \code{PrimalLDR} leaves them out and \code{DualLDR} keeps them, by default (\code{lifted\_box}; \file{benchmark/README.md}, ``Past studies'').
+So \code{PrimalLDR} left them out and \code{DualLDR} kept them (\code{lifted\_box}; \file{benchmark/README.md}, ``Past studies'').
 A wider study, on four problems and four modes of HiGHS, before the rescaling of \cref{sec:rescaling} (\file{benchmark/breakpoints/README.md}), confirmed the choice of the primal, except for the production planning with 3 breakpoints;
 for the dual, leaving them out was faster on 13 of the 15 instances solved both ways by the interior point with crossover, by up to 20 times,
 but slower by 1.4 to 2.4 times on three of the six hydrothermal instances under the dual simplex.
-The default of the dual is kept until the study is repeated with the rescaling.
+Repeated with the rescaling on the production planning and the hydrothermal problem, leaving them out was faster on every primal, under the dual simplex and the interior point with crossover,
+and faster or as fast on every dual under the interior point with crossover, but still 2 and 3.3 times slower on two hydrothermal duals under the dual simplex.
+So both formulations leave them out by default.
 \item \emph{Solver mode for the bound.} The dual approximation is solved for its value only, and its rule is not a policy, so no basis is needed.
 HiGHS's interior-point method without crossover solved the hydrothermal dual at $T = 8$ in 8.0 s instead of 145 s,
 with an objective equal to the simplex one to a relative $2\cdot10^{-10}$, but was slower on the inventory dual (1.2 s against 0.72 s).
 The primal and the dual approximations take raw attributes of their inner solver, each for itself only,
-such as \code{DualLDR(; attributes = ["solver" => "ipm", "run\_crossover" => "off"])};
+such as \code{DualLDR(; attributes = ["solver" => "ipx", "run\_crossover" => "on"])};
 none is the default, since the names are those of one solver and the best mode depends on the problem.
-A bound taken from an inexact solve is safest when it is the inner solver's dual objective value, which bounds the inner optimum by weak duality;
+A bound taken from an inexact solve is safest when it is the inner solver's dual objective value, which bounds the inner optimum by weak duality, up to the tolerance on the feasibility of the dual point;
 the package uses it for a linear program solved to optimality and for a solve stopped by a limit with a dual feasible point (\cref{sec:dual}).
 Only an \code{OPTIMAL} status can be trusted, though: HiGHS may stop an interior point without crossover at an unknown status,
 with a wrong objective value or none, and the package then reports no bound.
-On the wider grid of \file{benchmark/breakpoints}, this happened on every dual of the inventory of \citet{KWG2011}, and on most primals and duals of the production planning;
-the interior point with crossover was the fastest mode on the largest duals.
+On the wider grid of \file{benchmark/breakpoints}, this happened on every dual of the inventory of \citet{KWG2011}, and on most primals and duals of the production planning, even with the rescaling;
+and when it succeeds, its bound can be up to $7\cdot10^{-6}$ relative above the exact one.
+The interior point with crossover, which ends at a basic solution, was the fastest mode on the largest duals:
+with the rescaling, it was faster than the dual simplex on every dual of the production planning and the hydrothermal problem, by 1.4 to 37 times,
+and it is the mode that the documentation recommends for large duals.
 \end{itemize}
 
 \subsection{Breakpoints and solve time}

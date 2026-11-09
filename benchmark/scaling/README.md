@@ -12,8 +12,9 @@ are in `results/rescale.csv`. The decisions that it informed are in the
 ## The scaling of the uncertainties (`rescale.jl`)
 
 The questions: does writing the uncertainties in other units help the solvers, and should the
-optimizer do it? Each formulation keeps its default `lifted_box` (`false` for the primal, `true` for
-the dual). The runs were on 7 November 2026, with HiGHS 1.15.1, Gurobi 13.0.3 (see
+optimizer do it? The primal runs with `lifted_box = false` and the dual with `true`, their defaults
+when the study began (the dual's default is `false` since the rerun of
+[`../breakpoints/`](../breakpoints/README.md)). The runs were on 7 November 2026, with HiGHS 1.15.1, Gurobi 13.0.3 (see
 [`../solvers/`](../solvers/README.md)) and Julia 1.12.6 on Windows 11, alone on the machine, with a
 time limit of 600 s; times are those of the inner solver, in seconds.
 

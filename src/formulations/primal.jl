@@ -25,12 +25,14 @@ unchanged, with more multipliers; leaving them out was faster on almost every be
 [Performance](@ref performance)).
 
 `attributes` are `name => value` raw attributes of the inner optimizer, set after (so over) those
-of the optimizer, for this formulation only: `PrimalLDR(; attributes = ["solver" => "ipx"])`.
-Formulations are compared by type: the attributes are settings, not part of the identity.
+of the optimizer, for this formulation only. Formulations are compared by type: the attributes are
+settings, not part of the identity.
 
-With HiGHS, keep the default dual simplex for this formulation; the interior point methods without
-crossover often stop at an unknown status on it. [Performance](@ref performance) compares the modes
-and the solvers.
+With HiGHS, the default dual simplex is the safe choice for this formulation. On large problems
+with breakpoints, IPX with crossover was several times faster,
+`PrimalLDR(; attributes = ["solver" => "ipx", "run_crossover" => "on"])`, but slower on small
+ones; the interior point methods without crossover often stop at an unknown status on it.
+[Performance](@ref performance) compares the modes and the solvers.
 """
 struct PrimalLDR <: AbstractFormulation
     attributes::Vector{Pair{String,Any}}

@@ -4,7 +4,7 @@
 # in the LICENSE file or at https://opensource.org/licenses/MIT.
 
 """
-    DualLDR(; attributes = [], lifted_box::Bool = true)
+    DualLDR(; attributes = [], lifted_box::Bool = false)
 
 The dual linear decision rule: a relaxation whose objective value bounds the optimal value of the
 stochastic program (an upper bound of a maximization, a lower bound of a minimization).
@@ -32,34 +32,31 @@ that its decision does not observe.
 of the optimizer, for this formulation only. Formulations are compared by type: the attributes are
 settings, not part of the identity.
 
-The support of an uncertainty with `n` [`BreakPoints`](@ref) is described by the convex-hull rows
-of its pieces and the box of the pieces. `lifted_box = false` leaves out the `2n` bounds of the box
-that the hull rows imply, which leaves the support and the bound unchanged, with fewer
-constraints. It was faster on most benchmarks, but up to 2.4 times slower on some, so it is not the
-default (see [Performance](@ref performance)).
+The support of an uncertainty with `n` [`BreakPoints`](@ref) is described by `n + 2` rows: the
+convex-hull rows of its pieces, and the two bounds of their box that these rows do not imply, as
+in [`PrimalLDR`](@ref). `lifted_box = true` adds the other `2n` bounds of the box, which leaves the
+support and the bound unchanged, with more constraints. Leaving them out was faster or as fast on
+most benchmarks, but `true` was up to 3.3 times faster on some problems under HiGHS's default
+simplex method (see [Performance](@ref performance)).
 
-The dual needs its bound only, not a basis. With HiGHS, an interior point method can be much faster
-on large problems, with crossover or without it:
+With HiGHS, IPX with crossover is often much faster than the default dual simplex on large duals,
+especially with breakpoints:
 
 ```julia
 DualLDR(; attributes = ["solver" => "ipx", "run_crossover" => "on"])
-DualLDR(; attributes = ["solver" => "ipm", "run_crossover" => "off"])
 ```
 
-The bound is then the dual objective value of the inner linear program (see
-[`FormulationResult`](@ref)). Only a termination status `OPTIMAL` can be trusted: HiGHS may stop
-an interior point without crossover at an `unknown` status (its HiPO stagnates a little above the
-tolerance), with a wrong objective value or none; the termination status is then `OTHER_ERROR`
-and the bound `NaN`. This happens on most of the small problems of the test library, and on some
-large ones, so the default stays the dual simplex. [Performance](@ref performance) compares the
-modes and the solvers.
+The interior points without crossover (`"run_crossover" => "off"`) are faster still when they
+succeed, but they often stop at an `unknown` status, and their bound is then `NaN`; when they do
+succeed, their bound can be a little invalid, since their point is only feasible up to a
+tolerance. [Performance](@ref performance) compares the modes and the solvers.
 """
 struct DualLDR <: AbstractFormulation
     attributes::Vector{Pair{String,Any}}
     lifted_box::Bool
 end
 
-function DualLDR(; attributes = Pair{String,Any}[], lifted_box::Bool = true)
+function DualLDR(; attributes = Pair{String,Any}[], lifted_box::Bool = false)
     return DualLDR(_attribute_pairs(attributes), lifted_box)
 end
 

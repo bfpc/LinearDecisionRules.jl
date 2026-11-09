@@ -97,11 +97,11 @@ decision_rule(sell)       # sell = d, callable on a scenario
 - **Re-solves:** parameters in right-hand sides and the objective stay symbolic; when only their
   values change, `optimize!` updates the kept inner problems instead of rebuilding them (45× faster
   for the primal, 148× for the dual on the inventory benchmark at T = 64).
-- **Solver settings per formulation:** `DualLDR(; attributes = ["solver" => "ipm",
-  "run_crossover" => "off"])`, for example; `PrimalLDR(; box_closed_form = false)` turns off the
+- **Solver settings per formulation:** `DualLDR(; attributes = ["solver" => "ipx",
+  "run_crossover" => "on"])`, for example; `PrimalLDR(; box_closed_form = false)` turns off the
   closed form of box supports; `lifted_box` chooses whether the support of an uncertainty with
-  breakpoints keeps the bounds that its convex-hull rows imply (by default, the primal leaves them
-  out and the dual keeps them: see "Past studies" in `benchmark/README.md`).
+  breakpoints keeps the bounds that its convex-hull rows imply (by default, both formulations leave
+  them out: see `benchmark/breakpoints/README.md`).
 - **Rescaled uncertainties:** the inner problems see each uncertainty rescaled to `[-1, 1]` (by
   the center and the half-width of the box of its law), and the rules are reported in the
   uncertainties of the model. Demands of order 10⁴ make the dual badly scaled: HiGHS solved none of
@@ -150,9 +150,11 @@ Public, not exported: `LinearDecisionRules.Optimizer` and the submodule
   measurements with 3 breakpoints per inflow give 15.5 million against 301 million at 12 stages,
   and 64.9 million against 2.6 billion at 24.
 - Smaller is not always faster for the solver: see `benchmark/README.md`. For large duals, HiGHS's
-  interior point without crossover is often much faster (`optimize!` on the hydrothermal model
-  with 8 stages: 5.3 s against 116 s, in `benchmark/hydro/README.md`), but it fails on some
-  problems; it is opt-in.
+  IPX with crossover is often much faster than its default dual simplex (inner solve of the
+  hydrothermal dual with 8 stages and 3 breakpoints per inflow: 63 s, where the dual simplex does
+  not finish in 600 s; `benchmark/breakpoints/README.md`); it is opt-in. The interior points
+  without crossover are faster still when they succeed, but they fail on many problems, and
+  their bounds can be slightly invalid.
 
 ### Fixed since 0.3
 

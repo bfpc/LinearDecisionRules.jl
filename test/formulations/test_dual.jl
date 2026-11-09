@@ -148,9 +148,9 @@ function test_formulation_attributes()
     @test sprint(show, DualLDR()) == "DualLDR()"
     @test sprint(show, f) ==
           "DualLDR(attributes = [\"solver\" => \"ipm\", \"run_crossover\" => \"off\"])"
-    @test DualLDR().lifted_box
-    @test DualLDR(; lifted_box = false) == DualLDR()
-    @test sprint(show, DualLDR(; lifted_box = false)) == "DualLDR(lifted_box = false)"
+    @test !DualLDR().lifted_box
+    @test DualLDR(; lifted_box = true) == DualLDR()
+    @test sprint(show, DualLDR(; lifted_box = true)) == "DualLDR(lifted_box = true)"
     form = Problems.form(Problems.newsvendor())
     mom = moments(form)
     raw = ["solver" => "simplex", "presolve" => "off"]

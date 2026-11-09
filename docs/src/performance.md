@@ -49,7 +49,7 @@ the inner problem of a formulation, to export it or to read its size.
 |---|---|---|
 | [`RescaleUncertainties`](@ref)`()` | `true` | writes each uncertainty in `[-1, 1]` in the inner problems |
 | `PrimalLDR(; lifted_box)` | `false` | with breakpoints, leaves out the bounds of the pieces that their other rows imply |
-| `DualLDR(; lifted_box)` | `true` | with breakpoints, keeps those bounds |
+| `DualLDR(; lifted_box)` | `false` | the same, for the dual |
 | `PrimalLDR(; box_closed_form)` | `true` | writes the robust counterpart over a box in closed form, without multipliers |
 | `attributes` of a formulation | none | options of the inner solver, for that formulation only |
 | [`InnerOptimizer`](@ref)`()` | the solver of [`LDRModel`](@ref) | the solver of the inner problems |
@@ -81,13 +81,15 @@ being studied: [`Experimental.RescalingMode`](@ref) has both, for trying them on
 
 The pieces of an uncertainty with `n` breakpoints are described by `n + 2` rows. The other `2n`
 bounds of the pieces follow from them. Leaving these bounds out (`lifted_box = false`) gives the same
-values with a smaller problem: 30% to 48% fewer variables in the primal. The primal was faster
-without them on almost every instance, so [`PrimalLDR`](@ref) leaves them out. The dual was faster
-without them on most instances, by up to 20 times, but up to 2.4 times slower on some hydrothermal
-instances, so [`DualLDR`](@ref) keeps them. To try the other choice:
+values with a smaller problem: 30% to 48% fewer variables in the primal, and as many fewer
+constraints in the dual. Both formulations leave them out by default. The primal was faster without
+them on every instance measured with rescaling, under both the simplex method and IPX with
+crossover. The dual was faster or as fast without them on every instance under IPX with crossover,
+and on most under the simplex method, but 2 to 3.3 times slower on two hydrothermal instances
+under the simplex method. To keep them in the dual:
 
 ```julia
-set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(; lifted_box = false)])
+set_attribute(model, Formulations(), [PrimalLDR(), DualLDR(; lifted_box = true)])
 ```
 
 ### The closed form over boxes (`box_closed_form`)
@@ -105,12 +107,16 @@ With HiGHS:
 
 | Mode | `attributes` | Measured |
 |---|---|---|
-| dual simplex (default) | none | robust; the safest default for both formulations |
-| IPX with crossover | `["solver" => "ipx", "run_crossover" => "on"]` | often the fastest on large duals |
+| dual simplex (default) | none | robust; the safest choice for small problems |
+| IPX with crossover | `["solver" => "ipx", "run_crossover" => "on"]` | recommended for large duals; often faster on large primals with breakpoints |
 | IPX without crossover | `["solver" => "ipx", "run_crossover" => "off"]` | fast when it succeeds, but often stops at an unknown status |
 | HiPO without crossover | `["solver" => "ipm", "run_crossover" => "off"]` | the same |
 
-For example, IPX with crossover for the dual only:
+For the dual, IPX with crossover was faster than the dual simplex on every production planning and
+hydrothermal dual measured, by 1.4 to 37 times, and solved within 10 minutes the two that the
+dual simplex did not: the hydrothermal dual with 8 stages and 3 breakpoints took 63 s. For the
+primal, it was 1.2 to 7 times faster on the large problems with breakpoints, but slower on small
+ones, which take seconds either way. For example, IPX with crossover for the dual only:
 
 ```julia
 set_attribute(
@@ -120,11 +126,12 @@ set_attribute(
 )
 ```
 
-The dual needs only its bound, not a basis, so an interior point without crossover can solve it.
-On the hydrothermal dual with 8 stages, it took 8 s against 145 s for the dual simplex. But it often
-stops at an unknown status: the termination status is then `OTHER_ERROR`, and the bound is `NaN`.
-This happened on every dual of the inventory problem of Kuhn, Wiesemann and Georghiou, and on most
-of the production planning problems. Use it on a family of problems where it has worked.
+The interior points without crossover are not recommended. They stop at an unknown status on
+many problems (every production planning problem, every dual of the inventory problem of Kuhn,
+Wiesemann and Georghiou without rescaling): the termination status is then `OTHER_ERROR`, and the
+bound is `NaN`. And when they succeed, their point is feasible only up to a tolerance, so the
+bound of the dual can be slightly invalid: up to 7e-6 relative above the exact bound on the
+hydrothermal duals.
 
 The inner solver can be any solver of JuMP that supports linear programs, and second-order cones
 when the support has them; [`InnerOptimizer`](@ref)`()` sets it.

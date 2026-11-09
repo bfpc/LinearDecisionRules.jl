@@ -514,10 +514,10 @@ Used by: `formulations/primal` (9), `formulations/dual` (10), `formulations/samp
 
 `PrimalLDR` and its `_build!`: robust counterparts per support block, closed form on boxes.
 
-[`src/formulations/primal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/primal.jl): 239 lines.
+[`src/formulations/primal.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/primal.jl): 241 lines.
 
 Defines:
-**`PrimalLDR` (L35)**† (2 methods), `Base.==` (L50), `Base.hash` (L52), `capabilities` (L54) (extends `formulations/interface`), `_block_of_columns` (L59), `_touched_blocks` (L69), `_multipliers!` (L82), `_box_bounds` (L102), `_add_box_counterpart!` (L139), `_add_robust_counterpart!` (L184), `_build!` (L220) (extends `formulations/interface`).
+**`PrimalLDR` (L37)**† (2 methods), `Base.==` (L52), `Base.hash` (L54), `capabilities` (L56) (extends `formulations/interface`), `_block_of_columns` (L61), `_touched_blocks` (L71), `_multipliers!` (L84), `_box_bounds` (L104), `_add_box_counterpart!` (L141), `_add_robust_counterpart!` (L186), `_build!` (L222) (extends `formulations/interface`).
 
 Uses:
 
@@ -534,10 +534,10 @@ Used by: `formulations/dual` (1), `moi/optimizer` (1), `moi/results` (1).
 
 `DualLDR` and its `_build!`: the structured dual cones, and the stage-dependence warning.
 
-[`src/formulations/dual.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/dual.jl): 250 lines.
+[`src/formulations/dual.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/dual.jl): 247 lines.
 
 Defines:
-**`DualLDR` (L57)**† (2 methods), `Base.==` (L67), `Base.hash` (L69), `Base.show` (L71), `_formulation_attributes` (L88) (extends `formulations/interface`), `capabilities` (L90) (extends `formulations/interface`), `_DualCone` (L94), `_dual_cones` (L101), `_add_dual_cone!` (L116), `_dual_information` (L184), `_relaxed_law` (L207), `_add_relaxed_equations!` (L219), `_build!` (L230) (extends `formulations/interface`).
+**`DualLDR` (L54)**† (2 methods), `Base.==` (L64), `Base.hash` (L66), `Base.show` (L68), `_formulation_attributes` (L85) (extends `formulations/interface`), `capabilities` (L87) (extends `formulations/interface`), `_DualCone` (L91), `_dual_cones` (L98), `_add_dual_cone!` (L113), `_dual_information` (L181), `_relaxed_law` (L204), `_add_relaxed_equations!` (L216), `_build!` (L227) (extends `formulations/interface`).
 
 Uses:
 
@@ -576,10 +576,10 @@ Used by: `moi/results` (1).
 
 `FormulationResult`: statuses, objective value and bound, certification, and the result of a time limit.
 
-[`src/formulations/result.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/result.jl): 220 lines.
+[`src/formulations/result.jl`](https://github.com/bfpc/LinearDecisionRules.jl/blob/main/src/formulations/result.jl): 221 lines.
 
 Defines:
-`FormulationResult` (L49)†, `Base.show` (L64), `_certification` (L72), `_raw_status` (L90), `_time_limit_result` (L95), `_has_integers` (L114), `_is_linear_program` (L121), `_dual_objective_or` (L133), `_objective_bound` (L147), `_NO_SOLUTION_STATUS` (L174), `_formulation_result` (L177).
+`FormulationResult` (L50)†, `Base.show` (L65), `_certification` (L73), `_raw_status` (L91), `_time_limit_result` (L96), `_has_integers` (L115), `_is_linear_program` (L122), `_dual_objective_or` (L134), `_objective_bound` (L148), `_NO_SOLUTION_STATUS` (L175), `_formulation_result` (L178).
 
 Uses:
 

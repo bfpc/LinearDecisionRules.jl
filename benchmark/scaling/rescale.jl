@@ -16,7 +16,9 @@
 
 include("../grid.jl")
 
-# The primal and the dual run separately, each with its default `lifted_box`.
+# The primal and the dual run separately, with `lifted_box = false` and `true`: their defaults
+# when the study began (the dual's is `false` since the rerun of `../breakpoints/`), kept so that
+# new rows compare with the recorded ones.
 function main_scaling(args)
     results = joinpath(results_dir(@__DIR__), "rescale.csv")
     defaults = Dict("rescale" => "true,false")
