@@ -246,7 +246,7 @@ The rule $X$ of \eqref{eq:DLDR} is not a policy: it need not be feasible for any
 The package reports only its value, as the objective bound of the model, and the relative gap between it and the primal value.
 The reported bound is one that the inner solver proves:
 with integer decisions, the inner problem is a mixed-integer program, and the bound is the inner solver's bound, which needs no incumbent;
-for a linear program solved to optimality, it is the dual objective value of the inner solver, a bound by weak duality even when the primal point is only feasible up to a tolerance (or the optimal value, if the solver gives no dual value);
+for a linear program solved to optimality, it is the dual objective value of the inner solver, a bound by weak duality up to the tolerance on the feasibility of the dual point (or the optimal value, if the solver gives no dual value)---a tolerance that an interior point without crossover leaves loose: its bounds were up to $7\cdot10^{-6}$ relative above the exact ones on the hydrothermal duals;
 for a quadratic or conic program solved to optimality, it is the optimal value;
 for a solve stopped by a limit with a dual feasible point, it is the value of that point;
 an unbounded inner problem gives an infinite bound;

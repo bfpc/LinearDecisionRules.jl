@@ -22,17 +22,18 @@ The result of [`solve_formulation`](@ref).
  * `objective_bound::Float64`: the inner solver's bound on `objective_value`, in the sense of the
    model: `MOI.ObjectiveBound` when the inner problem has integer variables; the dual objective
    value when the inner problem is a linear program solved to optimality, if the solver has it
-   (by weak duality it is a bound even for an interior point without crossover, whose primal
-   point is feasible up to a tolerance only), else the optimal value; the dual objective value
+   (a bound by weak duality, up to the solver's tolerance on the feasibility of its dual point:
+   that of an interior point without crossover can be slightly invalid), else the optimal value;
+   the dual objective value
    when the inner problem is not solved to optimality; `Inf` for a maximization (`-Inf` for a
    minimization) whose inner problem is unbounded; `NaN` if unknown. It needs no primal point. For [`DualLDR`](@ref) with integer decisions, this is the bound to report.
  * `certified::Bool`: whether `objective_value` and `objective_bound` are exact for the laws of the
    model, so that the value of [`PrimalLDR`](@ref) is attained and the bound of [`DualLDR`](@ref)
    is a bound. It is `false` when they use moments estimated by rejection sampling (laws
-   conditioned by constraints tagged [`Truncate`](@ref)), for a bound when a law spanning several
-   stages does not have, or is not known to have, linear conditional expectations of its later
-   stages given its earlier ones (see [`DualLDR`](@ref)), the second-moment matrix is singular or
-   the quadratic objective is not convex, and for a rule that is feasible on drawn outcomes only
+   conditioned by constraints tagged [`Truncate`](@ref)), for a bound when the second-moment
+   matrix is singular or the quadratic objective is not convex (a law without linear conditional
+   expectations does not prevent it, see [`DualLDR`](@ref)), and for a rule that is feasible on
+   drawn outcomes only
    ([`SampledLDR`](@ref)). Except for the latter, `raw_status` then ends with
    `[not certified: <reason>]`.
  * `solve_time::Float64`: wall-clock seconds of the inner `optimize!` (zero if it was not built).
@@ -127,8 +128,8 @@ function _is_linear_program(model::JuMP.Model)
     end
 end
 
-# The dual objective of an optimal linear program is a bound by weak duality, also when the primal
-# point is only feasible up to a tolerance (an interior point without crossover). It is used when
+# The dual objective of an optimal linear program is a bound by weak duality, up to the tolerance on
+# the feasibility of the dual point (looser for an interior point without crossover). It is used when
 # the solver provides it and it is finite, else the primal objective.
 function _dual_objective_or(model::JuMP.Model, objective_value::Float64)
     if JuMP.dual_status(model) == MOI.FEASIBLE_POINT
