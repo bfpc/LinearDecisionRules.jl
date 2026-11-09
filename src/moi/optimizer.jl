@@ -74,7 +74,8 @@ are compared by value and treated as immutable: replace a law, rather than chang
 mutable struct Optimizer <: MOI.AbstractOptimizer
     inner_factory::Any
     formulations::Vector{AbstractFormulation}
-    rescale::Bool
+    # A `Bool`, or an `Experimental.RescalingMode`.
+    rescale::Union{Bool,Base.Enum}
     silent::Bool
     time_limit::Union{Nothing,Float64}
     raw_attributes::Dict{String,Any}
@@ -415,7 +416,7 @@ function MOI.optimize!(dest::Optimizer, src::MOI.ModelLike)
     # The formulations solve the form in the rescaled uncertainties; their rules are mapped back.
     # The rescaling transforms the form, as the lifting does: its time counts in `canonicalize`.
     rescale_start = time_ns()
-    rescaling = dest.rescale ? _rescaling(form, mom) : nothing
+    rescaling = _rescaling(form, mom, dest.rescale)
     inner_form = rescaling === nothing ? form : _rescale(form, rescaling)
     inner_mom = rescaling === nothing ? mom : _rescale(mom, rescaling)
     canonicalize_time += _seconds_since(rescale_start)

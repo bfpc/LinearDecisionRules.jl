@@ -92,6 +92,8 @@ Documenter.makedocs(;
         prettyurls = get(ENV, "CI", nothing) == "true",
         # Renders the `mermaid` code blocks of the developer documentation.
         assets = ["assets/mermaid.js"],
+        # The generated page of the structure of `src/` lists every definition (about 100 KiB).
+        size_threshold_warn = 150 * 2^10,
     ),
     pages,
     checkdocs = :all,

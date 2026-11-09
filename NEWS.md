@@ -106,7 +106,9 @@ decision_rule(sell)       # sell = d, callable on a scenario
   the center and the half-width of the box of its law), and the rules are reported in the
   uncertainties of the model. Demands of order 10⁴ make the dual badly scaled: HiGHS solved none of
   the 6 duals of the production planning problem at T = 10 to 20 without it, and 5 with it.
-  `set_attribute(model, RescaleUncertainties(), false)` turns it off.
+  `set_attribute(model, RescaleUncertainties(), false)` turns it off. The modes of
+  `Experimental.RescalingMode` rescale the pieces of an uncertainty with breakpoints otherwise, or
+  scale without centering; the values are the same, only the times of the inner solver change.
 - **Low-level access to the rules:** `rule_coefficient(x, η)` and `rule_matrix(model)`, whose
   `RuleMatrix` carries the lifting map, so that the rules are `R.matrix * lift(R.lifting, ξ)`.
   `inner_model(model, f)` returns the inner problem of a formulation, to inspect it or save it with
@@ -135,8 +137,8 @@ Exported:
   `AxisPiecewise`, `lift`, `retraction`, `LiftingMap`, `LiftingBlock`.
 
 Public, not exported: `LinearDecisionRules.Optimizer` and the submodule
-`LinearDecisionRules.Experimental`, with `Experimental.set_breakpoints` (declared `public` on
-Julia 1.11 and later).
+`LinearDecisionRules.Experimental`, with `Experimental.set_breakpoints` and
+`Experimental.RescalingMode` (declared `public` on Julia 1.11 and later).
 
 ### Performance
 

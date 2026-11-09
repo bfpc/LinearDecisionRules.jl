@@ -163,6 +163,8 @@ inner solver fail, mostly on the problem of [`DualLDR`](@ref). The inner problem
 `model` of a [`FormulationResult`](@ref), are written in ζ; with `false`, they are written in the
 uncertainties of the model. See [Performance](@ref performance) for what was measured.
 
+[`Experimental.RescalingMode`](@ref) has other ways to rescale, which may replace the `Bool`.
+
 ## Example
 
 ```julia

@@ -275,6 +275,7 @@ its pieces are $0$ below their breakpoint, but the first one lies in $[-1, -1 + 
 a short interval far from zero, nearly a multiple of the constant column when the pieces are many.
 The two differ by a map $G$, so they have the same values;
 which one makes the inner problems easier is open (below).
+Both can be chosen through \code{Experimental.RescalingMode}, with two more: a hybrid (the first piece on its own box, the others in $[0, 1]$), and a rescaling without centering ($c = 0$, and $s_j$ the largest magnitude of the box).
 
 \paragraph{Measured.}
 The production planning of \citet[Section~6.1]{GKW2019} (\file{test/problems/production.jl}) has five demands of order $10^4$ per week, independent and uniform, here with $k = 1$ or $3$ equally spaced breakpoints each.

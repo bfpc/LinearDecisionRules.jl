@@ -42,8 +42,8 @@
 # The options, `name=value` with comma-separated values: `T`, `k`, `solver`, `kind` (`primal`,
 # `dual`), `lifted_box`, `rescale`, and `limit` (seconds). `rescale` is `true`
 # (`RescaleUncertainties()`, each piece of a lifting on its own box), `false`, or, for the study of
-# `scaling/`, `before_lifting` or `hybrid`: rescaled, with the pieces of the liftings of breakpoints
-# as `set_lifted_rescaling!` of `internals.jl` says.
+# `scaling/`, `before_lifting`, `hybrid` or `scale_only`: the modes of
+# `Experimental.RescalingMode`.
 
 using Printf
 using JuMP
@@ -52,11 +52,19 @@ import Ipopt
 import LinearDecisionRules as LDR
 
 include("common.jl")
-include("internals.jl")
 include("../test/problems/tagged.jl")
 include("../test/problems/hydro.jl")
 include("../test/problems/kwg.jl")
 include("../test/problems/production.jl")
+
+# The values of `RescaleUncertainties()` for the option `rescale`.
+const RESCALE = Dict{String,Any}(
+    "true" => true,
+    "false" => false,
+    "before_lifting" => LDR.Experimental.BEFORE_LIFTING,
+    "hybrid" => LDR.Experimental.HYBRID,
+    "scale_only" => LDR.Experimental.SCALE_ONLY,
+)
 
 const HAS_GUROBI = Base.find_package("Gurobi") !== nothing
 
@@ -132,8 +140,7 @@ function run_one(problem, T, k, kind, lifted_box, rescale, solver, limit)
         LDR.DualLDR(; attributes, lifted_box)
     model = build(problem, T, k, f)
     optimizer === nothing || set_attribute(model, LDR.InnerOptimizer(), optimizer)
-    set_attribute(model, LDR.RescaleUncertainties(), rescale != "false")
-    set_lifted_rescaling!(rescale in ("before_lifting", "hybrid") ? Symbol(rescale) : :per_piece)
+    set_attribute(model, LDR.RescaleUncertainties(), RESCALE[rescale])
     set_time_limit_sec(model, limit)
     time = @elapsed optimize!(model)
     value =
@@ -199,7 +206,7 @@ function main(args, results; defaults = Dict{String,String}())
     boxes = parse.(Bool, split(options["lifted_box"], ","))
     rescales = split(options["rescale"], ",")
     for rescale in rescales
-        if !(rescale in ("true", "false", "before_lifting", "hybrid"))
+        if !haskey(RESCALE, rescale)
             error("unknown value rescale=$rescale")
         end
     end

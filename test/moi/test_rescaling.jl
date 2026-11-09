@@ -86,9 +86,9 @@ function test_breakpoints()
     return
 end
 
-# The internal choices of the rescaling of the pieces (the study of `benchmark/scaling/`) give the
-# same values, and their centers and scales on the pieces of one demand.
-function test_lifted_rescaling()
+# The modes of `Experimental.RescalingMode` give the same values, with their centers and scales on
+# the pieces of one demand; `MOI.get` returns the mode that was set.
+function test_rescaling_modes()
     build() = TaggedProblems.inventory(3; points = 2)
     model = build()
     form = LDR.canonicalize(backend(model), LDR.model_info(backend(model)))
@@ -97,30 +97,32 @@ function test_lifted_rescaling()
     η = law.columns .- 1
     lo, hi = LDR._support_box(law.distribution)
     s = (hi[1] - lo[1] + sum(hi[2:end])) / 2
-    values = map((:per_piece, :before_lifting, :hybrid)) do mode
-        LDR._LIFTED_RESCALING[] = mode
-        try
-            r = LDR._rescaling(form, mom)
-            if mode == :per_piece
-                @test r.center[η] ≈ (lo + hi) / 2
-                @test r.scale[η] ≈ (hi - lo) / 2
-            elseif mode == :before_lifting
-                @test r.center[η] ≈ [lo[1] + s; zeros(length(η) - 1)]
-                @test r.scale[η] ≈ fill(s, length(η))
-            else
-                @test r.center[η] ≈ [(lo[1] + hi[1]) / 2; zeros(length(η) - 1)]
-                @test r.scale[η] ≈ [(hi[1] - lo[1]) / 2; hi[2:end]]
-            end
-            m = build()
-            optimize!(m)
-            @test termination_status(m) == MOI.OPTIMAL
-            return objective_value(m), objective_bound(m)
-        finally
-            LDR._LIFTED_RESCALING[] = :per_piece
+    E = LDR.Experimental
+    @test LDR._rescaling(form, mom, false) === nothing
+    @test LDR._rescaling(form, mom, true).center == LDR._rescaling(form, mom, E.PER_PIECE).center
+    values = map((E.PER_PIECE, E.BEFORE_LIFTING, E.HYBRID, E.SCALE_ONLY)) do mode
+        r = LDR._rescaling(form, mom, mode)
+        if mode == E.PER_PIECE
+            @test r.center[η] ≈ (lo + hi) / 2
+            @test r.scale[η] ≈ (hi - lo) / 2
+        elseif mode == E.BEFORE_LIFTING
+            @test r.center[η] ≈ [lo[1] + s; zeros(length(η) - 1)]
+            @test r.scale[η] ≈ fill(s, length(η))
+        elseif mode == E.HYBRID
+            @test r.center[η] ≈ [(lo[1] + hi[1]) / 2; zeros(length(η) - 1)]
+            @test r.scale[η] ≈ [(hi[1] - lo[1]) / 2; hi[2:end]]
+        else
+            @test iszero(r.center)
+            @test r.scale[η] ≈ max.(abs.(lo), abs.(hi))
         end
+        m = build()
+        set_attribute(m, LDR.RescaleUncertainties(), mode)
+        @test get_attribute(m, LDR.RescaleUncertainties()) === mode
+        optimize!(m)
+        @test termination_status(m) == MOI.OPTIMAL
+        return objective_value(m), objective_bound(m)
     end
     @test all(v -> all(v .≈ values[1]), values)
-    @test_throws ArgumentError LDR._rescale_pieces!(zeros(2), ones(2), [1, 2], lo, hi, :other)
     return
 end
 
@@ -174,6 +176,15 @@ function test_cones()
         return model
     end
     _same_results(build; rtol = 1e-6)
+    # Without centering too: the ellipsoid and the cone of the valid row keep one factor.
+    model = build()
+    set_attribute(model, LDR.RescaleUncertainties(), LDR.Experimental.SCALE_ONLY)
+    optimize!(model)
+    plain = build()
+    set_attribute(plain, LDR.RescaleUncertainties(), false)
+    optimize!(plain)
+    @test objective_value(model) ≈ objective_value(plain) rtol = 1e-6
+    @test objective_bound(model) ≈ objective_bound(plain) rtol = 1e-6
     return
 end
 

@@ -73,25 +73,11 @@ function Base.rand(rng::Random.AbstractRNG, d::_RescaledLaw{Distributions.Multiv
     return (rand(rng, d.law) .- d.center) ./ d.scale
 end
 
-# How the pieces of an `AxisPiecewise` lifting are rescaled, for the study of
-# `benchmark/scaling/`, which reads it through `benchmark/internals.jl`; the choice it makes stays,
-# and the others go:
-#
-#  * `:per_piece`, the default: each piece on its own box, `[η̲, b₁]` and `[0, Δᵢ]`, so that a piece
-#    is -1 below its breakpoint;
-#  * `:before_lifting`: as if the uncertainty were rescaled to `[-1, 1]` and then lifted, so that
-#    every piece has the half-width `s` of the uncertainty as its scale, the first piece its center
-#    and the others 0: the pieces after the first are 0 below their breakpoint;
-#  * `:hybrid`: the first piece on its own box, and the others in `[0, 1]` (center 0, scale Δᵢ).
-#
-# Every choice is an affine map of each column alone, so the values do not depend on it
-# (`prop:affine-invariance`).
-const _LIFTED_RESCALING = Ref(:per_piece)
-
 # The center and the scale of each uncertainty of `form`: those of the box of its law if it is
 # bounded and not a point, else its mean and standard deviation, else no change. The blocks of
 # `mom` are those of `form.laws`, in their order (see `moments`). The pieces of an `AxisPiecewise`
-# lifting follow `_LIFTED_RESCALING`.
+# lifting are uncertainties as the others: each is rescaled on its own box, so that a piece is -1
+# below its breakpoint. `Experimental.RescalingMode` has the other choices.
 function _rescaling(form::CanonicalForm, mom::Moments)
     m = length(form.uncertainties)
     center, scale = zeros(m), ones(m)
@@ -104,30 +90,13 @@ function _rescaling(form::CanonicalForm, mom::Moments)
                 center[j-1], scale[j-1] = mom.mean[j], sqrt(block.covariance[k, k])
             end
         end
-        mode = _LIFTED_RESCALING[]
-        if law.distribution isa LiftedDistribution{<:Any,AxisPiecewise} && mode != :per_piece
-            _rescale_pieces!(center, scale, law.columns .- 1, lo, hi, mode)
-        end
     end
     return _Rescaling(center, scale)
 end
 
-# The pieces of one uncertainty, the columns `η` of η, with the boxes `lo` and `hi`.
-function _rescale_pieces!(center, scale, η, lo, hi, mode::Symbol)
-    all(isfinite, lo) && all(isfinite, hi) || return
-    if mode == :before_lifting
-        # The box of the uncertainty is [lo₁, hi₁ + Σᵢ₌₂ hiᵢ], the pieces after the first in [0, Δᵢ].
-        s = (hi[1] - lo[1] + sum(hi[2:end])) / 2
-        center[η[1]] = lo[1] + s
-        center[η[2:end]] .= 0.0
-        scale[η] .= s
-    elseif mode == :hybrid
-        center[η[2:end]] .= 0.0
-        scale[η[2:end]] .= hi[2:end]
-    else
-        throw(ArgumentError("unknown rescaling of the pieces: $mode"))
-    end
-    return
+# The rescaling of the value of `RescaleUncertainties()`, or `nothing` for none.
+function _rescaling(form::CanonicalForm, mom::Moments, rescale::Bool)
+    return rescale ? _rescaling(form, mom) : nothing
 end
 
 # `T = [1 0; c S]`, with `1 + m` rows and columns.

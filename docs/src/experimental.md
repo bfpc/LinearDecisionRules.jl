@@ -72,3 +72,15 @@ CombinationPiecewise
 CombinationTerm
 CombinationBreakPoints
 ```
+
+## Other ways to rescale the uncertainties
+
+By default, the optimizer rescales each uncertainty to `[-1, 1]` before the formulations (see [`RescaleUncertainties`](@ref) and [Performance](@ref performance)), and each piece of an uncertainty with breakpoints on its own interval. The rules, values and bounds do not depend on how the uncertainties are rescaled, but the time of the inner solver does, and which rescaling is fastest depends on the problem. [`Experimental.RescalingMode`](@ref) has other choices, given to `RescaleUncertainties()` in place of `true`:
+
+```julia
+set_attribute(model, RescaleUncertainties(), LDR.Experimental.SCALE_ONLY)
+```
+
+```@docs
+Experimental.RescalingMode
+```

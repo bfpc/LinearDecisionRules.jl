@@ -74,7 +74,8 @@ set_attribute(model, RescaleUncertainties(), false)
 With breakpoints, each piece is rescaled on its own interval. Rescaling the uncertainty before
 lifting it gives the same values. On the production problem, HiGHS solved the duals in about the
 same time either way, but the primals 1.2 to 4.5 times faster with it. Which one to use is still
-being studied.
+being studied: [`Experimental.RescalingMode`](@ref) has this choice and two others, for trying
+them on your problem.
 
 ### The bounds of the pieces of an uncertainty with breakpoints (`lifted_box`)
 
