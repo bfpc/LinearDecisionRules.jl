@@ -10,7 +10,7 @@
 # Usage (from the repository root):
 #   julia --project=benchmark benchmark/scaling/rescale.jl production_unit T=10,15,20 k=1,3 kind=dual rescale=false
 #   julia --project=benchmark benchmark/scaling/rescale.jl kwg T=24,48 k=1,3 kind=primal solver=simplex,gurobi
-#   julia --project=benchmark benchmark/scaling/rescale.jl hydro T=4 k=1,3 rescale=true,before_lifting,hybrid,scale_only,false
+#   julia --project=benchmark benchmark/scaling/rescale.jl hydro T=4 k=1,3 rescale=true,before_lifting,hybrid,false
 #
 # The last compares the rescalings of the pieces of the liftings of breakpoints (see `../grid.jl`).
 

@@ -100,7 +100,7 @@ function test_rescaling_modes()
     E = LDR.Experimental
     @test LDR._rescaling(form, mom, false) === nothing
     @test LDR._rescaling(form, mom, true).center == LDR._rescaling(form, mom, E.PER_PIECE).center
-    values = map((E.PER_PIECE, E.BEFORE_LIFTING, E.HYBRID, E.SCALE_ONLY)) do mode
+    values = map((E.PER_PIECE, E.BEFORE_LIFTING, E.HYBRID)) do mode
         r = LDR._rescaling(form, mom, mode)
         if mode == E.PER_PIECE
             @test r.center[η] ≈ (lo + hi) / 2
@@ -108,12 +108,9 @@ function test_rescaling_modes()
         elseif mode == E.BEFORE_LIFTING
             @test r.center[η] ≈ [lo[1] + s; zeros(length(η) - 1)]
             @test r.scale[η] ≈ fill(s, length(η))
-        elseif mode == E.HYBRID
+        else
             @test r.center[η] ≈ [(lo[1] + hi[1]) / 2; zeros(length(η) - 1)]
             @test r.scale[η] ≈ [(hi[1] - lo[1]) / 2; hi[2:end]]
-        else
-            @test iszero(r.center)
-            @test r.scale[η] ≈ max.(abs.(lo), abs.(hi))
         end
         m = build()
         set_attribute(m, LDR.RescaleUncertainties(), mode)
@@ -176,15 +173,6 @@ function test_cones()
         return model
     end
     _same_results(build; rtol = 1e-6)
-    # Without centering too: the ellipsoid and the cone of the valid row keep one factor.
-    model = build()
-    set_attribute(model, LDR.RescaleUncertainties(), LDR.Experimental.SCALE_ONLY)
-    optimize!(model)
-    plain = build()
-    set_attribute(plain, LDR.RescaleUncertainties(), false)
-    optimize!(plain)
-    @test objective_value(model) ≈ objective_value(plain) rtol = 1e-6
-    @test objective_bound(model) ≈ objective_bound(plain) rtol = 1e-6
     return
 end
 

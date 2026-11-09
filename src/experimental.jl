@@ -27,7 +27,6 @@ import ..LinearDecisionRules:
     Moments,
     Optimizer,
     RescaleUncertainties,
-    _Rescaling,
     _rescaling,
     _support_box
 
@@ -113,14 +112,11 @@ or `false`. Each uncertainty `η` is written `η = c + s ζ`; the modes differ i
  * `BEFORE_LIFTING`: as `PER_PIECE`, except for the pieces, which are rescaled as if the
    uncertainty were rescaled to `[-1, 1]` and then lifted: they are `0` below their breakpoint.
  * `HYBRID`: as `PER_PIECE` for the first piece, and each other piece in `[0, 1]`.
- * `SCALE_ONLY`: no centering, `c = 0`, and `s` the largest magnitude of the box of the law of
-   `η` (of each piece, with breakpoints), so that `ζ` is in `[-1, 1]` but not centered.
 
-A law without a bounded box gets its mean and standard deviation, or, with `SCALE_ONLY`, `c = 0`
-and its root mean square. The rules, the values and the bounds are the same with every mode
-(only the scaling of the inner problems changes), and `MOI.get` returns the mode that was set.
-The modes are compared in `benchmark/scaling`: which one is fastest depends on the problem and
-on the solver.
+A law without a bounded box gets its mean and standard deviation. The rules, the values and the
+bounds are the same with every mode (only the scaling of the inner problems changes), and
+`MOI.get` returns the mode that was set. The modes are compared in `benchmark/scaling`: which one
+is fastest depends on the problem and on the solver.
 
 ## Example
 
@@ -129,7 +125,7 @@ import LinearDecisionRules as LDR
 set_attribute(model, LDR.RescaleUncertainties(), LDR.Experimental.BEFORE_LIFTING)
 ```
 """
-@enum RescalingMode PER_PIECE BEFORE_LIFTING HYBRID SCALE_ONLY
+@enum RescalingMode PER_PIECE BEFORE_LIFTING HYBRID
 
 function MOI.set(o::Optimizer, ::RescaleUncertainties, mode::RescalingMode)
     o.rescale = mode
@@ -137,9 +133,6 @@ function MOI.set(o::Optimizer, ::RescaleUncertainties, mode::RescalingMode)
 end
 
 function _rescaling(form::CanonicalForm, mom::Moments, mode::RescalingMode)
-    if mode == SCALE_ONLY
-        return _scale_only(form, mom)
-    end
     r = _rescaling(form, mom)
     if mode != PER_PIECE
         for law in form.laws
@@ -169,39 +162,9 @@ function _rescale_pieces!(center, scale, η, lo, hi, mode::RescalingMode)
     return
 end
 
-# No centering: each uncertainty divided by the largest magnitude of its box, or by its root mean
-# square if the box is not bounded, or kept if that is zero or not finite.
-function _scale_only(form::CanonicalForm, mom::Moments)
-    m = length(form.uncertainties)
-    scale = ones(m)
-    for (law, block) in zip(form.laws, mom.blocks)
-        lo, hi = _support_box(law.distribution)
-        for (k, j) in enumerate(law.columns)
-            size = max(abs(lo[k]), abs(hi[k]))
-            if !(isfinite(size) && size > 0)
-                size = sqrt(mom.mean[j]^2 + block.covariance[k, k])
-            end
-            if isfinite(size) && size > 0
-                scale[j-1] = size
-            end
-        end
-    end
-    return _Rescaling(zeros(m), scale)
-end
-
 # The keyword `public` needs Julia 1.11.
 if VERSION >= v"1.11"
-    eval(
-        Expr(
-            :public,
-            :set_breakpoints,
-            :RescalingMode,
-            :PER_PIECE,
-            :BEFORE_LIFTING,
-            :HYBRID,
-            :SCALE_ONLY,
-        ),
-    )
+    eval(Expr(:public, :set_breakpoints, :RescalingMode, :PER_PIECE, :BEFORE_LIFTING, :HYBRID))
 end
 
 end # module Experimental

@@ -42,8 +42,8 @@
 # The options, `name=value` with comma-separated values: `T`, `k`, `solver`, `kind` (`primal`,
 # `dual`), `lifted_box`, `rescale`, and `limit` (seconds). `rescale` is `true`
 # (`RescaleUncertainties()`, each piece of a lifting on its own box), `false`, or, for the study of
-# `scaling/`, `before_lifting`, `hybrid` or `scale_only`: the modes of
-# `Experimental.RescalingMode`.
+# `scaling/`, `before_lifting` or `hybrid`: the modes of `Experimental.RescalingMode`
+# (`scale_only`, without centering, was one until abbfd63).
 
 using Printf
 using JuMP
@@ -63,7 +63,6 @@ const RESCALE = Dict{String,Any}(
     "false" => false,
     "before_lifting" => LDR.Experimental.BEFORE_LIFTING,
     "hybrid" => LDR.Experimental.HYBRID,
-    "scale_only" => LDR.Experimental.SCALE_ONLY,
 )
 
 const HAS_GUROBI = Base.find_package("Gurobi") !== nothing
