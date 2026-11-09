@@ -42,9 +42,10 @@ julia --project=benchmark benchmark/breakpoints/lifted_box.jl kwg T=48 k=3 kind=
 The grid ran before the optimizer rescaled the uncertainties (`RescaleUncertainties()`, 82c4496),
 so its rows have `rescale = false`, and the commands above need that option to repeat it. The
 production planning, with demands of order 10⁴, is the problem that rescaling changes most: most of
-its duals that fail below solve with it (see [`../scaling/`](../scaling/README.md)), so the findings
-on that problem, and the default of the dual, are to be checked again with rescaling. Gurobi on
-the same grid is in [`../solvers/`](../solvers/README.md).
+its duals that fail below solve with it (see [`../scaling/`](../scaling/README.md)). So the
+production planning and the hydrothermal problem ran again with rescaling, under the simplex method
+and IPX with crossover ("With rescaling", below). Gurobi on the same grid is in
+[`../solvers/`](../solvers/README.md).
 
 Every value agrees between "with" and "without", to 1e-10 relative with a basic solution and to
 5e-7 without crossover.
@@ -128,6 +129,57 @@ IPX, 71 s with HiPO, against 162 s with IPX and crossover), but their solution i
 feasible, so the bound of a dual can be invalid by a little: the hydrothermal duals with k = 1 end
 up to 7e-6 relative above the exact bound of the simplex method, for a minimization.
 
+### With rescaling
+
+The production planning and the hydrothermal problem, with the default rescaling (per piece), under
+the simplex method and IPX with crossover, ran in the night of 8 to 9 November 2026 at 212e41d
+(00:39 to 03:59, and 04:17 to 04:21 for the production duals with T = 15 under IPX). The machine
+check gave the LP 1.95 s before and 2.05 s after, within 5% of the reference. The time limit was
+600 s, with no reruns at a longer limit. The values agree to 9e-10 relative between "with" and
+"without", and with the rows of [`../scaling/`](../scaling/README.md).
+
+```
+julia --project=benchmark benchmark/breakpoints/lifted_box.jl production T=10,15,20 k=1,3 solver=simplex,ipx_crossover
+julia --project=benchmark benchmark/breakpoints/lifted_box.jl hydro T=4,6,8 k=1,3 solver=simplex,ipx_crossover
+```
+
+The primal:
+
+| Problem | T | k | Simplex, with | Simplex, without | IPX + crossover, with | IPX + crossover, without |
+|---|--:|--:|--:|--:|--:|--:|
+| hydro | 4 | 1 | 4.4 | 3.5 | 1.7 | 1.0 |
+| hydro | 4 | 3 | 18 | 12 | 6.4 | 2.7 |
+| hydro | 6 | 1 | 34 | 24 | 9.4 | 5.2 |
+| hydro | 6 | 3 | 210 | 88 | 58 | 15 |
+| hydro | 8 | 1 | 178 | 113 | 40 | 24 |
+| hydro | 8 | 3 | limit | 438 | 150 | 63 |
+| production | 10 | 1 | 3.8 | 2.1 | 2.2 | 1.7 |
+| production | 10 | 3 | 16 | 8.7 | 13 | 6.9 |
+| production | 15 | 1 | 24 | 15 | 11 | 8.6 |
+| production | 15 | 3 | 127 | 52 | 87 | 35 |
+| production | 20 | 1 | 176 | 65 | 213 | 26 |
+| production | 20 | 3 | limit | 471 | 327 | 141 |
+
+The dual:
+
+| Problem | T | k | Simplex, with | Simplex, without | IPX + crossover, with | IPX + crossover, without |
+|---|--:|--:|--:|--:|--:|--:|
+| hydro | 4 | 1 | 14 | 8.0 | 1.5 | 0.9 |
+| hydro | 4 | 3 | 118 | 52 | 7.4 | 3.9 |
+| hydro | 6 | 1 | 136 | 77 | 5.1 | 3.5 |
+| hydro | 6 | 3 | 194 | 382 | 30 | 16 |
+| hydro | 8 | 1 | 107 | 354 | 18 | 9.5 |
+| hydro | 8 | 3 | limit | limit | 127 | 63 |
+| production | 10 | 1 | 6.5 | 4.3 | 2.8 | 3.0 |
+| production | 10 | 3 | 66 | 21 | 17 | 11 |
+| production | 15 | 1 | 43 | 33 | 17 | 17 |
+| production | 15 | 3 | 528 | 544 | 104 | 73 |
+| production | 20 | 1 | 370 | 164 | 57 | 58 |
+| production | 20 | 3 | limit | limit | 452 | 310 |
+
+Every production dual now solves under IPX with crossover, and 10 of the 12 runs of the simplex
+method do. Without rescaling (above), 1 of the 12 did.
+
 ### What it found
 
 - **The primal: leave the implied bounds out.** Without them, the primal has 30% to 48% fewer
@@ -154,3 +206,21 @@ up to 7e-6 relative above the exact bound of the simplex method, for a minimizat
 
 The duals of kwg with T = 48 and k = 3 and of the production planning with T = 15 and k = 3 reach
 the limit of one hour too, under both solvers, with and without the implied bounds.
+
+With rescaling (above):
+- **The primal: the exception of the production planning is gone.** Leaving the implied bounds out
+  is faster on all 24 runs, under both solvers, by up to 8 times (production T = 20, k = 1, IPX
+  with crossover: 213 s against 26 s). With T = 10 and k = 3, the simplex method takes 8.7 s
+  without them against 16 s with them; without rescaling, 38 s against 16 s.
+- **The dual under IPX with crossover: without them, or the same.** Leaving them out is faster on
+  the 6 hydrothermal duals, by 1.4 to 2 times, and on the 3 production duals with k = 3, by 1.4 to
+  1.6 times. On the 3 with k = 1 the times are within 7%.
+- **The dual under the simplex method: the hydrothermal exceptions remain.** Without them it is
+  faster on 7 of the 10 instances solved, by up to 3.2 times (production T = 10, k = 3). It is as
+  fast on production T = 15, k = 3, and slower on hydro T = 6, k = 3 (382 s against 194 s) and
+  T = 8, k = 1 (354 s against 107 s). These are the exceptions of the grid without rescaling.
+- **IPX with crossover is the faster solver on these two problems.** It is faster than the
+  simplex method on every dual, by 1.4 to 37 times without the bounds. It solves within 600 s the
+  two duals that the simplex method does not (production T = 20, k = 3: 310 s; hydro T = 8, k = 3:
+  63 s). It is faster on every primal without the bounds, by 1.2 to 7 times (hydro T = 8, k = 3:
+  63 s against 438 s).
