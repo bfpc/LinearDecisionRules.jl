@@ -100,6 +100,7 @@ rescaled runs at 82c4496 (up to 1.3e-7, on Gurobi's duals), and to 5e-10 on kwg.
   does. The pieces are 0 below their breakpoint, and only the first is centered.
 - `HYBRID` centers and scales the first piece on its own box, and only scales the later ones.
 - `SCALE_ONLY` divides each uncertainty by the largest magnitude of its box, without centering.
+  It was removed after this study (see "What it found"); its commands need abbfd63 or earlier.
 
 The first three differ only with breakpoints. The values agree to 2e-14 relative across the modes.
 The question: which mode should `true` mean, and should `RescaleUncertainties()` stay on by default
@@ -189,6 +190,40 @@ The inventory takes at most 1.5 s on every primal. Its duals:
 Each time is one run, and the simplex method's path can change a lot with the scaling: the hydro
 duals range from 0.24 to 3 times per piece under the same mode.
 
+#### Reliability: the interior points without crossover
+
+The question: does one of the modes make the inner problems numerically harder? The simplex method
+and IPX with crossover failed under none of them, apart from the limits above. The interior points
+without crossover end at status Unknown (`OTHER_ERROR`) when their solution is not accurate enough,
+so they are the more sensitive test. IPX and HiPO without crossover ran, with a time limit of
+300 s, on production T = 10, 15, kwg T = 24, hydro T = 4, 6 and the inventory T = 32, 64, with
+k = 1 and 3, primal and dual, under per piece, before lifting and hybrid. That is 168 runs, at
+abbfd63 (`src_commit` 212e41d), on 9 November 2026 from 06:56 to 07:28. Tests ran on the machine
+in the meantime, so the times are not comparable; the statuses and the values are. The rows are
+in `results/interior_point.csv`.
+
+```
+julia --project=benchmark benchmark/scaling/rescale.jl hydro T=4,6 k=1,3 solver=ipx,hipo limit=300 rescale=true,before_lifting,hybrid
+```
+
+| Problem | Form | per piece | before lifting | hybrid |
+|---|---|--:|--:|--:|
+| production | primal and dual | 16 of 16 | 16 of 16 | 16 of 16 |
+| hydro | primal | 1 of 8 | 0 of 8 | 4 of 8 |
+| hydro | dual | 0 of 8 | 0 of 8 | 0 of 8 |
+| kwg, inventory | primal and dual | 0 of 24 | 0 of 24 | 0 of 24 |
+
+These are the runs that end at status Unknown, IPX and HiPO together. Every production run fails
+in every mode, as it did without rescaling. The other data of that problem, not the scaling of
+its demands, remain the suspects, as above. The hybrid's 4 failures are on the hydro primals: IPX with T = 6, k = 1, and HiPO with
+T = 4, k = 1 and 3 and T = 6, k = 3. Per piece fails once (HiPO, T = 4, k = 3), and before lifting
+never. The runs that succeed agree with the simplex method to 1.2e-7 relative or better in every
+mode. The ranges of the coefficients of the inner problems tell the same story. On the smaller
+instance of each problem, the matrix spans at most 3.8 orders of magnitude with any of the three
+modes, against 11 to 13.5 without
+rescaling on production. Per piece is the narrowest, the hybrid is wider by at most 0.6 orders,
+and before lifting the widest (hydro T = 4, k = 3, dual: 2.1, 2.5 and 3.8 orders).
+
 ### What it found
 
 - **Units in `[-1, 1]` rescue the duals.** HiGHS's simplex solves none of the 6 production duals
@@ -231,4 +266,9 @@ duals range from 0.24 to 3 times per piece under the same mode.
   duals with breakpoints: 0.55 and 0.52 times per piece in geometric mean. Without breakpoints,
   rescaling slows the primal by 1.5 to 2.4 times and speeds the dual by 1.2 to 1.6 times.
   Production cannot do without rescaling, so `false` cannot be the default.
-- **Open: the default.** `true` could mean hybrid, or before lifting, instead of per piece.
+- **No mode is more reliable than per piece.** Without crossover, the hybrid failed the most often
+  on the hydro primals (4 of 8, against 1 for per piece and 0 for before lifting). Elsewhere the
+  three modes fail on the same instances, and the successful runs are equally accurate.
+- **The default stays per piece,** for now. The hybrid is faster where rescaling matters most,
+  but not more reliable. `SCALE_ONLY` was removed after abbfd63; `BEFORE_LIFTING` and `HYBRID`
+  stay in `Experimental`.
