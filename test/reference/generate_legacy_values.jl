@@ -1,10 +1,11 @@
 # Generates `legacy_values.toml`: golden values from the LEGACY implementation of
-# LinearDecisionRules.jl (branch `Multistage` of the old repository, version 0.3.1, old API:
-# `LDRModel`, `Uncertainty`, `Stage`, `get_decision`, ...). It does NOT run against the package
-# of this repository.
+# LinearDecisionRules.jl (the `legacy` branch, formerly `Multistage`, version 0.3.1, tag
+# `v0.3.1`; old API: `LDRModel`, `Uncertainty`, `Stage`, `get_decision`, ...). It does NOT run
+# against the package of this repository.
 #
 # To run it from this repository, make an environment with the legacy package developed from a
-# checkout of commit 17ce1eb, plus the packages of `spike/legacy_env/Project.toml`:
+# checkout of the tag `v0.3.1` (commit 17ce1eb), plus the packages of
+# `spike/legacy_env/Project.toml`:
 #
 #   cp -r spike/legacy_env <env>
 #   julia --project=<env> -e 'import Pkg; Pkg.develop(path = "<old checkout>"); Pkg.instantiate()'
@@ -382,8 +383,8 @@ function main()
     result = Dict{String,Any}(
         "meta" => Dict{String,Any}(
             "generator" => "test/reference/generate_legacy_values.jl",
-            "legacy_commit" => "17ce1eb (branch Multistage)",
-            "legacy_package" => "LinearDecisionRules.jl 0.3.1, branch Multistage",
+            "legacy_commit" => "17ce1eb (tag v0.3.1)",
+            "legacy_package" => "LinearDecisionRules.jl 0.3.1, branch legacy (formerly Multistage)",
             "solver" => "HiGHS",
         ),
     )

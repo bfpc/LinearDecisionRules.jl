@@ -13,7 +13,7 @@ Abbreviations for the sources:
 | PT | this package, `test/` (`test/problems/`, `test/reference/legacy_values.toml`, `test/jump/`) |
 | PB | this package, `benchmark/` (`inventory/`, `hydro/`, `breakpoints/`, `scaling/`, `solvers/`), and the past study of solve times against 0.3, summarized in [`README.md`](README.md#past-studies) and kept at the tag `study-0.3-comparison` |
 | TUT | this package, `docs/src/tutorials/*.jl` and `docs/src/getting_started.md` |
-| LEG | the legacy repository of this package (0.3.1, branch `Multistage`, 17ce1eb): `examples/`, `test/` |
+| LEG | the legacy repository of this package (0.3.1, tag `v0.3.1` = 17ce1eb, branch `legacy`, formerly `Multistage`): `examples/`, `test/` |
 | CL | `CasosLDR`, a private collection of LDR cases of the authors, not public (49 commits, 2026-07-14 to 2026-10-17; branches `solvertest`, `moresolvers`, `benders_scenario`) |
 | KWG | Kuhn, Wiesemann, Georghiou, Math. Program. 130 (2011) 177-209, section 5 |
 | GWK | Georghiou, Wiesemann, Kuhn, Math. Program. 152 (2015) 301-338, sections 4, 5 and 7 |

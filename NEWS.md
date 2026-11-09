@@ -10,7 +10,8 @@ need changes; the mapping is below. The mathematical notes (a PDF built from `do
 linked from the developer documentation.
 
 Versions 0.1 and 0.2 were registered; their history is in the `legacy` branch. Version 0.3 was
-never registered: the tests compare 0.4 with values computed by 0.3.1.
+never registered: its last version, 0.3.1, is the tag `v0.3.1` of that branch, and the tests
+compare 0.4 with values computed by it.
 
 ### The new way to write a model
 

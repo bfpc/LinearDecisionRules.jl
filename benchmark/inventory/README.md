@@ -61,8 +61,8 @@ slowest variant, with a solve time that grows faster with T than the primal's (0
 
 ### Against 0.3
 
-The legacy rows are `results/timings.csv` of the old repository, at commit 17ce1eb of its branch
-`Multistage` (version 0.3.1, Julia 1.12.6; `ldr_primal` is its default primal model). The header
+The legacy rows are `results/timings.csv` of the old repository, at commit 17ce1eb (tag `v0.3.1`) of its
+branch `legacy`, formerly `Multistage` (version 0.3.1, Julia 1.12.6; `ldr_primal` is its default primal model). The header
 of `test/reference/generate_legacy_values.jl` says how to make an environment for that version.
 T = 128, times in seconds, best of 3:
 

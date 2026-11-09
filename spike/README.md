@@ -2,7 +2,7 @@
 
 The throwaway prototype that chose the user layer of version 0.4 (decisions 1 and 2 of `DESIGN.md`),
 copied here from the untracked `spike/` folder of the legacy repository so that it stays available.
-Paths inside these files refer to the legacy repository (`LinearDecisionRules.jl`, branch `Multistage`)
+Paths inside these files refer to the legacy repository (`LinearDecisionRules.jl`, branch `Multistage`, now `legacy`)
 and to the environments there; the code is not maintained and is not part of the package.
 
 - `SPIKE.md`: the brief, the checklist and the decision criteria given to every design.

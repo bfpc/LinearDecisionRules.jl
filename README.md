@@ -4,7 +4,8 @@ Linear decision rules for multistage stochastic programs written in [JuMP](https
 
 > This is the development branch of a rewrite (version 0.4). How the package works inside is
 > explained in the [developer documentation](docs/src/developer/index.md).
-> Released versions 0.1 and 0.2 live in the history of the `legacy` branch.
+> Released versions 0.1 and 0.2, and the unregistered 0.3.1 (tag `v0.3.1`), live in the history
+> of the `legacy` branch.
 
 ```julia
 using JuMP, HiGHS, Distributions, LinearDecisionRules
